@@ -1,0 +1,10 @@
+{
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.checkOnSave": true,
+    "rust-analyzer.procMacro.enable": false,
+
+
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    }
+}

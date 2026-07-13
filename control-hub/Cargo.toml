@@ -1,0 +1,28 @@
+[package]
+name = "control_hub"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# --- internal deps ---
+control_core ={ path = "../control-core" }
+
+# --- workspace deps ---
+anyhow = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+
+# --- unique deps ---
+axum = "0.8"
+arc-swap = "1.9.2"
+tokio-util = "0.7.18"
+futures = "0.3.32"
+phf = { version = "0.14.0" }
+clickhouse = { version = "0.13", features = ["inserter", "chrono"]}
+
+[build-dependencies]
+serde = { workspace = true }
+toml = "1.1.2"
+phf_codegen = { version = "0.14.0" }
+
