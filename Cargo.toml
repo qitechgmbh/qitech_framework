@@ -2,7 +2,7 @@
 members = [
     "control-core",
     "control-hub",
-    "control-run",
+    # "control-run",
 ]
 resolver = "2"
 
@@ -12,3 +12,5 @@ serde = { version = "1.0.217", default-features = false, features = ["derive"]}
 tokio = { version = "1", features = ["full"] }
 chrono= { version = "0.4.45", features = ["serde"]}
 anyhow = "1.0.103"
+
+indexmap = { version = "2", default-features = false, features = ["serde"] }

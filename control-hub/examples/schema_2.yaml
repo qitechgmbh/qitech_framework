@@ -1,0 +1,26 @@
+qms_version: 1.0
+
+name: counter_machine
+schema_revision: 1
+
+identification:
+  vendor: 1
+  machine: 10
+
+config:
+  should_count: !boolean
+    range: 0..1
+
+state:
+  counting: !boolean
+
+measurements:
+  counter: !millimeter
+
+commands:
+  start_counting:
+  stop_counting:
+
+description:
+  config:
+    should_count: "Should he count ... it's pretty obvious"

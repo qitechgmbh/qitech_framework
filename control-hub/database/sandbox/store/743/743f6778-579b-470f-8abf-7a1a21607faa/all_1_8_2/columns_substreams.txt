@@ -1,0 +1,6 @@
+columns substreams version: 1
+2 columns:
+1 substreams for column `version`:
+	version
+1 substreams for column `applied_at`:
+	applied_at

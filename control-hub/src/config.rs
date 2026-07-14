@@ -7,10 +7,10 @@ pub struct Config {
     pub export_interval: Duration,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DatabaseConfig {
     pub url: String,
     pub user: String,
-    pub password: String,
-    pub database: String,
+    pub password: Option<String>,
+    pub name: String,
 }

@@ -10,9 +10,9 @@ pub type Map<K, V> = IndexMap<K, V>;
 pub type StringMap<T> = Map<String, T>;
 pub type LocalizedText = Map<LanguageIdentifier, String>;
 
-pub type ConfigProperty = Property<config::Value>;
-pub type StateProperty = Property<state::Value>;
-pub type MeasurementProperty = Property<measurement::Value>;
+pub type ConfigProperty = Property<config::ValueV2>;
+pub type StateProperty = Property<state::ValueV2>;
+pub type MeasurementProperty = Property<measurement::ValueV2>;
 pub type CommandParameter = Property<command::ParameterValue>;
 pub use command::Command;
 
@@ -137,4 +137,54 @@ impl IntoIterator for EnumVariants {
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
     }
+}
+
+// --- physical units --- 
+#[derive(Debug, Clone)]
+pub enum Unit {
+    MeterPerSecondSquared,
+    MeterPerMinutePerSecond,
+    Mole,
+    Radian,
+    Degree,
+    Revolution,
+    RadianPerSecondSquared,
+    DegreePerSecondSquared,
+    RevolutionPerMinutePerSecond,
+    RadianPerSecondCubed,
+    DegreePerSecondCubed,
+    RevolutionPerMinutePerSecondSquared,
+    RadianPerSecond,
+    DegreePerSecond,
+    RevolutionPerSecond,
+    RevolutionPerMinute,
+    Milliampere,
+    Centiampere,
+    Ampere,
+    Millivolt,
+    Centivolt,
+    Volt,
+    Millihertz,
+    Centihertz,
+    Hertz,
+    CyclePerMinute,
+    MeterPerSecondCubed,
+    MeterPerMinutePerSecondSquared,
+    Millimeter,
+    Centimeter,
+    Meter,
+    Candela,
+    Kilogram,
+    Pascal,
+    Bar,
+    Ratio,
+    Kelvin,
+    DegreeCelsius,
+    Second,
+    MillimeterPerSecond,
+    MeterPerSecond,
+    MeterPerMinute,
+    CubicMeterPerSecond,
+    LiterPerSecond,
+    LiterPerMinute,
 }

@@ -4,8 +4,8 @@ name: minimal_machine
 schema_revision: 1
 
 identification:
-  vendor_id: 0
-  machine_id: 0
+  vendor: 0
+  machine: 0
 
 measurements:
   counter: !millimeter

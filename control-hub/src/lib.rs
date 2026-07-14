@@ -1,15 +1,23 @@
+use std::collections::BTreeMap;
 use std::{collections::HashMap, sync::Arc};
 use anyhow::anyhow;
-use tokio::sync::{mpsc, broadcast, watch};
-use arc_swap::{ArcSwap, ArcSwapAny};
-use clickhouse::{Client, Row};
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use arc_swap::ArcSwap;
+use tokio::sync::{mpsc, broadcast, watch};
+use clickhouse::{Client, Row};
 
 use control_core::{
     schema,
     MachineIdentification, MachineIdentificationUnique, 
     RuntimeExport, schema::latest::MachineSchema,
 };
+
+mod tasks;
+use tasks::sync_machine_registry;
+
+mod migration;
+pub use migration::migrate;
 
 mod session;
 
@@ -36,10 +44,10 @@ struct SharedState {
     pub client: Client,
 
     /// schema registry
-    pub schemas: Swappable<HashMap<MachineIdentification, MachineSchema>>,
+    pub schemas: Swappable<BTreeMap<MachineIdentification, MachineSchema>>,
 
     /// machine registry (ident, connected yes/no)
-    pub machines: Swappable<HashMap<MachineIdentificationUnique, bool>>,
+    pub machines: Swappable<BTreeMap<MachineIdentificationUnique, (DateTime<Utc>, bool)>>,
 
     /// channel for forwarding data exports
     pub data_tx: broadcast::Sender<Arc<RuntimeExport>>,
@@ -61,12 +69,12 @@ impl ControlHub {
         schemas: Vec<String>,
         shutdown_rx: watch::Receiver<()>,
     ) -> anyhow::Result<(Self, EmbeddedSession)> {
-        let client = init_client(&config);
-        let registry = init_schema_registry(&client).await?;
+        let client = init_client(&config.database);
+        let schema_registry = init_schema_registry(&client).await?;
         let machines = init_machine_registry(&client).await?;
 
         // try to import schemas of the runtime
-        let schemas = import_schemas(registry, schemas)?;
+        let schemas = import_schemas(schema_registry, schemas)?;
 
         let (data_tx, _) = broadcast::channel(64);
         let (req_tx, req_rx) = mpsc::channel(1024);
@@ -75,7 +83,7 @@ impl ControlHub {
             config,
             client,
             schemas: Arc::new(ArcSwap::new(schemas)),
-            machines: Arc::new(ArcSwapAny::new(machines)),
+            machines: Arc::new(ArcSwap::new(machines)),
             data_tx: data_tx.clone(),
             req_tx,
             shutdown_rx,
@@ -90,8 +98,9 @@ impl ControlHub {
     pub async fn run(self) -> anyhow::Result<()> {
         // simply start all processes
         let result = tokio::join!(
+            sync_machine_registry::run(self.state.clone()),
             exporter::run(self.state.clone()),
-            // api::run(self.state.clone()),
+            api::run(self.state.clone()),
         );
 
         // TODO: use this maybe?
@@ -101,18 +110,22 @@ impl ControlHub {
     }
 }
 
-fn init_client(config: &Config) -> Client {
-    Client::default()
-        .with_url(&config.database.url)
-        .with_user(&config.database.user)
-        .with_password(&config.database.password)
-        .with_database(&config.database.database)
+fn init_client(config: &DatabaseConfig) -> Client {
+    let mut client = Client::default()
+        .with_url(&config.url)
+        .with_user(&config.user);
+
+    if let Some(password) = &config.password {
+        client = client.with_password(password);
+    }
+
+    client.with_database(&config.name)
 }
 
 /// attempts to load the schema registry from the database
 async fn init_schema_registry(
     client: &Client,
-) -> anyhow::Result<Arc<HashMap<MachineIdentification, MachineSchema>>> {
+) -> anyhow::Result<Arc<BTreeMap<MachineIdentification, MachineSchema>>> {
     #[derive(Debug, Row, Deserialize)]
     struct SchemaRow {
         content: String,
@@ -123,7 +136,7 @@ async fn init_schema_registry(
         .fetch_all::<SchemaRow>()
         .await?;
 
-    let mut registry = HashMap::new();
+    let mut registry = BTreeMap::new();
 
     for SchemaRow { content } in fetched_schemas {
         let schema = schema::parse_latest(&content)?;
@@ -138,33 +151,29 @@ async fn init_schema_registry(
 
 async fn init_machine_registry(
     client: &Client,
-) -> anyhow::Result<Arc<HashMap<MachineIdentificationUnique, bool>>> {
+) -> anyhow::Result<Arc<BTreeMap<MachineIdentificationUnique, (DateTime<Utc>, bool)>>> {
     #[derive(Debug, Row, Deserialize)]
     struct IdentRow {
         vendor: u16,
         machine: u16,
-        serial: u32,
+        serial: u16,
+        last_active: DateTime<Utc>,
     }
 
     let rows = client
-        .query("SELECT * FROM registered_machines")
+        .query("SELECT * FROM machine_registry")
         .fetch_all::<IdentRow>()
         .await?;
 
-    let mut registry = HashMap::new();
-    for IdentRow {
-        vendor,
-        machine,
-        serial,
-    } in rows
-    {
+    let mut registry = BTreeMap::new();
+    for IdentRow { vendor, machine, serial, last_active } in rows {
         registry.insert(
             MachineIdentificationUnique {
                 vendor,
                 machine,
                 serial,
             },
-            false,
+            (last_active, false),
         );
     }
 
@@ -172,9 +181,9 @@ async fn init_machine_registry(
 }
 
 fn import_schemas(
-    registry: Arc<HashMap<MachineIdentification, MachineSchema>>,
+    registry: Arc<BTreeMap<MachineIdentification, MachineSchema>>,
     incoming: Vec<String>,
-) -> anyhow::Result<Arc<HashMap<MachineIdentification, MachineSchema>>> {
+) -> anyhow::Result<Arc<BTreeMap<MachineIdentification, MachineSchema>>> {
     // lazily cloned copy-on-write map
     let mut new_schemas = (*registry).clone();
 

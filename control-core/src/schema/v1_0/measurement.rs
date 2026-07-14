@@ -1,5 +1,5 @@
 use serde::Deserialize ;
-use super::EnumVariants;
+use super::{EnumVariants, Unit};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,6 +93,18 @@ pub enum Value {
     CubicMeterPerSecond(NumericValue),
     LiterPerSecond(NumericValue),
     LiterPerMinute(NumericValue),
+}
+
+#[derive(Debug, Clone)]
+pub enum ValueV2 {
+    Enum(EnumValue),
+    Boolean(BooleanValue),
+    Integer(NumericValue),
+    Float(NumericValue),
+    Quantity {
+        value: NumericValue,
+        unit: Unit,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize)]

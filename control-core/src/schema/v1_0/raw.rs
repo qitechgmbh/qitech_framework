@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::MachineIdentification;
+use crate::{MachineIdentification, schema::v1_0::{config, measurement, state}};
 use super::{
     LocalizedText, Property, PropertyKind,
     Command, ConfigProperty, MeasurementProperty, QmsVersion, 
@@ -15,13 +15,13 @@ pub struct MachineSchemaRaw {
     pub identification: MachineIdentification,
 
     #[serde(default)]
-    pub config: StringMap<ConfigProperty>,
+    pub config: StringMap<Property<config::Value>>,
 
     #[serde(default)]
-    pub state: StringMap<StateProperty>,
+    pub state: StringMap<Property<state::Value>>,
 
     #[serde(default)]
-    pub measurements: StringMap<MeasurementProperty>,
+    pub measurements: StringMap<Property<measurement::Value>>,
 
     #[serde(default)]
     pub commands: StringMap<Command>,
@@ -97,16 +97,17 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
             commands.insert(name, command);
         }
         
-        Ok(Self {
-            qms_version: raw.qms_version,
-            name: raw.name,
-            schema_revision: raw.schema_revision,
-            identification: raw.identification,
-            config,
-            state,
-            measurements,
-            commands: raw.commands,
-        })
+        todo!();
+        // Ok(Self {
+        //     qms_version: raw.qms_version,
+        //     name: raw.name,
+        //     schema_revision: raw.schema_revision,
+        //     identification: raw.identification,
+        //     config,
+        //     state,
+        //     measurements,
+        //     commands: raw.commands,
+        // })
     }
 }
 

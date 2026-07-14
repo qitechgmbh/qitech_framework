@@ -1,4 +1,4 @@
-CREATE TABLE config_mutations
+CREATE TABLE control_hub.state_mutations
 (
     timestamp           DateTime64(3, 'UTC'),
     ident_vendor        UInt16,
@@ -7,14 +7,12 @@ CREATE TABLE config_mutations
     name                LowCardinality(String),
 
     -- value --
-    value_type          Enum8('String', 'IntegerSigned', 'IntegerUnsigned', 'Float', 'Boolean'),
+    value_type          Enum8('String'=1,'IntegerSigned'=2,'IntegerUnsigned'=3,'Float'=4,'Boolean'=5),
     value_string        Nullable(String),
     value_int_signed    Nullable(Int64),
     value_int_unsigned  Nullable(UInt64),
     value_float         Nullable(Float64),
     value_bool          Nullable(Bool),
-    origin              Enum8('User', 'Machine'),
-    result              Enum8('Success', 'OutOfBounds'),
 
     -- store duplicate ordered by timestamp only for history queries of all machines
     PROJECTION by_time
@@ -27,6 +25,3 @@ CREATE TABLE config_mutations
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (ident_vendor, ident_machine, ident_serial, timestamp)
-
--- expiry time for data (90 Days)
-TTL toDateTime(timestamp) + INTERVAL 90 DAY

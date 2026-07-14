@@ -27,7 +27,7 @@ pub mod vendors {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct RuntimeExport {
     /// time when export was created
     pub created_at: DateTime<Utc>,
@@ -54,7 +54,6 @@ pub struct RuntimeExport {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeEvent {
     pub ts: DateTime<Utc>,
-    pub name: Cow<'static, str>,
     pub kind: RuntimeEventKind,
 }
 

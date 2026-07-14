@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use super::{EnumVariants, Range};
+use super::{EnumVariants, Range, Unit};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -97,6 +97,19 @@ pub enum Value {
 }
 
 #[derive(Debug, Clone)]
+pub enum ValueV2 {
+    Enum(EnumValue),
+    String(StringValue),
+    Boolean(BooleanValue),
+    Integer(IntegerValue),
+    Float(FloatValue),
+    Quantity {
+        value: FloatValue,
+        unit: Unit,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub struct EnumValue {
     /// Variants of the enum. Required.
     pub variants: EnumVariants,
@@ -154,3 +167,5 @@ pub struct NumericValue<T> {
 
 pub type IntegerValue = NumericValue<i64>;
 pub type FloatValue = NumericValue<f64>;
+
+// string repr

@@ -2,15 +2,15 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use axum::{Json, extract::State};
-use control_core::MachineIdentification;
-use crate::{vendors, SharedState};
+use control_core::{MachineIdentification, vendors};
+use crate::SharedState;
 
 pub(crate) async fn get(
     State(state): State<Arc<SharedState>>,
 ) -> Result<Json<Vec<Entry>>, String> {
     let mut items: Vec<Entry> = Vec::new();
 
-    for (ident_unique, connected) in state.machines.load().iter() {
+    for (ident_unique, (last_active, connected)) in state.machines.load().iter() {
         let ident = MachineIdentification::from(*ident_unique);
         let schemas = state.schemas.load();
 
@@ -20,10 +20,10 @@ pub(crate) async fn get(
 
         items.push(Entry {
             name,
-            vendor: vendors::get(ident.vendor).unwrap_or("N/A"),
+            vendor: vendors::get_by_id(ident.vendor).unwrap_or("N/A"),
             serial: ident_unique.serial,
             connected: *connected,
-            last_active: Utc::now(),
+            last_active: *last_active,
         });
     }
 
@@ -34,7 +34,7 @@ pub(crate) async fn get(
 pub(crate) struct Entry {
     name: String,
     vendor: &'static str,
-    serial: u32,
+    serial: u16,
     connected: bool,
     last_active: DateTime<Utc>,
 }

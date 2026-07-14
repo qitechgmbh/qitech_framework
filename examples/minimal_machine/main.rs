@@ -21,7 +21,6 @@ struct MinimalMachine {
 impl MachineBuild for MinimalMachine {
     fn build(mut builder: MachineBuilder<'_>) -> Result<Self, MachineBuildError> {
         Ok(Self { 
-            config: builder.config("config").on_changed().register() 
             counter: builder.measurement("counter").register() 
         })
     }
@@ -32,9 +31,5 @@ impl Machine for MinimalMachine {
         self.counter.set(self.counter.get() + 1);
         _ = self;
         Ok(())
-    }
-
-    fn react(&mut self, registry: &DataRegistry) -> MachineActResult {
-        registry.
     }
 }

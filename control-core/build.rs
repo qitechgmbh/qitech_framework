@@ -14,10 +14,10 @@ fn main() -> io::Result<()> {
     let entries = toml::from_str::<BTreeMap<String, Entry>>(VENDORS_LIST).unwrap();
 
     // constants
-    writeln!(file, "struct Entry {{ pub id: u16, pub name: &'static str }}\n")?;
+    writeln!(file, "pub struct Entry {{ pub id: u16, pub name: &'static str }}\n")?;
     for (abbr, Entry { id, name }) in &entries {
         let abbr = abbr.to_uppercase();
-        writeln!(file, "const {abbr}: Entry = Entry {{ id: {id}, name: \"{name}\" }};",)?;
+        writeln!(file, "pub const {abbr}: Entry = Entry {{ id: {id}, name: \"{name}\" }};",)?;
     }
     writeln!(file)?;
 
