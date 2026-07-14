@@ -11,7 +11,7 @@ pub struct ConfigMutationRecordRow {
 
     pub ident_vendor: u16,
     pub ident_machine: u16,
-    pub ident_serial: u32,
+    pub ident_serial: u16,
 
     pub name: String,
 

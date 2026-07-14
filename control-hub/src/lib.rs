@@ -11,13 +11,7 @@ use control_core::{
     RuntimeExport, schema::latest::MachineSchema,
 };
 
-pub mod vendors {
-    include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
-
-    pub fn get(id: u16) -> Option<&'static str> {
-        REGISTRY.get(&id).copied()
-    }
-}
+mod session;
 
 mod config;
 pub use config::Config;

@@ -2,9 +2,16 @@ use tokio::sync::oneshot;
 use serde::{Deserialize, Serialize};
 use control_core::{MachineIdentificationUnique, ScalarValue};
 
-/// Request targetted at the runtime
+// write_machine_device_identification
+
+/// Request targeted at the runtime
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeRequest {
+    WriteMachineDeviceIdentifcation {
+        machine_identification_unique: MachineIdentificationUnique,
+        role: u16,
+        subdevice_index: usize,
+    },
     MutateConfig {
         identification: MachineIdentificationUnique,
         name: String,

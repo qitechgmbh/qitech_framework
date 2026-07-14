@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 serde = { workspace = true }
 chrono = { workspace = true }
+qitech_lib = { workspace = true }
 
 # --- general ---
 soa_derive = "0.14.0"
@@ -14,3 +15,7 @@ soa_derive = "0.14.0"
 yaml_serde = { version = "0.10.4", default-features = false }
 indexmap = { version = "2", default-features = false, features = ["serde"] }
 unic-langid = { version = "0.9.6", default-features = false, features = ["serde"]}
+
+[build-dependencies]
+serde = { workspace = true }
+toml = "1.1.2"

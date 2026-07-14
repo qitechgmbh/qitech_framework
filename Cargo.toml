@@ -4,7 +4,6 @@ members = [
     "control-hub",
     "control-run",
 ]
-exclude = []
 resolver = "2"
 
 [workspace.dependencies]

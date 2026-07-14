@@ -4,11 +4,28 @@ use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 use soa_derive::StructOfArray;
 
-mod machine_identification;
-pub use machine_identification::MachineIdentification;
-pub use machine_identification::MachineIdentificationUnique;
+mod ident;
+pub use ident::MachineIdentification;
+pub use ident::MachineIdentificationUnique;
 
 pub mod schema;
+mod events;
+
+pub mod vendors {
+    include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
+
+    // get_by_id(id: u16) -> Option<u16>
+
+    pub const fn contains_id(id: u16) -> bool {
+        get_by_id(id).is_some()
+    }
+
+    // get_by_name(name: &str) -> Option<u16>
+
+    pub fn contains_name(name: &str) -> bool {
+        get_by_name(name).is_some()
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeExport {

@@ -1,12 +1,18 @@
 use std::collections::HashMap;
+use std::thread;
 use std::time::Duration;
 
 use control_core::MachineIdentification;
+use control_core::MachineIdentificationUnique;
 use control_core::schema::latest::MachineSchema;
 
 mod data;
 use data::DataStore;
 use data::DataRegistry;
+
+mod serial;
+
+mod ethercat;
 
 mod state;
 use state::main::MainState;
@@ -21,71 +27,90 @@ pub use machine::MachineActError;
 pub use machine::ConfigProperty;
 pub use machine::StateProperty;
 pub use machine::Measurement;
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
+
 // pub use machine::Command;
 
 pub struct Config {
     pub stay_in_preop: bool,
     pub force_eth_up: bool,
-    pub hotplug_duration: Duration,
-}
+    pub serial_scan_interval: Duration,
+    pub interface_discovery_retry_interval: Duration,
+}   
 
-#[derive(Default)]
-pub struct MachineRegistry {
-    inner: Vec<MachineRegistryEntry>,
-}
+// hub keeps track of last connection and can accept it back without full init process
+// hub stage one: listen only, stage two: activate -> goto processing, allows to notify frontend
 
-impl MachineRegistry {
-    pub fn register(
-        &mut self,
-        schema: MachineSchema, 
-        build: fn(MachineBuilder) -> Box<dyn Machine>
-    ) {
-        // TODO: check for duplicates
-        self.inner.push(MachineRegistryEntry { schema, build });
+pub fn run(
+    rt: Runtime,
+    // hub: ControlHubSession,
+    config: Config,
+    registry: MachineRegistry
+) -> anyhow::Result<()> {
+    // --- step one: connect to hub for event transmission --- 
+    
+    // TODO: implement
+
+    // --- step two: ethercat setup ---
+
+    // hub.notify(Discovery start);
+
+    // discover hardware, write down which hardware relates to which machine, cannot be changed once in place
+    // hotplug works 100% on that assumption
+
+    let interface = ethercat::find_interface(config.interface_discovery_retry_interval);
+
+    // hub.notify(Discovery complete);
+
+    let eth_control = ethercat::init(&interface);
+
+    // hub.notify(Discovery complete);
+
+    // --- step three: serial stuff ---
+    for port_info in serialport::available_ports()? {
+        // compare against registry and install hooks
+
     }
-}
 
-pub struct MachineRegistryEntry {
-    schema: MachineSchema,
-    build: fn(MachineBuilder) -> Box<dyn Machine>,
-}
+    serialport::available_ports();
 
-impl MachineRegistryEntry {
-    pub fn new() {
+    let serial_ports = tokio_serial::available_ports();
 
+    // start scanning for serial ports
+    let serial_scanner_task = rt.spawn(serial::run_scanner(
+        config.serial_scan_interval, 
+        serial_ports_tx,
+    ));
+
+    // --- step four: setup ethercat --- 
+    ethercat::setup(&eth_control)?;
+
+    // hub.notify(EtherCatState);
+    // hub.notify(ShowEtherCatDevices);
+
+    if config.stay_in_preop {
+        // send_setup_done_events(state.clone());
+
+        println!("Staying in PreOp as requested, exiting after setup.");
+        loop { thread::sleep(Duration::from_secs(1)); }
     }
-}
 
-pub fn run(config: Config, registry: MachineRegistry) {
-    let mut main_state = MainState::new();
-    _ = registry;
+    // --- step five: build machines --- 
 
-    // let b = MachineBuilder;
-    // let x = Box::new((registry.first().unwrap().build)(b));
 
-    // let interface = find_ethercat_interface(&shared_state);
-    // let eth_control = optimized_ethercat_init(&interface);
 
-    // let (tx, rx) = tokio::sync::mpsc::channel(2);
-    // let (tx_ports, mut rx_ports) = tokio::sync::mpsc::channel(2);
-    // detect_serial(rx, tx_ports);
 
-    // // Subdevices are known after PreOp — show them in the frontend now
-    // send_ethercat_devices_event(state.clone());
+    // ...
 
-    // if stay_in_preop && eth_control.is_some() {
-    //     send_setup_done_events(state.clone());
-    //     println!("Staying in PreOp as requested, exiting after setup.");
-    //     loop {
-    //         std::thread::sleep(core::time::Duration::from_secs(1));
-    //     }
-    // }
+    // by dropping the channel the scan should exit gracefully
+    drop(serial_ports_rx);
 
-    // // detect_and_build_machines must run in PreOp (machines initialize assuming PreOp)
-    // detect_and_build_machines(state.clone(), &mut main_state);
+    let res = rt.block_on(async {
+        tokio::join!(serial_scanner_task)
+    });
 
-    // // Only emit machines to frontend after OP state is confirmed
-    // send_machines_event(state.clone());
+    _ = res;
 
     let mut last_check = std::time::Instant::now();
 
@@ -114,7 +139,7 @@ pub fn run(config: Config, registry: MachineRegistry) {
         //     remove_machines(&mut main_state, state.clone(), machines_to_remove);
         // }
 
-        if now.duration_since(last_check) >= config.hotplug_duration {
+        if now.duration_since(last_check) >= config.serial_scan_interval {
             // let _ = tx.try_send(());
             // let _ = laser_hotplug(&mut main_state, state.clone(), &mut rx_ports);
             last_check = now;
@@ -128,5 +153,79 @@ pub fn run(config: Config, registry: MachineRegistry) {
         // };
 
         std::thread::sleep(Duration::from_micros(100));
+    }
+}
+
+fn monitor_serial_ports() -> anyhow::Result<()> {
+    let monitor = udev::MonitorBuilder::new()?
+        .match_subsystem("tty")?
+        .listen()?;
+
+    for event in monitor.iter() {
+        let serial_ports = serialport::available_ports();
+    }
+
+    Ok(())
+}
+
+fn detect_and_build_machines(main_state: &mut MainState) {
+    let idents: Vec<MachineIdentificationUnique> = main_state
+        .machines
+        .iter()
+        .map(|machine| machine.get_identification())
+        .collect();
+
+    for key in main_state.hardware.keys() {
+        if idents.contains(key) {
+            continue;
+        }
+
+        let result = MACHINE_REGISTRY
+            .build_machine(key.clone(), main_state.hardware.get(key).unwrap().clone());
+
+        match result {
+            Ok(machine) => {
+                let _res = state.add_machine_sync(
+                    key.clone().into(),
+                    None,
+                    Some(machine.get_api_sender()),
+                );
+                main_state.machines.push(machine);
+            }
+            Err(e) => {
+                if !main_state.machine_errors.contains_key(key) {
+                    let _res =
+                        state.add_machine_sync(key.clone().into(), Some(e.to_string()), None);
+                }
+                main_state.machine_errors.insert(*key, e.to_string());
+            }
+        };
+    }
+}
+
+#[derive(Default)]
+pub struct MachineRegistry {
+    inner: Vec<MachineRegistryEntry>,
+}
+
+impl MachineRegistry {
+    pub fn register(
+        &mut self,
+        schema: MachineSchema, 
+        build: fn(MachineBuilder) -> Box<dyn Machine>
+    ) {
+        // TODO: check for duplicates
+        self.inner.push(MachineRegistryEntry { schema, build });
+    }
+}
+
+pub struct MachineRegistryEntry {
+    schema: MachineSchema,
+    build: fn(MachineBuilder) -> Box<dyn Machine>,
+}
+
+impl MachineRegistryEntry {
+    pub fn new() {
+
     }
 }

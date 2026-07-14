@@ -5,7 +5,6 @@ use control_run::{self, Machine, MachineActResult, MachineBuild, MachineBuildErr
 pub fn main() {
     let config = control_run::Config { 
         stay_in_preop: false, 
-        force_eth_up: false, 
         hotplug_duration: Duration::from_secs(1),
     };
 
