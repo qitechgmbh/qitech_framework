@@ -49,9 +49,10 @@ pub(super) async fn get(
     let prop_info = get_property_info(&schema.config, &property_name)?;
 
     // get value
-    let props = state.properties.load();
-    let props = props.config.get(&ident).expect("must exist");
+    let machines = state.machines.load();
+    let props = &machines.get(&ident).expect("must exist").properties.config;
     let value = props.get(&property_name).expect("must exist").clone();
+
 
     use config::Value::*;
     let response = match prop_info {

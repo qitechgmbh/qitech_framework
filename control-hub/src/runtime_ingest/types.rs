@@ -47,7 +47,9 @@ pub struct LogRecordRow {
     pub level: LogLevel,
     pub origin: u64,
     pub message: String,
-    pub attributes: HashMap<String, String>,
+
+    // maps are not supported by clickhouse
+    pub attributes: Vec<(String, String)>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Row)]
@@ -56,7 +58,7 @@ pub struct EventRecordRow {
     pub timestamp: DateTime<Utc>,
     pub origin: u64,
     pub name: String,
-    pub value: serde_json::Value,
+    pub value: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Row)]

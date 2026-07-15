@@ -1,12 +1,7 @@
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use anyhow::anyhow;
-use anyhow::bail;
-use chrono::{DateTime, Utc};
-use control_core::ScalarValue;
-use control_core::schema::v1_0::PropertyKind;
 use serde::Deserialize;
 use arc_swap::ArcSwap;
 use tokio::spawn;
@@ -16,12 +11,9 @@ use clickhouse::{Client, Row};
 
 use control_core::{
     schema,
-    MachineIdentification, MachineIdentificationUnique, 
+    MachineIdentification, 
     RuntimeExport, schema::latest::MachineSchema,
 };
-
-mod tasks;
-use tasks::sync_machine_registry;
 
 mod migration;
 pub use migration::migrate;
@@ -39,14 +31,10 @@ use tokio::time::sleep;
 pub mod api;
 use crate::api::RuntimeRequest;
 
-pub mod export_processor;
+mod runtime_ingest;
 
 mod machine_registry;
 use machine_registry::MachineRegistry;
-use machine_registry::MachineRegistryEntry;
-use machine_registry::MachinePropertyCache;
-
-mod exporter;
 
 type Swappable<T> = Arc<ArcSwap<T>>;
 type SchemaRegistry = BTreeMap<MachineIdentification, MachineSchema>;
@@ -99,7 +87,7 @@ impl ControlHub {
 
         spawn(async {
             // keep alive for now, TODO: use it ...
-            let x = req_rx;
+            let _x = req_rx;
             loop {
                 sleep(Duration::from_secs(10)).await;
             }
@@ -122,10 +110,11 @@ impl ControlHub {
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
-        // simply start all processes
         let result = tokio::join!(
-            sync_machine_registry::run(self.state.clone()),
-            exporter::run(self.state.clone()),
+            // takes in the data, updates cache and handles persistance in the db
+            runtime_ingest::run(self.state.clone()),
+
+            // handles the client facing api
             api::run(self.state.clone()),
         );
 
@@ -203,19 +192,4 @@ fn import_schemas(
     }
 
     Ok(new_schemas)
-}
-
-// --- misc --- 
-#[derive(Debug, Clone)]
-pub struct MachineRegistryEntry {
-    online: bool,
-    last_online: DateTime<Utc>,
-    properties: MachinePropertyCache,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct MachinePropertyCache {
-    config: HashMap<String, ScalarValue>,
-    state: HashMap<String, ScalarValue>,
-    measurements: HashMap<String, Option<f64>>,
 }

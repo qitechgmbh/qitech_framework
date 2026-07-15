@@ -8,7 +8,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/002_init_logs.sql"),
     include_str!("../migrations/003_init_events.sql"),
     include_str!("../migrations/004_init_machine_schemas.sql"),
-    include_str!("../migrations/005_init_machine_registry.sql"),
+    include_str!("../migrations/005_init_machine_activity.sql"),
     include_str!("../migrations/006_init_config_mutations.sql"),
     include_str!("../migrations/007_init_state_mutations.sql"),
     include_str!("../migrations/008_init_measurements.sql"),

@@ -33,7 +33,7 @@ pub async fn init(
         };
 
         let entry = MachineRegistryEntry {
-            online: false,
+            connected: false,
             last_online,
             properties: init_properties(schema),
         };
@@ -57,7 +57,7 @@ pub fn insert(
     };
 
     let entry = MachineRegistryEntry {
-        online: false,
+        connected: false,
         last_online: Utc::now(),
         properties: init_properties(schema),
     };
@@ -73,7 +73,7 @@ pub fn mark_disconnected(
     ident: MachineIdentificationUnique
 ) {
     if let Some(entry) = zelf.get_mut(&ident) {
-        entry.online = false;
+        entry.connected = false;
         entry.properties.config.clear();
         entry.properties.state.clear();
         entry.properties.measurements.clear();
@@ -145,7 +145,7 @@ fn walk<T>(
 
 #[derive(Debug, Clone)]
 pub struct MachineRegistryEntry {
-    pub online: bool,
+    pub connected: bool,
     pub last_online: DateTime<Utc>,
     pub properties: MachinePropertyCache,
 }

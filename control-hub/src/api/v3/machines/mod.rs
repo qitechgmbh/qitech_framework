@@ -27,7 +27,7 @@ pub(crate) async fn get(
 ) -> Result<Json<Vec<MachineInfo>>, String> {
     let mut items: Vec<MachineInfo> = Vec::new();
 
-    for (ident_unique, (last_active, connected)) in state.machines.load().iter() {
+    for (ident_unique, entry) in state.machines.load().iter() {
         let ident = MachineIdentification::from(*ident_unique);
         let schemas = state.schemas.load();
 
@@ -39,8 +39,8 @@ pub(crate) async fn get(
             name,
             vendor: vendors::get_by_id(ident.vendor).unwrap_or("N/A"),
             serial: ident_unique.serial,
-            connected: *connected,
-            last_active: *last_active,
+            connected: entry.connected,
+            last_active: entry.last_online,
         });
     }
 

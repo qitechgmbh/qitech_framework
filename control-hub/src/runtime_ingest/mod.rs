@@ -16,7 +16,7 @@ use types::Inserts;
 
 use crate::{
     SharedState,
-    export_processor::types::{
+    runtime_ingest::types::{
         ConfigMutationRecordRow, EventRecordRow, LogRecordRow, MeasurementSampleRow,
         ScalarValueColumns, StateMutationRecordRow,
     },
@@ -70,17 +70,17 @@ async fn process_export(
     inserts: &mut Inserts,
     export: Arc<RuntimeExport>,
 ) -> anyhow::Result<()> {
-    process_logs(inserts, &export.logs);
-    process_runtime_events(state, machines, inserts, &export.runtime_events)?;
-    process_machine_events(inserts, &export.machine_events)?;
-    process_machine_config_mutations(machines, inserts, &export.config_mutations)?;
-    process_machine_state_mutations(machines, inserts, &export.state_mutations)?;
+    process_logs(inserts, &export.logs).await?;
+    process_runtime_events(state, machines, inserts, &export.runtime_events).await?;
+    process_machine_events(inserts, &export.machine_events).await?;
+    process_machine_config_mutations(machines, inserts, &export.config_mutations).await?;
+    process_machine_state_mutations(machines, inserts, &export.state_mutations).await?;
     process_machine_measurements(
         export.created_at,
         machines,
         inserts,
         &export.machine_measurements,
-    )?;
+    ).await?;
 
     // TODO: check which machines are still online and create a last online entry
 
@@ -89,26 +89,31 @@ async fn process_export(
     Ok(())
 }
 
-fn process_logs(inserts: &mut Inserts, records: &Vec<LogRecord>) -> anyhow::Result<()> {
+async fn process_logs(inserts: &mut Inserts, records: &Vec<LogRecord>) -> anyhow::Result<()> {
     for record in records {
         let origin = match record.origin {
             LogOrigin::MainLoop => 0,
             LogOrigin::Machine(ident) => ident.to_u64(),
         };
 
+        let attributes = record.attributes
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
         inserts.logs.write(&LogRecordRow {
             timestamp: record.timestamp,
             origin,
             level: record.level,
             message: record.message.clone(),
-            attributes: record.attributes.clone(),
-        });
+            attributes,
+        }).await?;
     }
 
     Ok(())
 }
 
-fn process_runtime_events(
+async fn process_runtime_events(
     state: &SharedState,
     machines: &mut MachineRegistry,
     inserts: &mut Inserts,
@@ -118,12 +123,12 @@ fn process_runtime_events(
         let value = match event.kind {
             RuntimeEventKind::MachineConnected(ident) => {
                 machine_registry::insert(machines, state, ident)?;
-                serde_json::to_value(ident)?
+                serde_json::to_string(&ident)?
             }
 
             RuntimeEventKind::MachineDisconnected(ident) => {
                 machine_registry::mark_disconnected(machines, ident);
-                serde_json::to_value(ident)?
+                serde_json::to_string(&ident)?
             }
         };
 
@@ -132,13 +137,13 @@ fn process_runtime_events(
             origin: 0,
             name: event.kind.to_string(),
             value,
-        });
+        }).await?;
     }
 
     Ok(())
 }
 
-fn process_machine_events(inserts: &mut Inserts, events: &Vec<MachineEvent>) -> anyhow::Result<()> {
+async fn process_machine_events(inserts: &mut Inserts, events: &Vec<MachineEvent>) -> anyhow::Result<()> {
     for MachineEvent {
         timestamp,
         ident,
@@ -150,14 +155,14 @@ fn process_machine_events(inserts: &mut Inserts, events: &Vec<MachineEvent>) -> 
             timestamp: *timestamp,
             origin: ident.to_u64(),
             name: name.to_string(),
-            value: serde_json::to_value(data)?,
-        });
+            value: serde_json::to_string(data)?,
+        }).await?;
     }
 
     Ok(())
 }
 
-fn process_machine_config_mutations(
+async fn process_machine_config_mutations(
     machines: &mut MachineRegistry,
     inserts: &mut Inserts,
     records: &Vec<ConfigMutationRecord>,
@@ -202,13 +207,13 @@ fn process_machine_config_mutations(
             value_bool,
             origin: record.origin,
             result: record.result,
-        });
+        }).await?;
     }
 
     Ok(())
 }
 
-fn process_machine_state_mutations(
+async fn process_machine_state_mutations(
     machines: &mut MachineRegistry,
     inserts: &mut Inserts,
     records: &Vec<StateMutationRecord>,
@@ -251,27 +256,27 @@ fn process_machine_state_mutations(
             value_int,
             value_float,
             value_bool,
-        });
+        }).await?;
     }
 
     Ok(())
 }
 
-fn process_machine_measurements(
+async fn process_machine_measurements(
     timestamp: DateTime<Utc>,
     machines: &mut MachineRegistry,
     inserts: &mut Inserts,
     measurements: &Measurements,
 ) -> anyhow::Result<()> {
     for snapshot in measurements {
-        let Some(machine) = machines.get_mut(&snapshot.ident) else {
+        let Some(machine) = machines.get_mut(snapshot.ident) else {
             bail!(
                 "Exported state mutation for non existing machine {}",
                 snapshot.ident
             );
         };
 
-        let Some(prop) = machine.properties.measurements.get_mut(&*snapshot.name) else {
+        let Some(prop) = machine.properties.measurements.get_mut(snapshot.name) else {
             bail!(
                 "Exported state mutation for non existing property {} of machine {}",
                 &snapshot.name,
@@ -291,7 +296,7 @@ fn process_machine_measurements(
             identity: snapshot.ident.to_u64(),
             name: snapshot.name.to_string(),
             value: *prop,
-        });
+        }).await?;
     }
 
     Ok(())
