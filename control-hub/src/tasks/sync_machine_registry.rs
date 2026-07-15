@@ -1,18 +1,18 @@
 use std::sync::Arc;
 use chrono::Utc;
 use control_core::RuntimeEventKind;
-use crate::SharedState;
+use crate::{PropertyCache, SharedState};
 
 pub async fn run(state: SharedState) {
     let mut rx = state.data_tx.subscribe();
 
-    // create local copy we can modify and then clone
+    // create local copies we can modify
     let mut machines = (*state.machines.load_full()).clone();
-
+    let mut properties = (*state.properties.load_full()).clone();
+    
     loop {
-        println!("sync_machine_registry started");
         let Ok(export) = rx.recv().await else {
-            println!("sync_machine_registry exiting");
+            println!("[sync_machine_registry] exiting");
             // tx died, meaning we should exit
             return;
         };
@@ -23,7 +23,7 @@ pub async fn run(state: SharedState) {
             match event.kind {
                 RuntimeEventKind::MachineConnected(ident) => {
                     let Some((last_active, connected)) = machines.get_mut(&ident) else {
-                        println!("sync_machine_registry: registering connected machine");
+                        println!("[sync_machine_registry]: registering connected machine");
 
                         // machine not registered yet.
                         machines.insert(ident, (Utc::now(), true));
@@ -68,4 +68,8 @@ pub async fn run(state: SharedState) {
             // TODO:
         }
     }
+}
+
+pub fn init_cache(cache: &mut PropertyCache) {
+    
 }

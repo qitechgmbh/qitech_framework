@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 use soa_derive::StructOfArray;
@@ -32,6 +33,9 @@ pub struct RuntimeExport {
     /// time when export was created
     pub created_at: DateTime<Utc>,
 
+    /// list of all logs emitted this cycle
+    pub logs: Vec<LogRecord>,
+
     /// list of all events emitted by the runtime itself
     pub runtime_events: Vec<RuntimeEvent>,
 
@@ -45,15 +49,12 @@ pub struct RuntimeExport {
     pub state_mutations: Vec<StateMutationRecord>,
 
     /// snapshot of all measurements of a machine
-    pub measurements: Measurements,
-
-    /// list of all logs emitted this cycle
-    pub logs: Vec<LogRecord>,
+    pub machine_measurements: Measurements,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeEvent {
-    pub ts: DateTime<Utc>,
+    pub timestamp: DateTime<Utc>,
     pub kind: RuntimeEventKind,
 }
 
@@ -63,12 +64,25 @@ pub enum RuntimeEventKind {
     MachineDisconnected(MachineIdentificationUnique),
 }
 
+impl fmt::Display for RuntimeEventKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RuntimeEventKind::MachineConnected(id) => {
+                write!(f, "machine_connected:{id:?}")
+            }
+            RuntimeEventKind::MachineDisconnected(id) => {
+                write!(f, "machine_disconnected:{id:?}")
+            }
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MachineEvent {
-    pub ts: DateTime<Utc>,
+    pub timestamp: DateTime<Utc>,
     pub ident: MachineIdentificationUnique,
     pub name: Cow<'static, str>,
-    pub data: Vec<u8>,
+    pub data: String, // TODO: use serde_json value
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -116,7 +130,7 @@ pub type Measurements = MeasurementSnapshotVec;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogRecord {
     pub timestamp: DateTime<Utc>,
-    pub severity: LogLevel,
+    pub level: LogLevel,
     pub origin: LogOrigin,
     pub message: String,
     pub attributes: HashMap<String, String>,
@@ -139,6 +153,7 @@ pub enum LogLevel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ScalarValue {
+    Enum(Option<String>),
     String(Option<String>),
     Integer(Option<i64>),
     Float(Option<f64>),
@@ -146,6 +161,13 @@ pub enum ScalarValue {
 }
 
 impl ScalarValue {
+    pub fn r#enum(self) -> Option<String> {
+        match self {
+            ScalarValue::String(value) => value,
+            other => panic!("expected Enum, got {:?}", other),
+        }
+    }
+
     pub fn string(self) -> Option<String> {
         match self {
             ScalarValue::String(value) => value,

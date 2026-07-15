@@ -27,6 +27,7 @@ pub struct ConfigMutationRecordRow {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ScalarValueType {
+    Enum,
     String,
     Integer,
     IntegerUnsigned,
@@ -37,6 +38,7 @@ pub enum ScalarValueType {
 impl From<&ScalarValue> for ScalarValueType {
     fn from(value: &ScalarValue) -> Self {
         match value {
+            ScalarValue::Enum(_) => ScalarValueType::Enum,
             ScalarValue::String(_) => ScalarValueType::String,
             ScalarValue::Integer(_) => ScalarValueType::Integer,
             ScalarValue::Float(_) => ScalarValueType::Float,
@@ -53,6 +55,7 @@ impl From<ScalarValue> for ScalarValueType {
 
 pub struct ScalarValueColumns {
     pub value_type: ScalarValueType,
+    pub value_enum: Option<String>,
     pub value_string: Option<String>,
     pub value_int: Option<i64>,
     pub value_float: Option<f64>,
@@ -67,9 +70,11 @@ impl From<&ScalarValue> for ScalarValueColumns {
             value_int: None,
             value_float: None,
             value_bool: None,
+            value_enum: None,
         };
 
         match value {
+            ScalarValue::Enum(v) => columns.value_enum = v.clone(),
             ScalarValue::String(v) => columns.value_string = v.clone(),
             ScalarValue::Integer(v) => columns.value_int = *v,
             ScalarValue::Float(v) => columns.value_float = *v,

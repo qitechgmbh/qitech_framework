@@ -6,12 +6,10 @@ use axum::extract::{Path, Query, State};
 use clickhouse::{Client, Row};
 use control_core::MachineIdentificationUnique;
 
-
 use crate::{SharedState, api::common::PropertyHistoryQuery};
 use crate::api::common::{ApiError, get_machine_info, get_property_info};
 
 #[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
 pub(super) struct GetResponse {
     // unit: Unit, 
     data: Vec<Item>,
@@ -76,7 +74,7 @@ fn init_sql(query: &PropertyHistoryQuery) -> Result<String, String> {
             SELECT
                 toDateTime64(toStartOfInterval(timestamp, {}), 3) AS timestamp,
                 value,
-            FROM measurements
+            FROM machine_measurements
             WHERE identity = ?
             AND name = ?
             "#,
@@ -84,7 +82,7 @@ fn init_sql(query: &PropertyHistoryQuery) -> Result<String, String> {
         ),
         None => r#"
             SELECT timestamp, value
-            FROM measurements
+            FROM machine_measurements
             WHERE identity = ?
             AND name = ?
         "#.to_string(),

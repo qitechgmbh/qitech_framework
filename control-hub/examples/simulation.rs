@@ -75,11 +75,11 @@ async fn simulate_runtime(mut session: EmbeddedSession) {
     let export = RuntimeExport {
         runtime_events: vec![
             RuntimeEvent { 
-                ts: Utc::now(), 
+                timestamp: Utc::now(), 
                 kind: RuntimeEventKind::MachineConnected(ident),
             },
             RuntimeEvent { 
-                ts: Utc::now(), 
+                timestamp: Utc::now(), 
                 kind: RuntimeEventKind::MachineConnected(ident2),
             }
         ],
@@ -100,7 +100,7 @@ async fn simulate_runtime(mut session: EmbeddedSession) {
     let export = RuntimeExport {
         runtime_events: vec![
             RuntimeEvent { 
-                ts: Utc::now(), 
+                timestamp: Utc::now(), 
                 kind: RuntimeEventKind::MachineDisconnected(ident2),
             }
         ],
@@ -154,11 +154,11 @@ fn create_export() -> RuntimeExport {
         created_at: Utc::now(),
         config_mutations: vec![],
         state_mutations: vec![],
-        measurements,
+        machine_measurements: measurements,
         logs: vec![],
         runtime_events: vec![
             RuntimeEvent { 
-                ts: Utc::now(), 
+                timestamp: Utc::now(), 
                 kind: RuntimeEventKind::MachineConnected(MachineIdentificationUnique { vendor: 0, machine: 0, serial: 0 }),
             }
         ],

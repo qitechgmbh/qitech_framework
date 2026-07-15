@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use anyhow::anyhow;
+use anyhow::bail;
 use chrono::{DateTime, Utc};
 use control_core::ScalarValue;
+use control_core::schema::v1_0::PropertyKind;
 use serde::Deserialize;
 use arc_swap::ArcSwap;
 use tokio::spawn;
@@ -37,9 +39,17 @@ use tokio::time::sleep;
 pub mod api;
 use crate::api::RuntimeRequest;
 
+pub mod export_processor;
+
+mod machine_registry;
+use machine_registry::MachineRegistry;
+use machine_registry::MachineRegistryEntry;
+use machine_registry::MachinePropertyCache;
+
 mod exporter;
 
 type Swappable<T> = Arc<ArcSwap<T>>;
+type SchemaRegistry = BTreeMap<MachineIdentification, MachineSchema>;
 
 #[derive(Clone)]
 struct SharedState {
@@ -50,12 +60,10 @@ struct SharedState {
     pub client: Client,
 
     /// schema registry
-    pub schemas: Swappable<BTreeMap<MachineIdentification, MachineSchema>>,
+    pub schemas: Swappable<SchemaRegistry>,
 
-    /// machine registry (ident, connected yes/no)
-    pub machines: Swappable<BTreeMap<MachineIdentificationUnique, (DateTime<Utc>, bool)>>,
-
-    pub properties: Swappable<PropertyCache>,
+    /// machine registry
+    pub machines: Swappable<MachineRegistry>,
 
     /// channel for forwarding data exports
     pub data_tx: broadcast::Sender<Arc<RuntimeExport>>,
@@ -65,13 +73,6 @@ struct SharedState {
 
     /// shutdown signal receiver
     pub shutdown_rx: watch::Receiver<()>,
-}
-
-#[derive(Clone, Default)]
-pub struct PropertyCache {
-    config: HashMap<MachineIdentificationUnique, HashMap<String, ScalarValue>>,
-    state: HashMap<MachineIdentificationUnique, HashMap<String, ScalarValue>>,
-    measurements: HashMap<MachineIdentificationUnique, HashMap<String, Option<f64>>>,
 }
 
 pub struct ControlHub {
@@ -84,12 +85,14 @@ impl ControlHub {
         schemas: Vec<String>,
         shutdown_rx: watch::Receiver<()>,
     ) -> anyhow::Result<(Self, EmbeddedSession)> {
+        let incoming_schemas = schemas;
+
         let client = init_client(&config.database);
-        let schema_registry = init_schema_registry(&client).await?;
-        let machines = init_machine_registry(&client).await?;
+        let schemas = init_schema_registry(&client).await?;
+        let machines = machine_registry::init(&client, &schemas).await?;
 
         // try to import schemas of the runtime
-        let schemas = import_schemas(schema_registry, schemas)?;
+        let schemas = import_schemas(schemas, incoming_schemas)?;
 
         let (data_tx, _) = broadcast::channel(64);
         let (req_tx, req_rx) = mpsc::channel(1024);
@@ -105,9 +108,8 @@ impl ControlHub {
         let state = SharedState {
             config,
             client,
-            schemas: Arc::new(ArcSwap::new(schemas)),
-            machines: Arc::new(ArcSwap::new(machines)),
-            properties: Arc::new(ArcSwap::new(Default::default())),
+            schemas: Arc::new(ArcSwap::new(Arc::new(schemas))),
+            machines: Arc::new(ArcSwap::new(Arc::new(machines))),
             data_tx: data_tx.clone(),
             req_tx,
             shutdown_rx,
@@ -173,41 +175,10 @@ async fn init_schema_registry(
     Ok(Arc::new(registry))
 }
 
-async fn init_machine_registry(
-    client: &Client,
-) -> anyhow::Result<Arc<BTreeMap<MachineIdentificationUnique, (DateTime<Utc>, bool)>>> {
-    #[derive(Debug, Row, Deserialize)]
-    struct IdentRow {
-        vendor: u16,
-        machine: u16,
-        serial: u16,
-        last_active: DateTime<Utc>,
-    }
-
-    let rows = client
-        .query("SELECT * FROM machine_registry")
-        .fetch_all::<IdentRow>()
-        .await?;
-
-    let mut registry = BTreeMap::new();
-    for IdentRow { vendor, machine, serial, last_active } in rows {
-        registry.insert(
-            MachineIdentificationUnique {
-                vendor,
-                machine,
-                serial,
-            },
-            (last_active, false),
-        );
-    }
-
-    Ok(Arc::new(registry))
-}
-
 fn import_schemas(
     registry: Arc<BTreeMap<MachineIdentification, MachineSchema>>,
     incoming: Vec<String>,
-) -> anyhow::Result<Arc<BTreeMap<MachineIdentification, MachineSchema>>> {
+) -> anyhow::Result<BTreeMap<MachineIdentification, MachineSchema>> {
     // lazily cloned copy-on-write map
     let mut new_schemas = (*registry).clone();
 
@@ -231,5 +202,20 @@ fn import_schemas(
         new_schemas.insert(schema.identification, schema);
     }
 
-    Ok(Arc::new(new_schemas))
+    Ok(new_schemas)
+}
+
+// --- misc --- 
+#[derive(Debug, Clone)]
+pub struct MachineRegistryEntry {
+    online: bool,
+    last_online: DateTime<Utc>,
+    properties: MachinePropertyCache,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MachinePropertyCache {
+    config: HashMap<String, ScalarValue>,
+    state: HashMap<String, ScalarValue>,
+    measurements: HashMap<String, Option<f64>>,
 }
