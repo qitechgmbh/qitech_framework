@@ -1,10 +1,6 @@
-CREATE TABLE control_hub.measurements(
+CREATE TABLE control_hub.machine_measurements(
     timestamp       DateTime64(3, 'UTC'),
-
-    ident_vendor    UInt16,
-    ident_machine   UInt16,
-    ident_serial    UInt32,
-
+    identity        UInt64,
     name            LowCardinality(String),
     value           Nullable(Float64),
 
@@ -17,7 +13,7 @@ CREATE TABLE control_hub.measurements(
 ENGINE = MergeTree
 
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (ident_vendor, ident_machine, ident_serial, name, timestamp)
+ORDER BY (identity, name, timestamp)
 
 -- expiry time for data (30 Days)
 TTL timestamp + INTERVAL 30 DAY

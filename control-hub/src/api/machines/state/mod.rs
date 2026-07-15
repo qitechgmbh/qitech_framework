@@ -1,9 +1,22 @@
 use std::sync::Arc;
 use serde::Serialize;
-use axum::{Json, extract::{Path, State}};
+use axum::{Json, Router, extract::{Path, State}, routing};
 use control_core::schema::latest::{Unit, state};
-use crate::{SharedState, api::common::ApiError};
-use super::common::{get_machine_info, get_property_info};
+
+use crate::SharedState;
+use crate::api::common::{ApiError, get_machine_info, get_property_info};
+
+mod history;
+
+// -- router ---
+
+pub fn init_router() -> Router<Arc<SharedState>> {
+    Router::new()
+        .route("/{property_name}",routing::get(get))
+        .route("/{property_name}/history", routing::get(history::get))
+}
+
+// --- GET --- 
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -41,8 +54,8 @@ pub(super) async fn get(
         state::Value::Boolean(_) => GetResponse::Boolean { value: value.boolean() },
         state::Value::Integer(_) => GetResponse::Integer { value: value.integer() },
         state::Value::Float(_) => GetResponse::Float { value: value.float() },
-        state::Value::Fraction(_) => GetResponse::Float { value: value.float() },
-        state::Value::Percentage(_) => GetResponse::Float { value: value.float() },
+        state::Value::Fraction(_) => GetResponse::Fraction { value: value.float() },
+        state::Value::Percentage(_) => GetResponse::Percentage { value: value.float() },
         state::Value::Quantity { unit, .. } => GetResponse::Quantity { 
             unit: *unit, 
             value: value.float(),

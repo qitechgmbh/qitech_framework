@@ -1,4 +1,4 @@
-use crate::{SharedState, api::common::PropertyQuery};
+use crate::{SharedState, api::common::PropertyHistoryQuery};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -41,7 +41,7 @@ pub(super) struct Entry<T> {
 pub(super) async fn get(
     State(state): State<Arc<SharedState>>,
     Path((slug, serial, property_name)): Path<(String, u16, String)>,
-    Query(query): Query<PropertyQuery>,
+    Query(query): Query<PropertyHistoryQuery>,
 ) -> Result<Json<Entries>, String> {
     // ensure we have such a machine type defined in the schemas
     let schemas = state.schemas.load();
@@ -91,7 +91,7 @@ async fn read_entries(
     ident: MachineIdentificationUnique,
     name: &str,
     kind: &PropertyKind<Value>,
-    q: PropertyQuery,
+    q: PropertyHistoryQuery,
 ) -> Result<Entries, String> {
     let value = match &kind {
         PropertyKind::Value(v) => v,
@@ -132,7 +132,7 @@ async fn fetch_all<T: DeserializeOwned>(
     ident: MachineIdentificationUnique,
     name: &str,
     column: &str,
-    query: PropertyQuery,
+    query: PropertyHistoryQuery,
 ) -> Result<Vec<Entry<T>>, String> {
     let sql = init_sql(column, &query)?;
 
@@ -150,7 +150,7 @@ async fn fetch_all<T: DeserializeOwned>(
     q.fetch_all::<Entry<T>>().await.map_err(|e| format!("{e}"))
 }
 
-fn init_sql(column: &str, query: &PropertyQuery) -> Result<String, String> {
+fn init_sql(column: &str, query: &PropertyHistoryQuery) -> Result<String, String> {
     let mut sql = match &query.get_aggregation()? {
         Some(aggregation) => format!(
             r#"

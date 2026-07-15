@@ -1,23 +1,17 @@
-use crate::{SharedState, api::common::PropertyQuery};
-use axum::{
-    Json,
-    extract::{Path, Query, State},
-};
-use chrono::{DateTime, Utc};
-use clickhouse::{Client, Row};
-use control_core::{
-    ConfigMutationResult, MachineIdentificationUnique,
-    schema::{
-        latest::{PropertyKind, config::Value},
-        v1_0::Unit,
-    },
-};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::sync::Arc;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use chrono::{DateTime, Utc};
+use axum::Json;
+use axum::extract::{Path, Query, State};
+use clickhouse::{Client, Row};
+use control_core::{ConfigMutationResult, MachineIdentificationUnique};
+use control_core::schema::{latest::{PropertyKind, Unit, state::Value}};
+use crate::{SharedState, api::common::PropertyHistoryQuery};
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub(super) enum Entries {
+    #[serde(rename = "Quantity")]
     String { data: Vec<Entry<String>> },
     Boolean { data: Vec<Entry<bool>> },
     Integer { data: Vec<Entry<i64>> },
@@ -41,7 +35,7 @@ pub(super) struct Entry<T> {
 pub(super) async fn get(
     State(state): State<Arc<SharedState>>,
     Path((slug, serial, property_name)): Path<(String, u16, String)>,
-    Query(query): Query<PropertyQuery>,
+    Query(query): Query<PropertyHistoryQuery>,
 ) -> Result<Json<Entries>, String> {
     // ensure we have such a machine type defined in the schemas
     let schemas = state.schemas.load();
@@ -57,7 +51,7 @@ pub(super) async fn get(
 
     let path: Vec<&str> = property_name.split('.').collect();
 
-    let mut current = &schema.config;
+    let mut current = &schema.state;
     for (index, part) in path.iter().enumerate() {
         let Some(prop) = current.get(*part) else {
             println!("not found at {}", part);
@@ -91,7 +85,7 @@ async fn read_entries(
     ident: MachineIdentificationUnique,
     name: &str,
     kind: &PropertyKind<Value>,
-    q: PropertyQuery,
+    q: PropertyHistoryQuery,
 ) -> Result<Entries, String> {
     let value = match &kind {
         PropertyKind::Value(v) => v,
@@ -115,10 +109,10 @@ async fn read_entries(
             data: fetch_all::<f64>(client, ident, name, "float", q).await? 
         }),
         Value::Fraction(_) => Ok(Entries::Fraction { 
-            data: fetch_all::<f64>(client, ident, name, "fraction", q).await? 
+            data: fetch_all::<f64>(client, ident, name, "float", q).await? 
         }),
         Value::Percentage(_) => Ok(Entries::Percentage { 
-            data: fetch_all::<f64>(client, ident, name, "percentage", q).await? 
+            data: fetch_all::<f64>(client, ident, name, "float", q).await? 
         }),
         Value::Quantity { unit, .. } => Ok(Entries::Quantity { 
             unit: *unit,
@@ -132,7 +126,7 @@ async fn fetch_all<T: DeserializeOwned>(
     ident: MachineIdentificationUnique,
     name: &str,
     column: &str,
-    query: PropertyQuery,
+    query: PropertyHistoryQuery,
 ) -> Result<Vec<Entry<T>>, String> {
     let sql = init_sql(column, &query)?;
 
@@ -150,7 +144,7 @@ async fn fetch_all<T: DeserializeOwned>(
     q.fetch_all::<Entry<T>>().await.map_err(|e| format!("{e}"))
 }
 
-fn init_sql(column: &str, query: &PropertyQuery) -> Result<String, String> {
+fn init_sql(column: &str, query: &PropertyHistoryQuery) -> Result<String, String> {
     let mut sql = match &query.get_aggregation()? {
         Some(aggregation) => format!(
             r#"

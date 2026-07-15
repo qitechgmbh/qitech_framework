@@ -7,6 +7,8 @@ use control_core::{MachineIdentification, vendors};
 use crate::SharedState;
 
 mod config;
+mod state;
+mod measurements;
 
 // -- router ---
 
@@ -14,6 +16,8 @@ pub fn init_router() -> Router<Arc<SharedState>> {
     Router::new()
         .route("/", routing::get(get))
         .nest("/{slug}/{serial}/config", config::init_router())
+        .nest("/{slug}/{serial}/state", state::init_router())
+        .nest("/{slug}/{serial}/measurements", measurements::init_router())
 }
 
 // --- GET ---

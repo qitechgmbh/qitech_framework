@@ -12,7 +12,7 @@ const LIMIT_DEFAULT: u64 = 100;
 const LIMIT_MAXIMUM: u64 = 1_000_000;
 
 #[derive(Deserialize)]
-pub struct PropertyQuery {
+pub struct PropertyHistoryQuery {
     /// Start timestamp.
     #[serde(default, with = "clickhouse::serde::chrono::datetime64::millis::option")]
     pub from: Option<DateTime<Utc>>,
@@ -41,7 +41,7 @@ pub struct PropertyQuery {
     // pub format: Option<ResponseFormat>,
 }
 
-impl PropertyQuery {
+impl PropertyHistoryQuery {
     pub fn get_time_span(
         &self,
     ) -> Result<TimeSpan, String> {

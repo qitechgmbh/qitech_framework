@@ -1,5 +1,5 @@
 use serde::Deserialize ;
-use super::{EnumVariants, Unit};
+use super::Unit;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -12,13 +12,6 @@ pub enum Value {
         value: NumericValue,
         unit: Unit,
     },
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EnumValue {
-    /// The set of allowed variants for this value. Required.
-    pub variants: EnumVariants,
 }
 
 #[derive(Debug, Clone, Deserialize)]

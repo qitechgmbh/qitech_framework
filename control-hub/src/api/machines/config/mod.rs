@@ -16,8 +16,8 @@ mod history;
 
 pub fn init_router() -> Router<Arc<SharedState>> {
     Router::new()
+        .route("/{property_name}", routing::get(get).put(put))
         .route("/{property_name}/history", routing::get(history::get))
-        .route("/{property_name}",routing::get(get).put(put))
 }
 
 // --- GET --- 

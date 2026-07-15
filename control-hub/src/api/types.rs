@@ -39,14 +39,6 @@ pub type TransactionId = u64;
 
 // --- x ---
 
-#[derive(Deserialize)]
-pub struct HistoryArgs {
-    pub time_span: TimeSpan,
-    pub aggregation: Option<Aggregation>,
-    pub ordering: Ordering,
-    pub limit: u64,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct TimeSpan {
     pub from: Option<DateTime<Utc>>,

@@ -71,7 +71,7 @@ struct SharedState {
 pub struct PropertyCache {
     config: HashMap<MachineIdentificationUnique, HashMap<String, ScalarValue>>,
     state: HashMap<MachineIdentificationUnique, HashMap<String, ScalarValue>>,
-    measurements: HashMap<MachineIdentificationUnique, HashMap<String, f64>>,
+    measurements: HashMap<MachineIdentificationUnique, HashMap<String, Option<f64>>>,
 }
 
 pub struct ControlHub {
