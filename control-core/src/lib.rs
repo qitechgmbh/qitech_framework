@@ -91,6 +91,7 @@ pub enum ConfigMutationOrigin {
 pub enum ConfigMutationResult {
     Success,
     OutOfBounds,
+    InvalidInput,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

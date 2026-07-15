@@ -1,4 +1,0 @@
-columns format version: 1
-2 columns:
-`version` UInt64
-`applied_at` DateTime64(3)

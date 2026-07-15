@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::{self, Display, Formatter}};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use unic_langid::LanguageIdentifier;
 use crate::{
     MachineIdentification,
@@ -140,7 +141,7 @@ impl IntoIterator for EnumVariants {
 }
 
 // --- physical units --- 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Unit {
     MeterPerSecondSquared,
     MeterPerMinutePerSecond,

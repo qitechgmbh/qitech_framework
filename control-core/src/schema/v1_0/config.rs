@@ -149,6 +149,7 @@ pub struct BooleanValue {
     pub persistent: bool,
 }
 
+
 #[derive(Debug, Clone)]
 pub struct NumericValue<T> {
     /// Whether this value is allowed to be null. If `true`, `default` becomes optional.

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use axum::routing::get;
-use axum::routing::post;
+// use axum::routing::post;
 use tokio::net::TcpListener;
 use crate::SharedState;
 
@@ -46,10 +46,10 @@ pub(crate) async fn run(state: SharedState) -> anyhow::Result<()> {
             get(config_property::get),
         )
         // route for changing a config property
-        .route(
-            "/api/v3/machines/{name}/{serial}/config/{property_name}",
-            post(config_property::post),
-        )
+        // .route(
+        //     "/api/v3/machines/{name}/{serial}/config/{property_name}",
+        //     post(config_property::post),
+        // )
 
         /*
         // --- state ---
