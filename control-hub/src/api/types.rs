@@ -16,7 +16,7 @@ pub enum RuntimeRequest {
         subdevice_index: usize,
     },
     MutateConfig {
-        identification: MachineIdentificationUnique,
+        ident: MachineIdentificationUnique,
         name: String,
         value: ScalarValue,
     },
@@ -162,8 +162,9 @@ impl<'de> Deserialize<'de> for Interval {
 }
 
 // ordering
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Default, Deserialize)]
 pub enum Ordering {
+    #[default]
     #[serde(rename = "asc")]
     Ascending,
     #[serde(rename = "desc")]

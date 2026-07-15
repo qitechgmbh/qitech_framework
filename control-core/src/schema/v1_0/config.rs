@@ -1,8 +1,6 @@
-use serde::Deserialize;
 use super::{EnumVariants, Range, Unit};
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone)]
 pub enum Value {
     Enum(EnumValue),
     String(StringValue),
@@ -11,98 +9,6 @@ pub enum Value {
     Float(FloatValue),
     Fraction(FloatValue),
     Percentage(FloatValue),
-
-    // Acceleration
-    MeterPerSecondSquared(FloatValue),
-    MeterPerMinutePerSecond(FloatValue),
-
-    // AmountOfSubstance
-    Mole(FloatValue),
-
-    // Angle
-    Radian(FloatValue),
-    Degree(FloatValue),
-    Revolution(FloatValue),
-
-    // AngularAcceleration
-    RadianPerSecondSquared(FloatValue),
-    DegreePerSecondSquared(FloatValue),
-    RevolutionPerMinutePerSecond(FloatValue),
-
-    // AngularJerk
-    RadianPerSecondCubed(FloatValue),
-    DegreePerSecondCubed(FloatValue),
-    RevolutionPerMinutePerSecondSquared(FloatValue),
-
-    // AngularVelocity
-    RadianPerSecond(FloatValue),
-    DegreePerSecond(FloatValue),
-    RevolutionPerSecond(FloatValue),
-    RevolutionPerMinute(FloatValue),
-
-    // ElectricCurrent
-    Milliampere(FloatValue),
-    Centiampere(FloatValue),
-    Ampere(FloatValue),
-
-    // ElectricPotential
-    Millivolt(FloatValue),
-    Centivolt(FloatValue),
-    Volt(FloatValue),
-
-    // Frequency
-    Millihertz(FloatValue),
-    Centihertz(FloatValue),
-    Hertz(FloatValue),
-    CyclePerMinute(FloatValue),
-
-    // Jerk
-    MeterPerSecondCubed(FloatValue),
-    MeterPerMinutePerSecondSquared(FloatValue),
-
-    // Length
-    Millimeter(FloatValue),
-    Centimeter(FloatValue),
-    Meter(FloatValue),
-
-    // LuminousIntensity
-    Candela(FloatValue),
-
-    // Mass
-    Kilogram(FloatValue),
-
-    // Pressure
-    Pascal(FloatValue),
-    Bar(FloatValue),
-
-    // Ratio
-    Ratio(FloatValue),
-
-    // ThermodynamicTemperature
-    Kelvin(FloatValue),
-    DegreeCelsius(FloatValue),
-
-    // Time
-    Second(FloatValue),
-
-    // Velocity
-    MillimeterPerSecond(FloatValue),
-    MeterPerSecond(FloatValue),
-    MeterPerMinute(FloatValue),
-
-    // VolumeRate
-    CubicMeterPerSecond(FloatValue),
-    LiterPerSecond(FloatValue),
-    LiterPerMinute(FloatValue),
-}
-
-#[derive(Debug, Clone)]
-pub enum ValueV2 {
-    Enum(EnumValue),
-    String(StringValue),
-    Boolean(BooleanValue),
-    Integer(IntegerValue),
-    Float(FloatValue),
     Quantity {
         value: FloatValue,
         unit: Unit,
@@ -168,5 +74,3 @@ pub struct NumericValue<T> {
 
 pub type IntegerValue = NumericValue<i64>;
 pub type FloatValue = NumericValue<f64>;
-
-// string repr

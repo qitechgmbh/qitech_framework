@@ -1,10 +1,26 @@
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
-use axum::{Json, extract::{Path, State}, http::StatusCode};
-use control_core::{ScalarValue, schema::v1_0::{Unit, config}};
 use tokio::sync::oneshot;
-use crate::{SharedState, api::{RuntimeRequest, common::ApiError}};
-use super::common::{get_machine_info, get_property_info};
+use axum::{Json, Router, extract::{Path, State}, http::StatusCode, routing};
+
+use control_core::ScalarValue;
+use control_core::schema::latest::{Unit, config};
+
+use crate::SharedState;
+use crate::api::RuntimeRequest;
+use crate::api::common::{ApiError, get_machine_info, get_property_info};
+
+mod history;
+
+// -- router ---
+
+pub fn init_router() -> Router<Arc<SharedState>> {
+    Router::new()
+        .route("/{property_name}/history", routing::get(history::get))
+        .route("/{property_name}",routing::get(get).put(put))
+}
+
+// --- GET --- 
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -19,13 +35,14 @@ pub(super) enum GetResponse {
     Quantity {
         unit: Unit, 
         value: Option<f64>,
-    },
+    }
 }
 
 pub(super) async fn get(
     State(state): State<Arc<SharedState>>,
     Path((slug, serial, property_name)): Path<(String, u16, String)>,
 ) -> Result<Json<GetResponse>, ApiError> {
+
     // get schema info
     let schemas = state.schemas.load();
     let (ident, schema) = get_machine_info(&schemas, &slug, serial)?;
@@ -36,15 +53,16 @@ pub(super) async fn get(
     let props = props.config.get(&ident).expect("must exist");
     let value = props.get(&property_name).expect("must exist").clone();
 
+    use config::Value::*;
     let response = match prop_info {
-        config::Value::Enum(_) => GetResponse::Enum { value: value.string() },
-        config::Value::String(_) => GetResponse::String { value: value.string() },
-        config::Value::Boolean(_) => GetResponse::Boolean { value: value.boolean() },
-        config::Value::Integer(_) => GetResponse::Integer { value: value.integer() },
-        config::Value::Float(_) => GetResponse::Float { value: value.float() },
-        config::Value::Fraction(_) => GetResponse::Fraction { value: value.float() },
-        config::Value::Percentage(_) => GetResponse::Percentage { value: value.float() },
-        config::Value::Quantity { unit, .. } => GetResponse::Quantity { 
+        Enum(_) => GetResponse::Enum { value: value.string() },
+        String(_) => GetResponse::String { value: value.string() },
+        Boolean(_) => GetResponse::Boolean { value: value.boolean() },
+        Integer(_) => GetResponse::Integer { value: value.integer() },
+        Float(_) => GetResponse::Float { value: value.float() },
+        Fraction(_) => GetResponse::Fraction { value: value.float() },
+        Percentage(_) => GetResponse::Percentage { value: value.float() },
+        Quantity { unit, .. } => GetResponse::Quantity { 
             unit: *unit, 
             value: value.float(),
         },
@@ -53,15 +71,17 @@ pub(super) async fn get(
     Ok(axum::Json(response))
 }
 
+// --- PUT ---
+
 #[derive(Debug, Deserialize)]
-pub struct SetRequest {
+pub struct PutRequest {
     pub value: serde_json::Value,
 }
 
 pub(super) async fn put(
     State(state): State<Arc<SharedState>>,
     Path((slug, serial, name)): Path<(String, u16, String)>,
-    Json(body): Json<SetRequest>,
+    Json(body): Json<PutRequest>,
 ) -> Result<StatusCode, ApiError> {
     // get schema info
     let schemas = state.schemas.load();

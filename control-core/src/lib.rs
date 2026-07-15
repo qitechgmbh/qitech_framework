@@ -140,8 +140,37 @@ pub enum LogLevel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ScalarValue {
     String(Option<String>),
-    IntegerSigned(Option<i64>),
-    IntegerUnsigned(Option<u64>),
+    Integer(Option<i64>),
     Float(Option<f64>),
     Boolean(Option<bool>),
+}
+
+impl ScalarValue {
+    pub fn string(self) -> Option<String> {
+        match self {
+            ScalarValue::String(value) => value,
+            other => panic!("expected String, got {:?}", other),
+        }
+    }
+
+    pub fn integer(self) -> Option<i64> {
+        match self {
+            ScalarValue::Integer(value) => value,
+            other => panic!("expected Integer, got {:?}", other),
+        }
+    }
+
+    pub fn float(self) -> Option<f64> {
+        match self {
+            ScalarValue::Float(value) => value,
+            other => panic!("expected Float, got {:?}", other),
+        }
+    }
+
+    pub fn boolean(self) -> Option<bool> {
+        match self {
+            ScalarValue::Boolean(value) => value,
+            other => panic!("expected Boolean, got {:?}", other),
+        }
+    }
 }

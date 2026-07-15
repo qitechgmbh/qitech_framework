@@ -17,8 +17,7 @@ pub struct ConfigMutationRecordRow {
 
     pub value_type: ScalarValueType,
     pub value_string: Option<String>,
-    pub value_int_signed: Option<i64>,
-    pub value_int_unsigned: Option<u64>,
+    pub value_int: Option<i64>,
     pub value_float: Option<f64>,
     pub value_bool: Option<bool>,
 
@@ -29,7 +28,7 @@ pub struct ConfigMutationRecordRow {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ScalarValueType {
     String,
-    IntegerSigned,
+    Integer,
     IntegerUnsigned,
     Float,
     Boolean,
@@ -39,8 +38,7 @@ impl From<&ScalarValue> for ScalarValueType {
     fn from(value: &ScalarValue) -> Self {
         match value {
             ScalarValue::String(_) => ScalarValueType::String,
-            ScalarValue::IntegerSigned(_) => ScalarValueType::IntegerSigned,
-            ScalarValue::IntegerUnsigned(_) => ScalarValueType::IntegerUnsigned,
+            ScalarValue::Integer(_) => ScalarValueType::Integer,
             ScalarValue::Float(_) => ScalarValueType::Float,
             ScalarValue::Boolean(_) => ScalarValueType::Boolean,
         }
@@ -56,8 +54,7 @@ impl From<ScalarValue> for ScalarValueType {
 pub struct ScalarValueColumns {
     pub value_type: ScalarValueType,
     pub value_string: Option<String>,
-    pub value_int_signed: Option<i64>,
-    pub value_int_unsigned: Option<u64>,
+    pub value_int: Option<i64>,
     pub value_float: Option<f64>,
     pub value_bool: Option<bool>,
 }
@@ -67,16 +64,14 @@ impl From<&ScalarValue> for ScalarValueColumns {
         let mut columns = ScalarValueColumns {
             value_type: value.into(),
             value_string: None,
-            value_int_signed: None,
-            value_int_unsigned: None,
+            value_int: None,
             value_float: None,
             value_bool: None,
         };
 
         match value {
             ScalarValue::String(v) => columns.value_string = v.clone(),
-            ScalarValue::IntegerSigned(v) => columns.value_int_signed = *v,
-            ScalarValue::IntegerUnsigned(v) => columns.value_int_unsigned = *v,
+            ScalarValue::Integer(v) => columns.value_int = *v,
             ScalarValue::Float(v) => columns.value_float = *v,
             ScalarValue::Boolean(v) => columns.value_bool = *v,
         }

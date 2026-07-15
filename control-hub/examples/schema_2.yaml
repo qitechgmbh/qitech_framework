@@ -9,7 +9,7 @@ identification:
 
 config:
   should_count: !boolean
-    range: 0..1
+    default: false
 
 state:
   counting: !boolean

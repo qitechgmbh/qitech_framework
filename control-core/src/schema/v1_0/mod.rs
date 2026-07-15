@@ -11,9 +11,9 @@ pub type Map<K, V> = IndexMap<K, V>;
 pub type StringMap<T> = Map<String, T>;
 pub type LocalizedText = Map<LanguageIdentifier, String>;
 
-pub type ConfigProperty = Property<config::ValueV2>;
-pub type StateProperty = Property<state::ValueV2>;
-pub type MeasurementProperty = Property<measurement::ValueV2>;
+pub type ConfigProperty = Property<config::Value>;
+pub type StateProperty = Property<state::Value>;
+pub type MeasurementProperty = Property<measurement::Value>;
 pub type CommandParameter = Property<command::ParameterValue>;
 pub use command::Command;
 
@@ -104,7 +104,11 @@ impl EnumVariants {
         self.values.last().expect("Cannot be empty")
     }
 
-    pub fn get(&self, name: &str) -> Option<i64> {
+    pub fn contains_name(&self, name: &str) -> bool {
+        self.values.contains_key(name)
+    }
+
+    pub fn get_int(&self, name: &str) -> Option<i64> {
         self.values.get(name).copied()
     }
 
@@ -114,6 +118,10 @@ impl EnumVariants {
 
     pub fn iter(&self) -> indexmap::map::Iter<'_, String, i64> {
         self.values.iter()
+    }
+
+    pub fn list(&self) -> Vec<String> {
+        self.values.keys().cloned().collect()
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -142,6 +150,7 @@ impl IntoIterator for EnumVariants {
 
 // --- physical units --- 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Unit {
     MeterPerSecondSquared,
     MeterPerMinutePerSecond,

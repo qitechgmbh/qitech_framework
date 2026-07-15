@@ -1,10 +1,10 @@
 use serde::{
     Deserialize, Deserializer,
     de::{
-        EnumAccess, Error, MapAccess, SeqAccess, Visitor,
-        value::{EnumAccessDeserializer, MapAccessDeserializer},
+        self, EnumAccess, Error, MapAccess, SeqAccess, Visitor, value::{EnumAccessDeserializer, MapAccessDeserializer}
     },
 };
+use yaml_serde::Value;
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
@@ -12,6 +12,8 @@ use std::{
     str::FromStr,
 };
 use unic_langid::LanguageIdentifier;
+
+use crate::schema::v1_0::{Unit, measurement, state};
 
 use super::{
     raw, config, command,
@@ -170,7 +172,75 @@ impl<'de> Deserialize<'de> for EnumVariants {
     }
 }
 
-// config
+// --- config ---
+impl<'de> Deserialize<'de> for config::Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+
+        let Value::Tagged(tagged) = value else {
+            return Err(de::Error::custom("expected tagged value"));
+        };
+
+        let tag = &tagged.tag.to_string();
+        match &tag.as_str()[1..] {
+            "enum" => {
+                let value = config::EnumValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Enum(value))
+            }
+
+            "string" => {
+                let value = config::StringValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::String(value))
+            }
+
+            "boolean" => {
+                let value = config::BooleanValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Boolean(value))
+            }
+
+            "integer" => {
+                let value = config::IntegerValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Integer(value))
+            }
+
+            "float" => {
+                let value = config::FloatValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Float(value))
+            }
+
+            "fraction" => {
+                let value = config::FloatValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Fraction(value))
+            }
+
+            "percentage" => {
+                let value = config::FloatValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Percentage(value))
+            }
+
+            tag => {
+                let unit: Unit = yaml_serde::from_str(tag)
+                    .map_err(de::Error::custom)?;
+
+                let value = config::FloatValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+
+                Ok(Self::Quantity { value, unit })
+            }
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for config::EnumValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -193,7 +263,7 @@ impl<'de> Deserialize<'de> for config::EnumValue {
             default,
         } = Helper::deserialize(deserializer)?;
 
-        if variants.get(&default).is_none() {
+        if variants.get_int(&default).is_none() {
             return Err(D::Error::custom(format!("no such variant {:?}", default)));
         }
 
@@ -340,7 +410,136 @@ where
     }
 }
 
-// command
+// --- state ---
+impl<'de> Deserialize<'de> for state::Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+
+        let Value::Tagged(tagged) = value else {
+            return Err(de::Error::custom("expected tagged value"));
+        };
+
+        // strip '!' char
+        let tag = &tagged.tag.to_string();
+        match &tag.as_str()[1..] {
+            "enum" => {
+                let value = state::EnumValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Enum(value))
+            }
+
+            "string" => {
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::String(value))
+            }
+
+            "boolean" => {
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Boolean(value))
+            }
+
+            "integer" => {
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Integer(value))
+            }
+
+            "float" => {
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Float(value))
+            }
+
+            "fraction" => {
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Fraction(value))
+            }
+
+            "percentage" => {
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Percentage(value))
+            }
+
+            tag => {
+                let unit: Unit = yaml_serde::from_str(tag)
+                    .map_err(de::Error::custom)?;
+
+                let value = state::ScalarValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+
+                Ok(Self::Quantity { value, unit })
+            }
+        }
+    }
+}
+
+// --- measurement ---
+impl<'de> Deserialize<'de> for measurement::Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use measurement::{NumericValue, BooleanValue};
+
+        let value = Value::deserialize(deserializer)?;
+
+        let Value::Tagged(tagged) = value else {
+            return Err(de::Error::custom("expected tagged value"));
+        };
+
+        let tag = &tagged.tag.to_string();
+        match &tag.as_str()[1..] {
+            "boolean" => {
+                let value = BooleanValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Boolean(value))
+            }
+
+            "integer" => {
+                let value = NumericValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Integer(value))
+            }
+
+            "float" => {
+                let value = NumericValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Float(value))
+            }
+
+            "fraction" => {
+                let value = NumericValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Fraction(value))
+            }
+
+            "percentage" => {
+                let value = NumericValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+                Ok(Self::Percentage(value))
+            }
+
+            tag => {
+                let unit: Unit = yaml_serde::from_str(tag)
+                    .map_err(de::Error::custom)?;
+
+                let value = NumericValue::deserialize(tagged.value)
+                    .map_err(de::Error::custom)?;
+
+                Ok(Self::Quantity { value, unit })
+            }
+        }
+    }
+}
+
+// --- command ---
 impl<'de> Deserialize<'de> for Command {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -372,7 +571,7 @@ impl<'de> Deserialize<'de> for command::EnumParameter {
         let Helper { variants, default } = Helper::deserialize(deserializer)?;
 
         if let Some(d) = &default {
-            if variants.get(d).is_none() {
+            if variants.get_int(d).is_none() {
                 return Err(D::Error::custom(format!("no such variant {:?}", d)));
             }
         }

@@ -10,7 +10,7 @@ identification:
 config:
   diameter:
     target: !millimeter
-      range: 0..
+      range: 0..2.0
       default: 1.75
 
     tolerance:

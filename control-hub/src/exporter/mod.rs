@@ -73,8 +73,7 @@ async fn map_export(
         let ScalarValueColumns { 
             value_type, 
             value_string, 
-            value_int_signed, 
-            value_int_unsigned, 
+            value_int, 
             value_float, 
             value_bool 
         } = ScalarValueColumns::from(&item.value);
@@ -87,8 +86,7 @@ async fn map_export(
             name: item.name.to_string(),
             value_type,
             value_string,
-            value_int_signed,
-            value_int_unsigned,
+            value_int,
             value_float,
             value_bool,
             origin: item.origin,

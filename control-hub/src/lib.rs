@@ -1,9 +1,14 @@
 use std::collections::BTreeMap;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
+use control_core::ScalarValue;
 use serde::Deserialize;
 use arc_swap::ArcSwap;
+use tokio::spawn;
+use tokio::sync::oneshot;
 use tokio::sync::{mpsc, broadcast, watch};
 use clickhouse::{Client, Row};
 
@@ -27,6 +32,7 @@ pub use config::DatabaseConfig;
 
 mod embedded;
 pub use embedded::EmbeddedSession;
+use tokio::time::sleep;
 
 pub mod api;
 use crate::api::RuntimeRequest;
@@ -49,14 +55,23 @@ struct SharedState {
     /// machine registry (ident, connected yes/no)
     pub machines: Swappable<BTreeMap<MachineIdentificationUnique, (DateTime<Utc>, bool)>>,
 
+    pub properties: Swappable<PropertyCache>,
+
     /// channel for forwarding data exports
     pub data_tx: broadcast::Sender<Arc<RuntimeExport>>,
 
     /// channel for receiving requests
-    pub req_tx: mpsc::Sender<RuntimeRequest>,
+    pub req_tx: mpsc::Sender<(RuntimeRequest, oneshot::Sender<Result<(), String>>)>,
 
     /// shutdown signal receiver
     pub shutdown_rx: watch::Receiver<()>,
+}
+
+#[derive(Clone, Default)]
+pub struct PropertyCache {
+    config: HashMap<MachineIdentificationUnique, HashMap<String, ScalarValue>>,
+    state: HashMap<MachineIdentificationUnique, HashMap<String, ScalarValue>>,
+    measurements: HashMap<MachineIdentificationUnique, HashMap<String, f64>>,
 }
 
 pub struct ControlHub {
@@ -79,11 +94,20 @@ impl ControlHub {
         let (data_tx, _) = broadcast::channel(64);
         let (req_tx, req_rx) = mpsc::channel(1024);
 
+        spawn(async {
+            // keep alive for now, TODO: use it ...
+            let x = req_rx;
+            loop {
+                sleep(Duration::from_secs(10)).await;
+            }
+        });
+
         let state = SharedState {
             config,
             client,
             schemas: Arc::new(ArcSwap::new(schemas)),
             machines: Arc::new(ArcSwap::new(machines)),
+            properties: Arc::new(ArcSwap::new(Default::default())),
             data_tx: data_tx.clone(),
             req_tx,
             shutdown_rx,
@@ -91,7 +115,7 @@ impl ControlHub {
 
         Ok((
             Self { state },
-            EmbeddedSession::new(data_tx, req_rx),
+            EmbeddedSession::new(data_tx),
         ))
     }
 

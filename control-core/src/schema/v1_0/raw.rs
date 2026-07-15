@@ -3,8 +3,8 @@ use serde::Deserialize;
 use crate::{MachineIdentification, schema::v1_0::{config, measurement, state}};
 use super::{
     LocalizedText, Property, PropertyKind,
-    Command, ConfigProperty, MeasurementProperty, QmsVersion, 
-    MachineSchema, StateProperty, StringMap,
+    Command, QmsVersion, 
+    MachineSchema, StringMap,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -97,17 +97,16 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
             commands.insert(name, command);
         }
         
-        todo!();
-        // Ok(Self {
-        //     qms_version: raw.qms_version,
-        //     name: raw.name,
-        //     schema_revision: raw.schema_revision,
-        //     identification: raw.identification,
-        //     config,
-        //     state,
-        //     measurements,
-        //     commands: raw.commands,
-        // })
+        Ok(Self {
+            qms_version: raw.qms_version,
+            name: raw.name,
+            schema_revision: raw.schema_revision,
+            identification: raw.identification,
+            config,
+            state,
+            measurements,
+            commands: raw.commands,
+        })
     }
 }
 

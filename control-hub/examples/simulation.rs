@@ -110,7 +110,7 @@ async fn simulate_runtime(mut session: EmbeddedSession) {
 
     // step three: go into a loop
 
-    sleep(Duration::from_millis(20000)).await;
+    sleep(Duration::from_millis(12_000_000)).await;
     return;
 
     // Step two start running them machines
@@ -119,10 +119,10 @@ async fn simulate_runtime(mut session: EmbeddedSession) {
     loop {
         let now = Instant::now();
 
-        // read and process up to 10 request per cycle
-        for req in session.get_requests(10) {
-            println!("[Runtime] processing request: {req:?}");
-        }
+        // // read and process up to 10 request per cycle
+        // for req in session.get_requests(10) {
+        //     println!("[Runtime] processing request: {req:?}");
+        // }
 
         // export once per second
         if now.duration_since(then) >= Duration::from_secs(1) {

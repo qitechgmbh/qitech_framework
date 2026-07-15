@@ -1,14 +1,27 @@
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use axum::{Json, extract::State};
+use axum::{Json, Router, extract::State, routing};
+
 use control_core::{MachineIdentification, vendors};
 use crate::SharedState;
 
+mod config;
+
+// -- router ---
+
+pub fn init_router() -> Router<Arc<SharedState>> {
+    Router::new()
+        .route("/", routing::get(get))
+        .nest("/{slug}/{serial}/config", config::init_router())
+}
+
+// --- GET ---
+
 pub(crate) async fn get(
     State(state): State<Arc<SharedState>>,
-) -> Result<Json<Vec<Entry>>, String> {
-    let mut items: Vec<Entry> = Vec::new();
+) -> Result<Json<Vec<MachineInfo>>, String> {
+    let mut items: Vec<MachineInfo> = Vec::new();
 
     for (ident_unique, (last_active, connected)) in state.machines.load().iter() {
         let ident = MachineIdentification::from(*ident_unique);
@@ -18,7 +31,7 @@ pub(crate) async fn get(
             v.name.clone()
         } else { "N/A".into() };
 
-        items.push(Entry {
+        items.push(MachineInfo {
             name,
             vendor: vendors::get_by_id(ident.vendor).unwrap_or("N/A"),
             serial: ident_unique.serial,
@@ -31,7 +44,7 @@ pub(crate) async fn get(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct Entry {
+pub(crate) struct MachineInfo {
     name: String,
     vendor: &'static str,
     serial: u16,
