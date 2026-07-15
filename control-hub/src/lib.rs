@@ -128,7 +128,11 @@ impl ControlHub {
 fn init_client(config: &DatabaseConfig) -> Client {
     let mut client = Client::default()
         .with_url(&config.url)
-        .with_user(&config.user);
+        .with_user(&config.user)
+        .with_setting("allow_experimental_json_type", "1")
+        // Enable inserting JSON columns as a string
+        .with_setting("input_format_binary_read_json_as_string", "1")
+        ;
 
     if let Some(password) = &config.password {
         client = client.with_password(password);
@@ -143,6 +147,8 @@ async fn init_schema_registry(
 ) -> anyhow::Result<Arc<BTreeMap<MachineIdentification, MachineSchema>>> {
     #[derive(Debug, Row, Deserialize)]
     struct SchemaRow {
+        ident_vendor: u16,
+        ident_machine: u16,
         content: String,
     }
 
@@ -153,7 +159,7 @@ async fn init_schema_registry(
 
     let mut registry = BTreeMap::new();
 
-    for SchemaRow { content } in fetched_schemas {
+    for SchemaRow { content, .. } in fetched_schemas {
         let schema = schema::parse_latest(&content)?;
 
         if let Some(s) = registry.insert(schema.identification, schema) {

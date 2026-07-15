@@ -40,7 +40,7 @@ pub(crate) async fn get(
             vendor: vendors::get_by_id(ident.vendor).unwrap_or("N/A"),
             serial: ident_unique.serial,
             connected: entry.connected,
-            last_active: entry.last_online,
+            last_active: entry.updated_at,
         });
     }
 

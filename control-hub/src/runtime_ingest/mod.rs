@@ -33,14 +33,17 @@ pub async fn run(state: SharedState) -> anyhow::Result<()> {
     let mut last_export_ts = Instant::now();
 
     loop {
+        println!("New inserts");
         let mut inserts = Inserts::new(&state.client).await?;
 
         loop {
+            println!("New Cycle");
             let now = Instant::now();
 
             if now.duration_since(last_export_ts) >= export_interval {
-                println!("Exporting");
+                println!("Export Started");
                 inserts.end().await?;
+                println!("Export Complete");
                 last_export_ts = now;
                 break;
             }

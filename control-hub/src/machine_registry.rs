@@ -15,18 +15,23 @@ pub async fn init(
 ) -> anyhow::Result<MachineRegistry> {
     #[derive(Debug, Row, Deserialize)]
     struct IdentRow {
-        ident: u64,
-        last_online: DateTime<Utc>,
+        identity: u64,
+        updated_at: DateTime<Utc>,
     }
 
     let rows = client
-        .query("SELECT * FROM machine_registry")
+        .query("SELECT
+    identity,
+    max(updated_at) AS updated_at
+FROM machine_activity
+GROUP BY identity"
+        )
         .fetch_all::<IdentRow>()
         .await?;
 
     let mut registry = BTreeMap::new();
-    for IdentRow { ident, last_online } in rows {
-        let ident = MachineIdentificationUnique::from_u64(ident);
+    for IdentRow { identity, updated_at } in rows {
+        let ident = MachineIdentificationUnique::from_u64(identity);
 
         let Some(schema) = schemas.get(&MachineIdentification::from(ident)) else {
             bail!("Could not find schema for registered machine {ident}");
@@ -34,7 +39,7 @@ pub async fn init(
 
         let entry = MachineRegistryEntry {
             connected: false,
-            last_online,
+            updated_at,
             properties: init_properties(schema),
         };
 
@@ -58,7 +63,7 @@ pub fn insert(
 
     let entry = MachineRegistryEntry {
         connected: false,
-        last_online: Utc::now(),
+        updated_at: Utc::now(),
         properties: init_properties(schema),
     };
 
@@ -146,7 +151,7 @@ fn walk<T>(
 #[derive(Debug, Clone)]
 pub struct MachineRegistryEntry {
     pub connected: bool,
-    pub last_online: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub properties: MachinePropertyCache,
 }
 

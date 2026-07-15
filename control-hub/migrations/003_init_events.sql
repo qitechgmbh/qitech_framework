@@ -9,8 +9,6 @@ CREATE TABLE control_hub.events(
         ORDER BY timestamp
     )
 )
-
 ENGINE = MergeTree
-
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (origin, name, timestamp)

@@ -10,14 +10,14 @@ use crate::SharedState;
 use crate::api::RuntimeRequest;
 use crate::api::common::{ApiError, get_machine_info, get_property_info};
 
-mod history;
+// mod history;
 
 // -- router ---
 
 pub fn init_router() -> Router<Arc<SharedState>> {
     Router::new()
         .route("/{property_name}", routing::get(get).put(put))
-        .route("/{property_name}/history", routing::get(history::get))
+        //.route("/{property_name}/history", routing::get(history::get))
 }
 
 // --- GET --- 

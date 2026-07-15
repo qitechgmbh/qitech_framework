@@ -16,24 +16,53 @@ pub struct Inserts {
 
 impl Inserts {
     pub async fn new(client: &Client) -> anyhow::Result<Self> {
+        // println!("creating insert: machine_state_mutations");
+        // let state_mutations = client.insert("xxx").await?;
+
+        println!("creating insert: logs");
+        let logs = client.insert("logs").await?;
+
+        println!("creating insert: events");
+        let events = client.insert("events").await?;
+
+        println!("creating insert: machine_activity");
+        let machine_activity = client.insert("machine_activity").await?;
+
+        println!("creating insert: config_mutations");
+        let config_mutations = client.insert("config_mutations").await?;
+
+        println!("creating insert: machine_measurements");
+        let machine_measurements = client.insert("machine_measurements").await?;
+
+        println!("all inserts created");
+
         Ok(Self {
-            logs: client.insert("logs")?,
-            events: client.insert("events")?,
-            machine_activity: client.insert("machine_activity")?,
-            config_mutations: client.insert("config_mutations")?,
-            state_mutations: client.insert("state_mutations")?,
-            machine_measurements: client.insert("machine_measurements")?,
+            logs,
+            events,
+            machine_activity,
+            config_mutations,
+            state_mutations: todo!(),
+            machine_measurements,
         })
     }
 
-    pub async fn end(self) -> clickhouse::error::Result<()> {
+    pub async fn end(self) -> anyhow::Result<()> {
+        async fn end_logged<T>(
+            name: &'static str,
+            fut: impl std::future::Future<Output = clickhouse::error::Result<T>>,
+        ) -> clickhouse::error::Result<T> {
+            let result = fut.await;
+            println!("insert {} finished: {:?}", name, result.as_ref().map(|_| "ok"));
+            result
+        }
+
         tokio::try_join!(
-            self.logs.end(),
-            self.events.end(),
-            self.machine_activity.end(),
-            self.config_mutations.end(),
-            self.state_mutations.end(),
-            self.machine_measurements.end(),
+            end_logged("logs", self.logs.end()),
+            end_logged("events", self.events.end()),
+            end_logged("machine_activity", self.machine_activity.end()),
+            end_logged("config_mutations", self.config_mutations.end()),
+            end_logged("state_mutations", self.state_mutations.end()),
+            end_logged("machine_measurements", self.machine_measurements.end()),
         )?;
 
         Ok(())
