@@ -91,10 +91,7 @@ impl From<&ScalarValue> for ScalarValueColumns {
             ScalarValue::Boolean { value } => columns.value_bool = *value,
             ScalarValue::Integer { value } => columns.value_int = *value,
             ScalarValue::Float { value } => columns.value_float = *value,
-            ScalarValue::Percentage { value } => columns.value_float = *value,
-            ScalarValue::Fraction { value } => columns.value_float = *value,
-            ScalarValue::Quantity { value, .. } => columns.value_float = *value,
-        }
+        };
 
         columns
     }

@@ -18,13 +18,21 @@ pub enum LogOrigin {
     Machine(MachineIdentificationUnique),
 }
 
+impl LogOrigin {
+    pub fn to_u64(self) -> u64 {
+        match self {
+            LogOrigin::Runtime => 0,
+            LogOrigin::Machine(ident) => ident.to_u64(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(i8)]
 pub enum LogLevel {
-    Trace,
-    Debug,
-    Info,
-    Warn,
-    Error,
+    Trace   = 0,
+    Debug   = 1,
+    Info    = 2,
+    Warn    = 3,
+    Error   = 4,
 }
-

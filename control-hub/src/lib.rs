@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Duration;
 use anyhow::anyhow;
+use control_core::{RuntimeRequest, RuntimeRequestKind};
 use serde::Deserialize;
 use arc_swap::ArcSwap;
 use tokio::spawn;
@@ -12,7 +12,7 @@ use clickhouse::{Client, Row};
 use control_core::{
     schema,
     MachineIdentification, 
-    RuntimeExport, schema::latest::MachineSchema,
+    RuntimeReport, schema::latest::MachineSchema,
 };
 
 mod migration;
@@ -26,12 +26,8 @@ pub use config::DatabaseConfig;
 
 mod embedded;
 pub use embedded::EmbeddedSession;
-use tokio::time::sleep;
 
 mod tables;
-
-pub mod api;
-use crate::api::RuntimeRequest;
 
 mod runtime_ingest;
 
@@ -41,27 +37,25 @@ use machine_registry::MachineRegistry;
 type Swappable<T> = Arc<ArcSwap<T>>;
 type SchemaRegistry = BTreeMap<MachineIdentification, MachineSchema>;
 
+type RuntimeReportSender = broadcast::Sender<Arc<RuntimeReport>>;
+type RuntimeReportReceiver = broadcast::Receiver<Arc<RuntimeReport>>;
+
+type RuntimeRequestSender = mpsc::Sender<RuntimeRequest>;
+type RuntimeRequestReceiver = mpsc::Receiver<RuntimeRequest>;
+
+
 #[derive(Clone)]
 struct SharedState {
-    /// config ... as the name suggests
     pub config: Config,
-
-    /// database client
     pub client: Client,
-
-    /// schema registry
     pub schemas: Swappable<SchemaRegistry>,
-
-    /// machine registry
     pub machines: Swappable<MachineRegistry>,
 
-    /// channel for forwarding data exports
-    pub data_tx: broadcast::Sender<Arc<RuntimeExport>>,
+    pub report_tx: RuntimeReportSender,
 
-    /// channel for receiving requests
-    pub req_tx: mpsc::Sender<(RuntimeRequest, oneshot::Sender<Result<(), String>>)>,
+    /// channel to start a transaction
+    pub request_tx: mpsc::Sender<RuntimeRequestKind>,
 
-    /// shutdown signal receiver
     pub shutdown_rx: watch::Receiver<()>,
 
     // TODO: implemen
@@ -71,6 +65,8 @@ struct SharedState {
 pub struct ControlHub {
     state: SharedState,
 }
+
+// Session Manager -> tries to connect, holds the request rx and report tx
 
 impl ControlHub {
     pub async fn init_embedded(
@@ -90,27 +86,19 @@ impl ControlHub {
         let (data_tx, _) = broadcast::channel(64);
         let (req_tx, req_rx) = mpsc::channel(1024);
 
-        spawn(async {
-            // keep alive for now, TODO: use it ...
-            let _x = req_rx;
-            loop {
-                sleep(Duration::from_secs(10)).await;
-            }
-        });
-
         let state = SharedState {
             config,
             client,
             schemas: Arc::new(ArcSwap::new(Arc::new(schemas))),
             machines: Arc::new(ArcSwap::new(Arc::new(machines))),
-            data_tx: data_tx.clone(),
-            req_tx,
+            report_tx: data_tx.clone(),
+            request_tx: req_tx,
             shutdown_rx,
         };
 
         Ok((
             Self { state },
-            EmbeddedSession::new(data_tx),
+            EmbeddedSession::new(data_tx, req_rx),
         ))
     }
 
@@ -126,7 +114,7 @@ impl ControlHub {
             }),
 
             // handles the client facing api
-            api::run(self.state.clone()),
+            // api::run(self.state.clone()),
         );
 
         // TODO: use this maybe?

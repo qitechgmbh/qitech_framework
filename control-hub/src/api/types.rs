@@ -3,32 +3,11 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize, de};
 use tokio::sync::oneshot;
 
-use control_core::{MachineIdentificationUnique, ScalarValue};
-
-/// Request targeted at the runtime
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeRequest {
-    WriteMachineDeviceIdentifcation {
-        machine_identification_unique: MachineIdentificationUnique,
-        role: u16,
-        subdevice_index: usize,
-    },
-    MutateConfig {
-        ident: MachineIdentificationUnique,
-        name: String,
-        value: ScalarValue,
-    },
-    InvokeCommand {
-        identification: MachineIdentificationUnique,
-        name: String,
-        data: String,  
-    },
-    Restart,
-}
+use control_core::{MachineIdentificationUnique, RuntimeRequest, ScalarValue};
 
 #[derive(Debug)]
 pub struct RuntimeTransaction {
-    pub uuid: TransactionId,
+    pub transaction_id: TransactionId,
     pub request: RuntimeRequest,
     pub response: oneshot::Sender<Result<(), String>>,
 }

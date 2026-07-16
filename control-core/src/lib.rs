@@ -28,7 +28,8 @@ pub use runtime::RuntimeRequestKind;
 pub use runtime::RuntimeReport;
 pub use runtime::RuntimeReportData;
 pub use runtime::RuntimeEvent;
-pub use runtime::RuntimeStateMutation;
+pub use runtime::RuntimeEventKind;
+pub use runtime::RuntimeState;
 pub use runtime::MachinesReport;
 
 mod logs;
@@ -37,6 +38,7 @@ pub use logs::LogLevel;
 pub use logs::LogOrigin;
 
 pub mod schema;
+
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
 

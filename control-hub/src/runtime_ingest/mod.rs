@@ -8,13 +8,13 @@ use tokio::{sync::broadcast, time::timeout};
 use clickhouse::inserter::Inserter;
 
 use control_core::{
-    Origin, ConfigMutationRecord, LogOrigin, LogRecord, 
-    MachineEvent, MachineMeasurements, RuntimeEvent, RuntimeEventKind, RuntimeExport, 
-    MachineStateMutationRecord,
+    RuntimeEventKind,
+    LogRecord, MachineConfigMutation, MachineEvent, MachineStateMutation, 
+    Origin, RuntimeEvent, RuntimeReport, MachineMeasurementVec
 };
 
-use crate::{SharedState, tables};
-use crate::machine_registry::{self, MachineRegistry};
+use crate::{SharedState, machine_registry, tables};
+use crate::machine_registry::MachineRegistry;
 
 mod types;
 use types::{Inserters, ScalarValueColumns};
@@ -26,7 +26,7 @@ pub async fn run(state: SharedState) -> anyhow::Result<()> {
     let mut machines = (*state.machines.load_full()).clone();
 
     // subscribe to incoming exports
-    let mut rx = state.data_tx.subscribe();
+    let mut rx = state.report_tx.subscribe();
 
     // create inserters for the database
     let mut inserters = Inserters::new(&state.client, export_interval).await?;
@@ -54,7 +54,7 @@ pub async fn run(state: SharedState) -> anyhow::Result<()> {
 
             match result {
                 Ok(data) => {
-                    process_export(
+                    process_report(
                         &state,
                         &mut machines,
                         &mut inserters,
@@ -73,43 +73,43 @@ pub async fn run(state: SharedState) -> anyhow::Result<()> {
     }
 }
 
-async fn process_export(
+async fn process_report(
     state: &SharedState,
     machines: &mut MachineRegistry,
     inserters: &mut Inserters,
-    export: Arc<RuntimeExport>,
+    report: Arc<RuntimeReport>,
 ) -> anyhow::Result<()> {
-    process_logs(&mut inserters.logs, &export.logs).await?;
+    process_logs(&mut inserters.logs, &report.logs).await?;
 
     process_runtime_events(
         state, 
         machines, 
         &mut inserters.events, 
-        &export.runtime_events
+        &report.runtime.events
     ).await?;
 
     process_machine_events(
         &mut inserters.events, 
-        &export.machine_events,
+        &report.machines.events,
     ).await?;
 
     process_machine_config_mutations(
         machines, 
         &mut inserters.machine_config_mutations, 
-        &export.machine_config_mutations
+        &report.machines.config_mutations
     ).await?;
 
     process_machine_state_mutations(
         machines, 
         &mut inserters.machine_state_mutations,
-        &export.machine_state_mutations
+        &report.machines.state_mutations
     ).await?;
 
     process_machine_measurements(
-        export.created_at,
+        report.created_at,
         machines,
         &mut inserters.machine_measurements,
-        &export.machine_measurements,
+        &report.machines.measurements,
     ).await?;
 
     // finally replace the outdated shared registry with the new one
@@ -122,10 +122,7 @@ async fn process_logs(
     records: &Vec<LogRecord>
 ) -> anyhow::Result<()> {
     for record in records {
-        let origin = match record.origin {
-            LogOrigin::MainLoop => 0,
-            LogOrigin::Machine(ident) => ident.to_u64(),
-        };
+        let origin = record.origin.to_u64();
 
         let attributes = record.attributes
             .iter()
@@ -151,23 +148,22 @@ async fn process_runtime_events(
     events: &Vec<RuntimeEvent>,
 ) -> anyhow::Result<()> {
     for event in events {
-        let value = match event.kind {
-            RuntimeEventKind::MachineConnected(ident) => {
-                machine_registry::mark_connected(machines, state, ident)?;
-                serde_json::to_string(&ident)?
-            }
-
-            RuntimeEventKind::MachineDisconnected(ident) => {
-                machine_registry::mark_disconnected(machines, ident);
-                serde_json::to_string(&ident)?
-            }
-        };
+        use RuntimeEventKind::*;
+        match &event.kind {
+            MachineConnected { ident } => {
+                machine_registry::mark_connected(machines, state, *ident)?;
+            },
+            MachineDisconnected { ident } => {
+                machine_registry::mark_disconnected(machines, *ident);
+            },
+            _ => {}
+        }
 
         inserter.write(&tables::events::Row {
             timestamp: event.timestamp,
             origin: 0,
-            name: event.kind.to_string(),
-            value,
+            name: "".into(), // TODO: USE KIND AS TAG
+            value: "".to_string(), // TODO: EXPORT
         }).await?;
     }
 
@@ -189,7 +185,7 @@ async fn process_machine_events(
             timestamp: *timestamp,
             origin: ident.to_u64(),
             name: name.to_string(),
-            value: data.clone(),
+            value: data.to_string(),
         }).await?;
     }
 
@@ -199,26 +195,26 @@ async fn process_machine_events(
 async fn process_machine_config_mutations(
     machines: &mut MachineRegistry,
     inserter: &mut Inserter<tables::machine_config_mutations::Row>,
-    records: &Vec<ConfigMutationRecord>,
+    mutations: &Vec<MachineConfigMutation>,
 ) -> anyhow::Result<()> {
-    for record in records {
-        let Some(machine) = machines.get_mut(&record.ident) else {
+    for mutation in mutations {
+        let Some(machine) = machines.get_mut(&mutation.ident) else {
             bail!(
                 "Exported config mutation for non existing machine {}",
-                record.ident
+                mutation.ident
             );
         };
 
-        let Some(prop) = machine.properties.config.get_mut(record.name.as_ref()) else {
+        let Some(prop) = machine.properties.config.get_mut(mutation.name.as_ref()) else {
             bail!(
                 "Exported config mutation for non existing property {} of machine {}",
-                record.name.as_ref(),
-                record.ident,
+                mutation.name.as_ref(),
+                mutation.ident,
             );
         };
 
         // update cached value
-        *prop = record.value.clone();
+        *prop = mutation.value.clone();
 
         let ScalarValueColumns {
             value_type,
@@ -227,23 +223,23 @@ async fn process_machine_config_mutations(
             value_int,
             value_float,
             value_bool,
-        } = ScalarValueColumns::from(&record.value);
+        } = ScalarValueColumns::from(&mutation.value);
 
         inserter.write(&tables::machine_config_mutations::Row {
-            timestamp: record.timestamp,
-            identity: record.ident.to_u64(),
-            name: record.name.to_string(),
+            timestamp: mutation.timestamp,
+            identity: mutation.ident.to_u64(),
+            name: mutation.name.to_string(),
             value_type: value_type as i8,
             value_enum,
             value_string,
             value_int,
             value_float,
             value_bool,
-            origin: match record.origin {
+            origin: match mutation.origin {
                 Origin::Request { request_id } => request_id,
                 Origin::Machine => 0,
             },
-            result: record.result as i8,
+            result: mutation.result as i8,
         }).await?;
     }
 
@@ -253,7 +249,7 @@ async fn process_machine_config_mutations(
 async fn process_machine_state_mutations(
     machines: &mut MachineRegistry,
     inserter: &mut Inserter<tables::machine_state_mutations::Row>,
-    records: &Vec<MachineStateMutationRecord>,
+    records: &Vec<MachineStateMutation>,
 ) -> anyhow::Result<()> {
     for record in records {
         let Some(machine) = machines.get_mut(&record.ident) else {
@@ -303,7 +299,7 @@ async fn process_machine_measurements(
     timestamp: DateTime<Utc>,
     machines: &mut MachineRegistry,
     inserter: &mut Inserter<tables::machine_measurements::Row>,
-    measurements: &MachineMeasurements,
+    measurements: &MachineMeasurementVec,
 ) -> anyhow::Result<()> {
     for snapshot in measurements {
         let Some(machine) = machines.get_mut(snapshot.ident) else {

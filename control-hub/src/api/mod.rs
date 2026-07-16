@@ -5,7 +5,6 @@ use crate::SharedState;
 
 mod types;
 pub use types::TransactionId;
-pub use types::RuntimeRequest;
 pub use types::RuntimeTransaction;
 
 mod common;

@@ -190,7 +190,7 @@ pub(super) async fn put(
 
     println!("Received config mutation request: {request:#?}");
 
-    state.req_tx
+    state.request_tx
         .send((request, tx))
         .await
         .map_err(|_| ApiError {

@@ -75,7 +75,13 @@ pub struct MachinesReport {
 // --- event ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeEvent {
+pub struct RuntimeEvent { 
+    pub timestamp: DateTime<Utc>,
+    pub kind: RuntimeEventKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuntimeEventKind {
     Started,
     Stopped,
     Terminated { error: String },
@@ -93,13 +99,23 @@ pub enum RuntimeEvent {
     },
 
     // --- serial ---
-    DiscoveredModbusDevice { path: String }
+    DiscoveredModbusDevice { path: String },
+
+    // --- machines ---
+    MachineConnected {ident: MachineIdentificationUnique },
+    MachineDisconnected {ident: MachineIdentificationUnique },
 }
 
 // --- state ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeStateMutation {
+pub struct RuntimeStateMutation {
+    timestamp: DateTime<Utc>,
+    new_state: RuntimeState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuntimeState {
     Started,
     Stopped,
     DicoveringEtherCATInterface,
