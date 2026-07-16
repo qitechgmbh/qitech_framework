@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use clickhouse::{Client, Row};
-use control_core::{ConfigMutationResult, MachineIdentificationUnique};
+use control_core::{OperationResult, MachineIdentificationUnique};
 use control_core::schema::{latest::{PropertyKind, Unit, state::Value}};
 use crate::{SharedState, api::common::PropertyHistoryQuery};
 
@@ -29,7 +29,7 @@ pub(super) struct Entry<T> {
     timestamp: DateTime<Utc>,
     value: T,
     origin: u64,
-    result: ConfigMutationResult,
+    result: OperationResult,
 }
 
 pub(super) async fn get(

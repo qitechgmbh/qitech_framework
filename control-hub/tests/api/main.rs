@@ -1,9 +1,9 @@
 use anyhow::bail;
 use chrono::Utc;
 use control_core::{
-    ConfigMutationOrigin, ConfigMutationRecord, ConfigMutationResult, LogLevel, LogOrigin,
-    LogRecord, MachineIdentificationUnique, MeasurementSnapshot, MeasurementSnapshotVec,
-    RuntimeEvent, RuntimeEventKind, RuntimeExport, ScalarValue, StateMutationRecord, vendors,
+    Origin, ConfigMutationRecord, OperationResult, LogLevel, LogOrigin,
+    LogRecord, MachineIdentificationUnique, MachineMeasurementSnapshot, MachineMeasurementSnapshotVec,
+    RuntimeEvent, RuntimeEventKind, RuntimeExport, ScalarValue, MachineStateMutationRecord, vendors,
 };
 use control_hub::{Config, ControlHub, DatabaseConfig};
 use std::{borrow::Cow, path::PathBuf, time::Duration};
@@ -44,7 +44,7 @@ async fn my_test() -> anyhow::Result<()> {
     // --- initialize hub ---
     let config = Config {
         database: DatabaseConfig {
-            url: url,
+            url,
             name: "control_hub".into(),
             user: "default".into(),
             password: None,
@@ -129,28 +129,28 @@ async fn my_test() -> anyhow::Result<()> {
         timestamp: Utc::now(),
         ident,
         name: Cow::Borrowed("temperature.target"),
-        value: ScalarValue::Float(Some(22.0)),
-        origin: ConfigMutationOrigin::User { request_id: 0 },
-        result: ConfigMutationResult::Success,
+        value: ScalarValue::Float { value: Some(22.0) },
+        origin: Origin::Request { request_id: 0 },
+        result: OperationResult::Success,
     }];
 
     let state_mutations = vec![
-        StateMutationRecord {
+        MachineStateMutationRecord {
             timestamp: Utc::now(),
             ident,
             name: Cow::Borrowed("heating"),
-            value: ScalarValue::Boolean(Some(true)),
+            value: ScalarValue::Boolean { value: Some(true) },
         },
-        StateMutationRecord {
+        MachineStateMutationRecord {
             timestamp: Utc::now(),
             ident,
             name: Cow::Borrowed("cooling"),
-            value: ScalarValue::Boolean(Some(true)),
+            value: ScalarValue::Boolean { value: Some(true) },
         },
     ];
 
-    let mut machine_measurements = MeasurementSnapshotVec::new();
-    machine_measurements.push(MeasurementSnapshot {
+    let mut machine_measurements = MachineMeasurementSnapshotVec::new();
+    machine_measurements.push(MachineMeasurementSnapshot {
         ident,
         name: "temperature.current".to_string(),
         value: 9.0,
@@ -160,8 +160,8 @@ async fn my_test() -> anyhow::Result<()> {
     session.export(RuntimeExport {
         created_at: Utc::now(),
         logs,
-        config_mutations,
-        state_mutations,
+        machine_config_mutations: config_mutations,
+        machine_state_mutations: state_mutations,
         machine_measurements,
         ..Default::default()
     });

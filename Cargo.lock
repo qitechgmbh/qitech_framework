@@ -577,6 +577,7 @@ dependencies = [
  "indexmap 2.14.0",
  "qitech_lib",
  "serde",
+ "serde_json",
  "soa_derive",
  "toml",
  "unic-langid",

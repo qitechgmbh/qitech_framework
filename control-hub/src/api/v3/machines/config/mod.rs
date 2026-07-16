@@ -110,7 +110,7 @@ pub(super) async fn put(
                 return Err(bad_request(expected));
             };
 
-            ScalarValue::Integer(Some(v))
+            ScalarValue::Integer { value: Some(v) }
         }
 
         config::Value::String(info) => {
@@ -124,7 +124,7 @@ pub(super) async fn put(
                 return Err(unprocessable("string length out of bounds"));
             }
 
-            ScalarValue::String(value)
+            ScalarValue::String { value }
         }
 
         config::Value::Boolean(info) => {
@@ -134,7 +134,7 @@ pub(super) async fn put(
                 return Err(bad_request("value cannot be null"));
             }
 
-            ScalarValue::Boolean(value)
+            ScalarValue::Boolean { value }
         }
 
         config::Value::Integer(info) => {
@@ -148,7 +148,7 @@ pub(super) async fn put(
                 return Err(unprocessable("value out of bounds"));
             }
 
-            ScalarValue::Integer(value)
+            ScalarValue::Integer { value }
         }
 
         config::Value::Float(info)
@@ -164,7 +164,7 @@ pub(super) async fn put(
                 return Err(unprocessable("value out of bounds"));
             }
 
-            ScalarValue::Float(value)
+            ScalarValue::Float { value }
         }
 
         config::Value::Quantity { value, .. } => {
@@ -179,7 +179,7 @@ pub(super) async fn put(
                 return Err(unprocessable("value out of bounds"));
             }
 
-            ScalarValue::Float(value)
+            ScalarValue::Float { value }
         }
     };
 

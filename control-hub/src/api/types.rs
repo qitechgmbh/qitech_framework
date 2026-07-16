@@ -1,11 +1,9 @@
 use std::str::FromStr;
-
 use chrono::{DateTime, Duration, Utc};
-use tokio::sync::oneshot;
 use serde::{Deserialize, Serialize, de};
-use control_core::{MachineIdentificationUnique, ScalarValue};
+use tokio::sync::oneshot;
 
-// write_machine_device_identification
+use control_core::{MachineIdentificationUnique, ScalarValue};
 
 /// Request targeted at the runtime
 #[derive(Debug, Clone, Serialize, Deserialize)]

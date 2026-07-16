@@ -108,11 +108,11 @@ fn init_properties(schema: &MachineSchema) -> MachinePropertyCache {
         use schema::latest::config::Value::*;
 
         let value = match v {
-            Enum(_) | String(_) => ScalarValue::String(None),
-            Boolean(_) => ScalarValue::Boolean(None),
-            Integer(_) => ScalarValue::Integer(None),
+            Enum(_) | String(_) => ScalarValue::String { value: None },
+            Boolean(_) => ScalarValue::Boolean { value: None },
+            Integer(_) => ScalarValue::Integer { value: None },
             Float(_) | Fraction(_) | Percentage(_) | Quantity { .. } => {
-                ScalarValue::Float(None)
+                ScalarValue::Float { value: None }
             }
         };
 
@@ -123,11 +123,11 @@ fn init_properties(schema: &MachineSchema) -> MachinePropertyCache {
         use schema::latest::state::Value::*;
 
         let value = match v {
-            Enum(_) | String(_) => ScalarValue::String(None),
-            Boolean(_) => ScalarValue::Boolean(None),
-            Integer(_) => ScalarValue::Integer(None),
+            Enum(_) | String(_) => ScalarValue::String { value: None },
+            Boolean(_) => ScalarValue::Boolean { value: None },
+            Integer(_) => ScalarValue::Integer { value: None },
             Float(_) | Fraction(_) | Percentage(_) | Quantity { .. } => {
-                ScalarValue::Float(None)
+                ScalarValue::Float { value: None }
             }
         };
 

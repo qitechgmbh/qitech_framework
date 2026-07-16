@@ -134,6 +134,15 @@ impl DeviceMachineIdentification {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DeviceHardwareIdentification {
-    Ethercat { subdevice_index: usize },
-    Serial { path: String },
+    Ethercat(DeviceHardwareIdentificationEthercat),
+    Serial(DeviceHardwareIdentificationSerial),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeviceHardwareIdentificationEthercat {
+    pub subdevice_index: usize,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DeviceHardwareIdentificationSerial {
+    pub path: String,
 }

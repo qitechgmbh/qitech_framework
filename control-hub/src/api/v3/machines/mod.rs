@@ -6,9 +6,11 @@ use axum::{Json, Router, extract::State, routing};
 use control_core::{MachineIdentification, vendors};
 use crate::SharedState;
 
+// mod history;
 mod config;
 mod state;
 mod measurements;
+mod events;
 
 // -- router ---
 
@@ -18,6 +20,7 @@ pub fn init_router() -> Router<Arc<SharedState>> {
         .nest("/{slug}/{serial}/config", config::init_router())
         .nest("/{slug}/{serial}/state", state::init_router())
         .nest("/{slug}/{serial}/measurements", measurements::init_router())
+        .nest("/{slug}/{serial}/events", events::init_router())
 }
 
 // --- GET ---
@@ -37,7 +40,7 @@ pub(crate) async fn get(
 
         items.push(MachineInfo {
             name,
-            vendor: vendors::get_by_id(ident.vendor).unwrap_or("N/A"),
+            vendor: vendors::get_name(ident.vendor).unwrap_or("N/A"),
             serial: ident_unique.serial,
             connected: entry.connected,
             last_active: entry.updated_at,

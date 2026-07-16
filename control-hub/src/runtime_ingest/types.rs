@@ -1,8 +1,7 @@
 use std::time::{Duration, Instant};
 
 use clickhouse::{Client, inserter::Inserter};
-use control_core::ScalarValue;
-use serde::{Deserialize, Serialize};
+use control_core::{ScalarValue, ScalarValueKind};
 
 use crate::tables;
 
@@ -66,37 +65,8 @@ impl Inserters {
 
 // --- misc ---
 
-#[derive(Debug, Serialize, Deserialize)]
-#[repr(i8)]
-pub enum ScalarValueType {
-    Enum,
-    String,
-    Integer,
-    IntegerUnsigned,
-    Float,
-    Boolean,
-}
-
-impl From<&ScalarValue> for ScalarValueType {
-    fn from(value: &ScalarValue) -> Self {
-        match value {
-            ScalarValue::Enum(_) => ScalarValueType::Enum,
-            ScalarValue::String(_) => ScalarValueType::String,
-            ScalarValue::Integer(_) => ScalarValueType::Integer,
-            ScalarValue::Float(_) => ScalarValueType::Float,
-            ScalarValue::Boolean(_) => ScalarValueType::Boolean,
-        }
-    }
-}
-
-impl From<ScalarValue> for ScalarValueType {
-    fn from(value: ScalarValue) -> Self {
-        (&value).into()
-    }
-}
-
 pub struct ScalarValueColumns {
-    pub value_type: ScalarValueType,
+    pub value_type: ScalarValueKind,
     pub value_enum: String,
     pub value_string: Option<String>,
     pub value_int: Option<i64>,
@@ -107,7 +77,7 @@ pub struct ScalarValueColumns {
 impl From<&ScalarValue> for ScalarValueColumns {
     fn from(value: &ScalarValue) -> Self {
         let mut columns = ScalarValueColumns {
-            value_type: value.into(),
+            value_type: value.kind(),
             value_enum: "".into(),
             value_string: None,
             value_int: None,
@@ -116,13 +86,14 @@ impl From<&ScalarValue> for ScalarValueColumns {
         };
 
         match value {
-            ScalarValue::Enum(v) => {
-                columns.value_enum = v.clone().expect("MUST");
-            },
-            ScalarValue::String(v) => columns.value_string = v.clone(),
-            ScalarValue::Integer(v) => columns.value_int = *v,
-            ScalarValue::Float(v) => columns.value_float = *v,
-            ScalarValue::Boolean(v) => columns.value_bool = *v,
+            ScalarValue::Enum { value } => columns.value_enum = value.clone(),
+            ScalarValue::String { value } => columns.value_string = value.clone(),
+            ScalarValue::Boolean { value } => columns.value_bool = *value,
+            ScalarValue::Integer { value } => columns.value_int = *value,
+            ScalarValue::Float { value } => columns.value_float = *value,
+            ScalarValue::Percentage { value } => columns.value_float = *value,
+            ScalarValue::Fraction { value } => columns.value_float = *value,
+            ScalarValue::Quantity { value, .. } => columns.value_float = *value,
         }
 
         columns

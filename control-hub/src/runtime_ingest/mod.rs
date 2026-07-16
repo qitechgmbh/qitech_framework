@@ -1,24 +1,23 @@
-use anyhow::bail;
-use clickhouse::inserter::Inserter;
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-
 use chrono::{DateTime, Utc};
+use anyhow::bail;
+use tokio::{sync::broadcast, time::timeout};
+use clickhouse::inserter::Inserter;
+
 use control_core::{
-    ConfigMutationOrigin, ConfigMutationRecord, LogOrigin, LogRecord, 
-    MachineEvent, Measurements, RuntimeEvent, RuntimeEventKind, RuntimeExport, 
-    StateMutationRecord,
+    Origin, ConfigMutationRecord, LogOrigin, LogRecord, 
+    MachineEvent, MachineMeasurements, RuntimeEvent, RuntimeEventKind, RuntimeExport, 
+    MachineStateMutationRecord,
 };
+
+use crate::{SharedState, tables};
+use crate::machine_registry::{self, MachineRegistry};
 
 mod types;
 use types::{Inserters, ScalarValueColumns};
-
-use tokio::{sync::broadcast, time::timeout};
-use crate::{SharedState, tables};
-use crate::machine_registry::{self, MachineRegistry};
-// use crate::runtime_ingest::types::;
 
 pub async fn run(state: SharedState) -> anyhow::Result<()> {
     let export_interval = state.config.export_interval;
@@ -97,13 +96,13 @@ async fn process_export(
     process_machine_config_mutations(
         machines, 
         &mut inserters.machine_config_mutations, 
-        &export.config_mutations
+        &export.machine_config_mutations
     ).await?;
 
     process_machine_state_mutations(
         machines, 
         &mut inserters.machine_state_mutations,
-        &export.state_mutations
+        &export.machine_state_mutations
     ).await?;
 
     process_machine_measurements(
@@ -241,8 +240,8 @@ async fn process_machine_config_mutations(
             value_float,
             value_bool,
             origin: match record.origin {
-                ConfigMutationOrigin::User { request_id } => request_id,
-                ConfigMutationOrigin::Machine => 0,
+                Origin::Request { request_id } => request_id,
+                Origin::Machine => 0,
             },
             result: record.result as i8,
         }).await?;
@@ -254,7 +253,7 @@ async fn process_machine_config_mutations(
 async fn process_machine_state_mutations(
     machines: &mut MachineRegistry,
     inserter: &mut Inserter<tables::machine_state_mutations::Row>,
-    records: &Vec<StateMutationRecord>,
+    records: &Vec<MachineStateMutationRecord>,
 ) -> anyhow::Result<()> {
     for record in records {
         let Some(machine) = machines.get_mut(&record.ident) else {
@@ -304,7 +303,7 @@ async fn process_machine_measurements(
     timestamp: DateTime<Utc>,
     machines: &mut MachineRegistry,
     inserter: &mut Inserter<tables::machine_measurements::Row>,
-    measurements: &Measurements,
+    measurements: &MachineMeasurements,
 ) -> anyhow::Result<()> {
     for snapshot in measurements {
         let Some(machine) = machines.get_mut(snapshot.ident) else {
@@ -339,3 +338,5 @@ async fn process_machine_measurements(
 
     Ok(())
 }
+
+// 

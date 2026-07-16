@@ -63,6 +63,9 @@ struct SharedState {
 
     /// shutdown signal receiver
     pub shutdown_rx: watch::Receiver<()>,
+
+    // TODO: implemen
+    // pub runtime_state: RuntimeState
 }
 
 pub struct ControlHub {

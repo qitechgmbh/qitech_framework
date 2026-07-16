@@ -21,8 +21,10 @@ fn main() -> io::Result<()> {
     }
     writeln!(file)?;
 
+    writeln!(file, "mod private {{")?;
+
     // get_by_id
-    writeln!(file, "pub const fn get_by_id(id: u16) -> Option<&'static str> {{")?;
+    writeln!(file, "pub const fn get_name(id: u16) -> Option<&'static str> {{")?;
     writeln!(file, "    match id {{")?;
     for Entry { id, name } in entries.values() {
         writeln!(file, "        {id} => Some(\"{name}\"),")?;
@@ -33,13 +35,15 @@ fn main() -> io::Result<()> {
     writeln!(file)?;
 
     // get_by_name
-    writeln!(file, "pub fn get_by_name(name: &str) -> Option<u16> {{")?;
+    writeln!(file, "pub fn get_id(name: &str) -> Option<u16> {{")?;
     writeln!(file, "    match name {{")?;
     for Entry { id, name } in entries.values() {
         writeln!(file, "        \"{name}\" => Some({id}),")?;
     }
     writeln!(file, "        _ => None,")?;
     writeln!(file, "    }}")?;
+    writeln!(file, "}}")?;
+
     writeln!(file, "}}")?;
 
     Ok(())

@@ -1,9 +1,10 @@
 CREATE TABLE control_hub.machine_config_mutations(
+    --- metadata ---
     timestamp       DateTime64(3, 'UTC'),
     identity        UInt64,
     name            LowCardinality(String),
 
-    -- value --
+    --- value ---
     value_type      Enum8('String', 'Enum', 'Integer', 'Float', 'Boolean'),
     value_enum      LowCardinality(String),
     value_string    Nullable(String),
@@ -13,7 +14,7 @@ CREATE TABLE control_hub.machine_config_mutations(
     origin          UInt64,
     result          Enum8('Success', 'OutOfBounds', 'InvalidInput'),
 
-    -- store duplicate ordered by timestamp only for history queries of all machines
+    --- projection for global historical queries ---
     PROJECTION by_time(
         SELECT *
         ORDER BY timestamp

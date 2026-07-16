@@ -570,10 +570,8 @@ impl<'de> Deserialize<'de> for command::EnumParameter {
 
         let Helper { variants, default } = Helper::deserialize(deserializer)?;
 
-        if let Some(d) = &default {
-            if variants.get_int(d).is_none() {
-                return Err(D::Error::custom(format!("no such variant {:?}", d)));
-            }
+        if let Some(d) = &default && variants.get_int(d).is_none() {
+            return Err(D::Error::custom(format!("no such variant {:?}", d)));
         }
 
         Ok(Self { variants, default })
