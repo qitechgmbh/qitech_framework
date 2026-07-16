@@ -110,9 +110,14 @@ impl ControlHub {
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
+        let x = self.state.clone();
+
         let result = tokio::join!(
             // takes in the data, updates cache and handles persistance in the db
-            runtime_ingest::run(self.state.clone()),
+            spawn(async move {
+                let r = runtime_ingest::run(x).await;
+                println!("EXITING: {r:?}");
+            }),
 
             // handles the client facing api
             api::run(self.state.clone()),

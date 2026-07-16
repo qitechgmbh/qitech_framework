@@ -6,8 +6,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use control_core::{
-    ConfigMutationRecord, LogOrigin, LogRecord, MachineEvent, Measurements, RuntimeEvent,
-    RuntimeEventKind, RuntimeExport, StateMutationRecord,
+    ConfigMutationOrigin, ConfigMutationRecord, LogOrigin, LogRecord, MachineEvent, Measurements, RuntimeEvent, RuntimeEventKind, RuntimeExport, StateMutationRecord,
 };
 
 mod types;
@@ -33,18 +32,19 @@ pub async fn run(state: SharedState) -> anyhow::Result<()> {
     let mut last_export_ts = Instant::now();
 
     loop {
-        println!("New inserts");
         let mut inserts = Inserts::new(&state.client).await?;
-
+        
         loop {
-            println!("New Cycle");
             let now = Instant::now();
 
             if now.duration_since(last_export_ts) >= export_interval {
-                println!("Export Started");
+                let start = std::time::Instant::now();
+
                 inserts.end().await?;
-                println!("Export Complete");
                 last_export_ts = now;
+
+                println!("inserts.end() took {:?}", start.elapsed());
+
                 break;
             }
 
@@ -107,7 +107,7 @@ async fn process_logs(inserts: &mut Inserts, records: &Vec<LogRecord>) -> anyhow
         inserts.logs.write(&LogRecordRow {
             timestamp: record.timestamp,
             origin,
-            level: record.level,
+            level: record.level as i8,
             message: record.message.clone(),
             attributes,
         }).await?;
@@ -202,14 +202,17 @@ async fn process_machine_config_mutations(
             timestamp: record.timestamp,
             identity: record.ident.to_u64(),
             name: record.name.to_string(),
-            value_type,
+            value_type: value_type as i8,
             value_enum,
             value_string,
             value_int,
             value_float,
             value_bool,
-            origin: record.origin,
-            result: record.result,
+            origin: match record.origin {
+                ConfigMutationOrigin::User { request_id } => request_id,
+                ConfigMutationOrigin::Machine => 0,
+            },
+            result: record.result as i8,
         }).await?;
     }
 
@@ -253,7 +256,7 @@ async fn process_machine_state_mutations(
             timestamp: record.timestamp,
             identity: record.ident.to_u64(),
             name: record.name.to_string(),
-            value_type,
+            value_type: value_type as i8,
             value_enum,
             value_string,
             value_int,

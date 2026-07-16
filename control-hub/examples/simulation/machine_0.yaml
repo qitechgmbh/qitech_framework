@@ -1,0 +1,46 @@
+qms_version: 1.0
+
+name: counting_machine
+schema_revision: 1
+
+identification:
+  vendor: 1
+  machine: 10
+
+config:
+  step: !integer
+    default: 1
+
+state:
+  counting: !boolean
+
+measurements:
+  counter: !millimeter
+
+commands:
+  start_counting:
+  stop_counting:
+
+description:
+  config:
+    step:
+      EN-us: "Increment step"
+      DE-de: "Schrittweite"
+
+  state:
+    counting:
+      EN-us: "Is the machine currently counting?"
+      DE-de: "Zählt die Maschine derzeit?"
+
+  measurements:
+    counter:
+      EN-us: "Current count"
+      DE-de: "Aktueller Zählerstand"
+
+  commands:
+    start_counting:
+      EN-us: "Start counting"
+      DE-de: "Zählvorgang starten"
+    stop_counting:
+      EN-us: "Stop counting"
+      DE-de: "Zählvorgang stoppen"

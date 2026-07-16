@@ -102,10 +102,30 @@ pub enum ConfigMutationOrigin {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(i8)]
 pub enum ConfigMutationResult {
-    Success,
-    OutOfBounds,
-    InvalidInput,
+    Success = 1,
+    OutOfBounds = 2,
+    InvalidInput = 3,
+}
+
+impl From<ConfigMutationResult> for i8 {
+    fn from(v: ConfigMutationResult) -> Self {
+        v as i8
+    }
+}
+
+impl TryFrom<i8> for ConfigMutationResult {
+    type Error = String;
+
+    fn try_from(v: i8) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(Self::Success),
+            1 => Ok(Self::OutOfBounds),
+            2 => Ok(Self::InvalidInput),
+            _ => Err(format!("invalid ConfigMutationOrigin: {v}")),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -143,6 +163,7 @@ pub enum LogOrigin {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(i8)]
 pub enum LogLevel {
     Trace,
     Debug,

@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use chrono::{DateTime, Utc};
 use clickhouse::{Client, Row, insert::Insert};
-use control_core::{ConfigMutationOrigin, ConfigMutationResult, LogLevel, ScalarValue};
+use control_core::ScalarValue;
 use serde::{Deserialize, Serialize};
 
 pub struct Inserts {
@@ -16,53 +14,36 @@ pub struct Inserts {
 
 impl Inserts {
     pub async fn new(client: &Client) -> anyhow::Result<Self> {
-        // println!("creating insert: machine_state_mutations");
-        // let state_mutations = client.insert("xxx").await?;
-
-        println!("creating insert: logs");
-        let logs = client.insert("logs").await?;
-
-        println!("creating insert: events");
-        let events = client.insert("events").await?;
-
-        println!("creating insert: machine_activity");
-        let machine_activity = client.insert("machine_activity").await?;
-
-        println!("creating insert: config_mutations");
-        let config_mutations = client.insert("config_mutations").await?;
-
-        println!("creating insert: machine_measurements");
-        let machine_measurements = client.insert("machine_measurements").await?;
-
-        println!("all inserts created");
-
         Ok(Self {
-            logs,
-            events,
-            machine_activity,
-            config_mutations,
-            state_mutations: todo!(),
-            machine_measurements,
+            logs: client.insert("logs").await?,
+            events: client.insert("events").await?,
+            machine_activity: client.insert("machine_activity").await?,
+            config_mutations: client.insert("config_mutations").await?,
+            state_mutations: client.insert("state_mutations").await?,
+            machine_measurements: client.insert("machine_measurements").await?,
         })
     }
 
     pub async fn end(self) -> anyhow::Result<()> {
-        async fn end_logged<T>(
-            name: &'static str,
-            fut: impl std::future::Future<Output = clickhouse::error::Result<T>>,
-        ) -> clickhouse::error::Result<T> {
-            let result = fut.await;
-            println!("insert {} finished: {:?}", name, result.as_ref().map(|_| "ok"));
-            result
+        macro_rules! timed {
+            ($name:expr, $future:expr) => {{
+                async {
+                    let start = std::time::Instant::now();
+                    let result = $future.await;
+
+                    println!("elapsed: {} for {:?}", $name, start.elapsed());
+                    result
+                }
+            }};
         }
 
         tokio::try_join!(
-            end_logged("logs", self.logs.end()),
-            end_logged("events", self.events.end()),
-            end_logged("machine_activity", self.machine_activity.end()),
-            end_logged("config_mutations", self.config_mutations.end()),
-            end_logged("state_mutations", self.state_mutations.end()),
-            end_logged("machine_measurements", self.machine_measurements.end()),
+            timed!("logs.end", self.logs.end()),
+            timed!("events.end", self.events.end()),
+            timed!("machine_activity.end", self.machine_activity.end()),
+            timed!("config_mutations.end", self.config_mutations.end()),
+            timed!("state_mutations.end", self.state_mutations.end()),
+            timed!("machine_measurements.end", self.machine_measurements.end()),
         )?;
 
         Ok(())
@@ -73,7 +54,9 @@ impl Inserts {
 pub struct LogRecordRow {
     #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
     pub timestamp: DateTime<Utc>,
-    pub level: LogLevel,
+
+    pub level: i8,
+
     pub origin: u64,
     pub message: String,
 
@@ -104,15 +87,15 @@ pub struct ConfigMutationRecordRow {
     pub identity: u64,
     pub name: String,
 
-    pub value_type: ScalarValueType,
-    pub value_enum: Option<String>,
+    pub value_type: i8,
+    pub value_enum: String,
     pub value_string: Option<String>,
     pub value_int: Option<i64>,
     pub value_float: Option<f64>,
     pub value_bool: Option<bool>,
 
-    pub origin: ConfigMutationOrigin,
-    pub result: ConfigMutationResult,
+    pub origin: u64,
+    pub result: i8,
 }
 
 #[derive(Debug, Serialize, Deserialize, Row)]
@@ -122,12 +105,12 @@ pub struct StateMutationRecordRow {
     pub identity: u64,
     pub name: String,
 
-    pub value_type: ScalarValueType,
-    pub value_enum: Option<String>,
+    pub value_type: i8,
+    pub value_enum: String,
     pub value_string: Option<String>,
-    pub value_bool: Option<bool>,
     pub value_int: Option<i64>,
     pub value_float: Option<f64>,
+    pub value_bool: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Row)]
@@ -142,6 +125,7 @@ pub struct MeasurementSampleRow {
 // --- misc ---
 
 #[derive(Debug, Serialize, Deserialize)]
+#[repr(i8)]
 pub enum ScalarValueType {
     Enum,
     String,
@@ -171,7 +155,7 @@ impl From<ScalarValue> for ScalarValueType {
 
 pub struct ScalarValueColumns {
     pub value_type: ScalarValueType,
-    pub value_enum: Option<String>,
+    pub value_enum: String,
     pub value_string: Option<String>,
     pub value_int: Option<i64>,
     pub value_float: Option<f64>,
@@ -182,15 +166,17 @@ impl From<&ScalarValue> for ScalarValueColumns {
     fn from(value: &ScalarValue) -> Self {
         let mut columns = ScalarValueColumns {
             value_type: value.into(),
+            value_enum: "".into(),
             value_string: None,
             value_int: None,
             value_float: None,
             value_bool: None,
-            value_enum: None,
         };
 
         match value {
-            ScalarValue::Enum(v) => columns.value_enum = v.clone(),
+            ScalarValue::Enum(v) => {
+                columns.value_enum = v.clone().expect("MUST");
+            },
             ScalarValue::String(v) => columns.value_string = v.clone(),
             ScalarValue::Integer(v) => columns.value_int = *v,
             ScalarValue::Float(v) => columns.value_float = *v,

@@ -32,3 +32,4 @@ futures = "0.3.32"
 
 # misc
 arc-swap = "1.9.2"
+tracing = "0.1.44"

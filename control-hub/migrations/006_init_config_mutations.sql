@@ -10,7 +10,7 @@ CREATE TABLE control_hub.config_mutations(
     value_int       Nullable(Int64),
     value_float     Nullable(Float64),
     value_bool      Nullable(Bool),
-    origin          Nullable(Int64),
+    origin          UInt64,
     result          Enum8('Success', 'OutOfBounds', 'InvalidInput'),
 
     -- store duplicate ordered by timestamp only for history queries of all machines

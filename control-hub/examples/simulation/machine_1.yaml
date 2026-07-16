@@ -1,0 +1,76 @@
+qms_version: 1.0
+
+name: temperature_controller
+schema_revision: 1
+
+identification:
+  vendor: 1
+  machine: 20
+
+config:
+  temperature: 
+    target: !degree_celsius
+      default: 22.0
+
+    tolerance: !degree_celsius
+      default: 1.0
+
+state:
+  heating: !boolean
+  cooling: !boolean
+
+measurements:
+  temperature:
+    current: !degree_celsius
+    ambient: !degree_celsius
+
+commands:
+  start_heating:
+  stop_heating:
+  start_cooling:
+  stop_cooling:
+
+description:
+  config:
+    target_temperature:
+      EN-us: "Target temperature"
+      DE-de: "Zieltemperatur"
+
+    tolerance:
+      EN-us: "Temperature tolerance"
+      DE-de: "Temperaturtoleranz"
+
+  state:
+    heating:
+      EN-us: "Is the heater currently active?"
+      DE-de: "Ist die Heizung derzeit aktiv?"
+
+    cooling:
+      EN-us: "Is the cooler currently active?"
+      DE-de: "Ist die Kühlung derzeit aktiv?"
+
+  measurements:
+    current_temperature:
+      EN-us: "Current temperature"
+      DE-de: "Aktuelle Temperatur"
+
+    ambient_temperature:
+      EN-us: "Ambient temperature"
+      DE-de: "Umgebungstemperatur"
+
+  commands:
+    start_heating:
+      EN-us: "Start heating"
+      DE-de: "Heizung starten"
+
+    stop_heating:
+      EN-us: "Stop heating"
+      DE-de: "Heizung stoppen"
+
+    start_cooling:
+      EN-us: "Start cooling"
+      DE-de: "Kühlung starten"
+
+    stop_cooling:
+      EN-us: "Stop cooling"
+      DE-de: "Kühlung stoppen"
