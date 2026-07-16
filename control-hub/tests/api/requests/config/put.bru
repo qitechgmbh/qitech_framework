@@ -1,17 +1,17 @@
 meta {
-  name: set-config
+  name: set
   type: http
   seq: 1
 }
 
 put {
-  url: http://localhost:3000/api/v3/machines/laser_v1/0/config/diameter.target
+  url: http://localhost:3000/api/v3/machines/temperature_controller/1/config/temperature.target
   body: json
   auth: inherit
 }
 
 body:json {
-  { "value": 1.75 }
+  { "value": 23.0 }
 }
 
 settings {

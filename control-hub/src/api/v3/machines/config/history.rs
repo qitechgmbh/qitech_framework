@@ -1,4 +1,4 @@
-use crate::{SharedState, api::common::PropertyHistoryQuery};
+use crate::{SharedState, api::common::PropertyHistoryQuery, tables};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -6,11 +6,8 @@ use axum::{
 use chrono::{DateTime, Utc};
 use clickhouse::{Client, Row};
 use control_core::{
-    ConfigMutationResult, MachineIdentificationUnique,
-    schema::{
-        latest::{PropertyKind, config::Value},
-        v1_0::Unit,
-    },
+    MachineIdentificationUnique,
+    schema::latest::{PropertyKind, Unit, config::Value},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::sync::Arc;
@@ -32,10 +29,11 @@ pub(super) enum Entries {
 
 #[derive(Serialize, Deserialize, Row)]
 pub(super) struct Entry<T> {
+    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
     timestamp: DateTime<Utc>,
-    value: T,
+    value: Option<T>,
     origin: u64,
-    result: ConfigMutationResult,
+    result: i8,
 }
 
 pub(super) async fn get(
@@ -127,7 +125,7 @@ async fn read_entries(
     }
 }
 
-async fn fetch_all<T: DeserializeOwned>(
+async fn fetch_all<T: DeserializeOwned + 'static>(
     client: &Client,
     ident: MachineIdentificationUnique,
     name: &str,
@@ -151,6 +149,8 @@ async fn fetch_all<T: DeserializeOwned>(
 }
 
 fn init_sql(column: &str, query: &PropertyHistoryQuery) -> Result<String, String> {
+    let table_name = tables::machine_config_mutations::TABLE_NAME;
+
     let mut sql = match &query.get_aggregation()? {
         Some(aggregation) => format!(
             r#"
@@ -159,7 +159,7 @@ fn init_sql(column: &str, query: &PropertyHistoryQuery) -> Result<String, String
                 value_{column} AS value,
                 origin,
                 result
-            FROM config_mutations
+            FROM {table_name}
             WHERE identity = ?
             AND name = ?
             "#,
@@ -167,8 +167,8 @@ fn init_sql(column: &str, query: &PropertyHistoryQuery) -> Result<String, String
         ),
         None => format!(
             r#"
-            SELECT timestamp, value_{column}, origin, result,
-            FROM config_mutations
+            SELECT timestamp, value_{column} AS value, origin, result,
+            FROM {table_name}
             WHERE identity = ?
             AND name = ?
         "#
@@ -191,7 +191,7 @@ fn init_sql(column: &str, query: &PropertyHistoryQuery) -> Result<String, String
 
     // ordering
     sql.push_str(" ORDER BY timestamp ");
-    sql.push_str(query.ordering.unwrap_or_default().to_ch());
+    sql.push_str(query.get_ordering().to_ch());
 
     // limit
     sql.push_str(" LIMIT ?");

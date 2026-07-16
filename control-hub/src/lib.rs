@@ -28,6 +28,8 @@ mod embedded;
 pub use embedded::EmbeddedSession;
 use tokio::time::sleep;
 
+mod tables;
+
 pub mod api;
 use crate::api::RuntimeRequest;
 
@@ -116,7 +118,8 @@ impl ControlHub {
             // takes in the data, updates cache and handles persistance in the db
             spawn(async move {
                 let r = runtime_ingest::run(x).await;
-                println!("EXITING: {r:?}");
+                _ = r;
+                //println!("EXITING: {r:?}");
             }),
 
             // handles the client facing api

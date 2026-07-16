@@ -10,14 +10,14 @@ use crate::SharedState;
 use crate::api::RuntimeRequest;
 use crate::api::common::{ApiError, get_machine_info, get_property_info};
 
-// mod history;
+mod history;
 
 // -- router ---
 
 pub fn init_router() -> Router<Arc<SharedState>> {
     Router::new()
         .route("/{property_name}", routing::get(get).put(put))
-        //.route("/{property_name}/history", routing::get(history::get))
+        .route("/{property_name}/history", routing::get(history::get))
 }
 
 // --- GET --- 
@@ -50,9 +50,17 @@ pub(super) async fn get(
 
     // get value
     let machines = state.machines.load();
-    let props = &machines.get(&ident).expect("must exist").properties.config;
-    let value = props.get(&property_name).expect("must exist").clone();
 
+    let Some(machine) = machines.get(&ident) else {
+        return Err(bad_request(format!("no {slug} with serial {serial}")));
+    };
+
+    if !machine.connected {
+        return Err(bad_request("machine not connected"));
+    }
+
+    let props = &machine.properties.config;
+    let value = props.get(&property_name).expect("must exist").clone();
 
     use config::Value::*;
     let response = match prop_info {
@@ -112,10 +120,8 @@ pub(super) async fn put(
                 return Err(bad_request("value cannot be null"));
             }
 
-            if let Some(v) = &value {
-                if !info.length.in_range(v.len() as u32) {
-                    return Err(unprocessable("string length out of bounds"));
-                }
+            if let Some(v) = &value && !info.length.in_range(v.len() as u32) {
+                return Err(unprocessable("string length out of bounds"));
             }
 
             ScalarValue::String(value)
@@ -138,10 +144,8 @@ pub(super) async fn put(
                 return Err(bad_request("value cannot be null"));
             }
 
-            if let Some(v) = value {
-                if !info.range.in_range(v) {
-                    return Err(unprocessable("value out of bounds"));
-                }
+            if let Some(v) = value && !info.range.in_range(v) {
+                return Err(unprocessable("value out of bounds"));
             }
 
             ScalarValue::Integer(value)
@@ -156,10 +160,8 @@ pub(super) async fn put(
                 return Err(bad_request("value cannot be null"));
             }
 
-            if let Some(v) = value {
-                if !info.range.in_range(v) {
-                    return Err(unprocessable("value out of bounds"));
-                }
+            if let Some(v) = value && !info.range.in_range(v) {
+                return Err(unprocessable("value out of bounds"));
             }
 
             ScalarValue::Float(value)
@@ -173,10 +175,8 @@ pub(super) async fn put(
                 return Err(bad_request("value cannot be null"));
             }
 
-            if let Some(v) = value {
-                if !info.range.in_range(v) {
-                    return Err(unprocessable("value out of bounds"));
-                }
+            if let Some(v) = value && !info.range.in_range(v) {
+                return Err(unprocessable("value out of bounds"));
             }
 
             ScalarValue::Float(value)

@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "control-core",
-    "control-hub",
+    "control-hub", 
+    # "control-hub-macros",
     # "control-run",
 ]
 resolver = "2"

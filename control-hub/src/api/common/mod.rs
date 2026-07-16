@@ -12,6 +12,7 @@ const LIMIT_DEFAULT: u64 = 100;
 const LIMIT_MAXIMUM: u64 = 1_000_000;
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PropertyHistoryQuery {
     /// Start timestamp.
     #[serde(default, with = "clickhouse::serde::chrono::datetime64::millis::option")]

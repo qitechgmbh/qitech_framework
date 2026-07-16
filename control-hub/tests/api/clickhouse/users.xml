@@ -1,11 +1,10 @@
 <clickhouse>
     <users>
-        <bootstrap>
-            <password>bootstrap</password>
+        <default>
             <networks>
-                <ip>127.0.0.1</ip>
+                <ip>::/0</ip>
             </networks>
-        </bootstrap>
+        </default>
     </users>
 
     <profiles>

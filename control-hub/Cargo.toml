@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 # --- internal deps ---
 control_core = { path = "../control-core" }
+# control_hub_macros = { path = "../control-hub-macros" }
 
 # --- workspace deps ---
 anyhow = { workspace = true }
@@ -32,4 +33,7 @@ futures = "0.3.32"
 
 # misc
 arc-swap = "1.9.2"
-tracing = "0.1.44"
+# tracing = "0.1.44"
+
+[dev-dependencies]
+testcontainers = { version = "0.27.3", features = ["http_wait_plain"]}

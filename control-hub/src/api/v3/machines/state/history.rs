@@ -121,7 +121,7 @@ async fn read_entries(
     }
 }
 
-async fn fetch_all<T: DeserializeOwned>(
+async fn fetch_all<T: DeserializeOwned + 'static>(
     client: &Client,
     ident: MachineIdentificationUnique,
     name: &str,

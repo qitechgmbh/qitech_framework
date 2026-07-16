@@ -1,4 +1,4 @@
-CREATE TABLE control_hub.config_mutations(
+CREATE TABLE control_hub.machine_config_mutations(
     timestamp       DateTime64(3, 'UTC'),
     identity        UInt64,
     name            LowCardinality(String),

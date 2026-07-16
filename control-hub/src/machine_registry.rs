@@ -73,6 +73,21 @@ pub fn insert(
 
 /// Marks the machine as disconnected, no-op if 
 /// no such machine is present in the registry
+pub fn mark_connected(
+    zelf: &mut MachineRegistry,
+    state: &SharedState,
+    ident: MachineIdentificationUnique,
+) -> anyhow::Result<()> {
+    insert(zelf, state, ident)?;
+    if let Some(entry) = zelf.get_mut(&ident) {
+        entry.connected = true;
+    }
+
+    Ok(())
+}
+
+/// Marks the machine as disconnected, no-op if 
+/// no such machine is present in the registry
 pub fn mark_disconnected(
     zelf: &mut MachineRegistry,
     ident: MachineIdentificationUnique

@@ -1,34 +1,48 @@
-use chrono::{DateTime, Utc};
-use clickhouse::{Client, Row, insert::Insert};
+use std::time::{Duration, Instant};
+
+use clickhouse::{Client, inserter::Inserter};
 use control_core::ScalarValue;
 use serde::{Deserialize, Serialize};
 
-pub struct Inserts {
-    pub logs: Insert<LogRecordRow>,
-    pub events: Insert<EventRecordRow>,
-    pub machine_activity: Insert<MachineActivityRecordRow>,
-    pub config_mutations: Insert<ConfigMutationRecordRow>,
-    pub state_mutations: Insert<StateMutationRecordRow>,
-    pub machine_measurements: Insert<MeasurementSampleRow>,
+use crate::tables;
+
+const MAX_ROWS: u64 = 10_000;
+
+pub struct Inserters {
+    pub logs: Inserter<tables::logs::Row>,
+    pub events: Inserter<tables::events::Row>,
+    pub machine_activity: Inserter<tables::machine_activity::Row>,
+    pub machine_config_mutations: Inserter<tables::machine_config_mutations::Row>,
+    pub machine_state_mutations: Inserter<tables::machine_state_mutations::Row>,
+    pub machine_measurements: Inserter<tables::machine_measurements::Row>,
 }
 
-impl Inserts {
-    pub async fn new(client: &Client) -> anyhow::Result<Self> {
+impl Inserters {
+    pub async fn new(client: &Client, export_interval: Duration) -> anyhow::Result<Self> {
+        macro_rules! define_inserter {
+            ($mod:tt) => {
+                client
+                    .inserter::<tables::$mod::Row>(tables::$mod::TABLE_NAME)
+                    .with_period(Some(export_interval))
+                    .with_max_rows(MAX_ROWS)
+            };
+        }
+
         Ok(Self {
-            logs: client.insert("logs").await?,
-            events: client.insert("events").await?,
-            machine_activity: client.insert("machine_activity").await?,
-            config_mutations: client.insert("config_mutations").await?,
-            state_mutations: client.insert("state_mutations").await?,
-            machine_measurements: client.insert("machine_measurements").await?,
+            logs: define_inserter!(logs),
+            events: define_inserter!(events),
+            machine_activity: define_inserter!(machine_activity),
+            machine_config_mutations: define_inserter!(machine_config_mutations),
+            machine_state_mutations: define_inserter!(machine_state_mutations),
+            machine_measurements: define_inserter!(machine_measurements),
         })
     }
 
-    pub async fn end(self) -> anyhow::Result<()> {
+    pub async fn commit_all(&mut self) -> anyhow::Result<()> {
         macro_rules! timed {
             ($name:expr, $future:expr) => {{
                 async {
-                    let start = std::time::Instant::now();
+                    let start = Instant::now();
                     let result = $future.await;
 
                     println!("elapsed: {} for {:?}", $name, start.elapsed());
@@ -38,88 +52,16 @@ impl Inserts {
         }
 
         tokio::try_join!(
-            timed!("logs.end", self.logs.end()),
-            timed!("events.end", self.events.end()),
-            timed!("machine_activity.end", self.machine_activity.end()),
-            timed!("config_mutations.end", self.config_mutations.end()),
-            timed!("state_mutations.end", self.state_mutations.end()),
-            timed!("machine_measurements.end", self.machine_measurements.end()),
+            timed!("logs.commit", self.logs.commit()),
+            timed!("events.commit", self.events.commit()),
+            timed!("machine_activity.commit", self.machine_activity.commit()),
+            timed!("machine_config_mutations.commit", self.machine_config_mutations.commit()),
+            timed!("machine_state_mutations.commit", self.machine_state_mutations.commit()),
+            timed!("machine_measurements.commit", self.machine_measurements.commit()),
         )?;
 
         Ok(())
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Row)]
-pub struct LogRecordRow {
-    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
-    pub timestamp: DateTime<Utc>,
-
-    pub level: i8,
-
-    pub origin: u64,
-    pub message: String,
-
-    // maps are not supported by clickhouse
-    pub attributes: Vec<(String, String)>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Row)]
-pub struct EventRecordRow {
-    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
-    pub timestamp: DateTime<Utc>,
-    pub origin: u64,
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Row)]
-pub struct MachineActivityRecordRow {
-    pub identity: u64,
-    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Row)]
-pub struct ConfigMutationRecordRow {
-    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
-    pub timestamp: DateTime<Utc>,
-    pub identity: u64,
-    pub name: String,
-
-    pub value_type: i8,
-    pub value_enum: String,
-    pub value_string: Option<String>,
-    pub value_int: Option<i64>,
-    pub value_float: Option<f64>,
-    pub value_bool: Option<bool>,
-
-    pub origin: u64,
-    pub result: i8,
-}
-
-#[derive(Debug, Serialize, Deserialize, Row)]
-pub struct StateMutationRecordRow {
-    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
-    pub timestamp: DateTime<Utc>,
-    pub identity: u64,
-    pub name: String,
-
-    pub value_type: i8,
-    pub value_enum: String,
-    pub value_string: Option<String>,
-    pub value_int: Option<i64>,
-    pub value_float: Option<f64>,
-    pub value_bool: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Row)]
-pub struct MeasurementSampleRow {
-    #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
-    pub timestamp: DateTime<Utc>,
-    pub identity: u64,
-    pub name: String,
-    pub value: Option<f64>,
 }
 
 // --- misc ---
