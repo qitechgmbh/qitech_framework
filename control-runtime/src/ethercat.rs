@@ -8,8 +8,7 @@ use std::{
 use anyhow::bail;
 
 use qitech_lib::ethercat_hal::{
-    BECKHOFF_VENDOR_ID, init_ethercat,
-    EtherCATControl, EtherCATState, Mailbox, MasterConfiguration, MetaSubdevice
+    BECKHOFF_VENDOR_ID, EtherCATControl, EtherCATState, Mailbox, MasterConfiguration, MetaSubdevice, TripleBufConsumer, init_ethercat
 };
 use qitech_lib::ethercat_hal::devices::{
     EthercatDevice, device_from_subdevice_identity_rc
@@ -20,7 +19,7 @@ use qitech_lib::ethercat_hal::interface_discovery::{
 
 use crate::machine::{MachineHardwareRegistry, hardware};
 
-pub type Controller = EtherCATControl<Arc<Mailbox>, Arc<Mailbox>>;
+pub type Controller = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type Device = Rc<RefCell<dyn EthercatDevice + 'static>>;
 
 pub fn find_interface(retry_delay: Duration) -> String {
@@ -113,6 +112,8 @@ pub fn setup(
                 continue;
             }
         };
+
+        println!("pushing: {meta:?}");
 
         subdevices.push((meta, dev.clone()));
         if meta.vendor == BECKHOFF_VENDOR_ID {

@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::thread::sleep;
+use std::time::Duration;
 use anyhow::bail;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
@@ -63,6 +65,8 @@ impl Runtime {
             self.write_ecat_inputs()?;
             self.execute_machines()?;
             self.write_ecat_outputs();
+
+            sleep(Duration::from_micros(100));
         }
     }
 
