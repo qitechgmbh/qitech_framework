@@ -10,3 +10,12 @@ Runtime:
     - when creating builder provide schema
     -> when calling register() use schema
     -> to validate if schema was respected, otherwise fail
+
+
+Frontend LAYOUT:
+
+Page {
+    Measurement {
+        src: "measurements.diameter"
+    }
+}
