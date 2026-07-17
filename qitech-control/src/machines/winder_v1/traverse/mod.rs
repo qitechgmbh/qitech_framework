@@ -1,5 +1,8 @@
+use control_runtime::Measurement;
 use qitech_lib::ethercat_hal::io::{digital_output::DigitalOutputDevice, stepper_velocity_el70x1::StepperVelocityEL70x1Device};
-use qitech_lib::units::{AngularVelocity, ConstZero, Velocity};
+use qitech_lib::units::length::millimeter;
+use qitech_lib::units::velocity::millimeter_per_second;
+use qitech_lib::units::{AngularVelocity, ConstZero, Length, Velocity};
 use std::{cell::RefCell, rc::Rc};
 
 use crate::converters::linear_step_converter::LinearStepConverter;
@@ -8,6 +11,8 @@ mod types;
 use types::State;
 use types::HomingState;
 use types::TraversingState;
+
+mod traverse_controller;
 
 pub struct Traverse {
     // --- hardware ---
@@ -21,13 +26,15 @@ pub struct Traverse {
     laser_enabled: bool,
 
     // --- measurements ---
+    position: Measurement<Length, millimeter>,
 
-
-    position: Length,
     limit_inner: Length,
     limit_outer: Length,
+
     step_size: Length,
+
     padding: Length,
+
     state: State,
 
     // --- converters ---
@@ -45,41 +52,45 @@ impl Traverse {
 
     /// Can go to inner limit capability check
     pub fn can_go_in(&self) -> bool {
-        // Check if traverse is homed, not in standby, not traversing
-        // Allow changing direction (even when going out)
-        // Disallow when homing is in progress
-        self.is_homed()
-            && self.traverse_mode != TraverseMode::Standby
-            && !self.traverse_controller.is_going_in()
-            && !self.traverse_controller.is_going_home()
-            && !self.traverse_controller.is_traversing()
-            && self.mode != Winder2Mode::Wind
+        // // Check if traverse is homed, not in standby, not traversing
+        // // Allow changing direction (even when going out)
+        // // Disallow when homing is in progress
+        // self.is_homed()
+        //     && self.traverse_mode != TraverseMode::Standby
+        //     && !self.traverse_controller.is_going_in()
+        //     && !self.traverse_controller.is_going_home()
+        //     && !self.traverse_controller.is_traversing()
+        //     && self.mode != Winder2Mode::Wind
+
+        false
     }
 
     /// Can go to outer limit capability check
     pub fn can_go_out(&self) -> bool {
-        // Check if traverse is homed, not in standby, not traversing
-        // Allow changing direction (even when going in)
-        // Disallow when homing is in progress
-        self.traverse_controller.is_homed()
-            && self.traverse_mode != TraverseMode::Standby
-            && !self.traverse_controller.is_going_out()
-            && !self.traverse_controller.is_going_home()
-            && !self.traverse_controller.is_traversing()
-            && self.mode != Winder2Mode::Wind
+        // // Check if traverse is homed, not in standby, not traversing
+        // // Allow changing direction (even when going in)
+        // // Disallow when homing is in progress
+        // self.traverse_controller.is_homed()
+        //     && self.traverse_mode != TraverseMode::Standby
+        //     && !self.traverse_controller.is_going_out()
+        //     && !self.traverse_controller.is_going_home()
+        //     && !self.traverse_controller.is_traversing()
+        //     && self.mode != Winder2Mode::Wind
+
+        false
     }
 
     /// Can go home capability check
     pub fn can_go_home(&self) -> bool {
-        // Check if not in standby, not traversing
-        // Allow going home even when going in or out
-        self.traverse_mode != TraverseMode::Standby
-            && !self.traverse_controller.is_going_home()
-            && !self.traverse_controller.is_traversing()
-            && self.mode != Winder2Mode::Wind
+        // // Check if not in standby, not traversing
+        // // Allow going home even when going in or out
+        // self.traverse_mode != TraverseMode::Standby
+        //     && !self.traverse_controller.is_going_home()
+        //     && !self.traverse_controller.is_traversing()
+        //     && self.mode != Winder2Mode::Wind
+
+        false
     }
-
-
 }
 
 // State management
@@ -131,45 +142,55 @@ impl Traverse {
     fn speed_from_state(&self, spool_speed: AngularVelocity) -> Velocity {
         use State::*;
 
-        match self.state {
+        match &self.state {
             // Not homed, no movement
             NotHomed => Velocity::ZERO,
             // No movement in idle state
             Idle => Velocity::ZERO,
             GoingIn => {
-                let position = self.limit_inner;
-                let speed = match self.is_close_to_target(position) {
-                    true => self.config.speed_config.move_close,
-                    false => self.config.speed_config.move_not_close,
-                };
+                // Move in at a speed of 10-100 mm/s
+                let target = self.limit_inner;
 
-                self.speed_to_position(position, speed)
+                if self.is_close_to_target(target) {
+                    Velocity::new::<millimeter_per_second>(10.0)
+                } else {
+                    Velocity::new::<millimeter_per_second>(100.0)
+                }
             }
             GoingOut => {
-                let position = self.limit_outer;
-                let speed = match self.is_close_to_target(position) {
-                    true => self.config.speed_config.move_close,
-                    false => self.config.speed_config.move_not_close,
-                };
+                // Move out at a speed of 10-100 mm/s
+                let target = self.limit_outer;
 
-                self.speed_to_position(position, speed)
+                if self.is_close_to_target(target) {
+                    Velocity::new::<millimeter_per_second>(10.0)
+                } else {
+                    Velocity::new::<millimeter_per_second>(100.0)
+                }
             }
             Homing(state) => self.speed_from_homing_state(state),
             Traversing(state) => self.speed_from_traversing_state(state, spool_speed),
         }
     }
 
-    fn speed_from_homing_state(&self, homing_state: HomingState) -> Velocity {
+    fn speed_from_homing_state(&self, homing_state: &HomingState) -> Velocity {
         use HomingState::*;
-
-        let sc = &self.config.speed_config;
 
         match homing_state {
             Initialize => Velocity::ZERO,
-            EscapeEndstop => sc.homing_escape_end_stop,
-            FindEndstopFineDistancing => sc.homing_find_endstop_fine_distancing,
-            FindEndstopCoarse => sc.homing_find_endstop_coarse,
-            FindEndstopFine => sc.homing_find_endstop_fine,
+
+            // Move out at a speed of 10 mm/s
+            EscapeEndstop => velocity(10.0),
+
+            // Move out at a speed of 2 mm/s
+            FindEndstopFineDistancing => velocity(2.0),
+
+            // Move in at a speed of -100 mm/s
+            FindEndstopCoarse => velocity(-100.0),
+
+            // move into the endstop at 2 mm/s
+            FindEndstopFine => velocity(2.0),
+
+            // We stand still until the validation cooldown has passed
             Validate(_) => Velocity::ZERO,
         }
     }
@@ -204,4 +225,79 @@ impl Traverse {
 
         self.speed_to_position(target_position, speed)
     }
+}
+
+// helpers
+impl Traverse {
+    fn update_position(&mut self) {
+        let steps = self.motor.get_position() as f64;
+        self.position = self.microstep_converter.steps_to_distance(steps);
+    }
+
+    fn update_state(&mut self) {
+        if let Some(next_state) = self.next_state() {
+            self.state = next_state;
+        }
+    }
+
+    fn update_speed(&mut self, spool_speed: AngularVelocity) {
+        let steps_per_second = self.compute_output_steps(spool_speed);
+        _ = self.motor.set_speed(steps_per_second);
+    }
+
+    fn compute_output_steps(&self, spool_speed: AngularVelocity) -> f64 {
+        let speed = self.speed_from_state(spool_speed);
+        self.fullstep_converter.velocity_to_steps(speed)
+    }
+
+    fn endstop_triggered(&self) -> bool {
+        self.limit_switch.get_value().unwrap_or(false)
+    }
+
+    fn calculate_traverse_speed(spool_speed: AngularVelocity, step_size: Length) -> Velocity {
+        let spool_speed = spool_speed.get::<revolution_per_second>();
+        let step_size = step_size.get::<millimeter>();
+
+        // Calculate the traverse speed directly from spool speed and step size
+        Velocity::new::<millimeter_per_second>(spool_speed * step_size)
+    }
+
+    // Changes the direction of the speed based on the current position and target position
+    fn speed_to_position(&self, target_position: Length, absolute_speed: Velocity) -> Velocity {
+        // If we are over the target position we need to move negative
+        if self.position > target_position {
+            -absolute_speed.abs()
+        } else if self.position < target_position {
+            absolute_speed.abs()
+        } else {
+            Velocity::ZERO
+        }
+    }
+
+    /// Calculate distance to position
+    fn distance_to_position(&self, target_position: Length) -> Length {
+        (self.position.get() - target_position).abs()
+    }
+
+    fn is_at_position(&self, target_position: Length) -> bool {
+        let tolerance = self.config.length_tolerance;
+        let upper_tolerance = target_position + tolerance.abs();
+        let lower_tolerance = target_position - tolerance.abs();
+        lower_tolerance <= self.position && self.position <= upper_tolerance
+    }
+
+    /// Validates that traverse limits maintain proper constraints:
+    /// - Inner limit must be smaller than outer limit
+    /// - At least 0.9mm difference between inner and outer limits
+    fn validate_traverse_limits(inner: Length, outer: Length) -> bool {
+        outer > inner + Length::new::<millimeter>(0.9)
+    }
+
+    fn is_close_to_target(&self, target: Length) -> bool {
+        self.distance_to_position(target).abs() <= Length::new::<millimeter>(1.0)
+    }
+}
+
+fn velocity(value: f64) -> Velocity {
+    Velocity::new::<millimeter_per_second>(value)
 }

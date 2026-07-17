@@ -20,7 +20,7 @@ config:
       default: 0.05
 
 state:
-  in_tolerance: !bool
+  in_tolerance: !boolean
 
 measurements:
   diameter: !millimeter

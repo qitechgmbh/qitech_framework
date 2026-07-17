@@ -64,7 +64,7 @@ impl TensionArm {
         // get volts
         let volts = self.get_volts()?;
 
-        println!("volts: {volts}");
+        // println!("volts: {volts}");
 
         // 0V = 0deg 5V = 3600deg
         Ok(self.volts_to_angle(volts))

@@ -64,7 +64,7 @@ pub enum HomingState {
     FindEndstopCoarse,
 
     /// In this state the traverse is moving slowly until it reaches the endstop
-    FindEndtopFine,
+    FindEndstopFine,
 
     /// In this state we check if th current position is actually 0.0, if not we redo the homing routine
     Validate(Instant),
