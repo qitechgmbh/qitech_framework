@@ -14,6 +14,15 @@ pub struct DataRegistry {
 }
 
 impl DataRegistry {
+    pub(crate) fn new() -> Self {
+        Self {
+            names: Default::default(),
+            config: PropertyRegistry::new(),
+            state: PropertyRegistry::new(),
+            measurement: MeasurementRegistry::new(),
+        }
+    }
+
     /// Interns a name: returns the existing `&'static str` if already
     /// registered, otherwise leaks and registers a new one. Bounded by the
     /// vec limit, so worst case is ~0.2 MiB (2048 * 96). 
@@ -141,6 +150,26 @@ pub struct PropertyRegistry<const MAX_ITEMS: usize> {
     values_buf: [ScalarValue; MAX_ITEMS],
 }
 
+impl<const MAX_ITEMS: usize> PropertyRegistry<MAX_ITEMS> {
+    pub(crate) fn new() -> Self {
+        let null_ident = MachineIdentificationUnique {
+            vendor: 0,
+            machine: 0,
+            serial: 0,
+        };
+
+        let null_value = ScalarValue::Float { value: None };
+        let values_buf = std::array::from_fn(|_| null_value.clone());
+
+        Self {
+            active_list: heapless::Vec::new(),
+            idents_buf: [null_ident; MAX_ITEMS],
+            names_buf: [""; MAX_ITEMS],
+            values_buf,
+        }
+    }
+}
+
 /// > Note: must use fixed sized storage since we use pointers and 
 /// > and resize would invalidate all pointers!!!
 #[derive(Debug, Clone)]
@@ -168,6 +197,24 @@ pub struct MeasurementRegistry<const MAX_ITEMS: usize> {
 }
 
 impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
+    pub(crate) fn new() -> Self {
+        let null_ident = MachineIdentificationUnique {
+            vendor: 0,
+            machine: 0,
+            serial: 0,
+        };
+
+        Self {
+            registry: HashMap::new(),
+            active_list: heapless::Vec::new(),
+            reset_list: heapless::Vec::new(),
+            idents_buf: [null_ident; MAX_ITEMS],
+            names_buf: [""; MAX_ITEMS],
+            values_buf: [0.0; MAX_ITEMS],
+            nulls_buf: [false; MAX_ITEMS],
+        }
+    }
+
     pub fn get_value(
         &self,
         ident: MachineIdentificationUnique, 

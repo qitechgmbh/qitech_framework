@@ -87,8 +87,7 @@ impl From<Origin> for u64 {
 #[repr(i8)]
 pub enum OperationResult {
     Success = 0,
-    OutOfBounds = 1,
-    InvalidInput = 2,
+    Failure = 1,
 }
 
 impl From<OperationResult> for i8 {
@@ -103,8 +102,7 @@ impl TryFrom<i8> for OperationResult {
     fn try_from(v: i8) -> Result<Self, Self::Error> {
         match v {
             0 => Ok(Self::Success),
-            1 => Ok(Self::OutOfBounds),
-            2 => Ok(Self::InvalidInput),
+            1 => Ok(Self::Failure),
             _ => Err(format!("invalid ConfigMutationOrigin: {v}")),
         }
     }

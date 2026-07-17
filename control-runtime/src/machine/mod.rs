@@ -1,10 +1,13 @@
+use anyhow::bail;
+use control_core::MachineIdentification;
 use control_core::MachineIdentificationUnique;
 
 mod to_scalar;
+use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use to_scalar::ToScalar;
 
-mod hardware;
-pub use hardware::MachineHardware;
+pub mod hardware;
+pub use hardware::MachineHardwareRegistry;
 pub use hardware::Hardware;
 pub use hardware::IdentifiedEthercat;
 pub use hardware::IdentifiedModbus;
@@ -26,6 +29,8 @@ mod measurement;
 pub use measurement::Measurement;
 pub use measurement::MeasurementStatistics;
 
+use crate::MachineRegistry;
+use crate::MachineRegistryEntry;
 use crate::data;
 use crate::data::DataRegistry;
 

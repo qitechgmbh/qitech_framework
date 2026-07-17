@@ -1,5 +1,5 @@
 use std::{fmt, marker::PhantomData};
-use control_core::{ConfigMutationOrigin, ConfigMutationResult, ScalarValue};
+use control_core::{OperationResult, Origin, ScalarValue};
 use qitech_lib::units::*;
 
 use crate::{data::{ConfigRecorderHandle, PropertyHandle}, machine::to_scalar::ToScalar};
@@ -38,12 +38,12 @@ impl<T: Clone, U> ConfigProperty<T, U> {
 }
 
 impl<T: Clone + ToScalar> ConfigProperty<T> {
-    pub fn set(&mut self, value: T, origin: ConfigMutationOrigin) {
+    pub fn set(&mut self, value: T, origin: Origin) {
         self.value = value.clone();
         let value = value.to_scalar();
         self.data_handle.write(value.clone());
         self.rec_handle
-            .record_mutation(origin, value, ConfigMutationResult::Success);
+            .record_mutation(origin, value, OperationResult::Success);
     }
 }
 
@@ -84,13 +84,13 @@ impl<T: Clone + Bounded, U> BoundedConfigProperty<T, U> {
 }
 
 impl<T: Bounded + Clone + ToScalar> BoundedConfigProperty<T> {
-    pub fn set(&mut self, value: T, origin: ConfigMutationOrigin) -> Result<(), BoundsError<T>> {
+    pub fn set(&mut self, value: T, origin: Origin) -> Result<(), BoundsError<T>> {
         self.bounds.check(&value)?;
         self.value = value.clone();
         let value = value.to_scalar();
         self.prop.write(value.clone());
         self.sink
-            .record_mutation(origin, value, ConfigMutationResult::Success);
+            .record_mutation(origin, value, OperationResult::Success);
         Ok(())
     }
 }
@@ -117,15 +117,15 @@ macro_rules! impl_uom {
                 self.value.get::<N>()
             }
 
-            pub fn set(&mut self, value: $quantity, origin: ConfigMutationOrigin) {
+            pub fn set(&mut self, value: $quantity, origin: Origin) {
                 self.value = value.clone();
                 let value: ScalarValue = value.get::<U>().to_scalar();
                 self.data_handle.write(value.clone());
                 self.rec_handle
-                    .record_mutation(origin, value, ConfigMutationResult::Success);
+                    .record_mutation(origin, value, OperationResult::Success);
             }
 
-            pub fn set_as<N>(&mut self, value: f64, origin: ConfigMutationOrigin)
+            pub fn set_as<N>(&mut self, value: f64, origin: Origin)
             where
                 N: $unit::Unit + $unit::Conversion<f64>,
             {
@@ -144,16 +144,16 @@ macro_rules! impl_uom {
                 self.value.get::<N>()
             }
 
-            pub fn set(&mut self, value: $quantity, origin: ConfigMutationOrigin) -> Result<(), BoundsError<$quantity>> {
+            pub fn set(&mut self, value: $quantity, origin: Origin) -> Result<(), BoundsError<$quantity>> {
                 self.bounds.check(&value)?;
                 self.value = value.clone();
                 let value: ScalarValue = value.get::<U>().to_scalar();
                 self.prop.write(value.clone());
-                self.sink.record_mutation(origin, value, ConfigMutationResult::Success);
+                self.sink.record_mutation(origin, value, OperationResult::Success);
                 Ok(())
             }
 
-            pub fn set_as<N>(&mut self, value: f64, origin: ConfigMutationOrigin) -> Result<(), BoundsError<$quantity>>
+            pub fn set_as<N>(&mut self, value: f64, origin: Origin) -> Result<(), BoundsError<$quantity>>
             where
                 N: $unit::Unit + $unit::Conversion<f64>,
             {

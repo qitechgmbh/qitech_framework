@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use clickhouse::{Client, Row};
-use control_core::{ConfigMutationRecord, MachineCommandInvocation, MachineEvent, MachineIdentificationUnique, MachineMeasurementSnapshot, MachineStateMutationRecord, ScalarValue};
+use control_core::{MachineConfigMutation, MachineCommandInvocation, MachineEvent, MachineIdentificationUnique, MachineMeasurementSnapshot, MachineStateMutationRecord, ScalarValue};
 
 use crate::{SharedState, api::common::PropertyHistoryQuery};
 use crate::api::common::{ApiError, get_machine_info, get_property_info};
@@ -15,7 +15,7 @@ type GetResponse = Vec<Record>;
 
 #[derive(Serialize)]
 pub(super) enum Record {
-    ConfigChanged(ConfigMutationRecord),
+    ConfigChanged(MachineConfigMutation),
     StateChange(MachineStateMutationRecord),
     MeasurementCaptured(MachineMeasurementSnapshot),
     EventEmitted(MachineEvent),

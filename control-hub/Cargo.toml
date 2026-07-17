@@ -35,7 +35,9 @@ futures = "0.3.32"
 arc-swap = "1.9.2"
 uuid = { version = "1.24.0", features = ["v4"] }
 
-# tracing = "0.1.44"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 
 [dev-dependencies]
 testcontainers = { version = "0.27.3", features = ["http_wait_plain"]}
+tracing = "0.1.44"

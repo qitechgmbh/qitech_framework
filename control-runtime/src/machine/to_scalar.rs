@@ -6,60 +6,48 @@ pub trait ToScalar {
 
 impl ToScalar for f64 {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::Float(Some(self))
+        ScalarValue::Float { value: Some(self) }
     }
 }
 
 impl ToScalar for i64 {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::IntegerSigned(Some(self))
-    }
-}
-
-impl ToScalar for u64 {
-    fn to_scalar(self) -> ScalarValue {
-        ScalarValue::IntegerUnsigned(Some(self))
+        ScalarValue::Integer { value: Some(self) }
     }
 }
 
 impl ToScalar for bool {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::Boolean(Some(self))
+        ScalarValue::Boolean { value: Some(self) }
     }
 }
 
 impl ToScalar for String {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::String(Some(self))
+        ScalarValue::String { value: Some(self) }
     }
 }
 
 impl ToScalar for Option<f64> {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::Float(self)
+        ScalarValue::Float { value: self }
     }
 }
 
 impl ToScalar for Option<i64> {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::IntegerSigned(self)
-    }
-}
-
-impl ToScalar for Option<u64> {
-    fn to_scalar(self) -> ScalarValue {
-        ScalarValue::IntegerUnsigned(self)
+        ScalarValue::Integer { value: self }
     }
 }
 
 impl ToScalar for Option<bool> {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::Boolean(self)
+        ScalarValue::Boolean { value: self }
     }
 }
 
 impl ToScalar for Option<String> {
     fn to_scalar(self) -> ScalarValue {
-        ScalarValue::String(self)
+        ScalarValue::String { value: self }
     }
 }

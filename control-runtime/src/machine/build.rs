@@ -58,7 +58,7 @@ impl<'a> MachineBuilder<'a> {
 
 // hardware
 impl MachineBuilder<'_> {
-    pub fn ethercat_interface(&mut self) -> anyhow::Result<EtherCATThreadChannel> {
+    pub fn get_ethercat_interface(&self) -> anyhow::Result<EtherCATThreadChannel> {
         match &self.ethercat_interface {
             Some(v) => Ok(v.clone()),
             None => Err(anyhow!(
@@ -143,7 +143,7 @@ impl MachineBuilder<'_> {
         }
     }
 
-    pub fn try_get_ethercat_device_and_addr_by_role<T>(
+    pub fn get_ethercat_device_and_addr<T>(
         &self,
         role: u16,
     ) -> Result<(Rc<RefCell<T>>, u16), anyhow::Error>
@@ -169,7 +169,7 @@ impl MachineBuilder<'_> {
         ))
     }
 
-    pub fn try_get_ethercat_device_by_role<T>(
+    pub fn get_ethercat_device<T>(
         &self,
         role: u16,
     ) -> Result<Rc<RefCell<T>>, anyhow::Error>

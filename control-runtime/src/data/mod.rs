@@ -18,6 +18,15 @@ pub struct DataStore {
     pub recorder: DataRecorder,
 }
 
+impl DataStore {
+    pub(crate) fn new() -> Self {
+        Self { 
+            registry: DataRegistry::new(), 
+            recorder: DataRecorder::new() 
+        }
+    }
+}
+
 impl Serialize for DataStore {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

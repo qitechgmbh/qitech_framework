@@ -178,22 +178,3 @@ async fn my_test() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-async fn run_bruno_requests() -> anyhow::Result<()> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/api/requests");
-
-    let output = Command::new("bru")
-        .current_dir(root)
-        .arg("run")
-        .output()
-        .await?;
-
-    println!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
-    println!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
-
-    if !output.status.success() {
-        bail!("Bruno execution failed");
-    }
-
-    Ok(())
-}

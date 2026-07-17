@@ -14,6 +14,7 @@ pub struct LogRecord {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum LogOrigin {
+    Hub,
     Runtime,
     Machine(MachineIdentificationUnique),
 }
@@ -21,7 +22,8 @@ pub enum LogOrigin {
 impl LogOrigin {
     pub fn to_u64(self) -> u64 {
         match self {
-            LogOrigin::Runtime => 0,
+            LogOrigin::Hub => 0,
+            LogOrigin::Runtime => 1,
             LogOrigin::Machine(ident) => ident.to_u64(),
         }
     }

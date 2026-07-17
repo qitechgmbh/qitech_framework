@@ -101,8 +101,8 @@ pub enum RuntimeEventKind {
     DiscoveredModbusDevice { path: String },
 
     // --- machines ---
-    MachineConnected {ident: MachineIdentificationUnique },
-    MachineDisconnected {ident: MachineIdentificationUnique },
+    MachineConnected { ident: MachineIdentificationUnique },
+    MachineDisconnected { ident: MachineIdentificationUnique },
 }
 
 // --- state ---

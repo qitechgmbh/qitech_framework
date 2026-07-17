@@ -2,6 +2,7 @@ use std::time::Duration;
 
 mod defaults {
     use super::*;
+    pub const AUTO_MIGRATE: bool = false;
     pub const API_PORT: u16 = 3001;
     pub const COMMIT_INTERVAL: Duration = Duration::from_secs(5);
 }
@@ -11,22 +12,27 @@ pub struct Config {
     /// database configuration
     pub db: DatabaseConfig,
 
+    /// Should the hub attempt to migrate the database 
+    /// if it is outdated automatically
+    pub auto_migrate: bool,
+
     /// address for the api server.
     /// Default is `3001`
-    pub api_port: Option<u16>,
+    pub api_port: u16,
 
     /// interval for exporting data into database.
     /// Default is `5s`
-    pub commit_interval: Option<Duration>,
+    pub commit_interval: Duration,
 }
 
-impl Config {
-    pub fn api_port(&self) -> u16 {
-        self.api_port.unwrap_or(defaults::API_PORT)
-    }
-
-    pub fn commit_interval(&self) -> Duration {
-        self.commit_interval.unwrap_or(defaults::COMMIT_INTERVAL)
+impl Default for Config {
+    fn default() -> Self {
+        Self { 
+            db: Default::default(),
+            auto_migrate: defaults::AUTO_MIGRATE,
+            api_port: defaults::API_PORT, 
+            commit_interval: defaults::COMMIT_INTERVAL,
+        }
     }
 }
 

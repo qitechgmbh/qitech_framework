@@ -2,13 +2,13 @@
 members = [
     "control-core",
     "control-hub", 
-    # "control-hub-macros",
-    # "control-run",
+    "control-runtime",
+    "qitech-machines",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="657ca9a2a89c928108626d12bb7476dab4071dbe" }
+qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="6065961ae2ed53ccd2cc6a1d8c232674d55db8de" }
 serde = { version = "1.0.217", default-features = false, features = ["derive"]}
 tokio = { version = "1", features = ["full"] }
 chrono= { version = "0.4.45", features = ["serde"]}
@@ -16,3 +16,6 @@ anyhow = "1.0.103"
 
 indexmap = { version = "2", default-features = false, features = ["serde"] }
 serde_json = "1.0.150"
+
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }

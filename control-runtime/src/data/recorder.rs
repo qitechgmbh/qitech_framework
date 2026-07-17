@@ -1,20 +1,29 @@
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, rc::{Rc, Weak}};
 use serde::Serialize;
 use chrono::Utc;
-use control_core::{ConfigMutationOrigin, ConfigMutationRecord, ConfigMutationResult, LogLevel, LogOrigin, LogRecord, MachineEvent, MachineIdentificationUnique, ScalarValue, StateMutationRecord};
+use control_core::{LogLevel, LogOrigin, LogRecord, MachineConfigMutation, MachineEvent, MachineIdentificationUnique, MachineStateMutation, OperationResult, Origin, ScalarValue};
 
 type RecordLog<T> = Rc<RefCell<Vec<T>>>;
 type WeakRecordLog<T> = Weak<RefCell<Vec<T>>>;
 
 #[derive(Debug)]
 pub struct DataRecorder {
-    configs: RecordLog<ConfigMutationRecord>,
-    states: RecordLog<StateMutationRecord>,
+    configs: RecordLog<MachineConfigMutation>,
+    states: RecordLog<MachineStateMutation>,
     events: RecordLog<MachineEvent>,
     logs: RecordLog<LogRecord>,
 }
 
 impl DataRecorder {
+    pub(crate) fn new() -> Self {
+        Self { 
+            configs: Default::default(), 
+            states: Default::default(), 
+            events: Default::default(), 
+            logs: Default::default(), 
+        }
+    }
+
     pub(crate) fn create_config_handle(
         &mut self,
         ident: MachineIdentificationUnique,
@@ -69,7 +78,7 @@ impl DataRecorder {
 
 #[derive(Debug)]
 pub struct ConfigRecorderHandle {
-    weak: WeakRecordLog<ConfigMutationRecord>,
+    weak: WeakRecordLog<MachineConfigMutation>,
     ident: MachineIdentificationUnique,
     name: &'static str,
 }
@@ -77,16 +86,16 @@ pub struct ConfigRecorderHandle {
 impl ConfigRecorderHandle {
     pub fn record_mutation(
         &mut self,
-        origin: ConfigMutationOrigin,
+        origin: Origin,
         value: ScalarValue,
-        result: ConfigMutationResult,
+        result: OperationResult,
     ) {
         let log = self
             .weak
             .upgrade()
             .expect("Recorder dropped while handle still alive");
 
-        log.borrow_mut().push(ConfigMutationRecord {
+        log.borrow_mut().push(MachineConfigMutation {
             timestamp: Utc::now(),
             ident: self.ident,
             name: Cow::Borrowed(self.name),
@@ -99,7 +108,7 @@ impl ConfigRecorderHandle {
 
 #[derive(Debug)]
 pub struct StateRecorderHandle {
-    weak: WeakRecordLog<StateMutationRecord>,
+    weak: WeakRecordLog<MachineStateMutation>,
     ident: MachineIdentificationUnique,
     name: &'static str,
 }
@@ -111,7 +120,7 @@ impl StateRecorderHandle {
             .upgrade()
             .expect("Recorder dropped while handle still alive");
 
-        log.borrow_mut().push(StateMutationRecord {
+        log.borrow_mut().push(MachineStateMutation {
             timestamp: Utc::now(),
             ident: self.ident,
             name: Cow::Borrowed(self.name),
@@ -151,12 +160,13 @@ impl<T: Debug + Serialize> MachineEventRecorderHandle<T> {
             }
         };
 
-        log.borrow_mut().push(MachineEvent { 
-            ts: Utc::now(), 
-            ident: self.ident, 
-            name: Cow::Borrowed(self.name), 
-            data,
-        });
+        // TODOD: 
+        // log.borrow_mut().push(MachineEvent { 
+        //     timestamp: Utc::now(), 
+        //     ident: self.ident, 
+        //     name: Cow::Borrowed(self.name), 
+        //     data,
+        // });
     }
 }
 
@@ -175,7 +185,7 @@ impl LogRecorderHandle {
 
         log.borrow_mut().push(LogRecord { 
             timestamp: Utc::now(), 
-            severity: level, 
+            level,
             origin: self.origin, 
             message,
             attributes,

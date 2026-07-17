@@ -29,7 +29,7 @@ impl IngestManager {
             ($mod:tt) => {
                 state.client
                     .inserter::<tables::$mod::Row>(tables::$mod::TABLE_NAME)
-                    .with_period(Some(state.config.commit_interval()))
+                    .with_period(Some(state.config.commit_interval))
                     .with_max_rows(MAX_ROWS)
             };
         }
@@ -56,7 +56,7 @@ impl IngestManager {
     }
 
     pub async fn run(mut self) -> anyhow::Result<()> {
-        let export_interval = self.state.config.commit_interval();
+        let export_interval = self.state.config.commit_interval;
         let mut report_rx = self.state.report_tx.subscribe();
 
         // track the last export
@@ -162,7 +162,7 @@ impl IngestManager {
             match &event.kind {
                 MachineConnected { ident } => {
                     let schemas = self.state.schemas.load();
-                    self.machines.mark_connected(&schemas, *ident);
+                    self.machines.mark_connected(&schemas, *ident)?;
                 },
                 MachineDisconnected { ident } => {
                     self.machines.mark_disconnected(*ident);
