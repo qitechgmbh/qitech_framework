@@ -43,14 +43,14 @@ async fn my_test() -> anyhow::Result<()> {
 
     // --- initialize hub ---
     let config = Config {
-        database: DatabaseConfig {
+        db: DatabaseConfig {
             url,
             name: "control_hub".into(),
             user: "default".into(),
             password: None,
         },
-        export_interval: Duration::from_millis(2500),
-        api_address: "0.0.0.0:3000".into(),
+        commit_interval: Duration::from_millis(2500),
+        api_port: "0.0.0.0:3000".into(),
     };
 
     let (shutdown_tx, shutdown_rx) = watch::channel(());

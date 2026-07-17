@@ -5,6 +5,8 @@ pub use version::QmsVersion;
 
 // expose latest version directly
 mod version;
+mod migration;
+
 pub mod v1_0;
 pub use v1_0 as latest;
 

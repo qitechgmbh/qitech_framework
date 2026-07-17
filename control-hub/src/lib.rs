@@ -1,38 +1,43 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use anyhow::anyhow;
-use control_core::{RuntimeRequest, RuntimeRequestKind};
-use serde::Deserialize;
 use arc_swap::ArcSwap;
-use tokio::spawn;
-use tokio::sync::oneshot;
-use tokio::sync::{mpsc, broadcast, watch};
+use serde::Deserialize;
+use tokio::sync::{mpsc, broadcast};
 use clickhouse::{Client, Row};
 
 use control_core::{
     schema,
+    schema::latest::MachineSchema,
+    RuntimeRequest,
     MachineIdentification, 
-    RuntimeReport, schema::latest::MachineSchema,
+    RuntimeReport, 
 };
-
-mod migration;
-pub use migration::migrate;
-
-mod session;
 
 mod config;
 pub use config::Config;
 pub use config::DatabaseConfig;
 
-mod embedded;
-pub use embedded::EmbeddedSession;
+mod migration;
+pub use migration::migrate;
+
+mod session;
+pub use session::Session;
+pub use session::EmbeddedSession;
 
 mod tables;
 
-mod runtime_ingest;
+mod ingest;
+use ingest::IngestManager;
+
+mod transaction;
+use transaction::PendingRuntimeRequest;
+use transaction::TransactionManager;
 
 mod machine_registry;
 use machine_registry::MachineRegistry;
+
+use crate::session::SessionManager;
 
 type Swappable<T> = Arc<ArcSwap<T>>;
 type SchemaRegistry = BTreeMap<MachineIdentification, MachineSchema>;
@@ -51,12 +56,11 @@ struct SharedState {
     pub schemas: Swappable<SchemaRegistry>,
     pub machines: Swappable<MachineRegistry>,
 
+    // fan out of runtime reports to sub systems
     pub report_tx: RuntimeReportSender,
 
     /// channel to start a transaction
-    pub request_tx: mpsc::Sender<RuntimeRequestKind>,
-
-    pub shutdown_rx: watch::Receiver<()>,
+    pub pending_tx: mpsc::Sender<PendingRuntimeRequest>,
 
     // TODO: implemen
     // pub runtime_state: RuntimeState
@@ -64,54 +68,66 @@ struct SharedState {
 
 pub struct ControlHub {
     state: SharedState,
-}
 
-// Session Manager -> tries to connect, holds the request rx and report tx
+    // manages ingest and persisting of runtime reports
+    ingest_manager: IngestManager,
+
+    // manages requests sent via the api to the runtime
+    transaction_manager: TransactionManager,
+}
 
 impl ControlHub {
     pub async fn init_embedded(
         config: Config,
         schemas: Vec<String>,
-        shutdown_rx: watch::Receiver<()>,
     ) -> anyhow::Result<(Self, EmbeddedSession)> {
         let incoming_schemas = schemas;
 
-        let client = init_client(&config.database);
+        let client = init_client(&config.db);
         let schemas = init_schema_registry(&client).await?;
-        let machines = machine_registry::init(&client, &schemas).await?;
+        let machines = MachineRegistry::init(&client, &schemas).await?;
 
-        // try to import schemas of the runtime
+        // --- load schemas ---
         let schemas = import_schemas(schemas, incoming_schemas)?;
 
+        // --- create channels ---
         let (data_tx, _) = broadcast::channel(64);
-        let (req_tx, req_rx) = mpsc::channel(1024);
+        let (pending_tx, pending_rx) = mpsc::channel(512);
+        let (request_tx, request_rx) = mpsc::channel(512);
 
+        // --- init state ---
         let state = SharedState {
             config,
             client,
             schemas: Arc::new(ArcSwap::new(Arc::new(schemas))),
             machines: Arc::new(ArcSwap::new(Arc::new(machines))),
             report_tx: data_tx.clone(),
-            request_tx: req_tx,
-            shutdown_rx,
+            pending_tx,
         };
 
+        // --- init managers ---
+        let session_manager: SessionManager = todo!();
+        let ingest_manager = IngestManager::init(&state);
+
+        let transaction_manager = TransactionManager::init(
+            &state, 
+            pending_rx, 
+            request_tx,
+        ).await?;
+
         Ok((
-            Self { state },
+            Self { 
+                state,
+                transaction_manager,
+            },
             EmbeddedSession::new(data_tx, req_rx),
         ))
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
-        let x = self.state.clone();
-
         let result = tokio::join!(
-            // takes in the data, updates cache and handles persistance in the db
-            spawn(async move {
-                let r = runtime_ingest::run(x).await;
-                _ = r;
-                //println!("EXITING: {r:?}");
-            }),
+            self.ingest_manager.run(),
+            self.transaction_manager.run(),
 
             // handles the client facing api
             // api::run(self.state.clone()),
@@ -128,10 +144,9 @@ fn init_client(config: &DatabaseConfig) -> Client {
     let mut client = Client::default()
         .with_url(&config.url)
         .with_user(&config.user)
+        // Enable JSON type and inserting JSON columns as string
         .with_setting("allow_experimental_json_type", "1")
-        // Enable inserting JSON columns as a string
-        .with_setting("input_format_binary_read_json_as_string", "1")
-        ;
+        .with_setting("input_format_binary_read_json_as_string", "1");
 
     if let Some(password) = &config.password {
         client = client.with_password(password);

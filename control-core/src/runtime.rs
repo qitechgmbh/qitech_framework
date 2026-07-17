@@ -1,15 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::{LogRecord, MachineCommandCall, MachineConfigMutation, 
-    MachineEvent, MachineIdentificationUnique, MachineStateMutation, 
-    MachineMeasurementVec, ScalarValue
+use crate::{LogRecord, MachineCommandCall, MachineConfigMutation, MachineEvent, MachineIdentificationUnique, MachineMeasurementVec, MachineStateMutation, OperationResult, ScalarValue
 };
 
 // --- request ---
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeRequest {
-    pub request_id: u64,
+    pub transaction_id: u64,
     pub kind: RuntimeRequestKind,
 }
 
@@ -40,6 +38,7 @@ pub enum RuntimeRequestKind {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct RuntimeReport {
     pub created_at: DateTime<Utc>,
+    pub responses: Vec<(u64, OperationResult)>,
     pub runtime: RuntimeReportData,
     pub machines: MachinesReport,
     pub logs: Vec<LogRecord>,

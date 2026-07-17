@@ -33,6 +33,8 @@ futures = "0.3.32"
 
 # misc
 arc-swap = "1.9.2"
+uuid = { version = "1.24.0", features = ["v4"] }
+
 # tracing = "0.1.44"
 
 [dev-dependencies]
