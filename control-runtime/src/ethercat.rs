@@ -18,7 +18,7 @@ use qitech_lib::ethercat_hal::interface_discovery::{
     LinkType, list_ethernet_interfaces, test_interface
 };
 
-use crate::{Runtime, machine::{MachineHardwareRegistry, hardware}};
+use crate::machine::{MachineHardwareRegistry, hardware};
 
 pub type Controller = EtherCATControl<Arc<Mailbox>, Arc<Mailbox>>;
 pub type Device = Rc<RefCell<dyn EthercatDevice + 'static>>;
@@ -67,12 +67,8 @@ pub fn setup(
     controller: &Controller,
     hardware_registry: &mut MachineHardwareRegistry,
 ) -> Result<Vec<(MetaSubdevice, Device)>, anyhow::Error> {
-    let mut subdevices = Vec::new();
-
     // switch into pre op mode
-    controller
-        .channel
-        .request_state_change(EtherCATState::PreOp)?;
+    controller.channel.request_state_change(EtherCATState::PreOp)?;
 
     // Require 2 consecutive stable polls (~100 ms) in PreOp before proceeding.
     // One poll is not enough: the state machine may still be mid-iteration on first observation,
@@ -105,6 +101,7 @@ pub fn setup(
         controller.app_handle.get_subdevice_count()
     );
 
+    let mut subdevices = Vec::new();
     for meta in controller.app_handle.try_get_subdevices_vec_sync()? {
         let dev = match device_from_subdevice_identity_rc(&meta) {
             Ok(d) => d,
@@ -156,7 +153,6 @@ pub fn finalize(
 
     // update offsets in sub devices
     let src = controller.app_handle.try_get_subdevices_vec_sync()?;
-
     for (meta, _) in sub_devices {
         let Some(src) = find_subdevice(&src, meta.device_address) else {
             panic!("EtherCAT device suddenly missing in finalize_ethercat");
@@ -181,6 +177,16 @@ fn wait_for_op_state(controller: &Controller) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn find_subdevice(
+    sub_devices: &[MetaSubdevice], 
+    device_address: u16
+) -> Option<&MetaSubdevice> {
+        sub_devices
+        .iter()
+        .find(|&device| device.device_address == device_address)
+        .map(|v| v as _)
+}
+
 fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
     dest.start_tx = src.start_tx;
     dest.end_tx = src.end_tx;
@@ -188,20 +194,7 @@ fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
     dest.end_rx = src.end_rx;
 }
 
-fn find_subdevice<'a>(
-    sub_devices: &'a Vec<MetaSubdevice>, 
-    device_address: u16
-) -> Option<&'a MetaSubdevice> {
-    for device in sub_devices {
-        if device.device_address == device_address {
-            return Some(device);
-        }
-    }
-
-    None
-}
-
-fn is_controller_finished(controller: &Controller) -> bool {
+pub fn is_controller_finished(controller: &Controller) -> bool {
     match &controller.join_handle {
         Some(handle) => handle.is_finished(),
         None => false,

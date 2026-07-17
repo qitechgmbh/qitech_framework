@@ -47,6 +47,6 @@ pub trait Machine {
 
 #[derive(Debug, Clone)]
 pub struct MachineActError {
-    message: String,
-    recoverable: bool,
+    pub message: String,
+    pub recoverable: bool,
 }

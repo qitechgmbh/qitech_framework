@@ -5,21 +5,31 @@ use qitech_lib::ethercat_hal::{
 };
 use control_runtime::{Config, MachineRegistry, Runtime};
 
+mod utils;
+mod controllers;
+mod converters;
+mod interface;
+
+mod machines;
+pub use machines::WinderV1;
+
 pub fn main() -> anyhow::Result<()> {
+    // TODO: enable
+    interface::bring_up_all_ethernet();
+
     let mut registry = MachineRegistry::default();
 
     // register winder 
-    let schema = include_str!("../../schemas/winder_v1.yaml");
-    registry.register::<WinderV1>(schema)?;
+    registry.register::<WinderV1>(include_str!("../schemas/winder_v1.yaml"))?;
 
     // create runtime
-    let runtime = Runtime::init(get_config(), registry)?;
+    let runtime = Runtime::init(init_config(), registry)?;
 
     // start runtime
     runtime.run()
 }
 
-pub fn get_config() -> Config {
+pub fn init_config() -> Config {
     let target_cycle_time_us: u64 = 1000;
     
     let dc_config = DcConfiguration {
@@ -38,7 +48,7 @@ pub fn get_config() -> Config {
         lock_memory: true,
     };
 
-    let ethercat = MasterConfiguration {
+    let master_config = MasterConfiguration {
         target_cycle_time_us: target_cycle_time_us as usize,
         tx_rx_config: MasterTxRxConfig::TxRxIoUring,
         realtime_optimizations: Some(opt_config),
@@ -49,6 +59,6 @@ pub fn get_config() -> Config {
 
     Config {
         interface_discovery_retry_interval: Duration::from_secs(2),
-        ethercat: Some(ethercat),
+        ethercat: Some(master_config),
     }
 }

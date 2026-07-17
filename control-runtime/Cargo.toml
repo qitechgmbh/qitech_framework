@@ -19,3 +19,4 @@ heapless = { version = "0.8.0", features = ["serde"]}
 serialport = "4.9.0"
 udev = "0.9.3"
 tokio-serial = "5.5.0"
+bitvec = "1"

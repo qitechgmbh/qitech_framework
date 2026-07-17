@@ -1,9 +1,12 @@
-
-
-
 Hub accepts schema migrations:
 - instructions on how to perform a migration
 -> like:
     Remove { field: "config.diameter" }
     ChangeName { field: "config.diameter", new: "config.diameteer" }
     ChangeType { field: "config.diameter", new: meter  }
+
+
+Runtime:
+    - when creating builder provide schema
+    -> when calling register() use schema
+    -> to validate if schema was respected, otherwise fail

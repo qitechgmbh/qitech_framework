@@ -1,0 +1,29 @@
+qms_version: 1.0
+
+name: winder_v1
+schema_revision: 1
+
+identification:
+  vendor: 1
+  machine: 6
+
+config:
+  diameter:
+    target: !millimeter
+      default: 1.75
+
+    tolerance:
+      higher: !millimeter
+        default: 0.05
+
+    lower: !millimeter
+      default: 0.05
+
+state:
+  in_tolerance: !bool
+
+measurements:
+  diameter: !millimeter
+  diameter_x: !millimeter
+  diameter_y: !millimeter
+  roundness: !millimeter

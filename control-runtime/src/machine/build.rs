@@ -127,7 +127,7 @@ impl MachineBuilder<'_> {
         unsafe { Ok(Rc::from_raw(raw_concrete_ptr)) }
     }
 
-    pub fn try_get_serial_device_by_index<T: 'static>(
+    pub fn get_serial_device_by_index<T: 'static>(
         &self,
         index: usize,
     ) -> Result<Rc<RefCell<T>>, anyhow::Error> {
@@ -234,7 +234,10 @@ impl<'a> MachineBuilder<'a> {
         }
     }
 
-    pub fn state<'b, T, U>(&'b mut self, name: &'static str) -> StatePropertyBuilder<'a, 'b, T, U>
+    pub fn state<'b, T, U>(
+        &'b mut self, 
+        name: &'static str
+    ) -> StatePropertyBuilder<'a, 'b, T, U>
     where
         'a: 'b,
         T: Default,

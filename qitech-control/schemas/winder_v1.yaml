@@ -1,0 +1,11 @@
+qms_version: 1.0
+
+name: winder_v1
+schema_revision: 1
+
+identification:
+  vendor: 1
+  machine: 2
+
+measurements:
+  counter: !millimeter

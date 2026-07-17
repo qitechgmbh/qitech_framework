@@ -25,3 +25,16 @@ pub async fn run_scanner(
         };
     }
 }
+
+#[allow(unused)]
+fn monitor_serial_ports() -> anyhow::Result<()> {
+    let monitor = udev::MonitorBuilder::new()?
+        .match_subsystem("tty")?
+        .listen()?;
+
+    for event in monitor.iter() {
+        let serial_ports = serialport::available_ports();
+    }
+
+    Ok(())
+}

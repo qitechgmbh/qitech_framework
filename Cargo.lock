@@ -630,6 +630,7 @@ name = "control_runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitvec",
  "chrono",
  "control_core",
  "heapless 0.8.0",
@@ -1039,6 +1040,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "euclid"
+version = "0.22.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1a05365e3b1c6d1650318537c7460c6923f1abdd272ad6842baa2b509957a06"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -2393,10 +2403,13 @@ name = "qitech_machines"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitvec",
  "chrono",
  "control_hub",
  "control_runtime",
+ "euclid",
  "heapless 0.8.0",
+ "libc",
  "postcard",
  "qitech_lib",
  "serde",
