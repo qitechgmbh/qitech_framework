@@ -1,38 +1,28 @@
-use super::{clamp_revolution::Clamping, tension_arm::TensionArm};
+use std::time::Instant;
 
-use super::{
-    clamp_revolution::clamp_revolution_uom, filament_tension::FilamentTensionCalculator,
-    puller_speed_controller::PullerSpeedController,
-};
+use qitech_lib::units::{Angle, AngularAcceleration, AngularVelocity, ConstZero};
+use qitech_lib::units::angle::degree;
+use qitech_lib::units::angular_velocity::{radian_per_second, revolution_per_minute};
+use qitech_lib::units::angular_acceleration::{radian_per_second_squared, revolution_per_minute_per_second };
 
 use crate::controllers::{
     first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController,
     second_degree_motion::acceleration_position_controller::MotionControllerError,
 };
 
+use crate::machines::winder_v1::tension_arm::TensionArm;
+use crate::machines::winder_v1::utils::clamp_revolution::{Clamping, clamp_revolution_uom};
 use crate::utils::{
     interpolation::{interpolate_exponential, scale},
     moving_time_window::MovingTimeWindow,
 };
 
-use std::time::Instant;
-
-use qitech_lib::units::ConstZero;
-use qitech_lib::units::angle::degree;
-use qitech_lib::units::angular_acceleration::{
-    radian_per_second_squared, revolution_per_minute_per_second,
-};
-use qitech_lib::units::angular_velocity::{
-    radian_per_second, revolution_per_minute, revolution_per_second,
-};
-use qitech_lib::units::f64::*;
-use qitech_lib::units::length::meter;
-use qitech_lib::units::velocity::meter_per_second;
+use super::super::utils::FilamentTensionCalculator;
 
 #[derive(Debug)]
-pub struct MinMaxSpoolSpeedController {
+pub struct SpeedControllerMinMax {
     /// Current speed in
-    last_speed: AngularVelocity,
+    speed: AngularVelocity,
     /// Whether the speed controller is enabled or not
     enabled: bool,
     /// Acceleration controller to dampen speed change
@@ -43,18 +33,18 @@ pub struct MinMaxSpoolSpeedController {
     speed_time_window: MovingTimeWindow<f64>,
 }
 
-impl Default for MinMaxSpoolSpeedController {
+impl Default for SpeedControllerMinMax {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MinMaxSpoolSpeedController {
+impl SpeedControllerMinMax {
     pub fn new() -> Self {
         let max_speed = AngularVelocity::new::<revolution_per_minute>(150.0);
 
         Self {
-            last_speed: AngularVelocity::ZERO,
+            speed: AngularVelocity::ZERO,
             enabled: false,
             acceleration_controller: AngularAccelerationSpeedController::new(
                 Some(AngularVelocity::ZERO),
@@ -75,7 +65,7 @@ impl MinMaxSpoolSpeedController {
     }
 }
 
-impl MinMaxSpoolSpeedController {
+impl SpeedControllerMinMax {
     /// Helper method to get min speed without Option type
     fn min_speed(&self) -> AngularVelocity {
         self.acceleration_controller
@@ -104,7 +94,7 @@ impl MinMaxSpoolSpeedController {
         let max_speed = self.max_speed();
 
         // calculate filament tension
-        let tension_arm_angle = tension_arm.get_angle().unwrap();
+        let tension_arm_angle = tension_arm.angle().unwrap();
         let tension_arm_revolution = clamp_revolution_uom(
             tension_arm_angle,
             // inverted because min angle is max tension
@@ -170,41 +160,30 @@ impl MinMaxSpoolSpeedController {
 
         new_speed
     }
-
-    /// Clamps the speed to the defined minimum and maximum speed.
-    ///
-    /// Parameters:
-    /// - `speed`: The speed to be clamped.
-    ///
-    /// Returns:
-    /// - The clamped speed, ensuring it is within the range of `min_speed` and `max_speed`.
-    fn clamp_speed(&mut self, speed: AngularVelocity) -> AngularVelocity {
-        let min_speed = self.min_speed();
-        let max_speed = self.max_speed();
-
-        if speed < min_speed {
-            AngularVelocity::ZERO
-        } else if speed > max_speed {
-            max_speed
-        } else {
-            speed
-        }
-    }
 }
 
-impl MinMaxSpoolSpeedController {
-    pub fn update_speed(&mut self, t: Instant, tension_arm: &TensionArm) -> AngularVelocity {
+impl SpeedControllerMinMax {
+    pub fn update(&mut self, t: Instant, tension_arm: &TensionArm) {
         let speed = self.speed_raw(t, tension_arm);
         let speed = match self.enabled {
             true => speed,
             false => AngularVelocity::ZERO,
         };
-        let speed = self.accelerate_speed(speed, t);
 
-        // save speed before clamping or it will stay 0.0
-        self.last_speed = speed;
+        self.speed = self.accelerate_speed(speed, t);
+    }
 
-        self.clamp_speed(speed)
+    pub fn speed_clamped(&self) -> AngularVelocity {
+        let min_speed = self.min_speed();
+        let max_speed = self.max_speed();
+
+        if self.speed < min_speed {
+            AngularVelocity::ZERO
+        } else if self.speed > max_speed {
+            max_speed
+        } else {
+            self.speed
+        }
     }
 
     pub const fn set_enabled(&mut self, enabled: bool) {
@@ -216,7 +195,7 @@ impl MinMaxSpoolSpeedController {
     }
 
     pub fn reset(&mut self) {
-        self.last_speed = AngularVelocity::ZERO;
+        self.speed = AngularVelocity::ZERO;
         self.acceleration_controller.reset(AngularVelocity::ZERO);
     }
 
@@ -262,28 +241,13 @@ impl MinMaxSpoolSpeedController {
         self.min_speed()
     }
 
-    pub fn get_speed(&self) -> AngularVelocity {
-        self.last_speed
+    pub fn speed(&self) -> AngularVelocity {
+        self.speed
     }
 
     pub fn set_speed(&mut self, speed: AngularVelocity) {
-        self.last_speed = speed;
+        self.speed = speed;
         // Also update the acceleration controller's current speed to ensure smooth transitions
         self.acceleration_controller.reset(speed);
-    }
-
-    /// derive the radius from the puller speed and the current angular speed
-    pub fn get_radius(&self, puller_speed_controller: &PullerSpeedController) -> Length {
-        let puller_speed: Velocity = puller_speed_controller.get_target_speed();
-        let angular_speed: AngularVelocity = self.last_speed;
-
-        // Calculate the radius using the formula: radius = speed / angular_speed
-        let radius =
-            puller_speed.get::<meter_per_second>() / angular_speed.get::<revolution_per_second>();
-
-        // Ensure the radius is a normal number, otherwise default to 0.0
-        let radius = Some(radius).filter(|&n| n.is_normal()).unwrap_or(0.0);
-
-        Length::new::<meter>(radius)
     }
 }

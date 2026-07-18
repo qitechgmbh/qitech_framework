@@ -5,7 +5,7 @@ use qitech_lib::units::angle::radian;
 use qitech_lib::units::length::centimeter;
 use qitech_lib::units::ratio::ratio;
 
-use crate::converters::angle_converter::{AngleConverter, AngleConverterUom};
+use crate::converters::{AngleConverter, AngleConverterUom};
 
 // The "tension" of the filament is not linear regarding the angle of the tension arm since it moves in an angular motion.
 // With this calculator we can calculate the filament length and tension based on the angle of the tension arm using geometry.

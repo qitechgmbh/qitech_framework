@@ -7,5 +7,122 @@ identification:
   vendor: 1
   machine: 2
 
+config:
+  # tension arm
+  
+
+  # travserse config
+  travserse:
+    padding: !float
+    step_size: !float
+    limit_outer: !float
+    limit_inner: !float
+
+  # puller config
+  puller:
+    speed_target: !float
+    diameter_target: !float
+
+    regulation: !enum 
+      variants: [speed, diameter]
+
+    direction: !enum
+      variants: [forward, reverse]
+
+    gear_ratio: !enum
+      variants: [one_to_one, one_to_five, one_to_ten]
+
+    speed_control:
+      adapative:
+        reference_machine: !machine_identification
+
+  # spool config
+  spool:
+    direction: !enum
+      variants: [forward, reverse]
+
+    speed_control_mode: !enum
+      variants: [adaptive, min_max]
+
+    adapative_speed_control:
+      tension_target: !float
+      radius_learning_ate: !float
+      speed_multiplier_max: !float
+      acceleration_factor: !float
+      deacceleration_urgency_multiplier: !float
+
+    speed_control:
+      mode: !enum
+        variants: [adaptive, min_max]
+
+      min_max:
+        speed_min: !float
+        speed_max: !float
+
+    auto_action: 
+      required_distance: !meter
+
+      action: !enum
+        variants: [none, pull, hold]
+
+state:
+  # tension arm
+  tension_arm:
+    zero: !bool
+      nullable: true
+
+  # travserse state
+  travserse:
+    laser:
+      enabled: !bool
+
+    is_going_in: !bool,
+    is_going_out: !bool,
+    is_going_home: !bool,
+    is_traversing: !bool,
+
+  # puller state
+
+
 measurements:
-  counter: !millimeter
+  traverse:
+    position: !millimeter
+  
+  puller:
+    speed: !meter_per_minute
+
+  spool:
+    rpm: !rotations_per_minute
+
+    auto_action:
+      progress: !meter
+
+  tension_arm:
+    angle: !angle
+
+commands:
+  enter_standby: !command
+  enter_hold:    !command
+  start_pulling: !command
+  start_winding: !command
+
+  tension_arm: 
+    zero_angle: !command
+
+  traverse:
+    goto_home: !command
+    goto_limit_outer: !command
+    goto_limit_inner: !command
+
+  spool_auto_stop:
+    reset_progress: !command
+    
+  laser:
+    enable: !command
+    disable: !command
+
+# machines/winder_v1/0/config/spool.direction GET/SET
+# machines/winder_v1/0/commands/laser.enable POST
+
+# machines/winder_v1/0/laser.enable / POST
+# machines/winder_v1/0/spool.direction GET/PUT

@@ -28,7 +28,7 @@ pub struct IdentifiedModbus {
 
 pub fn append_ethercat(
     registry: &mut MachineHardwareRegistry,
-    device_infos: &Vec<MachineDeviceInfo>,
+    device_infos: &[MachineDeviceInfo],
     mapped_ecat_devices: &Vec<(MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>)>,
 ) {
     let combined_list = create_mapped_ethercat_devices(
@@ -42,7 +42,7 @@ pub fn append_ethercat(
         let identification = MachineIdentificationUnique {
             vendor: ident.machine_vendor,
             machine: ident.machine_id,
-            serial: ident.machine_serial as u16,
+            serial: ident.machine_serial,
         };
 
         registry
@@ -70,7 +70,7 @@ fn create_mapped_ethercat_devices(
         for (meta, device) in mapped_ecat_devices {
             if meta.device_address == info.device_address {
                 result.push(MappedEthercatDevice {
-                    info: info.clone(),
+                    info: *info,
                     device: device.clone(),
                 });
                 break;

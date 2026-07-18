@@ -20,30 +20,24 @@ impl MachineBuild for WinderV1 {
     ) -> Result<Self, MachineBuildError> {
         // --- init hardware ---
         _ = builder.get_ethercat_device::<EK1100>(0)?;
-        let interface = builder.get_ethercat_interface()?;
-        let el7031_0030 = init_el7031_0030(&mut builder, &interface)?;
+        let interface   = builder.get_ethercat_interface()?;
         let el7041_0052 = init_el7041_0052(&mut builder, &interface)?;
-        let el7031 = init_el7031(&mut builder, &interface)?;
+        let el7031      = init_el7031(&mut builder, &interface)?;
+        let el7031_0030 = init_el7031_0030(&mut builder, &interface)?;
 
         _ = el7041_0052;
         _ = el7031;
 
-        // --- devices ---
-        let tension_arm = TensionArm {
-            analog_input: el7031_0030.clone(),
-            zero:   builder.state("tension_arm.zero").register(),
-            zeroed: builder.state("tension_arm.zeroed").register(),
-            angle:  builder.measurement("tension_arm.angle").register(),
-        };
-
-        // --- init properties ---
+        // --- virtual devices ---
+        let tension_arm = TensionArm::new(
+            el7031_0030.clone(), 
+            builder.state("tension_arm.zero").register(), 
+            builder.measurement("tension_arm.angle").register()
+        );
 
         Ok(Self {
             mode: builder.state("mode").register(),
             tension_arm,
-
-            // garbage
-            counter: std::time::Instant::now(),
         })
     }
 }
@@ -71,12 +65,11 @@ fn init_el7041_0052(
     Ok(dev)
 }
 
-/// Role no.3
+/// Role 3: Stepper Traverse EL7031
 fn init_el7031(
     builder: &mut MachineBuilder,
     interface: &EtherCATThreadChannel,
 ) -> anyhow::Result<Rc<RefCell<EL7031>>> {
-    // Role 3: Stepper Traverse EL7031
     let config = EL7031Configuration {
         stm_features: shared_config::el70x1::StmFeatures {
             operation_mode: EL70x1OperationMode::DirectVelocity,
@@ -97,7 +90,7 @@ fn init_el7031(
     Ok(dev)
 }
 
-// Role 4: Stepper Puller EL7031-0030
+/// Role 4: Stepper Puller EL7031-0030
 fn init_el7031_0030(
     builder: &mut MachineBuilder,
     interface: &EtherCATThreadChannel,

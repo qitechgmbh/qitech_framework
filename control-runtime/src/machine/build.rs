@@ -485,6 +485,7 @@ impl<T: Serialize> EventBuilder<'_, '_, T> {
 // Error
 #[derive(Debug)]
 pub enum MachineBuildError {
+    RequiredEtherCATInterface,
     AlreadyRegistered(&'static str, &'static str),
     SchemaViolation,
     Custom(anyhow::Error),
@@ -498,6 +499,9 @@ impl Display for MachineBuildError {
             }
             Self::SchemaViolation => {
                 write!(f, "machine schema violation")
+            }
+            Self::RequiredEtherCATInterface => {
+                write!(f, "machine required a valid ethercat interface")
             }
             Self::Custom(err) => Display::fmt(err, f),
         }

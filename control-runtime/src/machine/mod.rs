@@ -1,10 +1,4 @@
-use anyhow::bail;
-use control_core::MachineIdentification;
-use control_core::MachineIdentificationUnique;
-
 mod to_scalar;
-use qitech_lib::ethercat_hal::EtherCATThreadChannel;
-use to_scalar::ToScalar;
 
 pub mod hardware;
 pub use hardware::MachineHardwareRegistry;
@@ -29,9 +23,9 @@ mod measurement;
 pub use measurement::Measurement;
 pub use measurement::MeasurementStatistics;
 
-use crate::MachineRegistry;
-use crate::MachineRegistryEntry;
-use crate::data;
+mod command;
+pub use command::Command;
+
 use crate::data::DataRegistry;
 
 pub type MachineActResult = Result<(), MachineActError>;

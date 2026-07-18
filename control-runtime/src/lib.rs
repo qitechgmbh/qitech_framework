@@ -7,7 +7,7 @@ mod machine_registry;
 use machine_registry::MachineRegistryEntry;
 pub use machine_registry::MachineRegistry;
 
-mod machine;
+pub mod machine;
 pub use machine::Machine;
 pub use machine::MachineBuild;
 pub use machine::MachineBuilder;

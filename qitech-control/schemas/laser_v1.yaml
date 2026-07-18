@@ -1,6 +1,6 @@
 qms_version: 1.0
 
-name: winder_v1
+name: laser_v1
 schema_revision: 1
 
 identification:
@@ -13,11 +13,11 @@ config:
       default: 1.75
 
     tolerance:
-      higher: !millimeter
+      upper: !millimeter
         default: 0.05
 
-    lower: !millimeter
-      default: 0.05
+      lower: !millimeter
+        default: 0.05
 
 state:
   in_tolerance: !boolean

@@ -1,10 +1,3 @@
-use super::{
-    clamp_revolution::clamp_revolution_uom, filament_tension::FilamentTensionCalculator,
-    puller_speed_controller::PullerSpeedController,
-};
-
-use super::{clamp_revolution::Clamping, tension_arm::TensionArm};
-
 use core::f64;
 use qitech_lib::units::ConstZero;
 use qitech_lib::units::angle::degree;
@@ -16,7 +9,12 @@ use qitech_lib::units::velocity::meter_per_second;
 use std::time::Instant;
 
 use crate::controllers::first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController;
+use crate::machines::winder_v1::puller::Puller;
+use crate::machines::winder_v1::tension_arm::TensionArm;
+use crate::machines::winder_v1::utils::clamp_revolution::{Clamping, clamp_revolution_uom};
 use crate::utils::{interpolation::scale, moving_time_window::MovingTimeWindow};
+
+use super::super::utils::FilamentTensionCalculator;
 
 /// Adaptive spool speed controller that automatically adjusts to maintain optimal filament tension.
 ///
@@ -24,9 +22,9 @@ use crate::utils::{interpolation::scale, moving_time_window::MovingTimeWindow};
 /// maximum speed based on puller speed and tension feedback. It uses closed-loop control
 /// to minimize tension error and applies smooth acceleration to prevent sudden motor commands.
 #[derive(Debug)]
-pub struct AdaptiveSpoolSpeedController {
+pub struct SpeedControllerAdaptive {
     /// Last commanded angular velocity sent to the spool motor
-    last_speed: AngularVelocity,
+    speed: AngularVelocity,
     /// Whether the speed controller is enabled (false = always returns zero speed)
     enabled: bool,
     /// Acceleration controller to smooth speed transitions and prevent sudden changes
@@ -52,13 +50,13 @@ pub struct AdaptiveSpoolSpeedController {
     deacceleration_urgency_multiplier: f64,
 }
 
-impl Default for AdaptiveSpoolSpeedController {
+impl Default for SpeedControllerAdaptive {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl AdaptiveSpoolSpeedController {
+impl SpeedControllerAdaptive {
     /// Maximum speed limit (in RPM) used to initialize the acceleration controller
     const INITIAL_MAX_SPEED_RPM: f64 = 150.0;
 
@@ -109,7 +107,7 @@ impl AdaptiveSpoolSpeedController {
         let max_speed = AngularVelocity::new::<revolution_per_minute>(Self::INITIAL_MAX_SPEED_RPM);
 
         Self {
-            last_speed: AngularVelocity::ZERO,
+            speed: AngularVelocity::ZERO,
             enabled: false,
             acceleration_controller: AngularAccelerationSpeedController::new(
                 Some(AngularVelocity::ZERO),
@@ -155,9 +153,9 @@ impl AdaptiveSpoolSpeedController {
     ///
     /// # Returns
     /// Current maximum angular velocity for the spool in radians per second
-    fn get_max_speed(&self, puller_speed_controller: &PullerSpeedController) -> AngularVelocity {
+    fn get_max_speed(&self, puller: &Puller) -> AngularVelocity {
         AngularVelocity::new::<radian_per_second>(
-            (puller_speed_controller.last_speed.get::<meter_per_second>()
+            (puller.speed().get::<meter_per_second>()
                 / self.speed_factor.get::<meter>())
                 * self.max_speed_multiplier,
         )
@@ -170,13 +168,13 @@ impl AdaptiveSpoolSpeedController {
         &mut self,
         t: Instant,
         tension_arm: &TensionArm,
-        puller_speed_controller: &PullerSpeedController,
+        puller: &Puller,
     ) -> AngularVelocity {
         let min_speed = AngularVelocity::ZERO;
-        let max_speed = self.get_max_speed(puller_speed_controller).abs();
+        let max_speed = self.get_max_speed(puller).abs();
 
         // Calculate filament tension from arm angle
-        let tension_arm_angle = tension_arm.get_angle().unwrap();
+        let tension_arm_angle = tension_arm.angle().unwrap();
         let (clamped_angle, clamping_state) = clamp_revolution_uom(
             tension_arm_angle,
             self.filament_calc.get_max_angle(), // Inverted because min angle = max tension
@@ -210,11 +208,11 @@ impl AdaptiveSpoolSpeedController {
     fn accelerate_speed(
         &mut self,
         target_speed: AngularVelocity,
-        puller_speed_controller: &PullerSpeedController,
+        puller: &Puller,
         t: Instant,
     ) -> AngularVelocity {
         let target_speed_rad_s = target_speed.get::<radian_per_second>();
-        let current_max_speed = self.get_max_speed(puller_speed_controller);
+        let current_max_speed = self.get_max_speed(puller);
         let max_speed_rad_s = current_max_speed.get::<radian_per_second>();
 
         // Base acceleration proportional to current max operating speed
@@ -302,6 +300,12 @@ impl AdaptiveSpoolSpeedController {
         self.last_max_speed_factor_update = Some(t);
     }
 
+    pub fn speed_clamped(&self) -> AngularVelocity {
+        let min_speed = AngularVelocity::ZERO;
+        let max_speed = AngularVelocity::new::<revolution_per_minute>(Self::SAFETY_MAX_SPEED_RPM);
+        self.speed.max(min_speed).min(max_speed)
+    }
+
     /// Main update function that orchestrates the complete speed control pipeline.
     ///
     /// This is the primary interface that calculates the target speed, applies enable/disable
@@ -313,16 +317,13 @@ impl AdaptiveSpoolSpeedController {
     /// - `t`: Current timestamp for time-based calculations
     /// - `tension_arm`: Reference to tension arm for feedback
     /// - `puller_speed_controller`: Reference for adaptive speed scaling
-    ///
-    /// # Returns
-    /// Final commanded angular velocity for the spool motor
-    pub fn update_speed(
+    pub fn update(
         &mut self,
         t: Instant,
         tension_arm: &TensionArm,
-        puller_speed_controller: &PullerSpeedController,
-    ) -> AngularVelocity {
-        let target_speed = self.calculate_speed(t, tension_arm, puller_speed_controller);
+        puller: &Puller,
+    ) {
+        let target_speed = self.calculate_speed(t, tension_arm, puller);
 
         let enabled_speed = if self.enabled {
             target_speed
@@ -330,12 +331,7 @@ impl AdaptiveSpoolSpeedController {
             AngularVelocity::ZERO
         };
 
-        let accelerated_speed = self.accelerate_speed(enabled_speed, puller_speed_controller, t);
-
-        // Store speed before clamping to preserve the actual commanded value
-        self.last_speed = accelerated_speed;
-
-        self.clamp_speed(accelerated_speed)
+        self.speed = self.accelerate_speed(enabled_speed, puller, t);
     }
 
     /// Enables or disables the speed controller.
@@ -361,7 +357,7 @@ impl AdaptiveSpoolSpeedController {
     /// Use this when starting a new winding operation or after significant
     /// process changes that would invalidate learned parameters.
     pub fn reset(&mut self) {
-        self.last_speed = AngularVelocity::ZERO;
+        self.speed = AngularVelocity::ZERO;
         self.acceleration_controller.reset(AngularVelocity::ZERO);
         self.speed_factor = Length::new::<centimeter>(4.25);
         self.last_max_speed_factor_update = None;
@@ -376,8 +372,8 @@ impl AdaptiveSpoolSpeedController {
     ///
     /// # Returns
     /// The angular velocity that was last commanded to the spool motor
-    pub fn get_speed(&self) -> AngularVelocity {
-        self.last_speed
+    pub fn speed(&self) -> AngularVelocity {
+        self.speed
     }
 
     /// Manually sets the current speed, bypassing normal calculation.
@@ -388,7 +384,7 @@ impl AdaptiveSpoolSpeedController {
     /// # Parameters
     /// - `speed`: The angular velocity to set as the current speed
     pub fn set_speed(&mut self, speed: AngularVelocity) {
-        self.last_speed = speed;
+        self.speed = speed;
         self.acceleration_controller.reset(speed);
     }
 

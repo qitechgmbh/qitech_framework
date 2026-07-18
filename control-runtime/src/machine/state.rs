@@ -68,6 +68,41 @@ macro_rules! impl_uom {
                 self.set(<$quantity>::new::<N>(value));
             }
         }
+
+        impl<U> StateProperty<Option<$quantity>, U>
+        where
+            U: $unit::Unit + $unit::Conversion<f64>,
+        {
+            pub fn get(&self) -> Option<$quantity> {
+                self.value
+            }
+
+            pub fn get_as<N>(&self) -> Option<f64>
+            where
+                N: $unit::Unit + $unit::Conversion<f64>,
+            {
+                self.value.map(|v| v.get::<N>())
+            }
+
+            pub fn set(&mut self, value: Option<$quantity>) {
+                self.value = value;
+
+                let value: ScalarValue = match &self.value {
+                    Some(v) => v.get::<U>().to_scalar(),
+                    None => ScalarValue::Float { value: None }
+                };
+
+                self.data_handle.write(value.clone());
+                self.rec_handle.record_mutation(value);
+            }
+
+            pub fn set_as<N>(&mut self, value: Option<f64>)
+            where
+                N: $unit::Unit + $unit::Conversion<f64>,
+            {
+                self.set(value.map(|v| <$quantity>::new::<N>(v)));
+            }
+        }
     };
 }
 

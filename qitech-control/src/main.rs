@@ -6,6 +6,10 @@ use qitech_lib::ethercat_hal::{
 use control_runtime::{Config, MachineRegistry, Runtime};
 
 mod utils;
+
+mod types;
+use types::RotationDirection;
+
 mod controllers;
 mod converters;
 mod interface;
