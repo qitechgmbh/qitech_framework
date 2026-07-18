@@ -1,10 +1,11 @@
 use std::time::Duration;
+use qitech_lib::ethercat_hal::MasterConfiguration;
 
 mod data;
 use data::DataStore;
+pub use data::DataRegistry;
 
 mod machine_registry;
-use machine_registry::MachineRegistryEntry;
 pub use machine_registry::MachineRegistry;
 
 pub mod machine;
@@ -17,7 +18,6 @@ pub use machine::MachineActError;
 pub use machine::ConfigProperty;
 pub use machine::StateProperty;
 pub use machine::Measurement;
-use qitech_lib::ethercat_hal::MasterConfiguration;
 
 mod ethercat;
 

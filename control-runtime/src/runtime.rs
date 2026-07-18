@@ -61,10 +61,18 @@ impl Runtime {
 
     pub fn run(mut self) -> anyhow::Result<()> {
         loop {
+            // TODO: receive data from hub
+
             // TODO: exit if controller is finished
             self.write_ecat_inputs()?;
+
+            // TODO: run config mutations
+            // TODO: run commands
             self.execute_machines()?;
+
             self.write_ecat_outputs();
+
+            // TODO: export data to hub
 
             sleep(Duration::from_micros(100));
         }
@@ -126,6 +134,7 @@ impl Runtime {
             let input_slice = &inputs[meta_dev.start_tx..meta_dev.end_tx];
             let input_bits_slice = BitSlice::<u8, Lsb0>::from_slice(input_slice);
 
+            // why are we ignoring the errors ?
             let mut dev = dev.borrow_mut();
             _ = dev.input(input_bits_slice);
             _ = dev.input_post_process();
@@ -149,6 +158,7 @@ impl Runtime {
             let output_slice = &mut outputs[meta_dev.start_rx..meta_dev.end_rx];
             let output_bits = BitSlice::<u8, Lsb0>::from_slice_mut(output_slice);
 
+            // why are we ignoring the errors ?
             let mut dev = dev.borrow_mut();
             _ = dev.output_pre_process();
             _ = dev.output(output_bits);

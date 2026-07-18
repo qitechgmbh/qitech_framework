@@ -280,5 +280,6 @@ impl<T> std::error::Error for BoundsError<T>
 where
     T: Bounded + fmt::Debug,
     T::Bound: fmt::Debug + fmt::Display,
-{
-}
+{}
+
+// --- attachment handle ---

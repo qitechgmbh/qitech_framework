@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use control_runtime::DataRegistry;
 use control_runtime::{Machine, MachineActResult, StateProperty} ;
 
 mod types;
@@ -65,26 +66,32 @@ impl Machine for WinderV1 {
         Ok(())
     }
 
-    // fn react(&mut self, registry: &DataRegistry) -> MachineActResult {
-    //     let reg = registry.of_machine(laser_ident);
-    //     let current = reg.measurements.get("diameter")?;
-    //     let target  = reg.config.get("diameter.target")?;
-    //     let upper   = reg.config.get("diameter.tolerance.upper")?;
-    //     let lower   = reg.config.get("diameter.tolerance.lower")?;
-    //
-    //     let last_speed = self.puller_speed_controller.last_speed;
-    //
-    //     self.puller_speed_controller
-    //         .adaptive
-    //         .update_with_measurement(
-    //             current,
-    //             target,
-    //             lower,
-    //             upper,
-    //             last_speed,
-    //             Instant::now(),
-    //         );
-    // }   
+    fn react(&mut self, registry: &DataRegistry) -> MachineActResult {
+        let reg = registry.of_machine(laser_ident);
+        let current = reg.measurements.get("diameter")?;
+        let target  = reg.config.get("diameter.target")?;
+        let upper   = reg.config.get("diameter.tolerance.upper")?;
+        let lower   = reg.config.get("diameter.tolerance.lower")?;
+    
+        let last_speed = self.puller_speed_controller.last_speed;
+    
+        self.puller_speed_controller
+            .adaptive
+            .update_with_measurement(
+                current,
+                target,
+                lower,
+                upper,
+                last_speed,
+                Instant::now(),
+            );
+
+        Ok(())
+    }
+
+    fn attach(&mut self, ctx: AttachmentContext) {
+        ctx.
+    }
 }
 
 // --- traverse utilities ---

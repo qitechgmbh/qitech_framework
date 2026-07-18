@@ -1,6 +1,7 @@
 mod to_scalar;
 
 pub mod hardware;
+use control_core::MachineIdentificationUnique;
 pub use hardware::MachineHardwareRegistry;
 pub use hardware::Hardware;
 pub use hardware::IdentifiedEthercat;
@@ -37,6 +38,9 @@ pub trait Machine {
         _ = registry; 
         Ok(())
     }
+
+    fn attach(&mut self, ctx: AttachmentContext) { _ = ctx }
+    fn detach(&mut self, ident: MachineIdentificationUnique) { _ = ident }
 }
 
 #[derive(Debug, Clone)]
@@ -44,3 +48,29 @@ pub struct MachineActError {
     pub message: String,
     pub recoverable: bool,
 }
+
+
+
+pub struct AttachmentContext {
+    registry: &'a DataRegistry,
+    ident: MachineIdentificationUnique,
+    config: ConfigHandleBuilder,
+    state: ConfigHandleBuilder,
+    measurements: ConfigHandleBuilder,
+}
+
+pub struct ConfigPropertyHandle<T> {
+    generation: u64,
+    index: usize,
+    _marker: T,
+}
+
+impl<T> ConfigPropertyHandle<T> {
+
+}
+
+pub struct ConfigHandleBuilder {
+
+}
+
+impl 

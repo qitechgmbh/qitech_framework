@@ -8,9 +8,35 @@ const NAME_LEN_MAX: usize = 96;
 #[derive(Debug)]
 pub struct DataRegistry {
     names: heapless::Vec<&'static str, NAMES_COUNT_MAX>,
+
+    shortcuts: HashMap<MachineIdentificationUnique>,
+
     config: PropertyRegistry<256>,
     state: PropertyRegistry<256>,
     measurement: MeasurementRegistry<128>,
+}
+
+pub struct MachineLookupEntry {
+    config: HashMap<String, usize>,
+}
+
+pub struct DataRegistryMachineView<'a> {
+    ident: MachineIdentificationUnique,
+    registry: &'a DataRegistry,
+}
+
+impl DataRegistryMachineView<'_> {
+    pub fn get_config(&self) {
+        self.registry.config.
+    }
+
+    pub fn get_state(&self) {
+        
+    }
+
+    pub fn get_measurement(&self) {
+
+    }
 }
 
 impl DataRegistry {
@@ -144,6 +170,7 @@ impl DataRegistry {
 #[derive(Debug, Clone)]
 pub struct PropertyRegistry<const MAX_ITEMS: usize> {
     /// slots with valid data
+    shortcuts: HashMap<MachineIdentificationUnique, HashMap<String, usize>>,
     active_list: heapless::Vec<bool, MAX_ITEMS>,
     idents_buf: [MachineIdentificationUnique; MAX_ITEMS],
     names_buf: [&'static str; MAX_ITEMS],

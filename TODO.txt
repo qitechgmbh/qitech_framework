@@ -73,5 +73,8 @@ Bookkeeping command availability:
   a command when its supposed to be locked cannot happen. 
 
 
+Machine Connection:
 
-Commands
+Runtime: manages connections.
+Machine: decides what connections mean.
+Binder: resolves symbolic properties into handles.

@@ -1,16 +1,16 @@
 use serde::{Serialize, Serializer};
 
 mod registry;
-pub(crate) use registry::DataRegistry;
-pub(crate) use registry::PropertyHandle;
-pub(crate) use registry::MeasurementHandle;
+pub use registry::DataRegistry;
+pub use registry::PropertyHandle;
+pub use registry::MeasurementHandle;
 
 mod recorder;
-pub(crate) use recorder::DataRecorder;
-pub(crate) use recorder::ConfigRecorderHandle;
-pub(crate) use recorder::StateRecorderHandle;
-pub(crate) use recorder::MachineEventRecorderHandle;
-pub(crate) use recorder::LogRecorderHandle;
+pub use recorder::DataRecorder;
+pub use recorder::ConfigRecorderHandle;
+pub use recorder::StateRecorderHandle;
+pub use recorder::MachineEventRecorderHandle;
+pub use recorder::LogRecorderHandle;
 
 #[derive(Debug)]
 pub struct DataStore {

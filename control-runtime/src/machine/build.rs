@@ -14,17 +14,18 @@ use qitech_lib::{
     modbus::ModbusDevice,
 };
 use control_core::{LogOrigin, MachineIdentificationUnique};
-use crate::{DataStore, data::{LogRecorderHandle, MachineEventRecorderHandle}, machine::{BoundedConfigProperty, ConfigProperty, Hardware, Measurement, MeasurementStatistics, StateProperty, config::{Bounded, Bounds}}};
+
+use crate::DataStore;
+use crate::data::{LogRecorderHandle, MachineEventRecorderHandle};
+use crate::machine::config::{Bounded, Bounds};
+use crate::machine::{BoundedConfigProperty, ConfigProperty, Hardware, Measurement, MeasurementStatistics, StateProperty};
 
 pub trait MachineBuild: Sized {
     fn build(builder: MachineBuilder<'_>) -> Result<Self, MachineBuildError>;
 }
 
 pub struct MachineBuilder<'a> {
-    // ident
     ident: MachineIdentificationUnique,
-
-    // hardware
     hardware: Vec<Hardware>,
     ethercat_interface: Option<EtherCATThreadChannel>,
 
