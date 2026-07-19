@@ -8,6 +8,10 @@ pub use data::DataRegistry;
 mod machine_registry;
 pub use machine_registry::MachineRegistry;
 
+// mod property;
+
+mod conversion;
+
 pub mod machine;
 pub use machine::Machine;
 pub use machine::MachineBuild;
@@ -19,6 +23,7 @@ pub use machine::ConfigProperty;
 pub use machine::StateProperty;
 pub use machine::Measurement;
 
+mod registry;
 mod ethercat;
 
 mod runtime;

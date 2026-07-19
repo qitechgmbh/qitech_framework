@@ -637,6 +637,7 @@ dependencies = [
  "postcard",
  "qitech_lib",
  "serde",
+ "serde_json",
  "serialport",
  "tokio-serial",
  "udev",

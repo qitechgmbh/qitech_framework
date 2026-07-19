@@ -2,15 +2,21 @@ use serde::{Serialize, Serializer};
 
 mod registry;
 pub use registry::DataRegistry;
-pub use registry::PropertyHandle;
-pub use registry::MeasurementHandle;
 
 mod recorder;
 pub use recorder::DataRecorder;
 pub use recorder::ConfigRecorderHandle;
 pub use recorder::StateRecorderHandle;
-pub use recorder::MachineEventRecorderHandle;
 pub use recorder::LogRecorderHandle;
+
+mod property;
+pub use property::*;
+
+pub mod measurement;
+
+pub type MachineMeasurementRegistry<'a> = measurement::Registry<0, 512>;
+pub type MachineMeasurementReader<'a> = measurement::Reader<'a, 0, 512>;
+pub type MachineMeasurementWriteHandle = measurement::WriteHandle;
 
 #[derive(Debug)]
 pub struct DataStore {
@@ -40,3 +46,4 @@ impl Serialize for DataStore {
         // state.end()
     }
 }
+

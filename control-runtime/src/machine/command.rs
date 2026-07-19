@@ -1,14 +1,14 @@
-use std::{marker::PhantomData, ptr::NonNull};
-
+use std::{any::Any, cell::RefCell, collections::HashMap, marker::PhantomData, ptr::NonNull, rc::{Rc, Weak}};
 use control_core::MachineIdentificationUnique;
+use serde::de::DeserializeOwned;
+use crate::MachineBuilder;
 
+use super::build;
 
 // command registry: (machine -> list of func + pre)
 
-
 pub struct CommandEntry<M, A> {
     func: fn(&mut M, A),
-    pred: fn(&mut M) -> bool,
     availibility: CommandAvailability,
 }
 
@@ -56,4 +56,139 @@ impl Command {
 pub enum CommandAvailability {
     Available,
     Unavailable { reason: &'static str }
+}
+
+pub struct CommandRegistry {
+    inner: HashMap<MachineIdentificationUnique, HashMap<&'static str, Rc<RefCell<CommandRegistryEntry>>>>,
+}
+
+impl CommandRegistry {
+    pub fn execute(
+        &self,
+        id: &MachineIdentificationUnique,
+        name: &str,
+        machine: &mut dyn Any,
+        bytes: &[u8],
+    ) -> Result<(), CommandError> {
+        let entry = self
+            .inner
+            .get(id)
+            .and_then(|cmds| cmds.get(name))
+            .ok_or(CommandError::NotFound)?;
+
+        let entry = entry.borrow();
+        (entry.exec)(machine, bytes)
+    }
+}
+
+pub enum CommandState {
+    Enabled,
+    Disabled { reason: &'static str }
+}
+
+pub struct CommandRegistryEntry {
+    state: CommandState,
+    exec: Box<dyn Fn(&mut dyn Any, &[u8]) -> Result<(), CommandError>>,
+}
+
+impl CommandRegistryEntry {
+    fn new<M: 'static, A>(
+        command: fn(&mut M, A), 
+        predicate: Option<fn(&mut M, &A) -> bool>
+    ) -> Self
+    where
+        A: DeserializeOwned + 'static,
+    {
+        Self {
+            exec: Box::new(move |machine: &mut dyn Any, bytes: &[u8]| {
+                let machine = machine
+                    .downcast_mut::<M>()
+                    .expect("command dispatched to wrong machine type");
+
+                let args = serde_json::from_slice(bytes)
+                    .map_err(|e| CommandError::Deserialize(e.to_string()))?;
+
+                if let Some(pred) = predicate {
+                    pred(machine, &args);
+                }
+
+                command(machine, args);
+                Ok(())
+            }),
+        }
+    }
+}
+
+pub enum CommandError {
+    NotFound,
+    Deserialize(String),
+}
+
+impl<'a> MachineBuilder<'a> {
+    pub fn command<'b, M: 'static, A>(
+        &'b mut self,
+        name: &'static str,
+        execute: fn(&mut M, A),
+    ) -> CommandBuilder<'a, 'b, M, A>
+    where
+        A: DeserializeOwned + 'static,
+    {
+        CommandBuilder {
+            root: self,
+            name,
+            pred: None,
+            execute,
+            enabled: true,
+        }
+    }
+}
+
+pub struct CommandBuilder<'a, 'b, M, A = ()> {
+    root: &'b mut MachineBuilder<'a>,
+    name: &'static str,
+    pred: Option<fn(&M, &A)>,
+    execute: fn(&mut M, A),
+    initial_state: CommandState,
+}
+
+impl<M, A> CommandBuilder<'_, '_, M, A> {
+    pub fn with_disable_by_default(mut self) -> Self {
+        self.initial_state = CommandState::Disabled { reason: "disabled by default" };
+        self
+    }
+
+    pub fn with_predicate(mut self, pred: fn(&M, &A)) -> Self {
+        self.pred = Some(pred);
+        self
+    }
+
+    pub fn register(self) -> CommandHandle<A> {
+        let ident = self.root.identification();
+
+        let reg = &mut self.root.data_store.registry;
+        let name = reg.register_name(self.name.to_string());
+        let data_handle = reg.register_config(ident, name).unwrap();
+
+        let rec = &mut self.root.data_store.recorder;
+        let rec_handle = rec.create_config_handle(ident, name);
+
+        CommandHandle { entry: (), _marker: () }
+    }
+}
+
+pub struct CommandHandle<A> {
+    entry: Weak<RefCell<CommandRegistryEntry>>,
+    _marker: PhantomData<A>,
+}
+
+impl<A> CommandHandle<A> {
+    pub fn enable(&self) {
+        let entry = self.entry.upgrade().expect("Cannot outlive runtimes rc");
+        entry.borrow_mut().state = CommandState::Enabled;
+    }
+
+    pub fn disable(&self, reason: &'static str) {
+        let entry = self.entry.upgrade().expect("Cannot outlive runtimes rc");
+        entry.borrow_mut().state = CommandState::Disabled { reason };
+    }
 }

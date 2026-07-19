@@ -9,6 +9,8 @@ control_core = { path = "../control-core" }
 
 # --- workspace deps ---
 serde = { workspace = true }
+serde_json = { workspace = true }
+
 anyhow = { workspace = true }
 chrono = { workspace = true }
 qitech_lib = { workspace = true }

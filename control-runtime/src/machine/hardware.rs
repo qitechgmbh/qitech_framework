@@ -23,7 +23,7 @@ pub struct IdentifiedEthercat {
 
 #[derive(Clone)]
 pub struct IdentifiedModbus {
-    pub hw: Rc<RefCell<dyn ModbusDevice>>,
+    pub device: Rc<RefCell<dyn ModbusDevice>>,
 }
 
 pub fn append_ethercat(

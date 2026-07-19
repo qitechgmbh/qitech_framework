@@ -1,62 +1,36 @@
-use std::{marker::PhantomData};
 use qitech_lib::units::*;
 
-use crate::data::MeasurementHandle;
+use crate::{conversion::FloatRepr, data::MachineMeasurementWriteHandle};
 
 #[derive(Debug)]
-pub struct Measurement<T, U = ()> {
-    handle: MeasurementHandle,
-    value: T,
+pub struct Measurement<T: FloatRepr> {
+    handle: MachineMeasurementWriteHandle,
+    value: T::Value,
     stats: MeasurementStatistics,
-    _marker: PhantomData<U>,
 }
 
 // scalar values
-impl<T: Copy, U> Measurement<T, U> {
+impl<V: FloatRepr> Measurement<V> {
     pub(super) fn new(
-        handle: MeasurementHandle,
+        handle: MachineMeasurementWriteHandle,
         stats: MeasurementStatistics,
-        initial_value: T,
+        initial_value: V::Value,
     ) -> Self {
-        Self { handle, value: initial_value, stats, _marker: PhantomData }
+        Self { handle, value: initial_value, stats }
     }
 
-    pub fn get(&self) -> T { self.value }
-}
+    pub fn get(&self) -> V::Value { self.value }
 
-// scalar variants
-impl Measurement<f64> {
-    pub fn set(&mut self, value: f64) {
+    pub fn set(&mut self, value: V::Value) {
         self.value = value;
-        self.handle.set(Some(value));
+
+        let value = V::to_f64(self.value);
+        self.handle.write(Some(V::to_f64(self.value)));
         self.stats.update(Some(value));
     }
 }
 
-impl Measurement<i64> {
-    pub fn set(&mut self, value: i64) {
-        self.value = value;
-        self.handle.set(Some(value as f64));
-        self.stats.update(Some(value as f64));
-    }
-}
-
-impl Measurement<bool> {
-    pub fn set(&mut self, value: bool) {
-        self.value = value;
-        self.handle.set(Some(value.into()));
-        self.stats.update(Some(value.into()));
-    }
-}
-
-// nullable scalar variants
-impl Measurement<Option<f64>> {
-    pub fn set(&mut self, value: Option<f64>) {
-        self.value = value;
-        self.handle.set(value);
-        self.stats.update(value);
-    }
-}
+// scalar variants
 
 impl Measurement<Option<i64>> {
     pub fn set(&mut self, value: Option<i64>) {

@@ -78,3 +78,11 @@ Machine Connection:
 Runtime: manages connections.
 Machine: decides what connections mean.
 Binder: resolves symbolic properties into handles.
+
+
+
+
+
+
+
+Incoming requests can be processed instantly, reporting can happen slower in 32hz cycles

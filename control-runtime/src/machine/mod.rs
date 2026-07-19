@@ -27,6 +27,9 @@ pub use measurement::MeasurementStatistics;
 mod command;
 pub use command::Command;
 
+// mod attach;
+
+use crate::data;
 use crate::data::DataRegistry;
 
 pub type MachineActResult = Result<(), MachineActError>;
@@ -34,7 +37,7 @@ pub type MachineActResult = Result<(), MachineActError>;
 pub trait Machine {
     fn act(&mut self) -> MachineActResult;
 
-    fn react(&mut self, registry: &DataRegistry) -> MachineActResult { 
+    fn react(&mut self, registry: &DataRegistryView) -> MachineActResult { 
         _ = registry; 
         Ok(())
     }
@@ -49,14 +52,20 @@ pub struct MachineActError {
     pub recoverable: bool,
 }
 
-
-
-pub struct AttachmentContext {
+pub struct AttachContext<'a> {
     registry: &'a DataRegistry,
     ident: MachineIdentificationUnique,
     config: ConfigHandleBuilder,
     state: ConfigHandleBuilder,
-    measurements: ConfigHandleBuilder,
+    measurements: data::measurement::Resolver,
+}
+
+pub struct ReactContext {
+    measurements: crate::data::measurement::Reader;
+}
+
+pub struct ConfigPropertyRegistryReader {
+
 }
 
 pub struct ConfigPropertyHandle<T> {
@@ -72,5 +81,3 @@ impl<T> ConfigPropertyHandle<T> {
 pub struct ConfigHandleBuilder {
 
 }
-
-impl 

@@ -59,7 +59,7 @@ fn init_el7041_0052(
         ..Default::default()
     };
 
-    let (dev, addr) = builder.get_ethercat_device_and_addr::<EL7041_0052>(2)?;
+    let (dev, addr) = builder.find_ethercat_device_and_addr::<EL7041_0052>(2)?;
     dev.borrow_mut().write_config(interface.clone(), addr, &config)?;
     interface.enable_dc_sync0(addr)?;
     Ok(dev)
@@ -84,7 +84,7 @@ fn init_el7031(
         ..Default::default()
     };
 
-    let (dev, addr) = builder.get_ethercat_device_and_addr::<EL7031>(3)?;
+    let (dev, addr) = builder.find_ethercat_device_and_addr::<EL7031>(3)?;
     dev.borrow_mut().write_config(interface.clone(), addr, &config)?;
     interface.enable_dc_sync0(addr)?;
     Ok(dev)
@@ -111,7 +111,7 @@ fn init_el7031_0030(
         ..Default::default()
     };
 
-    let (dev, addr) = builder.get_ethercat_device_and_addr::<EL7031_0030>(4)?;
+    let (dev, addr) = builder.find_ethercat_device_and_addr::<EL7031_0030>(4)?;
     dev.borrow_mut().write_config(interface.clone(), addr, &config)?;
     interface.enable_dc_sync0(addr)?;
     Ok(dev)
