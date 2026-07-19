@@ -4,17 +4,35 @@ use control_core::ScalarValue;
 use crate::with_uom;
 
 pub trait Bounded { 
-    type Bound: Copy + PartialOrd + Debug + std::fmt::Display;
+    type Bound: Copy + PartialOrd + Debug;
+    fn as_bound(&self) -> Self::Bound;
+}
 
-    fn validate(
-        &self, 
-        min: Option<Self::Bound>, 
-        max: Option<Self::Bound>
-    ) -> Result<(), BoundsError<Self::Bound>>;
+impl Bounded for qitech_lib::units::Length {
+    type Bound = Self;
+    fn as_bound(&self) -> Self::Bound { *self }
+}
+
+pub fn in_bounds<T: Bounded>(
+    value: &T, 
+    min: Option<T::Bound>, 
+    max: Option<T::Bound>
+) -> bool{
+    let value = value.as_bound();
+
+    if let Some(min) = min && value < min{
+        return false;
+    }
+
+    if let Some(max) = max && value > max{
+        return false;
+    }
+
+    true
 }
 
 #[derive(Debug)]
-pub struct BoundsError<T: std::fmt::Display + Debug> {
+pub struct BoundsError<T: Debug> {
     value: T,
     min: Option<T>,
     max: Option<T>,

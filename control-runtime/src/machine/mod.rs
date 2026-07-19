@@ -14,6 +14,7 @@ pub use build::MachineBuildError;
 
 mod config;
 pub use config::ConfigProperty;
+pub use config::ConstrainedConfigProperty;
 // pub use config::BoundedConfigProperty;
 // pub use config::BoundsError;
 

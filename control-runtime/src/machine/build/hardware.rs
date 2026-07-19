@@ -52,7 +52,7 @@ impl MachineBuilder<'_> {
 
 // --- serial ---
 impl MachineBuilder<'_> {
-    pub fn get_serial_device_by_index<T>(&self, index: usize) -> BuildResult<Rc<RefCell<T>>> 
+    pub fn get_serial_device<T>(&self, index: usize) -> BuildResult<Rc<RefCell<T>>> 
     where 
         T: 'static
     {

@@ -1,4 +1,4 @@
-use crate::{Machine, MachineBuildError, conversion::{Bounded, Wrapped}, machine::config::{ConfigProperty, FallibleConfigProperty}};
+use crate::{MachineBuildError, conversion::{Bounded, Wrapped, in_bounds}, machine::config::{ConfigProperty, ConstrainedConfigProperty}};
 use super::MachineBuilder;
 
 impl<'a> MachineBuilder<'a> {
@@ -62,34 +62,34 @@ where
     T: Wrapped + 'static,
     T::Inner: Clone + Bounded,
 {
-    pub fn with_lower_bound<M: Machine + 'static>(
+    pub fn with_lower_bound(
         self, 
         bound: <T::Inner as Bounded>::Bound
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
+    ) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
         let mut builder = self.upgrade();
         builder.lower_bound = Some(bound);
         builder
     }
 
-    pub fn with_upper_bound<M: Machine + 'static>(
+    pub fn with_upper_bound(
         self, 
         bound: <T::Inner as Bounded>::Bound
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
+    ) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
         let mut builder = self.upgrade();
         builder.upper_bound = Some(bound);
         builder
     }
 
-    pub fn with_validation<M: Machine + 'static>(
+    pub fn with_validation(
         self, 
-        validate: fn(&M, &T::Inner) -> Result<(), String>,
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
+        validate: fn(&T::Inner) -> Result<(), String>,
+    ) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
         let mut builder = self.upgrade();
         builder.validate = Some(validate);
         builder
     }
 
-    fn upgrade<M: Machine + 'static>(self) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
+    fn upgrade(self) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
         FallibleConfigPropertyBuilder {
             root: self.root,
             name: self.name,
@@ -102,11 +102,10 @@ where
     }
 }
 
-pub struct FallibleConfigPropertyBuilder<'a, 'b, T, M>
+pub struct FallibleConfigPropertyBuilder<'a, 'b, T>
 where
     T: Wrapped + 'static,
     T::Inner: Bounded,
-    M: Machine,
 {
     root: &'b mut MachineBuilder<'a>,
     name: &'static str,
@@ -115,14 +114,14 @@ where
 
     lower_bound: Option<<T::Inner as Bounded>::Bound>,
     upper_bound: Option<<T::Inner as Bounded>::Bound>,
-    validate: Option<fn(&M, &T::Inner) -> Result<(), String>>,
+    
+    validate: Option<fn(&T::Inner) -> Result<(), String>>,
 }
 
-impl<M, T> FallibleConfigPropertyBuilder<'_, '_, T, M>
+impl<T> FallibleConfigPropertyBuilder<'_, '_, T>
 where
     T: Wrapped + 'static,
     T::Inner: Clone + Bounded,
-    M: Machine + 'static,
 {
     pub fn initial_value(mut self, value: T::Inner) -> Self {
         self.initial_value = Some(value);
@@ -139,12 +138,12 @@ where
         self
     }
 
-    pub fn with_validation(&mut self, validate: fn(&M, &T::Inner) -> Result<(), String>) -> &mut Self {
+    pub fn with_validation(&mut self, validate: fn(&T::Inner) -> Result<(), String>) -> &mut Self {
         self.validate = Some(validate);
         self
     }
 
-    pub fn register(self) -> Result<FallibleConfigProperty<M, T>, MachineBuildError> {
+    pub fn register(self) -> Result<ConstrainedConfigProperty<T>, MachineBuildError> {
         let ident = self.root.ident;
 
         let name = self.root.register_name(self.name);
@@ -163,20 +162,21 @@ where
 
         // Bounds are checked first; only if they pass does the user-supplied
         // validation function run.
-        let validate: Box<dyn Fn(&M, &T::Inner) -> Result<(), String>> =
-            Box::new(move |machine: &M, value: &T::Inner| {
-                value
-                    .validate(lower_bound, upper_bound)
-                    .map_err(|e| e.to_string())?;
+        let validate: Box<dyn Fn(&T::Inner) -> Result<(), String>> =
+            Box::new(move |value: &T::Inner| {
+                
+                if !in_bounds(value, lower_bound, upper_bound) {
+                    return Err("out of bounds".to_string());
+                }
 
                 if let Some(user_validate) = user_validate {
-                    user_validate(machine, value)?;
+                    user_validate(value)?;
                 }
 
                 Ok(())
             });
 
-        Ok(FallibleConfigProperty::new(
+        Ok(ConstrainedConfigProperty::new(
             reg_handle, 
             rec_handle, 
             self.default_value,

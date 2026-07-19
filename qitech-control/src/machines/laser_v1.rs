@@ -2,25 +2,25 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
 
+use qitech_lib::units::ConstZero;
 use qitech_lib::units::{Length, length::millimeter};
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::{LaserDevice, LaserError};
 
 use control_runtime::{
-    Machine, MachineActError, MachineActResult, MachineBuild, 
-    MachineBuildError, MachineBuilder,
+    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, MachineBuilder,
 };
 
-use control_runtime::machine::{ConfigProperty, StateProperty, Measurement};
+use control_runtime::machine::{ConstrainedConfigProperty, Measurement, StateProperty};
 
 pub struct LaserV1 {
     // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,
 
     // -- config ---
-    diameter_target: ConfigProperty<millimeter>,
-    diameter_tolerance_upper: ConfigProperty<millimeter>,
-    diameter_tolerance_lower: ConfigProperty<millimeter>,
+    diameter_target: ConstrainedConfigProperty<millimeter>,
+    diameter_tolerance_upper: ConstrainedConfigProperty<millimeter>,
+    diameter_tolerance_lower: ConstrainedConfigProperty<millimeter>,
 
     // --- state ---
     in_tolerance: StateProperty<bool>,
@@ -38,22 +38,28 @@ pub struct LaserV1 {
 impl MachineBuild for LaserV1 {
     fn build(mut builder: MachineBuilder<'_>) -> Result<Self, MachineBuildError> {
         // --- hardware
-        let device = builder.get_serial_device_by_index::<LaserDevice>(0)?;
+        let device = builder.get_serial_device::<LaserDevice>(0)?;
+
+        let diameter_target = builder
+            .config("diameter.target", Length::new::<millimeter>(1.75))
+            .with_lower_bound(Length::ZERO)
+            .register()?;
+
+        let diameter_tolerance_upper = builder
+            .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
+            .with_lower_bound(Length::ZERO)
+            .register()?;
+
+        let diameter_tolerance_lower = builder
+            .config("diameter.tolerance.upper", Length::new::<millimeter>(0.05))
+            .with_lower_bound(Length::ZERO)
+            .register()?;
 
         Ok(Self {
             device,
-            diameter_target: builder
-                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
-                .register()?,
-
-            diameter_tolerance_upper: builder
-                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
-                .register()?,
-
-            diameter_tolerance_lower: builder
-                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
-                .register()?,
-                
+            diameter_target,
+            diameter_tolerance_upper,
+            diameter_tolerance_lower,
             in_tolerance: builder.state("in_tolerance").register()?,
             diameter: builder.measurement("diameter").register()?,
             diameter_x: builder.measurement("diameter_x").register()?,
@@ -89,6 +95,31 @@ impl Machine for LaserV1 {
 }
 
 impl LaserV1 {
+    fn update_device(&mut self) -> MachineActResult {
+        let mut laser = self.device.borrow_mut();
+
+        if let Err(e) = laser.handle_response()
+            && let Some(laser_error) = e.downcast_ref::<LaserError>()
+            && let LaserError::IoErr() = laser_error {
+            return Err(MachineActError {
+                recoverable: false,
+                message: "Physical hardware I/O broke.".to_string(),
+            });
+        }
+
+        let now = Instant::now();
+        if now.duration_since(self.last_request) > Duration::from_millis(6) {
+            self.last_request = now;
+            let res = laser.send_next_request();
+
+            if res.is_err() {
+                println!("send_next_request {:?}", res);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Roundness = min(x, y) / max(x, y)
     fn compute_roundness(&mut self) -> Option<f64> {
         let (Some(x), Some(y)) = (
@@ -122,30 +153,5 @@ impl LaserV1 {
         let bottom = target - self.diameter_tolerance_lower.get();
 
         self.diameter.get() > top || self.diameter.get() < bottom
-    }
-
-    fn update_device(&mut self) -> MachineActResult {
-        let mut laser = self.device.borrow_mut();
-
-        if let Err(e) = laser.handle_response()
-            && let Some(laser_error) = e.downcast_ref::<LaserError>()
-            && let LaserError::IoErr() = laser_error {
-            return Err(MachineActError {
-                recoverable: false,
-                message: "Physical hardware I/O broke.".to_string(),
-            });
-        }
-
-        let now = Instant::now();
-        if now.duration_since(self.last_request) > Duration::from_millis(6) {
-            self.last_request = now;
-            let res = laser.send_next_request();
-
-            if res.is_err() {
-                println!("send_next_request {:?}", res);
-            }
-        }
-
-        Ok(())
     }
 }
