@@ -1,7 +1,41 @@
-use control_core::ScalarValue;
+use std::fmt::Debug;
 
+use control_core::ScalarValue;
 use crate::with_uom;
 
+pub trait Bounded { 
+    type Bound: Copy + PartialOrd + Debug + std::fmt::Display;
+
+    fn validate(
+        &self, 
+        min: Option<Self::Bound>, 
+        max: Option<Self::Bound>
+    ) -> Result<(), BoundsError<Self::Bound>>;
+}
+
+#[derive(Debug)]
+pub struct BoundsError<T: std::fmt::Display + Debug> {
+    value: T,
+    min: Option<T>,
+    max: Option<T>,
+}
+
+impl<T: Debug + std::fmt::Display> std::fmt::Display for BoundsError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (&self.min, &self.max) {
+            (Some(min), Some(max)) => {
+                write!(f, "value {} out of bounds [{min}, {max}]", self.value)
+            }
+            (Some(min), None) => write!(f, "value {} below minimum {min}", self.value),
+            (None, Some(max)) => write!(f, "value {} above maximum {max}", self.value),
+            (None, None) => write!(f, "value {} failed validation", self.value),
+        }
+    }
+}
+
+impl<T: std::fmt::Display + Debug> std::error::Error for BoundsError<T> {}
+
+// --- wrapped ---
 pub trait Wrapped { type Inner; }
 
 pub trait WrappedIntoOptionalF64

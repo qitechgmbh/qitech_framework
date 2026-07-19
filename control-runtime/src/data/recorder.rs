@@ -84,7 +84,7 @@ pub struct ConfigRecorderHandle {
 }
 
 impl ConfigRecorderHandle {
-    pub fn record_mutation(
+    pub fn record(
         &mut self,
         origin: Origin,
         value: ScalarValue,

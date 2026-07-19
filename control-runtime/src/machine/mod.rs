@@ -12,11 +12,11 @@ pub use build::MachineBuild;
 pub use build::MachineBuilder;
 pub use build::MachineBuildError;
 
-// mod config;
-// pub use config::ConfigProperty;
+mod config;
+pub use config::ConfigProperty;
 // pub use config::BoundedConfigProperty;
 // pub use config::BoundsError;
-// 
+
 mod state;
 pub use state::StateProperty;
 

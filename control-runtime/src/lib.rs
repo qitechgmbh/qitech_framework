@@ -22,7 +22,6 @@ pub use machine::MachineActError;
 // pub use machine::ConfigProperty;
 // pub use machine::StateProperty;
 
-mod registry;
 mod ethercat;
 
 mod runtime;

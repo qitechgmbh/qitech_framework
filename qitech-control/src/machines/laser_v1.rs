@@ -11,7 +11,7 @@ use control_runtime::{
     MachineBuildError, MachineBuilder,
 };
 
-use control_runtime::machine::{StateProperty, Measurement};
+use control_runtime::machine::{ConfigProperty, StateProperty, Measurement};
 
 pub struct LaserV1 {
     // --- hardware ---
@@ -40,24 +40,20 @@ impl MachineBuild for LaserV1 {
         // --- hardware
         let device = builder.get_serial_device_by_index::<LaserDevice>(0)?;
 
-        // --- properties ---
-        let config_diameter = DiameterConfig {
-            target: builder
-                .config("diameter.target", Length::new::<millimeter>(1.75))
-                .register(),
-
-            tolerance_higher: builder
-                .config("diameter.tolerance.higher", Length::new::<millimeter>(0.05))
-                .register(),
-
-            tolerance_lower: builder
-                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
-                .register(),
-        };
-
         Ok(Self {
             device,
-            diameter_config: config_diameter,
+            diameter_target: builder
+                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
+                .register()?,
+
+            diameter_tolerance_upper: builder
+                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
+                .register()?,
+
+            diameter_tolerance_lower: builder
+                .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
+                .register()?,
+                
             in_tolerance: builder.state("in_tolerance").register()?,
             diameter: builder.measurement("diameter").register()?,
             diameter_x: builder.measurement("diameter_x").register()?,
