@@ -1,11 +1,15 @@
+use crate::{MachineBuilder, conversion::Wrapped};
+use super::super::{Measurement, MeasurementStatistics};
+
 impl<'a> MachineBuilder<'a> {
-    pub fn measurement<'b, T, U>(
+    pub fn measurement<'b, T>(
         &'b mut self,
         name: &'static str,
-    ) -> MeasurementBuilder<'a, 'b, T, U>
+    ) -> MeasurementBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: Copy + Default,
+        T: Wrapped,
+        T::Inner: Default
     {
         MeasurementBuilder {
             root: self,
@@ -13,26 +17,25 @@ impl<'a> MachineBuilder<'a> {
             record_min: false,
             record_max: false,
             initial_value: Default::default(),
-            _marker: PhantomData,
         }
     }
 }
 
-pub struct MeasurementBuilder<'a, 'b, T, U>
+pub struct MeasurementBuilder<'a, 'b, T>
 where
-    T: Copy + Default,
+    T: Wrapped
 {
     root: &'b mut MachineBuilder<'a>,
     name: &'static str,
     record_min: bool,
     record_max: bool,
-    initial_value: T,
-    _marker: PhantomData<U>,
+    initial_value: T::Inner,
 }
 
-impl<T: Copy + Default, N> MeasurementBuilder<'_, '_, T, N>
+impl<T: Copy + Default> MeasurementBuilder<'_, '_, T>
 where
-    T: Copy + Default,
+    T: Wrapped,
+    T::Inner: Copy
 {
     pub fn record_min(&mut self) -> &mut Self {
         self.record_min = true;
@@ -44,14 +47,15 @@ where
         self
     }
 
-    pub fn initial_value(&mut self, value: T) -> &mut Self {
+    pub fn initial_value(&mut self, value: T::Inner) -> &mut Self {
         self.initial_value = value;
         self
     }
 
-    pub fn register(self) -> Measurement<T, N> {
+    pub fn register(self) -> Measurement<T> {
         let ident = self.root.ident;
 
+        /*
         let reg = &mut self.root.data_store.registry;
         let name = reg.register_name(self.name.to_string());
         let handle = reg.register_measurement(ident, name, false).unwrap();
@@ -74,5 +78,8 @@ where
 
         let stats = MeasurementStatistics::new(min, max);
         Measurement::new(handle, stats, self.initial_value)
+        */
+
+        todo!()
     }
 }

@@ -1,65 +1,99 @@
-use qitech_lib::units::{Length, length::{millimeter, Unit}};
+use crate::with_uom;
 
-pub trait QuantityInfo {
-    type Quantity;
+pub trait Wrapped { type Inner; }
+
+pub trait WrappedIntoOptionalF64
+where 
+    Self: Wrapped,
+{
+    fn into_opt_f64(value: Self::Inner) -> Option<f64>;
 }
 
-pub trait QuantityOf {
-    type Quantity;
+pub trait WrappedFromOptionalF64
+where 
+    Self: Wrapped,
+{
+    fn from_opt_f64(value: Option<f64>) -> Self::Inner;
 }
 
-pub trait FromF64 {
-    type Output;
-    fn from_f64(value: f64) -> Self::Output;
+pub trait NonNullableFloatWrapper
+where 
+    Self: Wrapped,
+{
+    fn from_f64(value: f64) -> Self::Inner;
+    fn into_f64(value: Self::Inner) -> f64;
 }
 
-pub trait ToF64 {
-    type Input;
-    fn to_f64(value: Self::Input) -> f64;
+pub trait NullableFloatWrapper
+where 
+    Self: Wrapped + WrappedIntoOptionalF64,
+    Self::Inner: Copy
+{
+    fn from_opt_f64(value: Option<f64>) -> Self::Inner;
 }
 
-// --- float ---
-impl FromF64 for f64 {
-    type Output = f64;
-
-    fn from_f64(value: f64) -> Self::Output {
-        value
-    }
+// f64
+impl Wrapped for f64 { type Inner = f64; }
+impl NonNullableFloatWrapper for f64 {
+    fn from_f64(value: f64) -> f64 { value }
+    fn into_f64(value: f64) -> f64 { value }
 }
 
-impl ToF64 for f64 {
-    type Input = f64;
-    
-    fn to_f64(value: f64) -> f64 {
-        value
-    }
+impl WrappedIntoOptionalF64 for f64 {
+    fn into_opt_f64(value: f64) -> Option<f64> { Some(value) }
 }
 
-// --- millimeter ---
-impl QuantityOf for millimeter {
-    type Quantity = Length;
+impl Wrapped for Option<f64> { type Inner = Option<f64>; }
+impl NullableFloatWrapper for Option<f64> {
+    fn from_opt_f64(value: Option<f64>) -> Self::Inner { value }
 }
 
-pub trait FloatRepr {
-    type Value: Copy;
-    fn from_f64(value: f64) -> Self::Value;
-    fn to_f64(value: Self::Value) -> f64;
+impl WrappedIntoOptionalF64 for Option<f64> {
+    fn into_opt_f64(value: Self::Inner) -> Option<f64> { value }
 }
 
-impl FloatRepr for millimeter {
-    type Value = Length;
-
-    fn from_f64(value: f64) -> Self::Value {
-        Length::new::<millimeter>(value)
-    }
-
-    fn to_f64(value: Length) -> f64 {
-        value.get::<millimeter>()
-    }
+// i64
+impl Wrapped for i64 { type Inner = i64; }
+impl NonNullableFloatWrapper for i64 {
+    fn from_f64(value: f64) -> i64 { value as i64 }
+    fn into_f64(value: i64) -> f64 { value as f64 }
 }
 
-pub trait UomRepr {
-    type Value: Copy;
-    fn from_f64(value: f64) -> Self::Value;
-    fn to_f64(value: Self::Value) -> f64;
+impl WrappedIntoOptionalF64 for i64 {
+    fn into_opt_f64(value: i64) -> Option<f64> { Some(value as f64) }
 }
+
+impl Wrapped for Option<i64> { type Inner = Option<i64>; }
+impl NullableFloatWrapper for Option<i64> {
+    fn from_opt_f64(value: Option<f64>) -> Self::Inner { value.map(|x| x as i64) }
+}
+
+impl WrappedIntoOptionalF64 for Option<i64> {
+    fn into_opt_f64(value: Self::Inner) -> Option<f64> { value.map(|x| x as f64) }
+}
+
+// uom
+macro_rules! impl_uom {
+    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
+        impl Wrapped for $unit { type Inner = $quantity; }
+        impl NonNullableFloatWrapper for $unit {
+            fn from_f64(value: f64) -> $quantity { <$quantity>::new::<Self>(value) }
+            fn into_f64(value: $quantity) -> f64 { value.get::<Self>() }
+        }
+
+        impl WrappedIntoOptionalF64 for $unit {
+            fn into_opt_f64(value: Self::Inner) -> Option<f64> { Some(value.get::<$unit>()) }
+        }
+
+        impl Wrapped for Option<$unit> { type Inner = Option<$quantity>; }
+        impl NullableFloatWrapper for Option<$unit> {
+            fn from_opt_f64(value: Option<f64>) -> Self::Inner { value.map(|x| <$quantity>::new::<$unit>(x)) }
+        }
+
+        impl WrappedIntoOptionalF64 for Option<$unit> {
+            fn into_opt_f64(value: Self::Inner) -> Option<f64> { value.map(|x| x.get::<$unit>()) }
+        }
+    };
+}
+
+with_uom!(impl_uom);

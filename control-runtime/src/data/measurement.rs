@@ -1,9 +1,9 @@
 use std::{any::TypeId, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
 
-use crate::conversion::FromF64;
+use crate::conversion::{WrappedFromOptionalF64};
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Key {
     ident: MachineIdentificationUnique,
     name: &'static str,
@@ -11,7 +11,7 @@ struct Key {
 
 #[derive(Debug, Clone, Copy)]
 struct Entry {
-    index: u16,
+    index: usize,
     type_id: TypeId,
 }
 
@@ -60,7 +60,7 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
             return Err(RegisterError::AlreadyRegistered);
         }
 
-        let index = self.claim_slot()? as u16;
+        let index = self.claim_slot()?;
         let entry = Entry { index, type_id: TypeId::of::<T>() };
 
         self.lookup.insert(key, entry)
@@ -90,7 +90,9 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
                 self.occupied[entry.index] = false;
 
                 // ensure old handles don't read anymore 
-                self.buf_generations[entry.index] += 1;
+                unsafe {
+                    *self.buf_generations[entry.index].assume_init_mut() += 1;
+                }
 
                 // remove from reset list if it was contained
                 self.reset_list.retain(|&i| i != entry.index);
@@ -102,10 +104,10 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
 
     /// Find a free slot, reusing a previously-freed one if available,
     /// otherwise growing into unused capacity.
-    fn claim_slot(&mut self) -> Result<u16, RegisterError> {
+    fn claim_slot(&mut self) -> Result<usize, RegisterError> {
         if let Some(index) = self.occupied.iter().position(|occupied| !occupied) {
             self.occupied[index] = true;
-            return Ok(index as u16);
+            return Ok(index);
         }
 
         if self.occupied.len() < MAX_ITEMS {
@@ -113,7 +115,7 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
             self.occupied
                 .push(true)
                 .map_err(|_| RegisterError::RegistryFull)?;
-            return Ok(index as u16);
+            return Ok(index);
         }
 
         Err(RegisterError::RegistryFull)
@@ -166,10 +168,10 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
         Self { registry }
     }
 
-    pub fn read<T: FromF64>(
+    pub fn read<T: WrappedFromOptionalF64>(
         &self,
         handle: ReadHandle<REGISTRY_ID, T>,
-    ) -> Result<T::Output, ReadError> {
+    ) -> Result<T::Inner, ReadError> {
         let generation = self.registry.buf_generations[handle.slot_index];
 
         // Safety:
@@ -181,8 +183,13 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
                 return Err(ReadError);
             }
 
-            let value = self.registry.buf_values[handle.slot_index].assume_init_read();
-            Ok(T::from_f64(value))
+            let null = self.registry.buf_nulls[handle.slot_index].assume_init_read();
+
+            let value = if !null {
+                Some(self.registry.buf_values[handle.slot_index].assume_init_read())
+            } else { None };
+            
+            Ok(T::from_opt_f64(value))
         }
     }
 }
@@ -206,25 +213,21 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> Resolver<'a, REGISTRY
     ) -> Result<ReadHandle<REGISTRY_ID, T>, ResolveError> {
         let key = Key { ident, name };
 
-        let Some(&slot_index) = self.registry.lookup.get(&key) else {
+        let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
             return Err(ResolveError::NoSuchProperty)
         };
         
-        let type_id = unsafe {
-            self.registry.buf_type_id[slot_index].assume_init()
-        };
-
-        if type_id != TypeId::of::<T>() {
+        if *type_id != TypeId::of::<T>() {
             return Err(ResolveError::InvalidType);
         }
 
         let generation = unsafe {
-            self.registry.buf_generation[slot_index].assume_init()
+            self.registry.buf_generations[*index].assume_init()
         };
 
         Ok(ReadHandle {
-            slot_index,
             generation,
+            slot_index: *index,
             _marker: PhantomData,
         })
     }

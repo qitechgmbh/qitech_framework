@@ -8,10 +8,10 @@ use crate::data::LogRecorderHandle;
 use crate::machine::Hardware ;
 
 mod hardware;
-mod config;
-mod state;
+// mod config;
+// mod state;
 mod measurement;
-mod event;
+// mod event;
 
 type BuildResult<T> = Result<T, MachineBuildError>;
 

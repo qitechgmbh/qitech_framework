@@ -19,8 +19,8 @@ pub use machine::MachineBuilder;
 pub use machine::MachineBuildError;
 pub use machine::MachineActResult;
 pub use machine::MachineActError;
-pub use machine::ConfigProperty;
-pub use machine::StateProperty;
+// pub use machine::ConfigProperty;
+// pub use machine::StateProperty;
 pub use machine::Measurement;
 
 mod registry;
@@ -28,6 +28,9 @@ mod ethercat;
 
 mod runtime;
 pub use runtime::Runtime;
+
+include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
+pub(crate) use with_uom;
 
 #[derive(Debug, Clone)]
 pub struct Config {

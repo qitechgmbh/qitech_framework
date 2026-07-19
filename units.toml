@@ -1,0 +1,75 @@
+[[quantity]]
+name = "Acceleration"
+units = ["MeterPerSecondSquared", "MeterPerMinutePerSecond"]
+
+[[quantity]]
+name = "AmountOfSubstance"
+units = ["Mole"]
+
+[[quantity]]
+name = "Angle"
+units = ["Radian", "Degree", "Revolution"]
+
+[[quantity]]
+name = "AngularAcceleration"
+units = ["RadianPerSecondSquared", "DegreePerSecondSquared", "RevolutionPerMinutePerSecond"]
+
+[[quantity]]
+name = "AngularJerk"
+units = ["RadianPerSecondCubed", "DegreePerSecondCubed", "RevolutionPerMinutePerSecondSquared"]
+
+[[quantity]]
+name = "AngularVelocity"
+units = ["RadianPerSecond", "DegreePerSecond", "RevolutionPerSecond", "RevolutionPerMinute"]
+
+[[quantity]]
+name = "ElectricCurrent"
+units = ["Milliampere", "Centiampere", "Ampere"]
+
+[[quantity]]
+name = "ElectricPotential"
+units = ["Millivolt", "Centivolt", "Volt"]
+
+[[quantity]]
+name = "Frequency"
+units = ["Millihertz", "Centihertz", "Hertz", "CyclePerMinute"]
+
+[[quantity]]
+name = "Jerk"
+units = ["MeterPerSecondCubed", "MeterPerMinutePerSecondSquared"]
+
+[[quantity]]
+name = "Length"
+units = ["Millimeter", "Centimeter", "Meter"]
+
+[[quantity]]
+name = "LuminousIntensity"
+units = ["Candela"]
+
+[[quantity]]
+name = "Mass"
+units = ["Kilogram"]
+
+[[quantity]]
+name = "Pressure"
+units = ["Pascal", "Bar"]
+
+[[quantity]]
+name = "Ratio"
+units = ["Ratio"]
+
+[[quantity]]
+name = "ThermodynamicTemperature"
+units = ["Kelvin", "DegreeCelsius"]
+
+[[quantity]]
+name = "Time"
+units = ["Second"]
+
+[[quantity]]
+name = "Velocity"
+units = ["MillimeterPerSecond", "MeterPerSecond", "MeterPerMinute"]
+
+[[quantity]]
+name = "VolumeRate"
+units = ["CubicMeterPerSecond", "LiterPerSecond", "LiterPerMinute"]

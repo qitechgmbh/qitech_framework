@@ -22,3 +22,7 @@ serialport = "4.9.0"
 udev = "0.9.3"
 tokio-serial = "5.5.0"
 bitvec = "1"
+
+[build-dependencies]
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }

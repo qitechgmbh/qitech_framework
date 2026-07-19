@@ -12,20 +12,20 @@ pub use build::MachineBuild;
 pub use build::MachineBuilder;
 pub use build::MachineBuildError;
 
-mod config;
-pub use config::ConfigProperty;
-pub use config::BoundedConfigProperty;
-pub use config::BoundsError;
-
-mod state;
-pub use state::StateProperty;
+// mod config;
+// pub use config::ConfigProperty;
+// pub use config::BoundedConfigProperty;
+// pub use config::BoundsError;
+// 
+// mod state;
+// pub use state::StateProperty;
 
 mod measurement;
 pub use measurement::Measurement;
 pub use measurement::MeasurementStatistics;
 
-mod command;
-pub use command::Command;
+// mod command;
+// pub use command::Command;
 
 // mod attach;
 
@@ -37,12 +37,12 @@ pub type MachineActResult = Result<(), MachineActError>;
 pub trait Machine {
     fn act(&mut self) -> MachineActResult;
 
-    fn react(&mut self, registry: &DataRegistryView) -> MachineActResult { 
-        _ = registry; 
+    fn react(&mut self, ctx: ReactContext) -> MachineActResult { 
+        _ = ctx; 
         Ok(())
     }
 
-    fn attach(&mut self, ctx: AttachmentContext) { _ = ctx }
+    fn attach(&mut self, ctx: AttachContext) { _ = ctx }
     fn detach(&mut self, ident: MachineIdentificationUnique) { _ = ident }
 }
 
@@ -55,29 +55,11 @@ pub struct MachineActError {
 pub struct AttachContext<'a> {
     registry: &'a DataRegistry,
     ident: MachineIdentificationUnique,
-    config: ConfigHandleBuilder,
-    state: ConfigHandleBuilder,
-    measurements: data::measurement::Resolver,
+    // config: ConfigHandleBuilder,
+    // state: ConfigHandleBuilder,
+    measurements: data::measurement::Resolver<'a, 0, 512>,
 }
 
-pub struct ReactContext {
-    measurements: crate::data::measurement::Reader;
-}
-
-pub struct ConfigPropertyRegistryReader {
-
-}
-
-pub struct ConfigPropertyHandle<T> {
-    generation: u64,
-    index: usize,
-    _marker: T,
-}
-
-impl<T> ConfigPropertyHandle<T> {
-
-}
-
-pub struct ConfigHandleBuilder {
-
+pub struct ReactContext<'a> {
+    pub measurements: data::measurement::Reader<'a, 0, 512>,
 }

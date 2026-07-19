@@ -29,7 +29,7 @@ where
 
     pub fn set(&mut self, value: T) {
         self.value = value.clone();
-
+        
         let value = value.clone().to_scalar();
         self.data_handle.write(value.clone());
         self.rec_handle.record_mutation(value);

@@ -1,4 +1,4 @@
-use std::any::{Any, type_name};
+use std::any::type_name;
 use std::{cell::RefCell, rc::Rc};
 
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
@@ -8,7 +8,6 @@ use qitech_lib::modbus::ModbusDevice;
 use crate::MachineBuildError;
 use crate::machine::{Hardware, IdentifiedEthercat, IdentifiedModbus};
 use crate::machine::build::BuildResult;
-
 use super::MachineBuilder;
 
 // --- ethercat ---
@@ -27,7 +26,7 @@ impl MachineBuilder<'_> {
             return Err(MachineBuildError::ExpectedEtherCATDeviceAtIndex { index });
         };
 
-        downcast_rc_refcell::<dyn EthercatDevice, T>(index, device.clone())
+        downcast_ecat_dev(index, device.clone())
     }
 
     pub fn find_ethercat_device_and_addr<T>(&self, role: u16) -> BuildResult<(Rc<RefCell<T>>, u16)>
@@ -35,7 +34,7 @@ impl MachineBuilder<'_> {
         T: EthercatDevice
     {
         let (index, IdentifiedEthercat { device, ident }) = self.find_ethercat_by_role(role)?;
-        let device = downcast_rc_refcell::<dyn EthercatDevice, T>(index, device.clone())?;
+        let device = downcast_ecat_dev(index, device.clone())?;
         Ok((device, ident.device_address)) 
     }
 
@@ -65,7 +64,7 @@ impl MachineBuilder<'_> {
             return Err(MachineBuildError::ExpectedSerialDeviceAtIndex { index });
         };
 
-        downcast_rc_refcell::<dyn ModbusDevice, T>(index, device.clone())
+        downcast_modbus_dev(index, device.clone())
     }
 }
 
@@ -91,21 +90,32 @@ impl MachineBuilder<'_> {
     }
 }
 
-pub fn downcast_rc_refcell<In: Any, Out: 'static>(
-    index: usize,
-    dev: Rc<RefCell<In>>,
-) -> BuildResult<Rc<RefCell<Out>>> {
-    // Check if the inner type is actually T
-    if !dev.borrow().as_any().is::<Out>() {
-        let expected = type_name::<Out>();
-        return Err(MachineBuildError::DeviceTypeMismatch { index, expected  });
+fn downcast_ecat_dev<T: 'static>(
+    index: usize, 
+    device: Rc<RefCell<dyn EthercatDevice>>
+) -> BuildResult<Rc<RefCell<T>>>{
+    if!device.borrow().as_any().is::<T>(){
+        let expected = type_name::<T>();
+        return Err(MachineBuildError::DeviceTypeMismatch {
+            index,expected
+        });
     }
+    let raw_trait_ptr = Rc::into_raw(device);
+    let raw_concrete_ptr = raw_trait_ptr as *const RefCell<T>;
+    unsafe { Ok(Rc::from_raw(raw_concrete_ptr)) }
+}
 
-    // Since we verified the type above, we can use raw pointers.
-    let raw_trait_ptr = Rc::into_raw(dev);
-
-    // We cast the fat pointer to a thin pointer of the concrete RefCell<T>
-    let raw_concrete_ptr = raw_trait_ptr as *const RefCell<Out>;
-
+fn downcast_modbus_dev<T: 'static>(
+    index: usize, 
+    device: Rc<RefCell<dyn ModbusDevice>>
+) -> BuildResult<Rc<RefCell<T>>>{
+    if!device.borrow().as_any().is::<T>(){
+        let expected = type_name::<T>();
+        return Err(MachineBuildError::DeviceTypeMismatch {
+            index,expected
+        });
+    }
+    let raw_trait_ptr = Rc::into_raw(device);
+    let raw_concrete_ptr = raw_trait_ptr as *const RefCell<T>;
     unsafe { Ok(Rc::from_raw(raw_concrete_ptr)) }
 }
