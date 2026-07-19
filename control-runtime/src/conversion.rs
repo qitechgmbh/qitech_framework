@@ -1,3 +1,5 @@
+use control_core::ScalarValue;
+
 use crate::with_uom;
 
 pub trait Wrapped { type Inner; }
@@ -7,6 +9,13 @@ where
     Self: Wrapped,
 {
     fn into_opt_f64(value: Self::Inner) -> Option<f64>;
+}
+
+pub trait WrappedIntoScalar
+where 
+    Self: Wrapped,
+{
+    fn into_scalar(value: Self::Inner) -> ScalarValue;
 }
 
 pub trait WrappedFromOptionalF64
@@ -32,8 +41,32 @@ where
     fn from_opt_f64(value: Option<f64>) -> Self::Inner;
 }
 
+// bool
+impl Wrapped for bool { type Inner = bool; }
+
+impl WrappedIntoScalar for bool {
+    fn into_scalar(value: Self::Inner) -> ScalarValue {
+        ScalarValue::Boolean { value: Some(value) }
+    }
+}
+
+impl Wrapped for Option<bool> { type Inner = Option<bool>; }
+
+impl WrappedIntoScalar for Option<bool> {
+    fn into_scalar(value: Self::Inner) -> ScalarValue {
+        ScalarValue::Boolean { value }
+    }
+}
+
 // f64
 impl Wrapped for f64 { type Inner = f64; }
+
+impl WrappedIntoScalar for f64 {
+    fn into_scalar(value: Self::Inner) -> ScalarValue {
+        ScalarValue::Float { value: Some(value) }
+    }
+}
+
 impl NonNullableFloatWrapper for f64 {
     fn from_f64(value: f64) -> f64 { value }
     fn into_f64(value: f64) -> f64 { value }
@@ -54,6 +87,13 @@ impl WrappedIntoOptionalF64 for Option<f64> {
 
 // i64
 impl Wrapped for i64 { type Inner = i64; }
+
+impl WrappedIntoScalar for i64 {
+    fn into_scalar(value: Self::Inner) -> ScalarValue {
+        ScalarValue::Integer { value: Some(value) }
+    }
+}
+
 impl NonNullableFloatWrapper for i64 {
     fn from_f64(value: f64) -> i64 { value as i64 }
     fn into_f64(value: i64) -> f64 { value as f64 }
@@ -76,9 +116,16 @@ impl WrappedIntoOptionalF64 for Option<i64> {
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
         impl Wrapped for $unit { type Inner = $quantity; }
+
+        impl WrappedIntoScalar for $unit {
+            fn into_scalar(value: Self::Inner) -> ScalarValue {
+                ScalarValue::Float { value: Self::into_opt_f64(value) }
+            }
+        }
+
         impl NonNullableFloatWrapper for $unit {
-            fn from_f64(value: f64) -> $quantity { <$quantity>::new::<Self>(value) }
-            fn into_f64(value: $quantity) -> f64 { value.get::<Self>() }
+            fn from_f64(value: f64) -> Self::Inner { <Self::Inner>::new::<Self>(value) }
+            fn into_f64(value: Self::Inner) -> f64 { value.get::<Self>() }
         }
 
         impl WrappedIntoOptionalF64 for $unit {
@@ -86,6 +133,13 @@ macro_rules! impl_uom {
         }
 
         impl Wrapped for Option<$unit> { type Inner = Option<$quantity>; }
+
+        impl WrappedIntoScalar for Option<$unit> {
+            fn into_scalar(value: Self::Inner) -> ScalarValue {
+                ScalarValue::Float { value: Self::into_opt_f64(value) }
+            }
+        }
+
         impl NullableFloatWrapper for Option<$unit> {
             fn from_opt_f64(value: Option<f64>) -> Self::Inner { value.map(|x| <$quantity>::new::<$unit>(x)) }
         }

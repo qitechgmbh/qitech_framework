@@ -1,15 +1,14 @@
-use control_core::MachineIdentificationUnique;
-
 const NAMES_COUNT_MAX: usize = 2048;
 const NAME_LEN_MAX: usize = 96;
 
 use super::measurement;
+use super::property;
 
 #[derive(Debug)]
 pub struct DataRegistry {
-    names: heapless::Vec<&'static str, NAMES_COUNT_MAX>,
-    // config: PropertyRegistry<256>,
-    // state: PropertyRegistry<256>,
+    names:  heapless::Vec<&'static str, NAMES_COUNT_MAX>,
+    pub config: property::Registry<0, 512>,
+    pub state:  property::Registry<1, 512>,
     pub measurement: measurement::Registry<0, 512>,
 }
 
@@ -17,8 +16,8 @@ impl DataRegistry {
     pub(crate) fn new() -> Self {
         Self {
             names: Default::default(),
-            // config: PropertyRegistry::new(),
-            // state: PropertyRegistry::new(),
+            config: property::Registry::new(),
+            state: property::Registry::new(),
             measurement: measurement::Registry::new(),
         }
     }
@@ -107,33 +106,6 @@ impl DataRegistry {
                 let idx = active_list.len();
                 active_list.push(true).map_err(|_| "full".to_string())?;
                 Ok(idx)
-            }
-        }
-    }
-
-    /// TODO: REFLECT CHANGES IN CLEAR_LISTS IMPORTANT
-    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
-        for (idx, active) in &mut self.config.active_list.iter_mut().enumerate() {
-            if !*active { continue; }
-
-            if self.config.idents_buf[idx] == ident {
-                *active = false;
-            }
-        }
-
-        for (idx, active) in &mut self.state.active_list.iter_mut().enumerate() {
-            if !*active { continue; }
-
-            if self.state.idents_buf[idx] == ident {
-                *active = false;
-            }
-        }
-
-        for (idx, active) in &mut self.measurement.active_list.iter_mut().enumerate() {
-            if !*active { continue; }
-
-            if self.measurement.idents_buf[idx] == ident {
-                *active = false;
             }
         }
     }

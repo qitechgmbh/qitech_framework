@@ -1,127 +1,69 @@
-use std::marker::PhantomData;
-use control_core::ScalarValue;
-use qitech_lib::units::*;
-use crate::{data::{PropertyHandle, StateRecorderHandle}, machine::to_scalar::ToScalar};
+use crate::with_uom;
+use crate::data::{StateRecorderHandle, property};
+use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 #[derive(Debug)]
-pub struct StateProperty<T, U = ()> {
-    data_handle: PropertyHandle,
+pub struct StateProperty<T: Wrapped> {
+    reg_handle: property::Handle<T::Inner>,
     rec_handle: StateRecorderHandle,
-    value: T,
-    _unit: PhantomData<U>,
 }
 
-impl<T, U> StateProperty<T, U> {
-    pub fn new(
-        data_handle: PropertyHandle,
+impl<T: Wrapped> StateProperty<T> {
+    pub(crate) fn new(
+        reg_handle: property::Handle<T::Inner>,
         rec_handle: StateRecorderHandle,
-        value: T,
     ) -> Self {
-        Self { data_handle, rec_handle, value, _unit: PhantomData }
+        Self { reg_handle, rec_handle }
     }
 }
 
-impl<T> StateProperty<T, ()>
+impl<T> StateProperty<T>
 where
-    T: ToScalar + Clone,
+    T: WrappedIntoScalar,
+    T::Inner: Clone,
 {
-    pub fn get(&self) -> &T { &self.value }
+    pub fn get(&self) -> &T::Inner { self.reg_handle.read() }
 
-    pub fn set(&mut self, value: T) {
-        self.value = value.clone();
-        
-        let value = value.clone().to_scalar();
-        self.data_handle.write(value.clone());
-        self.rec_handle.record_mutation(value);
+    pub fn set(&mut self, value: T::Inner) {
+        self.reg_handle.write(value.clone());
+        self.rec_handle.record(T::into_scalar(value));
     }
 }
 
 macro_rules! impl_uom {
-    ($quantity:ty, $unit:tt) => {
-        impl<U> StateProperty<$quantity, U>
-        where
-            U: $unit::Unit + $unit::Conversion<f64>,
-        {
-            pub fn get(&self) -> $quantity {
-                self.value
-            }
-
+    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
+        impl StateProperty<$unit> {
             pub fn get_as<N>(&self) -> f64
             where
-                N: $unit::Unit + $unit::Conversion<f64>,
+                N: $unit_trait + $conversion_trait,
             {
-                self.value.get::<N>()
-            }
-
-            pub fn set(&mut self, value: $quantity) {
-                self.value = value;
-
-                let value: ScalarValue = self.value.get::<U>().to_scalar();
-                self.data_handle.write(value.clone());
-                self.rec_handle.record_mutation(value);
+                self.get().get::<N>()
             }
 
             pub fn set_as<N>(&mut self, value: f64)
             where
-                N: $unit::Unit + $unit::Conversion<f64>,
+                N: $unit_trait + $conversion_trait,
             {
                 self.set(<$quantity>::new::<N>(value));
             }
         }
 
-        impl<U> StateProperty<Option<$quantity>, U>
-        where
-            U: $unit::Unit + $unit::Conversion<f64>,
-        {
-            pub fn get(&self) -> Option<$quantity> {
-                self.value
-            }
-
+        impl StateProperty<Option<$unit>> {
             pub fn get_as<N>(&self) -> Option<f64>
             where
-                N: $unit::Unit + $unit::Conversion<f64>,
+                N: $unit_trait + $conversion_trait,
             {
-                self.value.map(|v| v.get::<N>())
-            }
-
-            pub fn set(&mut self, value: Option<$quantity>) {
-                self.value = value;
-
-                let value: ScalarValue = match &self.value {
-                    Some(v) => v.get::<U>().to_scalar(),
-                    None => ScalarValue::Float { value: None }
-                };
-
-                self.data_handle.write(value.clone());
-                self.rec_handle.record_mutation(value);
+                self.get().map(|q| q.get::<N>())
             }
 
             pub fn set_as<N>(&mut self, value: Option<f64>)
             where
-                N: $unit::Unit + $unit::Conversion<f64>,
+                N: $unit_trait + $conversion_trait,
             {
-                self.set(value.map(|v| <$quantity>::new::<N>(v)));
+                self.set(value.map(<$quantity>::new::<N>));
             }
         }
     };
 }
 
-impl_uom!(Acceleration, acceleration);
-impl_uom!(AmountOfSubstance, amount_of_substance);
-impl_uom!(Angle, angle);
-impl_uom!(AngularAcceleration, angular_acceleration);
-impl_uom!(AngularJerk, angular_jerk);
-impl_uom!(AngularVelocity, angular_velocity);
-impl_uom!(ElectricCurrent, electric_current);
-impl_uom!(ElectricPotential, electric_potential);
-impl_uom!(Frequency, frequency);
-impl_uom!(Jerk, jerk);
-impl_uom!(Length, length);
-impl_uom!(LuminousIntensity, luminous_intensity);
-impl_uom!(Mass, mass);
-impl_uom!(Pressure, pressure);
-impl_uom!(Ratio, ratio);
-impl_uom!(ThermodynamicTemperature, thermodynamic_temperature);
-impl_uom!(Time, time);
-impl_uom!(Velocity, velocity);
-impl_uom!(VolumeRate, volume_rate);
+with_uom!(impl_uom);

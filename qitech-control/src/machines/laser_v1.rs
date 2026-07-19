@@ -7,31 +7,29 @@ use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::{LaserDevice, LaserError};
 
 use control_runtime::{
-    ConfigProperty, Machine, MachineActError, MachineActResult, MachineBuild, 
-    MachineBuildError, MachineBuilder, Measurement, StateProperty,
+    Machine, MachineActError, MachineActResult, MachineBuild, 
+    MachineBuildError, MachineBuilder,
 };
 
-pub struct DiameterConfig {
-    target: ConfigProperty<Length, millimeter>,
-    tolerance_higher: ConfigProperty<Length, millimeter>,
-    tolerance_lower: ConfigProperty<Length, millimeter>,
-}
+use control_runtime::machine::{StateProperty, Measurement};
 
 pub struct LaserV1 {
-    // --- hardware
+    // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,
 
     // -- config ---
-    diameter_config: DiameterConfig,
+    diameter_target: ConfigProperty<millimeter>,
+    diameter_tolerance_upper: ConfigProperty<millimeter>,
+    diameter_tolerance_lower: ConfigProperty<millimeter>,
 
     // --- state ---
     in_tolerance: StateProperty<bool>,
 
     // --- measurements ---
-    diameter: Measurement<Length, millimeter>,
-    diameter_x: Measurement<Option<Length>, millimeter>,
-    diameter_y: Measurement<Option<Length>, millimeter>,
-    roundness: Measurement<Option<f64>>,
+    diameter:   Measurement<millimeter>,
+    diameter_x: Measurement<Option<millimeter>>,
+    diameter_y: Measurement<Option<millimeter>>,
+    roundness:  Measurement<Option<f64>>,
 
     // -- misc ---
     last_request: Instant,
@@ -60,11 +58,11 @@ impl MachineBuild for LaserV1 {
         Ok(Self {
             device,
             diameter_config: config_diameter,
-            in_tolerance: builder.state("in_tolerance").register(),
-            diameter: builder.measurement("diameter").register(),
-            diameter_x: builder.measurement("diameter_x").register(),
-            diameter_y: builder.measurement("diameter_y").register(),
-            roundness: builder.measurement("roundness").register(),
+            in_tolerance: builder.state("in_tolerance").register()?,
+            diameter: builder.measurement("diameter").register()?,
+            diameter_x: builder.measurement("diameter_x").register()?,
+            diameter_y: builder.measurement("diameter_y").register()?,
+            roundness: builder.measurement("roundness").register()?,
             last_request: Instant::now(),
         })
     }
@@ -123,9 +121,9 @@ impl LaserV1 {
             return true;
         }
 
-        let target = self.diameter_config.target.get();
-        let top = target + self.diameter_config.tolerance_higher.get();
-        let bottom = target - self.diameter_config.tolerance_lower.get();
+        let target = self.diameter_target.get();
+        let top = target + self.diameter_tolerance_upper.get();
+        let bottom = target - self.diameter_tolerance_lower.get();
 
         self.diameter.get() > top || self.diameter.get() < bottom
     }

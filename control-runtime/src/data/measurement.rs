@@ -17,8 +17,8 @@ struct Entry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegisterError {
-    AlreadyRegistered,
-    RegistryFull,
+    AlreadyRegistered { name: &'static str },
+    RegistryFull { name: &'static str },
 }
 
 /// > Note: must use fixed sized storage since we use pointers and 
@@ -53,14 +53,14 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
         &mut self,
         ident: MachineIdentificationUnique,
         name: &'static str,
-    ) -> Result<WriteHandle, RegisterError> {
+    ) -> Result<Handle, RegisterError> {
         let key = Key { ident, name };
 
         if self.lookup.contains_key(&key) {
-            return Err(RegisterError::AlreadyRegistered);
+            return Err(RegisterError::AlreadyRegistered { name });
         }
 
-        let index = self.claim_slot()?;
+        let index = self.claim_slot(name)?;
         let entry = Entry { index, type_id: TypeId::of::<T>() };
 
         self.lookup.insert(key, entry)
@@ -69,18 +69,18 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
         unsafe {
             let p_value = NonNull::new_unchecked(self.buf_values[index].as_mut_ptr());
             let p_null = NonNull::new_unchecked(self.buf_nulls[index].as_mut_ptr());
-            Ok(WriteHandle { p_value, p_null })
+            Ok(Handle { p_value, p_null })
         }
     }
 
     /// Release all previously-registered slots belonging to `ident`
     /// Returns the number of slots freed.
-    pub fn unregister(&mut self, ident: &MachineIdentificationUnique) -> usize {
+    pub fn unregister_machine(&mut self, ident: &MachineIdentificationUnique) -> usize {
         // Collect keys to remove
         let mut to_remove: heapless::Vec<Key, MAX_ITEMS> = heapless::Vec::new();
         for key in self.lookup.keys() {
             if &key.ident == ident {
-                to_remove.push(key.clone()).expect("Cannot overflow");
+                to_remove.push(*key).expect("Cannot overflow");
             }
         }
 
@@ -104,7 +104,7 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
 
     /// Find a free slot, reusing a previously-freed one if available,
     /// otherwise growing into unused capacity.
-    fn claim_slot(&mut self) -> Result<usize, RegisterError> {
+    fn claim_slot(&mut self, name: &'static str) -> Result<usize, RegisterError> {
         if let Some(index) = self.occupied.iter().position(|occupied| !occupied) {
             self.occupied[index] = true;
             return Ok(index);
@@ -114,21 +114,31 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
             let index = self.occupied.len();
             self.occupied
                 .push(true)
-                .map_err(|_| RegisterError::RegistryFull)?;
+                .map_err(|_| RegisterError::RegistryFull { name })?;
             return Ok(index);
         }
 
-        Err(RegisterError::RegistryFull)
+        Err(RegisterError::RegistryFull { name })
     }
 }
 
 #[derive(Debug)]
-pub struct WriteHandle {
+pub struct Handle {
     p_value: NonNull<f64>,
     p_null: NonNull<bool>,
 }
 
-impl WriteHandle {
+impl Handle {
+    pub fn read(&self) -> Option<f64> {
+        unsafe {
+            if self.p_null.read() {
+                None
+            } else {
+                Some(self.p_value.read())
+            }
+        }
+    }
+
     pub fn write(&mut self, value: Option<f64>) {
         unsafe {
             match value {
@@ -151,28 +161,28 @@ impl WriteHandle {
 pub struct ReadError;
 
 #[derive(Debug)]
-pub struct ReadHandle<const REGISTRY_ID: usize, T> {
+pub struct ReaderHandle<const REGISTRY_ID: usize, T> {
     generation: u64,
-    slot_index: usize,
+    index: usize,
     _marker: PhantomData<T>,
 }
 
-pub struct Reader<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    registry: &'a Registry<REGISTRY_ID, MAX_SLOTS>,
+pub struct Reader<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> 
-    Reader<'a, REGISTRY_ID, MAX_SLOTS>
+impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> 
+    Reader<'a, REGISTRY_ID, MAX_ITEMS>
 {
-    pub(crate) fn new(registry: &'a Registry<REGISTRY_ID, MAX_SLOTS>) -> Self {
+    pub(crate) fn new(registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>) -> Self {
         Self { registry }
     }
 
     pub fn read<T: WrappedFromOptionalF64>(
         &self,
-        handle: ReadHandle<REGISTRY_ID, T>,
+        handle: ReaderHandle<REGISTRY_ID, T>,
     ) -> Result<T::Inner, ReadError> {
-        let generation = self.registry.buf_generations[handle.slot_index];
+        let generation = self.registry.buf_generations[handle.index];
 
         // Safety:
         // - register() verified T fits in storage
@@ -183,10 +193,10 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
                 return Err(ReadError);
             }
 
-            let null = self.registry.buf_nulls[handle.slot_index].assume_init_read();
+            let null = self.registry.buf_nulls[handle.index].assume_init_read();
 
             let value = if !null {
-                Some(self.registry.buf_values[handle.slot_index].assume_init_read())
+                Some(self.registry.buf_values[handle.index].assume_init_read())
             } else { None };
             
             Ok(T::from_opt_f64(value))
@@ -201,16 +211,16 @@ pub enum ResolveError {
     InvalidType,
 }
 
-pub struct Resolver<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    registry: &'a Registry<REGISTRY_ID, MAX_SLOTS>,
+pub struct Resolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> Resolver<'a, REGISTRY_ID, MAX_SLOTS> {
+impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> Resolver<'a, REGISTRY_ID, MAX_ITEMS> {
     pub fn resolve<T: 'static>(
         &self,
         ident: MachineIdentificationUnique,
         name: &'static str,
-    ) -> Result<ReadHandle<REGISTRY_ID, T>, ResolveError> {
+    ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResolveError> {
         let key = Key { ident, name };
 
         let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
@@ -225,9 +235,9 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> Resolver<'a, REGISTRY
             self.registry.buf_generations[*index].assume_init()
         };
 
-        Ok(ReadHandle {
+        Ok(ReaderHandle {
             generation,
-            slot_index: *index,
+            index: *index,
             _marker: PhantomData,
         })
     }

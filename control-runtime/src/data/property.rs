@@ -1,42 +1,68 @@
-use std::{any::TypeId, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use std::{any::{TypeId, type_name}, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
 
-type SlotIndex = usize;
+use crate::data::RegisterError;
 
-pub struct PropertyRegistry<const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    lookup: HashMap<PropertyKey, SlotIndex>,
-    slots: heapless::Vec<Option<MachineIdentificationUnique>, MAX_SLOTS>,
-    buf_type_id:    [MaybeUninit<TypeId>; MAX_SLOTS],
-    buf_generation: [MaybeUninit<u64>; MAX_SLOTS],
-    buf_storage:    [MaybeUninit<PropertyStorage>; MAX_SLOTS],
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Key {
+    ident: MachineIdentificationUnique,
+    name: &'static str,
 }
 
-impl<const REGISTRY_ID: usize, const MAX_SLOTS: usize> PropertyRegistry<REGISTRY_ID, MAX_SLOTS> {
-    pub(crate) fn alloc<T: 'static>(
+#[derive(Debug, Clone, Copy)]
+struct Entry {
+    index: usize,
+    type_id: TypeId,
+}
+
+#[derive(Debug)]
+pub struct Registry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    lookup: HashMap<Key, Entry>,
+    occupied: heapless::Vec<bool, MAX_ITEMS>,
+    buf_generations: [MaybeUninit<u64>; MAX_ITEMS],
+    buf_storage:     [MaybeUninit<Storage>; MAX_ITEMS],
+}
+
+impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX_ITEMS> {
+    pub(super) fn new() -> Self {
+        Self { 
+            lookup: Default::default(),
+            occupied: Default::default(),
+            buf_generations: [MaybeUninit::uninit(); MAX_ITEMS], 
+            buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
+        }
+    }
+
+    pub(crate) fn register<T: 'static>(
         &mut self,
-        owner: MachineIdentificationUnique,
+        ident: MachineIdentificationUnique,
         name: &'static str,
-    ) -> Result<NonNull<T>, PropertyAllocError> {
-        if size_of::<T>() > size_of::<PropertyStorage>() {
-            return Err(PropertyAllocError::TypeTooLarge);
+    ) -> Result<Handle<T>, RegisterError> {
+        if size_of::<T>() > size_of::<Storage>() {
+            return Err(RegisterError::TypeTooLarge {
+                r#type: type_name::<T>(),
+                name,
+            });
         }
 
-        if align_of::<T>() > align_of::<PropertyStorage>() {
-            return Err(PropertyAllocError::InvalidAlignment);
+        if align_of::<T>() > align_of::<Storage>() {
+            return Err(RegisterError::AlignmentTooLarge {
+                r#type: type_name::<T>(),
+                name,
+            });
         }
 
         let index = self.find_free_slot()?;
 
-        self.slots[index] = Some(owner);
+        self.occupied[index] = true;
+        self.buf_storage[index].write(Storage { bytes: [0u8; 16] });
 
-        self.buf_type_id[index].write(TypeId::of::<T>());
-        self.buf_generation[index].write(0);
-        self.buf_storage[index].write(PropertyStorage::new());
+        let key = Key { ident, name };
+        let entry = Entry { index, type_id: TypeId::of::<T>() };
 
-        let key = PropertyKey { owner, name };
-        self.lookup.insert(key, index as SlotIndex);
+        self.lookup.insert(key, entry);
 
-        let ptr = unsafe {
+        let p_value = unsafe {
             NonNull::new_unchecked(
                 self.buf_storage[index]
                     .as_mut_ptr()
@@ -44,78 +70,79 @@ impl<const REGISTRY_ID: usize, const MAX_SLOTS: usize> PropertyRegistry<REGISTRY
             )
         };
 
-        Ok(ptr)
+        Ok(Handle { p_value })
     }
 
-    pub(crate) fn free(
+    pub(crate) fn unregister_machine(
         &mut self,
-        owner: MachineIdentificationUnique,
-    ) {
-        for index in 0..MAX_SLOTS {
-            if self.slots[index] != Some(owner) {
-                continue;
-            }
-
-            self.slots[index] = None;
-
-            unsafe {
-                let generation = self.buf_generation[index].assume_init_mut();
-                *generation += 1;
+        ident: MachineIdentificationUnique,
+    ) -> usize {
+        // Collect keys to remove
+        let mut to_remove = heapless::Vec::<Key, MAX_ITEMS>::new();
+        for key in self.lookup.keys() {
+            if key.ident == ident {
+                to_remove.push(*key).expect("Cannot overflow");
             }
         }
 
-        self.lookup.retain(|key, _| {
-            key.owner != owner
-        });
+        for key in &to_remove {
+            if let Some(entry) = self.lookup.remove(key) {
+                // mark unoccupied
+                self.occupied[entry.index] = false;
+
+                // ensure old handles don't read anymore 
+                unsafe {
+                    *self.buf_generations[entry.index].assume_init_mut() += 1;
+                }
+            }
+        }
+
+        to_remove.len()
     }
 
-    fn find_free_slot(&self) -> Result<usize, PropertyAllocError> {
-        self.slots
+    fn find_free_slot(&self) -> Result<usize, RegisterError> {
+        self.occupied
             .iter()
-            .position(|slot| slot.is_none())
-            .ok_or(PropertyAllocError::OutOfMemory)
+            .position(|slot| !slot)
+            .ok_or(RegisterError::RegistryFull { name: "TODO" })
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
-struct PropertyKey {
-    owner: MachineIdentificationUnique,
-    name: &'static str,
+#[derive(Debug)]
+pub struct Handle<T> {
+    p_value: NonNull<T>,
 }
 
-pub struct PropertySlot {
-    /// Concrete Rust type stored in `storage`.
-    type_id: TypeId,
+impl<T> Handle<T> {
+    pub fn read(&self) -> &T {
+        unsafe { self.p_value.as_ref() }
+    }
 
-    /// Incremented whenever the slot is invalidated/reused.
-    generation: u64,
-
-    /// In-place storage for the value.
-    storage: PropertyStorage,
+    pub fn write(&mut self, value: T) {
+        unsafe { self.p_value.write(value) }
+    }
 }
 
+#[derive(Clone, Copy)]
 #[repr(align(16))]
-pub struct PropertyStorage {
-    bytes: [u8; 16],
+pub struct Storage { bytes: [u8; 16] }
+
+pub struct Reader<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
 }
 
-
-pub struct PropertyReader<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_SLOTS>,
-}
-
-impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> 
-    PropertyReader<'a, REGISTRY_ID, MAX_SLOTS>
+impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> 
+    Reader<'a, REGISTRY_ID, MAX_ITEMS>
 {
-    pub(crate) fn new(registry: &'a PropertyRegistry<REGISTRY_ID, MAX_SLOTS>) -> Self {
+    pub(crate) fn new(registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>) -> Self {
         Self { registry }
     }
 
     pub fn read<T>(
         &self,
-        handle: PropertyHandle<REGISTRY_ID, T>,
-    ) -> Result<&T, PropertyReadError> {
-        let generation = &self.registry.buf_generation[handle.slot_index];
+        handle: ReaderHandle<REGISTRY_ID, T>,
+    ) -> Result<&T, ReadError> {
+        let generation = &self.registry.buf_generations[handle.index];
 
         // Safety:
         // - register() verified T fits in storage
@@ -123,67 +150,61 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
         // - resolve() only creates PropertyHandle<T> after type check
         unsafe {
             if generation.assume_init() != handle.generation {
-                return Err(PropertyReadError);
+                return Err(ReadError);
             }
 
-            let storage = &self.registry.buf_storage[handle.slot_index].assume_init_read();
+            let storage = &self.registry.buf_storage[handle.index].assume_init_read();
             Ok(&*(storage.bytes.as_ptr() as *const T))
         }
     }
 }
 
-pub struct PropertyHandle<const REGISTRY_ID: usize, T> {
-    slot_index: usize,
+pub struct ReaderHandle<const REGISTRY_ID: usize, T> {
     generation: u64,
+    index: usize,
     _marker: PhantomData<T>,
 }
 
-pub struct PropertyResolver<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_SLOTS>,
+pub struct PropertyResolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
-    PropertyResolver<'a, REGISTRY_ID, MAX_SLOTS>
+impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
+    PropertyResolver<'a, REGISTRY_ID, MAX_ITEMS>
 {
     pub fn resolve<T: 'static>(
         &self,
-        key: PropertyKey,
-    ) -> Result<PropertyHandle<REGISTRY_ID, T>, PropertyResolveError> {
-        let Some(&slot_index) = self.registry.lookup.get(&key) else {
-            return Err(PropertyResolveError::NoSuchProperty)
+        ident: MachineIdentificationUnique,
+        name: &'static str,
+    ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResolveError> {
+        let key = Key { ident, name };
+
+        let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
+            return Err(ResolveError::NoSuchProperty)
         };
         
-        let type_id = unsafe {
-            self.registry.buf_type_id[slot_index].assume_init()
-        };
-
-        if type_id != TypeId::of::<T>() {
-            return Err(PropertyResolveError::NoSuchProperty);
+        if *type_id != TypeId::of::<T>() {
+            return Err(ResolveError::NoSuchProperty);
         }
 
         let generation = unsafe {
-            self.registry.buf_generation[slot_index].assume_init()
+            self.registry.buf_generations[*index].assume_init()
         };
 
-        Ok(PropertyHandle {
-            slot_index,
+        Ok(ReaderHandle {
+            index: *index,
             generation,
             _marker: PhantomData,
         })
     }
 }
 
-/// handle is stale
-pub enum PropertyAllocError {
-    OutOfMemory,
-    TypeTooLarge,
-    InvalidAlignment,
-}
+// 
 
 /// handle is stale
-pub struct PropertyReadError;
+pub struct ReadError;
 
-pub enum PropertyResolveError {
+pub enum ResolveError {
     NoSuchProperty,
     InvaldType,
 }

@@ -1,4 +1,4 @@
-use crate::{MachineBuilder, conversion::Wrapped};
+use crate::{MachineBuildError, MachineBuilder, conversion::Wrapped, data};
 use super::super::{Measurement, MeasurementStatistics};
 
 impl<'a> MachineBuilder<'a> {
@@ -32,10 +32,10 @@ where
     initial_value: T::Inner,
 }
 
-impl<T: Copy + Default> MeasurementBuilder<'_, '_, T>
+impl<T> MeasurementBuilder<'_, '_, T>
 where
-    T: Wrapped,
-    T::Inner: Copy
+    T: Wrapped + 'static,
+    T::Inner: Default + Copy
 {
     pub fn record_min(&mut self) -> &mut Self {
         self.record_min = true;
@@ -52,34 +52,46 @@ where
         self
     }
 
-    pub fn register(self) -> Measurement<T> {
+    pub fn register(self) -> Result<Measurement<T>, MachineBuildError> {
         let ident = self.root.ident;
 
-        /*
-        let reg = &mut self.root.data_store.registry;
-        let name = reg.register_name(self.name.to_string());
-        let handle = reg.register_measurement(ident, name, false).unwrap();
+        let name = self.root.register_name(self.name);
+
+        let handle = self.root.data_store.registry.measurement.register::<T>(ident, name)?;
 
         let min = if self.record_min {
-            let name = reg.register_name(format!("{name}.min"));
-            let handle = reg.register_measurement(ident, name, true).unwrap();
+            let name = self.root.register_name(format!("{name}.min"));
+            let handle = self.root.data_store.registry.measurement.register::<T>(ident, name)?;
             Some(handle)
         } else {
             None
         };
 
         let max = if self.record_max {
-            let name = reg.register_name(format!("{name}.max"));
-            let handle = reg.register_measurement(ident, name, true).unwrap();
+            let name = self.root.register_name(format!("{name}.max"));
+            let handle = self.root.data_store.registry.measurement.register::<T>(ident, name)?;
             Some(handle)
         } else {
             None
         };
 
         let stats = MeasurementStatistics::new(min, max);
-        Measurement::new(handle, stats, self.initial_value)
-        */
+        Ok(Measurement::new(handle, stats, self.initial_value))
+    }
+}
 
-        todo!()
+impl From<data::measurement::RegisterError> for MachineBuildError {
+    fn from(value: data::measurement::RegisterError) -> Self {
+        use data::measurement::RegisterError::*;
+        match value {
+            AlreadyRegistered { name } => MachineBuildError::AlreadyRegistered { 
+                registry: "measurements",  
+                name 
+            },
+            RegistryFull { name }  => MachineBuildError::RegistryFull { 
+                registry: "measurements",  
+                name,  
+            },
+        }
     }
 }

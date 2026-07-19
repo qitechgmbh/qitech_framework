@@ -3,13 +3,13 @@ use std::fmt::{self, Display, Formatter};
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use control_core::{LogOrigin, MachineIdentificationUnique};
 
-use crate::DataStore;
+use crate::{DataStore, data};
 use crate::data::LogRecorderHandle;
 use crate::machine::Hardware ;
 
 mod hardware;
-// mod config;
-// mod state;
+mod config;
+mod state;
 mod measurement;
 // mod event;
 
@@ -49,6 +49,10 @@ impl<'a> MachineBuilder<'a> {
         let rec = &mut self.data_store.recorder;
         rec.create_log_handle(LogOrigin::Machine(self.ident))
     }
+
+    fn register_name<S: ToString>(&mut self, name: S) -> &'static str {
+        self.data_store.registry.register_name(name.to_string())
+    }
 }
 
 // Error
@@ -61,18 +65,60 @@ pub enum MachineBuildError {
     ExpectedEtherCATDeviceAtIndex { index: usize },
     ExpectedSerialDeviceAtIndex { index: usize },
     DeviceTypeMismatch { index: usize, expected: &'static str },
-    // --- property errors ---
-    AlreadyRegistered { prefix: &'static str, name: &'static str },
+    // --- resource errors ---
+    AlreadyRegistered {
+        registry: &'static str,
+        name: &'static str,
+    },
+    RegistryFull {
+        registry: &'static str,
+        name: &'static str,
+    },
+    TypeTooLarge { 
+        r#type: &'static str, 
+        name: &'static str 
+    },
+    AlignmentTooLarge { 
+        r#type: &'static str, 
+        name: &'static str 
+    },
     SchemaViolation,
     // --- custom ---
     Custom(anyhow::Error),
 }
 
+impl From<data::RegisterError> for MachineBuildError {
+    fn from(value: data::RegisterError) -> Self {
+        use data::RegisterError::*;
+        match value {
+            AlreadyRegistered { name } => MachineBuildError::AlreadyRegistered { 
+                registry: "measurements",  
+                name 
+            },
+            RegistryFull { name } => MachineBuildError::RegistryFull { 
+                registry: "measurements",  
+                name,  
+            },
+            TypeTooLarge { r#type, name } => MachineBuildError::TypeTooLarge {
+                r#type, 
+                name
+            },
+            AlignmentTooLarge { r#type, name } => MachineBuildError::TypeTooLarge {
+                r#type, 
+                name,
+            }
+        }
+    }
+}
+
 impl Display for MachineBuildError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AlreadyRegistered { prefix, name } => {
-                write!(f, "'{prefix}.{name}' already registered")
+            Self::AlreadyRegistered { registry, name } => {
+                write!(f, "'{registry}.{name}' already registered")
+            }
+            Self::RegistryFull { registry, name } => {
+                write!(f, "failed to register {name}: registry '{registry}' full")
             }
             Self::SchemaViolation => {
                 write!(f, "machine schema violation")
@@ -96,6 +142,7 @@ impl Display for MachineBuildError {
                 write!(f, "device type mismatch at index {index}. Expected: {expected}")
             }
             Self::Custom(err) => Display::fmt(err, f),
+            _ => todo!()
         }
     }
 }

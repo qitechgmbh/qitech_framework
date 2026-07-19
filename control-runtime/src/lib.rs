@@ -21,7 +21,6 @@ pub use machine::MachineActResult;
 pub use machine::MachineActError;
 // pub use machine::ConfigProperty;
 // pub use machine::StateProperty;
-pub use machine::Measurement;
 
 mod registry;
 mod ethercat;

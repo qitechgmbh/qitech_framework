@@ -9,15 +9,15 @@ mod config;
 type SlotIndex = usize;
 
 // --- registry ---
-pub struct PropertyRegistry<const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
+pub struct PropertyRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
     lookup: HashMap<PropertyKey, SlotIndex>,
-    slots: heapless::Vec<Option<MachineIdentificationUnique>, MAX_SLOTS>,
-    buf_generation: [MaybeUninit<u64>; MAX_SLOTS],
-    buf_type_id:    [MaybeUninit<TypeId>; MAX_SLOTS],
-    buf_storage:    [MaybeUninit<PropertyStorage>; MAX_SLOTS],
+    slots: heapless::Vec<Option<MachineIdentificationUnique>, MAX_ITEMS>,
+    buf_generation: [MaybeUninit<u64>; MAX_ITEMS],
+    buf_type_id:    [MaybeUninit<TypeId>; MAX_ITEMS],
+    buf_storage:    [MaybeUninit<PropertyStorage>; MAX_ITEMS],
 }
 
-impl<const REGISTRY_ID: usize, const MAX_SLOTS: usize> PropertyRegistry<REGISTRY_ID, MAX_SLOTS> {
+impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY_ID, MAX_ITEMS> {
     pub(crate) fn alloc<T: 'static>(
         &mut self,
         owner: MachineIdentificationUnique,
@@ -54,7 +54,7 @@ impl<const REGISTRY_ID: usize, const MAX_SLOTS: usize> PropertyRegistry<REGISTRY
     }
 
     pub(crate) fn free(&mut self, owner: MachineIdentificationUnique) {
-        for index in 0..MAX_SLOTS {
+        for index in 0..MAX_ITEMS {
             if self.slots[index] != Some(owner) {
                 continue;
             }
@@ -81,14 +81,14 @@ impl<const REGISTRY_ID: usize, const MAX_SLOTS: usize> PropertyRegistry<REGISTRY
 }
 
 // --- reader ---
-pub struct PropertyReader<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_SLOTS>,
+pub struct PropertyReader<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>,
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> 
-    PropertyReader<'a, REGISTRY_ID, MAX_SLOTS>
+impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> 
+    PropertyReader<'a, REGISTRY_ID, MAX_ITEMS>
 {
-    pub(crate) fn new(registry: &'a PropertyRegistry<REGISTRY_ID, MAX_SLOTS>) -> Self {
+    pub(crate) fn new(registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>) -> Self {
         Self { registry }
     }
 
@@ -114,12 +114,12 @@ impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
 }
 
 // --- resolver ---
-pub struct PropertyResolver<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize> {
-    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_SLOTS>,
+pub struct PropertyResolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>,
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_SLOTS: usize>
-    PropertyResolver<'a, REGISTRY_ID, MAX_SLOTS>
+impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
+    PropertyResolver<'a, REGISTRY_ID, MAX_ITEMS>
 {
     pub fn resolve<T: 'static>(
         &self,

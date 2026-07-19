@@ -114,7 +114,7 @@ pub struct StateRecorderHandle {
 }
 
 impl StateRecorderHandle {
-    pub fn record_mutation(&mut self, value: ScalarValue) {
+    pub fn record(&mut self, value: ScalarValue) {
         let log = self
             .weak
             .upgrade()

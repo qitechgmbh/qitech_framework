@@ -9,14 +9,12 @@ pub use recorder::ConfigRecorderHandle;
 pub use recorder::StateRecorderHandle;
 pub use recorder::LogRecorderHandle;
 
-mod property;
-pub use property::*;
-
+pub mod property;
 pub mod measurement;
 
 pub type MachineMeasurementRegistry<'a> = measurement::Registry<0, 512>;
 pub type MachineMeasurementReader<'a> = measurement::Reader<'a, 0, 512>;
-pub type MachineMeasurementWriteHandle = measurement::WriteHandle;
+pub type MachineMeasurementWriteHandle = measurement::Handle;
 
 #[derive(Debug)]
 pub struct DataStore {
@@ -47,3 +45,19 @@ impl Serialize for DataStore {
     }
 }
 
+pub enum RegisterError {
+    RegistryFull { 
+        name: &'static str 
+    },
+    AlreadyRegistered { 
+        name: &'static str 
+    },
+    TypeTooLarge { 
+        r#type: &'static str, 
+        name: &'static str 
+    },
+    AlignmentTooLarge { 
+        r#type: &'static str, 
+        name: &'static str 
+    },
+}

@@ -47,7 +47,7 @@ where
 
         let value = T::into_opt_f64(value);
         self.handle.write(value);
-        //self.stats.update(value);
+        self.stats.update(value);
     }
 }
 
@@ -97,7 +97,6 @@ pub struct MeasurementStatistics {
 }
 
 impl MeasurementStatistics {
-    /*
     pub fn new(
         min: Option<MachineMeasurementWriteHandle>,
         max: Option<MachineMeasurementWriteHandle>,
@@ -112,18 +111,17 @@ impl MeasurementStatistics {
         };
 
         if let Some(min) = &mut self.min {
-            match min.get() {
+            match min.read() {
                 Some(min) if value >= min => {}
-                _ => min.set(Some(value)),
+                _ => min.write(Some(value)),
             }
         }
 
         if let Some(max) = &mut self.max {
-            match max.get() {
+            match max.read() {
                 Some(max) if value <= max => {}
-                _ => max.set(Some(value)),
+                _ => max.write(Some(value)),
             }
         }
     }
-    */
 }

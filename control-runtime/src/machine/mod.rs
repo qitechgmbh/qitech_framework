@@ -17,8 +17,8 @@ pub use build::MachineBuildError;
 // pub use config::BoundedConfigProperty;
 // pub use config::BoundsError;
 // 
-// mod state;
-// pub use state::StateProperty;
+mod state;
+pub use state::StateProperty;
 
 mod measurement;
 pub use measurement::Measurement;

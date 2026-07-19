@@ -1,53 +1,54 @@
-use std::marker::PhantomData;
+use crate::{MachineBuildError, conversion::Wrapped, data, machine::StateProperty};
 use super::MachineBuilder;
 
 impl<'a> MachineBuilder<'a> {
-    pub fn state<'b, T, U>(
+    pub fn state<'b, T>(
         &'b mut self, 
         name: &'static str
-    ) -> StatePropertyBuilder<'a, 'b, T, U>
+    ) -> StatePropertyBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: Default,
+        T: Wrapped,
     {
         StatePropertyBuilder { 
             root: self, 
             name, 
             initial_value: Default::default(), 
-            _marker: PhantomData 
         }
     }
 }
 
-pub struct StatePropertyBuilder<'a, 'b, T, U = ()>
+pub struct StatePropertyBuilder<'a, 'b, T>
 where
-    T: Default,
+    T: Wrapped
 {
     root: &'b mut MachineBuilder<'a>,
     name: &'static str,
-    initial_value: T,
-    _marker: PhantomData<U>,
+    initial_value: Option<T::Inner>
 }
 
-impl<T: Default, U> StatePropertyBuilder<'_, '_, T, U>
+impl<T> StatePropertyBuilder<'_, '_, T>
 where
-    T: Default,
+    T: Wrapped + 'static,
 {
-    pub fn initial_value(&mut self, value: T) -> &mut Self {
-        self.initial_value = value;
+    pub fn initial_value(&mut self, value: T::Inner) -> &mut Self {
+        self.initial_value = Some(value);
         self
     }
 
-    pub fn register(self) -> StateProperty<T, U> {
+    pub fn register(self) -> Result<StateProperty<T>, MachineBuildError> {
         let ident = self.root.ident;
 
-        let reg = &mut self.root.data_store.registry;
-        let name = reg.register_name(self.name.to_string());
-        let data_handle = reg.register_state(ident, name).unwrap();
+        let name = self.root.register_name(self.name);
+        let mut reg_handle = self.root.data_store.registry.state.register(ident, name)?;
+
+        if let Some(value) = self.initial_value {
+            reg_handle.write(value);
+        }
 
         let rec = &mut self.root.data_store.recorder;
         let rec_handle = rec.create_state_handle(ident, name);
 
-        StateProperty::new(data_handle, rec_handle, self.initial_value)
+        Ok(StateProperty::new(reg_handle, rec_handle))
     }
 }
