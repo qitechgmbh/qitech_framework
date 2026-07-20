@@ -1,7 +1,9 @@
-use crate::{MachineBuildError, conversion::{Bounded, Wrapped, in_bounds}, machine::config::{ConfigProperty, ConstrainedConfigProperty}};
-use super::MachineBuilder;
+use std::marker::PhantomData;
 
-impl<'a> MachineBuilder<'a> {
+use crate::{Machine, MachineBuildError, conversion::{Bounded, Wrapped, in_bounds}, machine::config::{ConfigProperty, ConstrainedConfigProperty}};
+use super::BuildContext;
+
+impl<'a> BuildContext<'a> {
     pub fn config<'b, T>(
         &'b mut self,
         name: &'static str,
@@ -24,7 +26,7 @@ pub struct ConfigPropertyBuilder<'a, 'b, T>
 where
     T: Wrapped
 {
-    root: &'b mut MachineBuilder<'a>,
+    root: &'b mut BuildContext<'a>,
     name: &'static str,
     default_value: T::Inner,
     initial_value: Option<T::Inner>,
@@ -62,28 +64,28 @@ where
     T: Wrapped + 'static,
     T::Inner: Clone + Bounded,
 {
-    pub fn with_lower_bound(
+    pub fn with_lower_bound<M: Machine + 'static>(
         self, 
         bound: <T::Inner as Bounded>::Bound
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
+    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
         let mut builder = self.upgrade();
         builder.lower_bound = Some(bound);
         builder
     }
 
-    pub fn with_upper_bound(
+    pub fn with_upper_bound<M: Machine + 'static>(
         self, 
         bound: <T::Inner as Bounded>::Bound
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
+    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
         let mut builder = self.upgrade();
         builder.upper_bound = Some(bound);
         builder
     }
 
-    pub fn with_validation(
+    pub fn with_validation<M: Machine + 'static>(
         self, 
         validate: fn(&T::Inner) -> Result<(), String>,
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
+    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
         let mut builder = self.upgrade();
         builder.validate = Some(validate);
         builder
@@ -93,7 +95,7 @@ where
 
     }
 
-    fn upgrade(self) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
+    fn upgrade<M: Machine + 'static>(self) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
         FallibleConfigPropertyBuilder {
             root: self.root,
             name: self.name,
@@ -102,16 +104,27 @@ where
             lower_bound: None,
             upper_bound: None,
             validate: None,
+            validate_api_change: None,
+            after_api_change: None,
+            _marker: PhantomData,
         }
     }
 }
 
-pub struct FallibleConfigPropertyBuilder<'a, 'b, T>
+#[allow(type_alias_bounds)]
+type ValidateFn<T: Wrapped> = fn(&T::Inner) -> Result<(), String>;
+
+type ValidateApiChangeFn<T: Wrapped> = fn(&T::Inner) -> Result<(), String>;
+
+type AfterApiChanged<M: Machine> = fn(&mut M) -> Result<(), ()>;
+
+pub struct FallibleConfigPropertyBuilder<'a, 'b, T, M>
 where
     T: Wrapped + 'static,
     T::Inner: Bounded,
+    M: Machine + 'static
 {
-    root: &'b mut MachineBuilder<'a>,
+    root: &'b mut BuildContext<'a>,
     name: &'static str,
     default_value: T::Inner,
     initial_value: Option<T::Inner>,
@@ -119,13 +132,17 @@ where
     lower_bound: Option<<T::Inner as Bounded>::Bound>,
     upper_bound: Option<<T::Inner as Bounded>::Bound>,
 
-    validate: Option<fn(&T::Inner) -> Result<(), String>>,
+    validate: Option<ValidateFn<T>>,
+    validate_api_change: Option<ValidateApiChangeFn<T>>,
+    after_api_change: Option<AfterApiChanged<T>>,
+    _marker: PhantomData<M>
 }
 
-impl<T> FallibleConfigPropertyBuilder<'_, '_, T>
+impl<T, M> FallibleConfigPropertyBuilder<'_, '_, T, M>
 where
     T: Wrapped + 'static,
     T::Inner: Clone + Bounded,
+    M: Machine + 'static
 {
     pub fn initial_value(mut self, value: T::Inner) -> Self {
         self.initial_value = Some(value);
@@ -144,6 +161,14 @@ where
 
     pub fn with_validation(&mut self, validate: fn(&T::Inner) -> Result<(), String>) -> &mut Self {
         self.validate = Some(validate);
+        self
+    }
+
+    pub fn with_before_api_changed(mut self) -> Self {
+        self
+    }
+
+    pub fn with_after_api_changed(mut self) -> Self {
         self
     }
 
@@ -168,7 +193,6 @@ where
         // validation function run.
         let validate: Box<dyn Fn(&T::Inner) -> Result<(), String>> =
             Box::new(move |value: &T::Inner| {
-                
                 if !in_bounds(value, lower_bound, upper_bound) {
                     return Err("out of bounds".to_string());
                 }

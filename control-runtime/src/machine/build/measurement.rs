@@ -1,7 +1,7 @@
-use crate::{MachineBuildError, MachineBuilder, conversion::Wrapped, data};
+use crate::{MachineBuildError, BuildContext, conversion::Wrapped, data};
 use super::super::{Measurement, MeasurementStatistics};
 
-impl<'a> MachineBuilder<'a> {
+impl<'a> BuildContext<'a> {
     pub fn measurement<'b, T>(
         &'b mut self,
         name: &'static str,
@@ -25,7 +25,7 @@ pub struct MeasurementBuilder<'a, 'b, T>
 where
     T: Wrapped
 {
-    root: &'b mut MachineBuilder<'a>,
+    root: &'b mut BuildContext<'a>,
     name: &'static str,
     record_min: bool,
     record_max: bool,

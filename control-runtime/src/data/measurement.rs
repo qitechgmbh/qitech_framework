@@ -1,7 +1,6 @@
-use std::{any::TypeId, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use std::{any::TypeId, fmt, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
-
-use crate::conversion::{WrappedFromOptionalF64};
+use crate::conversion::WrappedTryFromOptionalF64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Key {
@@ -156,9 +155,16 @@ impl Handle {
 
 // --- reader ---
 
-/// handle is stale
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct ReadError;
+
+impl fmt::Display for ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("expired handle")
+    }
+}
+
+impl std::error::Error for ReadError {}
 
 #[derive(Debug)]
 pub struct ReaderHandle<const REGISTRY_ID: usize, T> {
@@ -178,9 +184,9 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
         Self { registry }
     }
 
-    pub fn read<T: WrappedFromOptionalF64>(
+    pub fn read<T: WrappedTryFromOptionalF64>(
         &self,
-        handle: ReaderHandle<REGISTRY_ID, T>,
+        handle: &ReaderHandle<REGISTRY_ID, T>,
     ) -> Result<T::Inner, ReadError> {
         let generation = self.registry.buf_generations[handle.index];
 
@@ -199,7 +205,8 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
                 Some(self.registry.buf_values[handle.index].assume_init_read())
             } else { None };
             
-            Ok(T::from_opt_f64(value))
+            let value = T::try_from_opt_f64(value).expect("T not allow to be None, found None!");
+            Ok(value)
         }
     }
 }

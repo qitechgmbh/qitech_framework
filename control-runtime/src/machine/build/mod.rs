@@ -16,17 +16,17 @@ mod measurement;
 type BuildResult<T> = Result<T, MachineBuildError>;
 
 pub trait MachineBuild: Sized {
-    fn build(builder: MachineBuilder<'_>) -> Result<Self, MachineBuildError>;
+    fn build(ctx: BuildContext<'_>) -> Result<Self, MachineBuildError>;
 }
 
-pub struct MachineBuilder<'a> {
+pub struct BuildContext<'a> {
     ident: MachineIdentificationUnique,
     hardware: Vec<Hardware>,
     ethercat_interface: Option<EtherCATThreadChannel>,
     data_store: &'a mut DataStore,
 }
 
-impl<'a> MachineBuilder<'a> {
+impl<'a> BuildContext<'a> {
     pub fn new(
         ident: MachineIdentificationUnique,
         hardware: Vec<Hardware>,

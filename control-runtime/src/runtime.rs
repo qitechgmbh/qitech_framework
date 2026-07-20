@@ -11,7 +11,7 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 
 use crate::data::DataStore;
 use crate::machine_registry::MachineRegistryEntry;
-use crate::{Config, Machine, MachineBuilder, MachineRegistry, ethercat};
+use crate::{Config, Machine, BuildContext, MachineRegistry, ethercat};
 use crate::machine::MachineHardwareRegistry;
 
 pub struct Runtime {
@@ -88,7 +88,7 @@ impl Runtime {
 
             let ethercat_interface = self.controller.as_ref().map(|v| v.channel.clone());
 
-            let builder = MachineBuilder::new(
+            let builder = BuildContext::new(
                 *ident_unique, 
                 hardware.clone(), 
                 ethercat_interface,

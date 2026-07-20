@@ -1,4 +1,4 @@
-use control_runtime::Measurement;
+use control_runtime::machine::Measurement;
 use qitech_lib::ethercat_hal::io::{
     digital_output::DigitalOutputDevice, stepper_velocity_el70x1::StepperVelocityEL70x1Device,
 };
@@ -37,8 +37,8 @@ pub struct Traverse {
     laser_enabled: bool,
 
     // --- measurements ---
-    position: Measurement<Length, millimeter>,
-    speed: Measurement<Velocity, millimeter_per_second>,
+    position: Measurement<millimeter>,
+    speed: Measurement<millimeter_per_second>,
 
     // --- converters ---
     fullstep_converter: LinearStepConverter,

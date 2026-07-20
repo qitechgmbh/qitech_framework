@@ -19,7 +19,7 @@ mod conversion;
 pub mod machine;
 pub use machine::Machine;
 pub use machine::MachineBuild;
-pub use machine::MachineBuilder;
+pub use machine::BuildContext;
 pub use machine::MachineBuildError;
 pub use machine::MachineActResult;
 pub use machine::MachineActError;

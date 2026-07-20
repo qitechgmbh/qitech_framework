@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use control_runtime::{DataRegistry, MachineIdentification, MachineIdentificationUnique};
+use control_runtime::{MachineIdentification, MachineIdentificationUnique};
 use control_runtime::{Machine, MachineActResult};
-use control_runtime::machine::{AttachContext, ReactContext, StateProperty};
+use control_runtime::machine::{ConfigReaderHandle, MeasurementReaderHandle, ReactContext, StateProperty, SubscribeContext, SubscribeError, SubscribeResult};
 
 mod types;
 use qitech_lib::units::length::millimeter;
@@ -31,9 +31,12 @@ use spool_target::SpoolTargetReachedAction;
 
 use crate::machines::LaserV1;
 
-struct LaserAttachmentHandles {
+struct LaserSubscription {
     ident: MachineIdentificationUnique,
-    current: ReaderHandle<0, millimeter>,
+    current: MeasurementReaderHandle<millimeter>,
+    target: ConfigReaderHandle<millimeter>,
+    lower: ConfigReaderHandle<millimeter>,
+    upper: ConfigReaderHandle<millimeter>,
 }
 
 pub struct WinderV1 {
@@ -53,7 +56,7 @@ pub struct WinderV1 {
     spool_target: SpoolTarget,
 
     // --- connection ---
-    laser_connection: Option<LaserAttachmentHandles>
+    laser_subscription: Option<LaserSubscription>
 }
 
 impl Machine for WinderV1 {
@@ -78,43 +81,33 @@ impl Machine for WinderV1 {
     }
 
     fn react(&mut self, ctx: &ReactContext) -> MachineActResult {
-        let Some(handles) = self.laser_connection else {
+        let Some(handles) = &self.laser_subscription else {
             return Ok(());
         };
         
-        let current = ctx.measurements.read(handles.current)?;
-        let target  = ctx.config.read(handles.target)?;
-        let upper   = ctx.config.read(handles.upper)?;
-        let lower   = ctx.config.read(handles.lower)?;
-
-        let last_speed = self.puller_speed_controller.last_speed;
+        self.puller.update_with_laser_data(
+            Instant::now(), 
+            ctx.measurements.read(&handles.current)?, 
+            *ctx.config.read(&handles.target)?, 
+            *ctx.config.read(&handles.upper)?, 
+            *ctx.config.read(&handles.lower)?
+        );
     
-        self.puller_speed_controller
-            .adaptive
-            .update_with_measurement(
-                current,
-                target,
-                lower,
-                upper,
-                last_speed,
-                Instant::now(),
-            );
-
         Ok(())
     }
 
-    fn attach(&mut self, ctx: &AttachContext) -> AttachResult {
+    fn subscribe(&mut self, ctx: &SubscribeContext) -> SubscribeResult {
         if MachineIdentification::from(ctx.ident) != LaserV1::IDENTIFICATION {
             // not a laser_v1
-            return Err(AttachResult::Unsupported); // TODO: add a rejected error
+            return Err(SubscribeError::UnsupportedMachine);
         }
 
-        if self.laser_connection.is_some() {
+        if self.laser_subscription.is_some() {
             // already has a connection
-            return Err(AttachResult::TooManyAttachments);
+            return Err(SubscribeError::TooManySubscriptions);
         }
 
-        self.laser_connection = Some(LaserAttachmentHandles { 
+        self.laser_subscription = Some(LaserSubscription { 
             ident: ctx.ident, 
             current: ctx.measurements.resolve("diameter")?,
             target: ctx.config.resolve("diameter.target")?,
@@ -123,6 +116,12 @@ impl Machine for WinderV1 {
         });
 
         Ok(())
+    }
+
+    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
+        if let Some(sub) = &mut self.laser_subscription && sub.ident == ident {
+            self.laser_subscription = None;
+        }
     }
 }
 
@@ -169,15 +168,15 @@ impl WinderV1 {
     }
 
     pub fn traverse_goto_limit_inner(&mut self) {
-        self.travserse.goto_limit_inner();
+        // self.travserse.goto_limit_inner();
     }
 
     pub fn traverse_goto_limit_outer(&mut self) {
-        self.travserse.goto_limit_outer();
+        // self.travserse.goto_limit_outer();
     }
 
     pub fn traverse_goto_home(&mut self) {
-        self.travserse.goto_home();
+        // self.travserse.goto_home();
     }
 }
 

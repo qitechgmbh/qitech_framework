@@ -9,14 +9,14 @@ use qitech_lib::ethercat_hal::devices::{
     el7041_0052::{EL7041_0052, coe::EL7041_0052Configuration},
 };
 
-use control_runtime::{MachineBuild, MachineBuildError, MachineBuilder};
+use control_runtime::{MachineBuild, MachineBuildError, BuildContext};
 use crate::machines::winder_v1::tension_arm::TensionArm;
 
 use super::WinderV1;
 
 impl MachineBuild for WinderV1 {
     fn build(
-        mut builder: MachineBuilder
+        mut builder: BuildContext
     ) -> Result<Self, MachineBuildError> {
         // --- init hardware ---
         _ = builder.get_ethercat_device::<EK1100>(0)?;
@@ -36,15 +36,21 @@ impl MachineBuild for WinderV1 {
         );
 
         Ok(Self {
-            mode: builder.state("mode").register(),
+            mode: builder.state("mode").register()?,
             tension_arm,
+            commands: todo!(),
+            spool: todo!(),
+            puller: todo!(),
+            travserse: todo!(),
+            spool_target: todo!(),
+            laser_subscription: todo!(),
         })
     }
 }
 
 /// Role no.2
 fn init_el7041_0052(
-    builder: &mut MachineBuilder,
+    builder: &mut BuildContext,
     interface: &EtherCATThreadChannel,
 ) -> anyhow::Result<Rc<RefCell<EL7041_0052>>> {
     let config = EL7041_0052Configuration {
@@ -67,7 +73,7 @@ fn init_el7041_0052(
 
 /// Role 3: Stepper Traverse EL7031
 fn init_el7031(
-    builder: &mut MachineBuilder,
+    builder: &mut BuildContext,
     interface: &EtherCATThreadChannel,
 ) -> anyhow::Result<Rc<RefCell<EL7031>>> {
     let config = EL7031Configuration {
@@ -92,7 +98,7 @@ fn init_el7031(
 
 /// Role 4: Stepper Puller EL7031-0030
 fn init_el7031_0030(
-    builder: &mut MachineBuilder,
+    builder: &mut BuildContext,
     interface: &EtherCATThreadChannel,
 ) -> anyhow::Result<Rc<RefCell<EL7031_0030>>> {
     use el7031_0030::coe::StmFeatures;

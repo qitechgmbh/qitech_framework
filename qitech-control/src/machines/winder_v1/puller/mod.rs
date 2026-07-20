@@ -2,7 +2,7 @@ use std::time::Instant;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use qitech_lib::units::{ConstZero, Velocity};
+use qitech_lib::units::{ConstZero, Length, Velocity};
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
 
 use crate::types::RotationDirection;
@@ -84,6 +84,24 @@ impl Puller {
     pub fn update(&mut self, t: Instant) {
         self.update_speed(t);
         self.sync_hardware();
+    }
+
+    pub fn update_with_laser_data(
+        &mut self,
+        now: Instant,
+        current: Length,
+        target: Length,
+        lower: Length,
+        upper: Length,
+    ) {
+        self.speed_algorithm_adaptive.update_with_laser_data(
+            now,
+            self.speed(),
+            current,
+            target, 
+            lower, 
+            upper, 
+        );
     }
 }
 

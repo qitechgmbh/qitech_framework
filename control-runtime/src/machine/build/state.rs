@@ -1,7 +1,7 @@
-use crate::{MachineBuildError, conversion::Wrapped, data, machine::StateProperty};
-use super::MachineBuilder;
+use crate::{MachineBuildError, conversion::Wrapped, machine::StateProperty};
+use super::BuildContext;
 
-impl<'a> MachineBuilder<'a> {
+impl<'a> BuildContext<'a> {
     pub fn state<'b, T>(
         &'b mut self, 
         name: &'static str
@@ -22,7 +22,7 @@ pub struct StatePropertyBuilder<'a, 'b, T>
 where
     T: Wrapped
 {
-    root: &'b mut MachineBuilder<'a>,
+    root: &'b mut BuildContext<'a>,
     name: &'static str,
     initial_value: Option<T::Inner>
 }

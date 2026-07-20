@@ -1,7 +1,7 @@
 use std::{any::{TypeId, type_name}, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
 
-use crate::data::RegisterError;
+use crate::{conversion::WrappedTryFromOptionalF64, data::RegisterError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Key {
@@ -138,10 +138,10 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
         Self { registry }
     }
 
-    pub fn read<T>(
+    pub fn read<T: WrappedTryFromOptionalF64>(
         &self,
-        handle: ReaderHandle<REGISTRY_ID, T>,
-    ) -> Result<&T, ReadError> {
+        handle: &ReaderHandle<REGISTRY_ID, T>,
+    ) -> Result<&T::Inner, ReadError> {
         let generation = &self.registry.buf_generations[handle.index];
 
         // Safety:
@@ -154,7 +154,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
             }
 
             let storage = &self.registry.buf_storage[handle.index].assume_init_read();
-            Ok(&*(storage.bytes.as_ptr() as *const T))
+            Ok(&*(storage.bytes.as_ptr() as *const T::Inner))
         }
     }
 }
@@ -165,19 +165,19 @@ pub struct ReaderHandle<const REGISTRY_ID: usize, T> {
     _marker: PhantomData<T>,
 }
 
-pub struct PropertyResolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
+pub struct Resolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
     registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
+    ident: MachineIdentificationUnique, 
 }
 
 impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
-    PropertyResolver<'a, REGISTRY_ID, MAX_ITEMS>
+    Resolver<'a, REGISTRY_ID, MAX_ITEMS>
 {
     pub fn resolve<T: 'static>(
         &self,
-        ident: MachineIdentificationUnique,
         name: &'static str,
     ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResolveError> {
-        let key = Key { ident, name };
+        let key = Key { ident: self.ident, name };
 
         let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
             return Err(ResolveError::NoSuchProperty)
@@ -206,5 +206,5 @@ pub struct ReadError;
 
 pub enum ResolveError {
     NoSuchProperty,
-    InvaldType,
+    InvalidType,
 }

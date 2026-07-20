@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use qitech_lib::units::{ ConstZero, Length, Velocity };
-use qitech_lib::units::length::{ meter, millimeter };
+use qitech_lib::units::{ConstZero, Length, Velocity};
+use qitech_lib::units::length::{meter};
 use qitech_lib::units::velocity::meter_per_second;
 
 /// Controls adaptive puller speed based on laser diameter feedback.
@@ -53,14 +53,14 @@ impl SpeedAlgorithmAdaptive {
         (base_speed * factor).max(Velocity::ZERO)
     }
 
-    pub fn update_with_measurement(
+    pub fn update_with_laser_data(
         &mut self,
-        current: f64,
-        target: f64,
-        lower: f64,
-        upper: f64,
-        last_speed: Velocity,
         now: Instant,
+        prev_speed: Velocity,
+        current: Length,
+        target: Length,
+        lower: Length,
+        upper: Length,
     ) {
         let dt = now
             .duration_since(self.time_since_last_update)
@@ -76,13 +76,13 @@ impl SpeedAlgorithmAdaptive {
         // --- Inner deadzone (accepted_difference) ---
         // If the diameter is within ±accepted_difference of the target it is
         // acceptable.  Reset the accumulator so the delay always starts fresh.
-        if (current - target).abs() <= self.tolerance_limit.get::<millimeter>() {
+        if (current - target).abs() <= self.tolerance_limit {
             self.distance_since_last_adjustment = Length::ZERO;
             return;
         }
 
         // --- Accumulate metres ---
-        let meters_added = last_speed.abs().get::<meter_per_second>() * dt;
+        let meters_added = prev_speed.abs().get::<meter_per_second>() * dt;
         self.distance_since_last_adjustment += Length::new::<meter>(meters_added);
 
         // --- Wait for the interval to elapse ---

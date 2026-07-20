@@ -8,7 +8,7 @@ use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::{LaserDevice, LaserError};
 
 use control_runtime::{
-    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, MachineBuilder, MachineIdentification,
+    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, BuildContext, MachineIdentification,
 };
 
 use control_runtime::machine::{ConstrainedConfigProperty, Measurement, StateProperty};
@@ -36,7 +36,7 @@ pub struct LaserV1 {
 }
 
 impl MachineBuild for LaserV1 {
-    fn build(mut builder: MachineBuilder<'_>) -> Result<Self, MachineBuildError> {
+    fn build(mut builder: BuildContext<'_>) -> Result<Self, MachineBuildError> {
         // --- hardware
         let device = builder.get_serial_device::<LaserDevice>(0)?;
 
