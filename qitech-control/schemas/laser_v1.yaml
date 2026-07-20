@@ -1,4 +1,4 @@
-qms_version: 1.0
+cms_version: 1.0
 
 name: laser_v1
 schema_revision: 1
@@ -6,6 +6,16 @@ schema_revision: 1
 identification:
   vendor: 1
   machine: 6
+
+"config": {
+  "diameter": {
+    "target": 1.75,
+    "tolerance": {
+      "tolerance_lower": 0.05,
+      "tolerance_upper": 0.05,
+    }
+  }
+}
 
 config:
   diameter:
@@ -30,3 +40,18 @@ measurements:
   diameter_x: !millimeter
   diameter_y: !millimeter
   roundness: !millimeter
+
+
+events:
+  order_started: !event
+    order_id: !integer
+    worker_id: !integer
+    product_id: !string
+    bounds:
+      min: !float
+      max: !float
+      desired: !float
+
+  order_finished: !event
+    order_id: !integer
+    worker_id: !integer

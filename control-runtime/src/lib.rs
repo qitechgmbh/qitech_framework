@@ -1,6 +1,10 @@
 use std::time::Duration;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 
+// re-export idents as they are common
+pub use control_core::MachineIdentification;
+pub use control_core::MachineIdentificationUnique;
+
 mod data;
 use data::DataStore;
 pub use data::DataRegistry;

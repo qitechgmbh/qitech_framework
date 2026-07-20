@@ -8,7 +8,7 @@ use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::{LaserDevice, LaserError};
 
 use control_runtime::{
-    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, MachineBuilder,
+    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, MachineBuilder, MachineIdentification,
 };
 
 use control_runtime::machine::{ConstrainedConfigProperty, Measurement, StateProperty};
@@ -95,6 +95,11 @@ impl Machine for LaserV1 {
 }
 
 impl LaserV1 {
+    pub const IDENTIFICATION: MachineIdentification = MachineIdentification {
+        vendor: 1,
+        machine: 6,
+    };
+
     fn update_device(&mut self) -> MachineActResult {
         let mut laser = self.device.borrow_mut();
 

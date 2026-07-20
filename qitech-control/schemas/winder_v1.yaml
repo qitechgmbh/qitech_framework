@@ -8,9 +8,6 @@ identification:
   machine: 2
 
 config:
-  # tension arm
-  
-
   # travserse config
   travserse:
     padding: !float
@@ -120,6 +117,9 @@ commands:
   laser:
     enable: !command
     disable: !command
+
+events:
+  
 
 # machines/winder_v1/0/config/spool.direction GET/SET
 # machines/winder_v1/0/commands/laser.enable POST

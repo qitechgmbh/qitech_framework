@@ -89,6 +89,10 @@ where
         builder
     }
 
+    pub fn with_on_changed() {
+
+    }
+
     fn upgrade(self) -> FallibleConfigPropertyBuilder<'a, 'b, T> {
         FallibleConfigPropertyBuilder {
             root: self.root,
@@ -114,7 +118,7 @@ where
 
     lower_bound: Option<<T::Inner as Bounded>::Bound>,
     upper_bound: Option<<T::Inner as Bounded>::Bound>,
-    
+
     validate: Option<fn(&T::Inner) -> Result<(), String>>,
 }
 

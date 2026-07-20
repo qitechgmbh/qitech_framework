@@ -15,8 +15,24 @@ Runtime:
 Frontend LAYOUT:
 
 Page {
-    Measurement {
-        src: "measurements.diameter"
+    Box {
+        title: "Laser Measurements"
+
+        Measurement {
+            src: "diameter"
+        }
+
+        Measurement {
+            src: "diameter_x"
+        }
+
+        Measurement {
+            src: "diameter_y"
+        }
+
+        Measurement {
+            src: "roundness"
+        }
     }
 }
 

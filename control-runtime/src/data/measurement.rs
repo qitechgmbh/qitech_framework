@@ -213,15 +213,15 @@ pub enum ResolveError {
 
 pub struct Resolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
     registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
+    ident: MachineIdentificationUnique,
 }
 
 impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> Resolver<'a, REGISTRY_ID, MAX_ITEMS> {
     pub fn resolve<T: 'static>(
         &self,
-        ident: MachineIdentificationUnique,
         name: &'static str,
     ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResolveError> {
-        let key = Key { ident, name };
+        let key = Key { ident: self.ident, name };
 
         let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
             return Err(ResolveError::NoSuchProperty)

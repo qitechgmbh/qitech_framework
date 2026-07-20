@@ -1,10 +1,11 @@
 use std::time::Instant;
 
-use control_runtime::DataRegistry;
-use control_runtime::{Machine, MachineActResult, StateProperty} ;
+use control_runtime::{DataRegistry, MachineIdentification, MachineIdentificationUnique};
+use control_runtime::{Machine, MachineActResult};
+use control_runtime::machine::{AttachContext, ReactContext, StateProperty};
 
 mod types;
-use serde::Deserialize;
+use qitech_lib::units::length::millimeter;
 use serde::de::DeserializeOwned;
 use types::Mode;
 use types::Commands;
@@ -28,6 +29,13 @@ mod spool_target;
 use spool_target::SpoolTarget;
 use spool_target::SpoolTargetReachedAction;
 
+use crate::machines::LaserV1;
+
+struct LaserAttachmentHandles {
+    ident: MachineIdentificationUnique,
+    current: ReaderHandle<0, millimeter>,
+}
+
 pub struct WinderV1 {
     // --- state ---
     mode: StateProperty<Mode>,
@@ -43,6 +51,9 @@ pub struct WinderV1 {
 
     // --- sub systems ---
     spool_target: SpoolTarget,
+
+    // --- connection ---
+    laser_connection: Option<LaserAttachmentHandles>
 }
 
 impl Machine for WinderV1 {
@@ -66,13 +77,16 @@ impl Machine for WinderV1 {
         Ok(())
     }
 
-    fn react(&mut self, registry: &DataRegistry) -> MachineActResult {
-        let reg = registry.of_machine(laser_ident);
-        let current = reg.measurements.get("diameter")?;
-        let target  = reg.config.get("diameter.target")?;
-        let upper   = reg.config.get("diameter.tolerance.upper")?;
-        let lower   = reg.config.get("diameter.tolerance.lower")?;
-    
+    fn react(&mut self, ctx: &ReactContext) -> MachineActResult {
+        let Some(handles) = self.laser_connection else {
+            return Ok(());
+        };
+        
+        let current = ctx.measurements.read(handles.current)?;
+        let target  = ctx.config.read(handles.target)?;
+        let upper   = ctx.config.read(handles.upper)?;
+        let lower   = ctx.config.read(handles.lower)?;
+
         let last_speed = self.puller_speed_controller.last_speed;
     
         self.puller_speed_controller
@@ -89,8 +103,26 @@ impl Machine for WinderV1 {
         Ok(())
     }
 
-    fn attach(&mut self, ctx: AttachmentContext) {
-        ctx.
+    fn attach(&mut self, ctx: &AttachContext) -> AttachResult {
+        if MachineIdentification::from(ctx.ident) != LaserV1::IDENTIFICATION {
+            // not a laser_v1
+            return Err(AttachResult::Unsupported); // TODO: add a rejected error
+        }
+
+        if self.laser_connection.is_some() {
+            // already has a connection
+            return Err(AttachResult::TooManyAttachments);
+        }
+
+        self.laser_connection = Some(LaserAttachmentHandles { 
+            ident: ctx.ident, 
+            current: ctx.measurements.resolve("diameter")?,
+            target: ctx.config.resolve("diameter.target")?,
+            upper: ctx.config.resolve("diameter.tolerance.upper")?,
+            lower: ctx.config.resolve("diameter.tolerance.lower")?,
+        });
+
+        Ok(())
     }
 }
 
