@@ -15,6 +15,7 @@ pub type SubscribeResult = Result<(), SubscribeError>;
 
 mod conversion;
 pub mod resource;
+pub mod build;
 
 include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
 pub(crate) use with_uom;

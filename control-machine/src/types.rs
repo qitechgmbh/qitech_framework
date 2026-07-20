@@ -1,36 +1,40 @@
+use crate::resource::{
+    ConfigPropertyReader, ConfigPropertyResolver, MeasurementReader, MeasurementResolver,
+    ResolveError, StatePropertyReader, StatePropertyResolver,
+};
 use control_core::MachineIdentificationUnique;
-
-use crate::resource::ResolveError;
 
 // --- act ---
 #[derive(Debug)]
 pub struct ActError {
     pub kind: ActErrorKind,
     pub recoverable: bool,
+    pub explanation: String,
 }
 
 #[derive(Debug)]
 pub enum ActErrorKind {
-    HardwareFault { details: String },
+    HardwareFault,
     InvariantViolation,
 }
 
 // --- react ---
 pub struct ReactContext<'a> {
-    pub config: MachineConfigPropertyReader<'a>,
-    pub state: MachineConfigPropertyReader<'a>,
-    pub measurements: MachineMeasurementReader<'a>,
+    pub config: ConfigPropertyReader<'a>,
+    pub state: StatePropertyReader<'a>,
+    pub measurements: MeasurementReader<'a>,
 }
 
 #[derive(Debug)]
 pub struct ReactError {
     pub kind: ReactErrorKind,
     pub recoverable: bool,
+    pub explanation: String,
 }
 
 #[derive(Debug)]
 pub enum ReactErrorKind {
-    HardwareFault { details: String },
+    HardwareFault,
     InvariantViolation,
     ExpiredHandle,
 }
@@ -38,9 +42,9 @@ pub enum ReactErrorKind {
 // --- subscribe ---
 pub struct SubscribeContext<'a> {
     pub ident: MachineIdentificationUnique,
-    pub config: MachineConfigPropertyResolver<'a>,
-    pub state: MachineStatePropertyResolver<'a>,
-    pub measurements: MachineMeasurementResolver<'a>,
+    pub config: ConfigPropertyResolver<'a>,
+    pub state: StatePropertyResolver<'a>,
+    pub measurements: MeasurementResolver<'a>,
 }
 
 #[derive(Debug)]

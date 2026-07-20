@@ -10,6 +10,7 @@ use crate::resource::JournalHandle;
 use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 mod manager;
+pub use manager::StatePropertyManager;
 
 #[derive(Debug)]
 pub struct StateProperty<T: Wrapped> {

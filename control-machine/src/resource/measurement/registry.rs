@@ -1,36 +1,40 @@
 use std::{any::TypeId, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
 use crate::conversion::{Wrapped, WrappedTryFromOptionalF64};
-use crate::resource::{ReadError, RegisterError, ResolveError};
+use crate::resource::{MEASUREMENTS_COUNT_MAX, ReadError, RegisterError, ResolveError};
 use super::{Measurement, Handle, Statistics, Config};
 
 /// > Note: must use fixed sized storage since we use pointers and 
 /// > otherwise a resize would invalidate all pointers
 #[derive(Debug, Clone)]
-pub struct MeasurementRegistry<const MAX_ITEMS: usize> {
-    lookup: heapless::FnvIndexMap<Key, Entry, MAX_ITEMS>,
+pub struct MeasurementRegistry {
+    lookup: heapless::FnvIndexMap<Key, Entry, MEASUREMENTS_COUNT_MAX>,
 
     // tracks which slots have valid data
-    occupied: heapless::Vec<bool, MAX_ITEMS>,
-    buf_generations: [MaybeUninit<u64>; MAX_ITEMS],
-    buf_values: [MaybeUninit<f64>; MAX_ITEMS],
-    buf_nulls:  [MaybeUninit<bool>; MAX_ITEMS],
+    occupied: heapless::Vec<bool, MEASUREMENTS_COUNT_MAX>,
+    buf_generations: [MaybeUninit<u64>; MEASUREMENTS_COUNT_MAX],
+    buf_values: [MaybeUninit<f64>; MEASUREMENTS_COUNT_MAX],
+    buf_nulls:  [MaybeUninit<bool>; MEASUREMENTS_COUNT_MAX],
 
     // list of stat entries
-    stat_list: heapless::Vec<usize, MAX_ITEMS>,
+    stat_list: heapless::Vec<usize, MEASUREMENTS_COUNT_MAX>,
 }
 
-impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
-    pub fn new() -> Self {
+impl Default for MeasurementRegistry {
+    fn default() -> Self {
         Self {
             lookup: Default::default(),
             occupied: Default::default(),
-            buf_generations: [MaybeUninit::uninit(); MAX_ITEMS],
-            buf_values: [MaybeUninit::uninit(); MAX_ITEMS],
-            buf_nulls:  [MaybeUninit::uninit(); MAX_ITEMS],
+            buf_generations: [MaybeUninit::uninit(); MEASUREMENTS_COUNT_MAX],
+            buf_values: [MaybeUninit::uninit(); MEASUREMENTS_COUNT_MAX],
+            buf_nulls:  [MaybeUninit::uninit(); MEASUREMENTS_COUNT_MAX],
             stat_list: Default::default(),
         }
     }
+}
+
+impl MeasurementRegistry {
+    pub fn new() -> Self { Self::default() }
 
     pub fn register<T>(
         &mut self,
@@ -76,7 +80,7 @@ impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
     /// Returns the number of slots freed.
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
         // Collect keys to remove
-        let mut to_remove: heapless::Vec<Key, MAX_ITEMS> = heapless::Vec::new();
+        let mut to_remove: heapless::Vec<Key, MEASUREMENTS_COUNT_MAX> = heapless::Vec::new();
         for key in self.lookup.keys() {
             if key.ident == ident {
                 to_remove.push(*key).expect("Cannot overflow");
@@ -102,9 +106,8 @@ impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
     }
 }
 
-
 // --- utils ---
-impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
+impl MeasurementRegistry {
     fn alloc<T>(
         &mut self,
         ident: MachineIdentificationUnique,
@@ -144,7 +147,7 @@ impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
             return Ok(index);
         }
 
-        if self.occupied.len() < MAX_ITEMS {
+        if self.occupied.len() < MEASUREMENTS_COUNT_MAX {
             let index = self.occupied.len();
             self.occupied
                 .push(true)
@@ -169,12 +172,12 @@ struct Entry {
 }
 
 // --- resolver ---
-pub struct MeasurementResolver<'a, const MAX_ITEMS: usize> {
-    registry: &'a MeasurementRegistry<MAX_ITEMS>,
+pub struct MeasurementResolver<'a> {
+    registry: &'a MeasurementRegistry,
     ident: MachineIdentificationUnique,
 }
 
-impl<'a, const MAX_ITEMS: usize> MeasurementResolver<'a, MAX_ITEMS> {
+impl<'a> MeasurementResolver<'a> {
     pub fn resolve<T: 'static>(
         &self,
         name: &'static str,
@@ -209,12 +212,12 @@ pub struct ReaderHandle<T> {
     _marker: PhantomData<T>,
 }
 
-pub struct MeasurementReader<'a, const MAX_ITEMS: usize> {
-    registry: &'a MeasurementRegistry<MAX_ITEMS>,
+pub struct MeasurementReader<'a> {
+    registry: &'a MeasurementRegistry,
 }
 
-impl<'a, const MAX_ITEMS: usize> MeasurementReader<'a, MAX_ITEMS> {
-    pub(crate) fn new(registry: &'a MeasurementRegistry<MAX_ITEMS>) -> Self {
+impl<'a> MeasurementReader<'a> {
+    pub fn new(registry: &'a MeasurementRegistry) -> Self {
         Self { registry }
     }
 

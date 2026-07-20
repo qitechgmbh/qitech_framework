@@ -1,3 +1,14 @@
+const NAMES_COUNT_MAX: usize = 2048;
+const NAME_LEN_MAX: usize = 96;
+
+const CONFIG_PROPERTIES_REGISTRY_ID: usize = 1;
+const CONFIG_PROPERTIES_COUNT_MAX: usize = 512;
+
+const STATE_PROPERTIES_REGISTRY_ID: usize = 2;
+const STATE_PROPERTIES_COUNT_MAX: usize = 512;
+
+const MEASUREMENTS_COUNT_MAX: usize = 512;
+
 mod types;
 pub use types::Journal;
 pub use types::JournalHandle;
@@ -10,30 +21,40 @@ pub use property::PropertyRegistry;
 pub use property::PropertyHandle;
 pub use property::PropertyResolver;
 pub use property::PropertyReader;
-pub use property::PropertyReaderHandle;
+pub use property::PropertyAccessHandle;
 
+// --- config properties ---
 mod config_property;
 pub use config_property::ConfigProperty;
 pub use config_property::ConstrainedConfigProperty;
+pub use config_property::ConfigPropertyManager;
 
+pub type ConfigPropertyResolver<'a> = 
+    PropertyResolver<'a, CONFIG_PROPERTIES_REGISTRY_ID, CONFIG_PROPERTIES_COUNT_MAX>;
+
+pub type ConfigPropertyReader<'a> = 
+    PropertyReader<'a, CONFIG_PROPERTIES_REGISTRY_ID, CONFIG_PROPERTIES_COUNT_MAX>;
+
+pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<CONFIG_PROPERTIES_REGISTRY_ID, T>;
+
+// --- state properties ---
 mod state_property;
 pub use state_property::StateProperty;
+pub use state_property::StatePropertyManager;
 
+pub type StatePropertyResolver<'a> = 
+    PropertyResolver<'a, STATE_PROPERTIES_REGISTRY_ID, STATE_PROPERTIES_COUNT_MAX>;
+
+pub type StatePropertyReader<'a> = 
+    PropertyReader<'a, STATE_PROPERTIES_REGISTRY_ID, STATE_PROPERTIES_COUNT_MAX>;
+
+pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<STATE_PROPERTIES_REGISTRY_ID, T>;
+
+// --- measurements ---
 mod measurement;
 pub use measurement::MeasurementRegistry;
 pub use measurement::MeasurementResolver;
 pub use measurement::MeasurementReader;
-
-const NAMES_COUNT_MAX: usize = 2048;
-const NAME_LEN_MAX: usize = 96;
-
-const MEASUREMENTS_COUNT_MAX: usize = 512;
-
-const CONFIG_PROPERTIES_REGISTRY_ID: usize = 1;
-const CONFIG_PROPERTIES_COUNT_MAX: usize = 512;
-
-const STATE_PROPERTIES_REGISTRY_ID: usize = 2;
-const STATE_PROPERTIES_COUNT_MAX: usize = 512;
 
 // --- name registry ---
 #[derive(Debug, Default)]

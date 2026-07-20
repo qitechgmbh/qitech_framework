@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::{cell::RefCell, fmt::{self, Debug}, rc::Rc};
 
 pub type Journal<T> = heapless::Vec<T, 1024>;
 
@@ -7,13 +7,14 @@ pub struct JournalHandle<T> {
     journal: Rc<RefCell<Journal<T>>>,
 }
 
-impl<T> JournalHandle<T> {
+impl<T: Debug> JournalHandle<T> {
     pub(crate) fn new(journal: Rc<RefCell<Journal<T>>>) -> Self {
         Self { journal }
     }
 
     pub fn append(&self, entry: T) {
-        self.journal.borrow_mut().push(entry);
+        self.journal.borrow_mut().push(entry)
+            .expect("Should never reach this capacity");
     }
 }
 

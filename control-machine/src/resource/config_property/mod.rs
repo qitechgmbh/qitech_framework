@@ -9,6 +9,7 @@ use crate::resource::{JournalHandle, PropertyHandle};
 use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 mod manager;
+pub use manager::ConfigPropertyManager;
 
 pub struct ConfigProperty<T: Wrapped> {
     ident: MachineIdentificationUnique,

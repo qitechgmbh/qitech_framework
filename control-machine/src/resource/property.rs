@@ -4,18 +4,6 @@ use control_core::MachineIdentificationUnique;
 use crate::conversion::WrappedTryFromOptionalF64;
 use crate::resource::{ReadError, RegisterError, ResolveError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Key {
-    ident: MachineIdentificationUnique,
-    name: &'static str,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Entry {
-    index: usize,
-    type_id: TypeId,
-}
-
 #[derive(Debug)]
 pub struct PropertyRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
     lookup: HashMap<Key, Entry>,
@@ -24,8 +12,9 @@ pub struct PropertyRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
     buf_storage:     [MaybeUninit<Storage>; MAX_ITEMS],
 }
 
-impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY_ID, MAX_ITEMS> {
-    pub(super) fn new() -> Self {
+impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Default for 
+    PropertyRegistry<REGISTRY_ID, MAX_ITEMS> {
+    fn default() -> Self {
         Self { 
             lookup: Default::default(),
             occupied: Default::default(),
@@ -33,6 +22,10 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY
             buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
         }
     }
+}
+
+impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY_ID, MAX_ITEMS> {
+    pub fn new() -> Self { Self::default() }
 
     pub(crate) fn register<T: 'static>(
         &mut self,
@@ -109,6 +102,18 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Key {
+    ident: MachineIdentificationUnique,
+    name: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Entry {
+    index: usize,
+    type_id: TypeId,
+}
+
 #[derive(Debug)]
 pub struct PropertyHandle<T> {
     p_value: NonNull<T>,
@@ -135,13 +140,13 @@ pub struct PropertyReader<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> 
 impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> 
     PropertyReader<'a, REGISTRY_ID, MAX_ITEMS>
 {
-    pub(crate) fn new(registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>) -> Self {
+    pub fn new(registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>) -> Self {
         Self { registry }
     }
 
     pub fn read<T: WrappedTryFromOptionalF64>(
         &self,
-        handle: &PropertyReaderHandle<REGISTRY_ID, T>,
+        handle: &PropertyAccessHandle<REGISTRY_ID, T>,
     ) -> Result<&T::Inner, ReadError> {
         let generation = &self.registry.buf_generations[handle.index];
 
@@ -160,7 +165,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
     }
 }
 
-pub struct PropertyReaderHandle<const REGISTRY_ID: usize, T> {
+pub struct PropertyAccessHandle<const REGISTRY_ID: usize, T> {
     generation: u64,
     index: usize,
     _marker: PhantomData<T>,
@@ -177,7 +182,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
     pub fn resolve<T: 'static>(
         &self,
         name: &'static str,
-    ) -> Result<PropertyReaderHandle<REGISTRY_ID, T>, ResolveError> {
+    ) -> Result<PropertyAccessHandle<REGISTRY_ID, T>, ResolveError> {
         let key = Key { ident: self.ident, name };
 
         let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
@@ -192,7 +197,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
             self.registry.buf_generations[*index].assume_init()
         };
 
-        Ok(PropertyReaderHandle {
+        Ok(PropertyAccessHandle {
             index: *index,
             generation,
             _marker: PhantomData,
