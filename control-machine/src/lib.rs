@@ -3,7 +3,7 @@ use control_core::MachineIdentificationUnique;
 // exposes with_uom!() for macro calls that operate on uom units
 // generates the macro from the units.toml file using build.rs
 include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
-pub(crate) use with_uom;
+// pub(crate) use with_uom;
 
 mod types;
 pub use types::Hardware;

@@ -25,6 +25,8 @@ pub use property::PropertyAccessHandle;
 
 // --- config properties ---
 mod config_property;
+pub use config_property::ConfigPropertySpec;
+pub use config_property::ConstrainedConfigPropertySpec;
 pub use config_property::ConfigProperty;
 pub use config_property::ConstrainedConfigProperty;
 pub use config_property::ConfigPropertyManager;
@@ -40,6 +42,7 @@ pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<CONFIG_PROPERTIES_
 
 // --- state properties ---
 mod state_property;
+pub use state_property::StatePropertySpec;
 pub use state_property::StateProperty;
 pub use state_property::StatePropertyManager;
 
@@ -54,6 +57,7 @@ pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<STATE_PROPERTIES_RE
 // --- measurements ---
 mod measurement;
 pub use measurement::Measurement;
+pub use measurement::MeasurementSpec;
 pub use measurement::MeasurementManager;
 pub use measurement::MeasurementResolver;
 pub use measurement::MeasurementReader;

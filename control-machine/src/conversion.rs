@@ -1,7 +1,5 @@
 use std::fmt::Debug;
-
 use control_core::ScalarValue;
-use crate::with_uom;
 
 pub trait Bounded { 
     type Bound: Copy + PartialOrd + Debug;

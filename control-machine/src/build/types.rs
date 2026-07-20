@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::resource::RegisterError;
 
 #[derive(Debug)]
-pub enum MachineBuildError {
+pub enum BuildError {
     // --- hardware errors ---
     ExpectedEtherCATInterface,
     ExpectedHardwareAtIndex { index: usize },
@@ -33,23 +33,23 @@ pub enum MachineBuildError {
     Custom(String),
 }
 
-impl From<RegisterError> for MachineBuildError {
+impl From<RegisterError> for BuildError {
     fn from(value: RegisterError) -> Self {
         use RegisterError::*;
         match value {
-            AlreadyRegistered { name } => MachineBuildError::AlreadyRegistered { 
+            AlreadyRegistered { name } => BuildError::AlreadyRegistered { 
                 registry: "measurements",  
                 name 
             },
-            RegistryFull { name } => MachineBuildError::RegistryFull { 
+            RegistryFull { name } => BuildError::RegistryFull { 
                 registry: "measurements",  
                 name,  
             },
-            TypeTooLarge { r#type, name } => MachineBuildError::TypeTooLarge {
+            TypeTooLarge { r#type, name } => BuildError::TypeTooLarge {
                 r#type, 
                 name
             },
-            AlignmentTooLarge { r#type, name } => MachineBuildError::TypeTooLarge {
+            AlignmentTooLarge { r#type, name } => BuildError::TypeTooLarge {
                 r#type, 
                 name,
             },
@@ -59,7 +59,7 @@ impl From<RegisterError> for MachineBuildError {
     }
 }
 
-impl Display for MachineBuildError {
+impl Display for BuildError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::AlreadyRegistered { registry, name } => {

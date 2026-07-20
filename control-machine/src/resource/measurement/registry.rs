@@ -2,7 +2,7 @@ use std::{any::TypeId, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
 use crate::conversion::{Wrapped, WrappedTryFromOptionalF64};
 use crate::resource::{MEASUREMENTS_COUNT_MAX, ReadError, RegisterError, ResolveError};
-use super::{Measurement, Handle, Statistics, Config};
+use super::{Measurement, Handle, Statistics};
 
 /// > Note: must use fixed sized storage since we use pointers and 
 /// > otherwise a resize would invalidate all pointers
@@ -40,8 +40,9 @@ impl MeasurementManager {
         &mut self,
         ident: MachineIdentificationUnique,
         name: &'static str,
-        config: Config,
         initial_value: T::Inner,
+        record_min: bool,
+        record_max: bool,
     ) -> Result<Measurement<T>, RegisterError> 
     where 
         T: Wrapped + 'static,
@@ -61,11 +62,11 @@ impl MeasurementManager {
         let handle = self.alloc::<T>(ident, name, false)?;
 
         // --- init stats ---
-        let min = if config.record_min {
+        let min = if record_min {
             Some(self.alloc::<T>(ident, name, true)?)
         } else { None };
 
-        let max = if config.record_max {
+        let max = if record_max {
             Some(self.alloc::<T>(ident, name, true)?)
         } else { None };
 

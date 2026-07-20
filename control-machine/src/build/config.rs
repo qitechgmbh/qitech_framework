@@ -1,209 +1,90 @@
 use std::marker::PhantomData;
 
-use crate::{Machine, conversion::{Bounded, Wrapped, in_bounds}, resource::{ConfigProperty, ConstrainedConfigProperty}};
-use super::{MachineBuildError, MachineBuildContext};
+use crate::{
+    ActResult, Machine, build::BuildError, resource::{ConfigProperty, ConfigPropertySpec, ConstrainedConfigProperty, ConstrainedConfigPropertySpec}
+};
 
-impl<'a> MachineBuildContext<'a> {
-    pub fn config<'b, T>(
-        &'b mut self,
-        name: &'static str,
-        default_value: T::Inner,
-    ) -> ConfigPropertyBuilder<'a, 'b, T>
-    where
-        'a: 'b,
-        T: Wrapped,
+use super::BuildContext;
+
+#[allow(type_alias_bounds)]
+type OnApiChanged<M: Machine> = fn(&mut M) -> ActResult;
+
+impl<'a> BuildContext<'a> {
+    pub fn config<'b, T: ConfigPropertySpec>(&'b mut self) -> ConfigPropertyBuilder<'a, 'b, T>
+    where 
+        'a: 'b
     {
-        ConfigPropertyBuilder {
-            root: self,
-            name,
-            default_value,
-            initial_value: None,
+        ConfigPropertyBuilder { 
+            root: self, 
+            on_api_changed: None, 
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn config_constrained<'b, T: ConstrainedConfigPropertySpec>(
+        &'b mut self
+    ) -> ConstrainedConfigPropertyBuilder<'a, 'b, T>
+    where 
+        'a: 'b
+    {
+        ConstrainedConfigPropertyBuilder { 
+            root: self, 
+            on_api_changed: None, 
+            _marker: PhantomData,
         }
     }
 }
 
 pub struct ConfigPropertyBuilder<'a, 'b, T>
 where
-    T: Wrapped
+    T: ConfigPropertySpec
 {
-    root: &'b mut MachineBuildContext<'a>,
-    name: &'static str,
-    default_value: T::Inner,
-    initial_value: Option<T::Inner>,
+    root: &'b mut BuildContext<'a>,
+    on_api_changed: Option<OnApiChanged<T::Value>>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> ConfigPropertyBuilder<'_, '_, T>
 where
-    T: Wrapped + 'static,
-    T::Inner: Clone + Default,
+    T: ConfigPropertySpec,
 {
-    pub fn initial_value(&mut self, value: T::Inner) -> &mut Self {
-        self.initial_value = Some(value);
-        self
-    }
+    pub fn register(self) -> Result<ConfigProperty<T::Value>, BuildError> {
+        _ = self.on_api_changed;
 
-    pub fn register(self) -> Result<ConfigProperty<T>, MachineBuildError> {
-        let out = self.root.config_properties.register::<T>(
+        let out = self.root.config_properties.register::<T::Value>(
             self.root.ident, 
-            self.name, 
-            self.default_value, 
-            self.initial_value.unwrap_or_default()
+            T::NAME, 
+            T::default_value(),
+            T::initial_value(),
         )?;
 
         Ok(out)
     }
 }
 
-impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
+pub struct ConstrainedConfigPropertyBuilder<'a, 'b, T>
 where
-    T: Wrapped + 'static,
-    T::Inner: Clone + Bounded,
+    T: ConstrainedConfigPropertySpec
 {
-    pub fn with_lower_bound<M: Machine + 'static>(
-        self, 
-        bound: <T::Inner as Bounded>::Bound
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
-        let mut builder = self.upgrade();
-        builder.lower_bound = Some(bound);
-        builder
-    }
-
-    pub fn with_upper_bound<M: Machine + 'static>(
-        self, 
-        bound: <T::Inner as Bounded>::Bound
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
-        let mut builder = self.upgrade();
-        builder.upper_bound = Some(bound);
-        builder
-    }
-
-    pub fn with_validation<M: Machine + 'static>(
-        self, 
-        validate: fn(&T::Inner) -> Result<(), String>,
-    ) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
-        let mut builder = self.upgrade();
-        builder.validate = Some(validate);
-        builder
-    }
-
-    pub fn with_on_changed() {
-
-    }
-
-    fn upgrade<M: Machine + 'static>(self) -> FallibleConfigPropertyBuilder<'a, 'b, T, M> {
-        FallibleConfigPropertyBuilder {
-            root: self.root,
-            name: self.name,
-            default_value: self.default_value,
-            initial_value: self.initial_value,
-            lower_bound: None,
-            upper_bound: None,
-            validate: None,
-            validate_api_change: None,
-            after_api_change: None,
-            _marker: PhantomData,
-        }
-    }
+    root: &'b mut BuildContext<'a>,
+    on_api_changed: Option<OnApiChanged<T::Value>>,
+    _marker: PhantomData<T>,
 }
 
-#[allow(type_alias_bounds)]
-type ValidateFn<T: Wrapped> = fn(&T::Inner) -> Result<(), String>;
-
-type ValidateApiChangeFn<T: Wrapped> = fn(&T::Inner) -> Result<(), String>;
-
-type AfterApiChanged<M: Machine> = fn(&mut M) -> Result<(), ()>;
-
-pub struct FallibleConfigPropertyBuilder<'a, 'b, T, M>
+impl<T> ConstrainedConfigPropertyBuilder<'_, '_, T>
 where
-    T: Wrapped + 'static,
-    T::Inner: Bounded,
-    M: Machine + 'static
+    T: ConstrainedConfigPropertySpec,
 {
-    root: &'b mut MachineBuildContext<'a>,
-    name: &'static str,
-    default_value: T::Inner,
-    initial_value: Option<T::Inner>,
+    pub fn register(self) -> Result<ConstrainedConfigProperty<T::Value>, BuildError> {
+        _ = self.on_api_changed;
 
-    lower_bound: Option<<T::Inner as Bounded>::Bound>,
-    upper_bound: Option<<T::Inner as Bounded>::Bound>,
+        let out = self.root.config_properties.register::<T::Value>(
+            self.root.ident, 
+            T::NAME, 
+            T::default_value(),
+            T::initial_value(),
+        )?;
 
-    validate: Option<ValidateFn<T>>,
-    validate_api_change: Option<ValidateApiChangeFn<T>>,
-    after_api_change: Option<AfterApiChanged<T>>,
-    _marker: PhantomData<M>
-}
-
-impl<T, M> FallibleConfigPropertyBuilder<'_, '_, T, M>
-where
-    T: Wrapped + 'static,
-    T::Inner: Clone + Bounded,
-    M: Machine + 'static
-{
-    pub fn initial_value(mut self, value: T::Inner) -> Self {
-        self.initial_value = Some(value);
-        self
-    }
-
-    pub fn with_lower_bound(&mut self, bound: <T::Inner as Bounded>::Bound) -> &mut Self {
-        self.lower_bound = Some(bound);
-        self
-    }
-
-    pub fn with_upper_bound(&mut self, bound: <T::Inner as Bounded>::Bound) -> &mut Self {
-        self.upper_bound = Some(bound);
-        self
-    }
-
-    pub fn with_validation(&mut self, validate: fn(&T::Inner) -> Result<(), String>) -> &mut Self {
-        self.validate = Some(validate);
-        self
-    }
-
-    pub fn with_before_api_changed(mut self) -> Self {
-        self
-    }
-
-    pub fn with_after_api_changed(mut self) -> Self {
-        self
-    }
-
-    pub fn register(self) -> Result<ConstrainedConfigProperty<T>, MachineBuildError> {
-        let ident = self.root.ident;
-
-        let name = self.root.register_name(self.name);
-        let mut reg_handle = self.root.data_store.registry.config.register(ident, name)?;
-
-        if let Some(value) = self.initial_value {
-            reg_handle.write(value);
-        }
-
-        let rec = &mut self.root.data_store.journals;
-        let rec_handle = rec.create_config_handle(ident, name);
-
-        let lower_bound = self.lower_bound;
-        let upper_bound = self.upper_bound;
-        let user_validate = self.validate;
-
-        // Bounds are checked first; only if they pass does the user-supplied
-        // validation function run.
-        let validate: Box<dyn Fn(&T::Inner) -> Result<(), String>> =
-            Box::new(move |value: &T::Inner| {
-                if !in_bounds(value, lower_bound, upper_bound) {
-                    return Err("out of bounds".to_string());
-                }
-
-                if let Some(user_validate) = user_validate {
-                    user_validate(value)?;
-                }
-
-                Ok(())
-            });
-
-        Ok(ConstrainedConfigProperty::new(
-            reg_handle, 
-            rec_handle, 
-            self.default_value,
-            validate
-        ))
+        Ok(out)
     }
 }

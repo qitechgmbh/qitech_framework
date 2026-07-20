@@ -4,12 +4,26 @@ use chrono::Utc;
 use qitech_lib::units::*;
 use control_core::{MachineConfigMutation, MachineIdentificationUnique, OperationResult, Origin};
 
-use crate::with_uom;
 use crate::resource::{JournalHandle, PropertyHandle};
 use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 mod manager;
 pub use manager::ConfigPropertyManager;
+
+pub trait ConfigPropertySpec {
+    // --- main ---
+    const NAME: &'static str;
+    type Value: 'static + Wrapped;
+
+    // since uom ::new is not const we need a func ...
+    fn initial_value() -> <Self::Value as Wrapped>::Inner;
+    fn default_value() -> <Self::Value as Wrapped>::Inner;
+}
+
+pub trait ConstrainedConfigPropertySpec: ConfigPropertySpec {
+    const MIN: Option<<Self::Value as Wrapped>::Inner>;
+    const MAX: Option<<Self::Value as Wrapped>::Inner>;
+}
 
 pub struct ConfigProperty<T: Wrapped> {
     ident: MachineIdentificationUnique,
@@ -61,6 +75,7 @@ pub struct ConstrainedConfigProperty<T: Wrapped> {
     handle: PropertyHandle<T::Inner>,
     journal: JournalHandle<MachineConfigMutation>,
     default: T::Inner,
+    
     validate: ConstrainedConfigPropertyValidateFn<T>,
 }
 

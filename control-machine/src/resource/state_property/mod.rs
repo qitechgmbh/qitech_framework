@@ -4,13 +4,23 @@ use chrono::Utc;
 use control_core::MachineIdentificationUnique;
 use control_core::MachineStateMutation;
 
-use crate::with_uom;
 use crate::resource::PropertyHandle;
 use crate::resource::JournalHandle;
 use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 mod manager;
 pub use manager::StatePropertyManager;
+
+pub trait StatePropertySpec {
+    // --- main ---
+    const NAME: &'static str;
+    type Value: 'static + Wrapped where <Self::Value as Wrapped>::Inner: Default;
+
+    // since uom ::new is not const we need this cancer ...
+    fn initial_value() -> <Self::Value as Wrapped>::Inner 
+    where 
+        <Self::Value as Wrapped>::Inner: Default;
+}
 
 #[derive(Debug)]
 pub struct StateProperty<T: Wrapped> {

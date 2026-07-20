@@ -1,47 +1,35 @@
-use crate::{build::MachineBuildError, conversion::Wrapped, resource::StateProperty};
-use super::MachineBuildContext;
+use std::marker::PhantomData;
 
-impl<'a> MachineBuildContext<'a> {
-    pub fn state<'b, T>(
-        &'b mut self, 
-        name: &'static str
-    ) -> StatePropertyBuilder<'a, 'b, T>
-    where
-        'a: 'b,
-        T: Wrapped,
+use crate::{build::BuildError, conversion::Wrapped, resource::{StateProperty, StatePropertySpec}};
+use super::BuildContext;
+
+impl<'a> BuildContext<'a> {
+    pub fn state<'b, T: StatePropertySpec>(&'b mut self) -> StatePropertyBuilder<'a, 'b, T>
+    where 
+        'a: 'b
     {
-        StatePropertyBuilder { 
-            root: self, 
-            name, 
-            initial_value: Default::default(), 
-        }
+        StatePropertyBuilder { root: self, _marker: PhantomData }
     }
 }
 
 pub struct StatePropertyBuilder<'a, 'b, T>
 where
-    T: Wrapped
+    T: StatePropertySpec
 {
-    root: &'b mut MachineBuildContext<'a>,
-    name: &'static str,
-    initial_value: Option<T::Inner>
+    root: &'b mut BuildContext<'a>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> StatePropertyBuilder<'_, '_, T>
 where
-    T: Wrapped + 'static,
-    T::Inner: Default
+    T: StatePropertySpec,
+    <T::Value as Wrapped>::Inner: Default
 {
-    pub fn initial_value(&mut self, value: T::Inner) -> &mut Self {
-        self.initial_value = Some(value);
-        self
-    }
-
-    pub fn register(self) -> Result<StateProperty<T>, MachineBuildError> {
-        let out = self.root.state_properties.register::<T>(
+    pub fn register(self) -> Result<StateProperty<T::Value>, BuildError> {
+        let out = self.root.state_properties.register::<T::Value>(
             self.root.ident, 
-            self.name, 
-            self.initial_value.unwrap_or_default()
+            T::NAME, 
+            T::initial_value()
         )?;
 
         Ok(out)

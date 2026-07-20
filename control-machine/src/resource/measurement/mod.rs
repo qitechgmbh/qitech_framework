@@ -1,5 +1,4 @@
 use std::ptr::NonNull;
-use crate::with_uom;
 use crate::conversion::{Wrapped, WrappedIntoOptionalF64};
 
 mod registry;
@@ -7,11 +6,26 @@ pub use registry::MeasurementManager;
 pub use registry::MeasurementResolver;
 pub use registry::MeasurementReader;
 
+pub trait MeasurementSpec {
+    // --- info ---
+    const NAME: &'static str;
+    type Value: 'static + Wrapped where <Self::Value as Wrapped>::Inner: Default;
+
+    // --- additional parameters ---
+    const RECORD_MIN: bool = false;
+    const RECORD_MAX: bool = false;
+
+    // since uom ::new is not const we need this cancer ...
+    fn initial_value() -> <Self::Value as Wrapped>::Inner 
+    where 
+        <Self::Value as Wrapped>::Inner: Default;
+}
+
 #[derive(Debug)]
 pub struct Measurement<T: Wrapped> {
     handle: Handle,
-    stats: Statistics,
     value: T::Inner,
+    stats: Statistics,
 }
 
 // scalar values
