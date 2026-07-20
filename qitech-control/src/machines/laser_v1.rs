@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
+use anyhow::anyhow;
 
 use qitech_lib::units::ConstZero;
 use qitech_lib::units::{Length, length::millimeter};
@@ -8,7 +9,7 @@ use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::{LaserDevice, LaserError};
 
 use control_runtime::{
-    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, BuildContext, MachineIdentification,
+    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, MachineBuildContext, MachineIdentification,
 };
 
 use control_runtime::machine::{ConstrainedConfigProperty, Measurement, StateProperty};
@@ -36,21 +37,21 @@ pub struct LaserV1 {
 }
 
 impl MachineBuild for LaserV1 {
-    fn build(mut builder: BuildContext<'_>) -> Result<Self, MachineBuildError> {
+    fn build(mut ctx: MachineBuildContext<'_>) -> Result<Self, MachineBuildError> {
         // --- hardware
-        let device = builder.get_serial_device::<LaserDevice>(0)?;
+        let device = ctx.get_serial_device::<LaserDevice>(0)?;
 
-        let diameter_target = builder
+        let diameter_target = ctx
             .config("diameter.target", Length::new::<millimeter>(1.75))
             .with_lower_bound(Length::ZERO)
             .register()?;
 
-        let diameter_tolerance_upper = builder
+        let diameter_tolerance_upper = ctx
             .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
             .with_lower_bound(Length::ZERO)
             .register()?;
 
-        let diameter_tolerance_lower = builder
+        let diameter_tolerance_lower = ctx
             .config("diameter.tolerance.upper", Length::new::<millimeter>(0.05))
             .with_lower_bound(Length::ZERO)
             .register()?;
@@ -60,11 +61,11 @@ impl MachineBuild for LaserV1 {
             diameter_target,
             diameter_tolerance_upper,
             diameter_tolerance_lower,
-            in_tolerance: builder.state("in_tolerance").register()?,
-            diameter: builder.measurement("diameter").register()?,
-            diameter_x: builder.measurement("diameter_x").register()?,
-            diameter_y: builder.measurement("diameter_y").register()?,
-            roundness: builder.measurement("roundness").register()?,
+            in_tolerance: ctx.state("in_tolerance").register()?,
+            diameter: ctx.measurement("diameter").register()?,
+            diameter_x: ctx.measurement("diameter_x").register()?,
+            diameter_y: ctx.measurement("diameter_y").register()?,
+            roundness: ctx.measurement("roundness").register()?,
             last_request: Instant::now(),
         })
     }
@@ -108,7 +109,7 @@ impl LaserV1 {
             && let LaserError::IoErr() = laser_error {
             return Err(MachineActError {
                 recoverable: false,
-                message: "Physical hardware I/O broke.".to_string(),
+                error: anyhow!("Physical hardware I/O broke."),
             });
         }
 

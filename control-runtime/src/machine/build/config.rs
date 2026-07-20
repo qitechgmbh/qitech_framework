@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use crate::{Machine, MachineBuildError, conversion::{Bounded, Wrapped, in_bounds}, machine::config::{ConfigProperty, ConstrainedConfigProperty}};
-use super::BuildContext;
+use super::MachineBuildContext;
 
-impl<'a> BuildContext<'a> {
+impl<'a> MachineBuildContext<'a> {
     pub fn config<'b, T>(
         &'b mut self,
         name: &'static str,
@@ -26,7 +26,7 @@ pub struct ConfigPropertyBuilder<'a, 'b, T>
 where
     T: Wrapped
 {
-    root: &'b mut BuildContext<'a>,
+    root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
     default_value: T::Inner,
     initial_value: Option<T::Inner>,
@@ -46,13 +46,14 @@ where
         let ident = self.root.ident;
 
         let name = self.root.register_name(self.name);
-        let mut reg_handle = self.root.data_store.registry.config.register(ident, name)?;
+        let mut reg_handle = self.root.resource_registry
+            .register_config_property(ident, name)?;
 
         if let Some(value) = self.initial_value {
             reg_handle.write(value);
         }
 
-        let rec = &mut self.root.data_store.recorder;
+        let rec = &mut self.root.resource_journals;
         let rec_handle = rec.create_config_handle(ident, name);
 
         Ok(ConfigProperty::new(reg_handle, rec_handle, self.default_value))
@@ -124,7 +125,7 @@ where
     T::Inner: Bounded,
     M: Machine + 'static
 {
-    root: &'b mut BuildContext<'a>,
+    root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
     default_value: T::Inner,
     initial_value: Option<T::Inner>,
@@ -182,7 +183,7 @@ where
             reg_handle.write(value);
         }
 
-        let rec = &mut self.root.data_store.recorder;
+        let rec = &mut self.root.data_store.journals;
         let rec_handle = rec.create_config_handle(ident, name);
 
         let lower_bound = self.lower_bound;

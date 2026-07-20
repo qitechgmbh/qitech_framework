@@ -1,7 +1,7 @@
-use crate::{MachineBuildError, BuildContext, conversion::Wrapped, data};
+use crate::{MachineBuildError, MachineBuildContext, conversion::Wrapped, resource};
 use super::super::{Measurement, MeasurementStatistics};
 
-impl<'a> BuildContext<'a> {
+impl<'a> MachineBuildContext<'a> {
     pub fn measurement<'b, T>(
         &'b mut self,
         name: &'static str,
@@ -25,7 +25,7 @@ pub struct MeasurementBuilder<'a, 'b, T>
 where
     T: Wrapped
 {
-    root: &'b mut BuildContext<'a>,
+    root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
     record_min: bool,
     record_max: bool,
@@ -57,19 +57,20 @@ where
 
         let name = self.root.register_name(self.name);
 
-        let handle = self.root.data_store.registry.measurement.register::<T>(ident, name)?;
+        let reg = &mut self.root.resource_registry;
+        let handle = reg.register_measurement::<T>(ident, name)?;
 
         let min = if self.record_min {
-            let name = self.root.register_name(format!("{name}.min"));
-            let handle = self.root.data_store.registry.measurement.register::<T>(ident, name)?;
+            let name = reg.register_name(format!("{name}.min"));
+            let handle = reg.register_measurement::<T>(ident, name)?;
             Some(handle)
         } else {
             None
         };
 
         let max = if self.record_max {
-            let name = self.root.register_name(format!("{name}.max"));
-            let handle = self.root.data_store.registry.measurement.register::<T>(ident, name)?;
+            let name = reg.register_name(format!("{name}.max"));
+            let handle = reg.register_measurement::<T>(ident, name)?;
             Some(handle)
         } else {
             None
@@ -80,9 +81,9 @@ where
     }
 }
 
-impl From<data::measurement::RegisterError> for MachineBuildError {
-    fn from(value: data::measurement::RegisterError) -> Self {
-        use data::measurement::RegisterError::*;
+impl From<resource::measurement::RegisterError> for MachineBuildError {
+    fn from(value: resource::measurement::RegisterError) -> Self {
+        use resource::measurement::RegisterError::*;
         match value {
             AlreadyRegistered { name } => MachineBuildError::AlreadyRegistered { 
                 registry: "measurements",  

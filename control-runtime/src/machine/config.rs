@@ -2,11 +2,11 @@ use qitech_lib::units::*;
 use control_core::{OperationResult, Origin};
 
 use crate::with_uom;
-use crate::data::{property, ConfigRecorderHandle};
+use crate::resource::{MachineConfigPropertyHandle};
 use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 pub struct ConfigProperty<T: Wrapped> {
-    reg_handle: property::Handle<T::Inner>,
+    reg_handle: MachineConfigPropertyHandle<T::Inner>,
     rec_handle: ConfigRecorderHandle,
     default: T::Inner,
 }

@@ -8,10 +8,10 @@ use qitech_lib::modbus::ModbusDevice;
 use crate::MachineBuildError;
 use crate::machine::{Hardware, IdentifiedEthercat, IdentifiedModbus};
 use crate::machine::build::BuildResult;
-use super::BuildContext;
+use super::MachineBuildContext;
 
 // --- ethercat ---
-impl BuildContext<'_> {
+impl MachineBuildContext<'_> {
     pub fn get_ethercat_interface(&self) -> BuildResult<EtherCATThreadChannel> {
         self.ethercat_interface
             .clone()
@@ -51,7 +51,7 @@ impl BuildContext<'_> {
 }
 
 // --- serial ---
-impl BuildContext<'_> {
+impl MachineBuildContext<'_> {
     pub fn get_serial_device<T>(&self, index: usize) -> BuildResult<Rc<RefCell<T>>> 
     where 
         T: 'static
@@ -69,7 +69,7 @@ impl BuildContext<'_> {
 }
 
 // --- helpers ---
-impl BuildContext<'_> {
+impl MachineBuildContext<'_> {
     fn hardware_at(&self, index: usize) -> BuildResult<&Hardware> {
         self.hardware
             .get(index)

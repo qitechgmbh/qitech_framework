@@ -5,26 +5,20 @@ use qitech_lib::ethercat_hal::MasterConfiguration;
 pub use control_core::MachineIdentification;
 pub use control_core::MachineIdentificationUnique;
 
-mod data;
-use data::DataStore;
-pub use data::DataRegistry;
+mod resource;
 
 mod machine_registry;
 pub use machine_registry::MachineRegistry;
-
-// mod property;
 
 mod conversion;
 
 pub mod machine;
 pub use machine::Machine;
 pub use machine::MachineBuild;
-pub use machine::BuildContext;
+pub use machine::MachineBuildContext;
 pub use machine::MachineBuildError;
 pub use machine::MachineActResult;
 pub use machine::MachineActError;
-// pub use machine::ConfigProperty;
-// pub use machine::StateProperty;
 
 mod ethercat;
 

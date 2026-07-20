@@ -1,7 +1,7 @@
 use std::{any::{TypeId, type_name}, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
 
-use crate::{conversion::WrappedTryFromOptionalF64, data::RegisterError};
+use crate::{conversion::WrappedTryFromOptionalF64, resource::{ResourceReadError, ResourceRegisterError, ResourceResolveError}};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Key {
@@ -37,16 +37,16 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
         &mut self,
         ident: MachineIdentificationUnique,
         name: &'static str,
-    ) -> Result<Handle<T>, RegisterError> {
+    ) -> Result<Handle<T>, ResourceRegisterError> {
         if size_of::<T>() > size_of::<Storage>() {
-            return Err(RegisterError::TypeTooLarge {
+            return Err(ResourceRegisterError::TypeTooLarge {
                 r#type: type_name::<T>(),
                 name,
             });
         }
 
         if align_of::<T>() > align_of::<Storage>() {
-            return Err(RegisterError::AlignmentTooLarge {
+            return Err(ResourceRegisterError::AlignmentTooLarge {
                 r#type: type_name::<T>(),
                 name,
             });
@@ -100,11 +100,11 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
         to_remove.len()
     }
 
-    fn find_free_slot(&self) -> Result<usize, RegisterError> {
+    fn find_free_slot(&self) -> Result<usize, ResourceRegisterError> {
         self.occupied
             .iter()
             .position(|slot| !slot)
-            .ok_or(RegisterError::RegistryFull { name: "TODO" })
+            .ok_or(ResourceRegisterError::RegistryFull { name: "TODO" })
     }
 }
 
@@ -141,7 +141,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
     pub fn read<T: WrappedTryFromOptionalF64>(
         &self,
         handle: &ReaderHandle<REGISTRY_ID, T>,
-    ) -> Result<&T::Inner, ReadError> {
+    ) -> Result<&T::Inner, ResourceReadError> {
         let generation = &self.registry.buf_generations[handle.index];
 
         // Safety:
@@ -150,7 +150,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
         // - resolve() only creates PropertyHandle<T> after type check
         unsafe {
             if generation.assume_init() != handle.generation {
-                return Err(ReadError);
+                return Err(ResourceReadError);
             }
 
             let storage = &self.registry.buf_storage[handle.index].assume_init_read();
@@ -176,15 +176,15 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
     pub fn resolve<T: 'static>(
         &self,
         name: &'static str,
-    ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResolveError> {
+    ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResourceResolveError> {
         let key = Key { ident: self.ident, name };
 
         let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
-            return Err(ResolveError::NoSuchProperty)
+            return Err(ResourceResolveError::NoSuchProperty)
         };
         
         if *type_id != TypeId::of::<T>() {
-            return Err(ResolveError::NoSuchProperty);
+            return Err(ResourceResolveError::NoSuchProperty);
         }
 
         let generation = unsafe {
@@ -197,14 +197,4 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
             _marker: PhantomData,
         })
     }
-}
-
-// 
-
-/// handle is stale
-pub struct ReadError;
-
-pub enum ResolveError {
-    NoSuchProperty,
-    InvalidType,
 }

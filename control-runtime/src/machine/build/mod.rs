@@ -1,43 +1,46 @@
 use std::fmt::{self, Display, Formatter};
 
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
-use control_core::{LogOrigin, MachineIdentificationUnique};
+use control_core::MachineIdentificationUnique;
 
-use crate::{DataStore, data};
-use crate::data::LogRecorderHandle;
+use crate::resource::{ResourceJournals, ResourceRegisterError, MachineResourceRegistry};
 use crate::machine::Hardware ;
 
 mod hardware;
 mod config;
 mod state;
 mod measurement;
+mod command;
 // mod event;
 
 type BuildResult<T> = Result<T, MachineBuildError>;
 
 pub trait MachineBuild: Sized {
-    fn build(ctx: BuildContext<'_>) -> Result<Self, MachineBuildError>;
+    fn build(ctx: MachineBuildContext<'_>) -> Result<Self, MachineBuildError>;
 }
 
-pub struct BuildContext<'a> {
+pub struct MachineBuildContext<'a> {
     ident: MachineIdentificationUnique,
     hardware: Vec<Hardware>,
     ethercat_interface: Option<EtherCATThreadChannel>,
-    data_store: &'a mut DataStore,
+    resource_registry: &'a mut MachineResourceRegistry,
+    resource_journals: &'a mut ResourceJournals,
 }
 
-impl<'a> BuildContext<'a> {
+impl<'a> MachineBuildContext<'a> {
     pub fn new(
         ident: MachineIdentificationUnique,
-        hardware: Vec<Hardware>,
+        resource_registry: &'a mut MachineResourceRegistry,
+        resource_journals: &'a mut ResourceJournals,
         ethercat_interface: Option<EtherCATThreadChannel>,
-        data_store: &'a mut DataStore,
+        hardware: Vec<Hardware>,
     ) -> Self {
         Self {
             ident,
-            hardware,
+            resource_registry,
+            resource_journals,
             ethercat_interface,
-            data_store,
+            hardware,
         }
     }
 
@@ -46,12 +49,9 @@ impl<'a> BuildContext<'a> {
     }
 
     pub fn log_handle(&mut self) -> LogRecorderHandle {
-        let rec = &mut self.data_store.recorder;
-        rec.create_log_handle(LogOrigin::Machine(self.ident))
-    }
-
-    fn register_name<S: ToString>(&mut self, name: S) -> &'static str {
-        self.data_store.registry.register_name(name.to_string())
+        // let rec = &mut self.journals;
+        // rec.create_log_handle(LogOrigin::Machine(self.ident))
+        todo!()
     }
 }
 
@@ -87,9 +87,9 @@ pub enum MachineBuildError {
     Custom(anyhow::Error),
 }
 
-impl From<data::RegisterError> for MachineBuildError {
-    fn from(value: data::RegisterError) -> Self {
-        use data::RegisterError::*;
+impl From<ResourceRegisterError> for MachineBuildError {
+    fn from(value: resource::RegisterError) -> Self {
+        use ResourceRegisterError::*;
         match value {
             AlreadyRegistered { name } => MachineBuildError::AlreadyRegistered { 
                 registry: "measurements",  

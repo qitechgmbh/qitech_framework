@@ -1,6 +1,6 @@
-use std::{any::TypeId, fmt, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use std::{any::TypeId, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
-use crate::conversion::WrappedTryFromOptionalF64;
+use crate::{conversion::WrappedTryFromOptionalF64, resource::{ResourceReadError, ResourceResolveError}};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Key {
@@ -12,12 +12,6 @@ struct Key {
 struct Entry {
     index: usize,
     type_id: TypeId,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RegisterError {
-    AlreadyRegistered { name: &'static str },
-    RegistryFull { name: &'static str },
 }
 
 /// > Note: must use fixed sized storage since we use pointers and 
@@ -74,11 +68,11 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Registry<REGISTRY_ID, MAX
 
     /// Release all previously-registered slots belonging to `ident`
     /// Returns the number of slots freed.
-    pub fn unregister_machine(&mut self, ident: &MachineIdentificationUnique) -> usize {
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
         // Collect keys to remove
         let mut to_remove: heapless::Vec<Key, MAX_ITEMS> = heapless::Vec::new();
         for key in self.lookup.keys() {
-            if &key.ident == ident {
+            if key.ident == ident {
                 to_remove.push(*key).expect("Cannot overflow");
             }
         }
@@ -154,18 +148,6 @@ impl Handle {
 }
 
 // --- reader ---
-
-#[derive(Debug)]
-pub struct ReadError;
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("expired handle")
-    }
-}
-
-impl std::error::Error for ReadError {}
-
 #[derive(Debug)]
 pub struct ReaderHandle<const REGISTRY_ID: usize, T> {
     generation: u64,
@@ -187,7 +169,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
     pub fn read<T: WrappedTryFromOptionalF64>(
         &self,
         handle: &ReaderHandle<REGISTRY_ID, T>,
-    ) -> Result<T::Inner, ReadError> {
+    ) -> Result<T::Inner, ResourceReadError> {
         let generation = self.registry.buf_generations[handle.index];
 
         // Safety:
@@ -196,7 +178,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
         // - resolve() only creates PropertyHandle<T> after type check
         unsafe {
             if generation.assume_init() != handle.generation {
-                return Err(ReadError);
+                return Err(ResourceReadError);
             }
 
             let null = self.registry.buf_nulls[handle.index].assume_init_read();
@@ -212,12 +194,6 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
 }
 
 // --- resolver ---
-#[derive(Debug, Clone, Copy)]
-pub enum ResolveError {
-    NoSuchProperty,
-    InvalidType,
-}
-
 pub struct Resolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
     registry: &'a Registry<REGISTRY_ID, MAX_ITEMS>,
     ident: MachineIdentificationUnique,
@@ -227,15 +203,15 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> Resolver<'a, REGISTRY
     pub fn resolve<T: 'static>(
         &self,
         name: &'static str,
-    ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResolveError> {
+    ) -> Result<ReaderHandle<REGISTRY_ID, T>, ResourceResolveError> {
         let key = Key { ident: self.ident, name };
 
         let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
-            return Err(ResolveError::NoSuchProperty)
+            return Err(ResourceResolveError::NoSuchProperty)
         };
         
         if *type_id != TypeId::of::<T>() {
-            return Err(ResolveError::InvalidType);
+            return Err(ResourceResolveError::InvalidType);
         }
 
         let generation = unsafe {

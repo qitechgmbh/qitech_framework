@@ -8,7 +8,9 @@ use std::{
 use anyhow::bail;
 
 use qitech_lib::ethercat_hal::{
-    BECKHOFF_VENDOR_ID, EtherCATControl, EtherCATState, Mailbox, MasterConfiguration, MetaSubdevice, TripleBufConsumer, init_ethercat
+    self,
+    BECKHOFF_VENDOR_ID, EtherCATControl, EtherCATState, Mailbox, 
+    MasterConfiguration, MetaSubdevice, TripleBufConsumer
 };
 use qitech_lib::ethercat_hal::devices::{
     EthercatDevice, device_from_subdevice_identity_rc
@@ -58,8 +60,8 @@ pub fn find_interface(retry_delay: Duration) -> String {
     }
 }
 
-pub fn init(interface: &str, config: Option<MasterConfiguration>) -> Controller {
-    init_ethercat(interface, config)
+pub fn init_controller(interface: &str, config: Option<MasterConfiguration>) -> Controller {
+    ethercat_hal::init_ethercat(interface, config)
 }
 
 pub fn setup(

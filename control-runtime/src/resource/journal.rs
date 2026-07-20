@@ -1,20 +1,19 @@
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, rc::{Rc, Weak}};
-use serde::Serialize;
-use chrono::Utc;
-use control_core::{LogLevel, LogOrigin, LogRecord, MachineConfigMutation, MachineEvent, MachineIdentificationUnique, MachineStateMutation, OperationResult, Origin, ScalarValue};
+use std::{cell::RefCell, fmt::Debug, rc::{Rc, Weak}};
+use control_core::{LogRecord, MachineConfigMutation, MachineEvent, MachineStateMutation, };
 
-type RecordLog<T> = Rc<RefCell<Vec<T>>>;
-type WeakRecordLog<T> = Weak<RefCell<Vec<T>>>;
+pub type Journal<T> = Rc<RefCell<Vec<T>>>;
+pub type WeakJournal<T> = Weak<RefCell<Vec<T>>>;
 
 #[derive(Debug)]
-pub struct DataRecorder {
-    configs: RecordLog<MachineConfigMutation>,
-    states: RecordLog<MachineStateMutation>,
-    events: RecordLog<MachineEvent>,
-    logs: RecordLog<LogRecord>,
+pub struct Journals {
+    configs: Journal<MachineConfigMutation>,
+    states: Journal<MachineStateMutation>,
+    events: Journal<MachineEvent>,
+    logs: Journal<LogRecord>,
 }
 
-impl DataRecorder {
+/*
+impl Recorders {
     pub(crate) fn new() -> Self {
         Self { 
             configs: Default::default(), 
@@ -78,7 +77,7 @@ impl DataRecorder {
 
 #[derive(Debug)]
 pub struct ConfigRecorderHandle {
-    weak: WeakRecordLog<MachineConfigMutation>,
+    weak: WeakRecordLogs<MachineConfigMutation>,
     ident: MachineIdentificationUnique,
     name: &'static str,
 }
@@ -108,7 +107,7 @@ impl ConfigRecorderHandle {
 
 #[derive(Debug)]
 pub struct StateRecorderHandle {
-    weak: WeakRecordLog<MachineStateMutation>,
+    weak: WeakRecordLogs<MachineStateMutation>,
     ident: MachineIdentificationUnique,
     name: &'static str,
 }
@@ -130,8 +129,8 @@ impl StateRecorderHandle {
 }
 
 #[derive(Debug)]
-pub struct MachineEventRecorderHandle<T: Serialize> {
-    weak: WeakRecordLog<MachineEvent>,
+pub struct MachineEventRecorderHandle<T> {
+    weak: WeakRecordLogs<MachineEvent>,
     log_handle: LogRecorderHandle,
     ident: MachineIdentificationUnique,
     name: &'static str,
@@ -139,7 +138,7 @@ pub struct MachineEventRecorderHandle<T: Serialize> {
 }
 
 impl<T: Debug + Serialize> MachineEventRecorderHandle<T> {
-    pub fn record(&mut self, event: &T) {
+    pub fn record(&self, event: T) {
         let log = self
             .weak
             .upgrade()
@@ -172,12 +171,12 @@ impl<T: Debug + Serialize> MachineEventRecorderHandle<T> {
 
 #[derive(Debug)]
 pub struct LogRecorderHandle {
-    weak: WeakRecordLog<LogRecord>,
+    weak: WeakRecordLogs<LogRecord>,
     origin: LogOrigin,
 }
 
 impl LogRecorderHandle {
-    pub fn record(&mut self, level: LogLevel, message: String, attributes: HashMap<String, String>) {
+    pub fn record(&self, level: LogLevel, message: String, attributes: HashMap<String, String>) {
         let log = self
             .weak
             .upgrade()
@@ -192,3 +191,4 @@ impl LogRecorderHandle {
         }); 
     }
 }
+*/

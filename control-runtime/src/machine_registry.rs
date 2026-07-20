@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use control_core::{MachineIdentification, schema::{self, v1_0::MachineSchema}};
-use crate::{Machine, MachineBuild, MachineBuildError, BuildContext};
+use control_core::{MachineIdentification, schema::{self, latest::MachineSchema}};
+use crate::{Machine, MachineBuild, MachineBuildError, MachineBuildContext};
 
 #[derive(Default)]
 pub struct MachineRegistry {
@@ -14,10 +14,15 @@ impl MachineRegistry {
     {
         let schema = schema::parse_latest(schema)?;
 
-        self.inner.insert(schema.identification, MachineRegistryEntry {
+        let ident = schema.identification;
+        let entry = MachineRegistryEntry {
             schema,
             build: Self::build_adapter::<T>,
-        });
+        };
+
+        if self.inner.insert(ident, entry).is_some() {
+            
+        };
 
         Ok(())
     }
@@ -27,7 +32,7 @@ impl MachineRegistry {
     }
 
     fn build_adapter<T>(
-        builder: BuildContext<'_>,
+        builder: MachineBuildContext<'_>,
     ) -> Result<Box<dyn Machine>, MachineBuildError>
     where
         T: MachineBuild + Machine + 'static,
@@ -39,5 +44,5 @@ impl MachineRegistry {
 pub struct MachineRegistryEntry {
     #[allow(unused)]
     pub schema: MachineSchema,
-    pub build: fn(BuildContext<'_>) -> Result<Box<dyn Machine>, MachineBuildError>,
+    pub build: fn(MachineBuildContext<'_>) -> Result<Box<dyn Machine>, MachineBuildError>,
 }

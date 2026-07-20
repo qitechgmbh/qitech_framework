@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use control_core::MachineIdentificationUnique;
-
-const CONFIG_REGISTRY_ID: usize = 0;
-const STATE_REGISTRY_ID: usize = 1;
-const MEASUREMENT_REGISTRY_ID: usize = 2;
+use crate::resource::{
+    MachineConfigPropertyAccessHandle, MachineConfigPropertyResolver, 
+    MachineMeasurementAccessHandle, MachineMeasurementResolver
+};
 
 pub mod hardware;
 pub use hardware::MachineHardwareRegistry;
@@ -13,27 +13,28 @@ pub use hardware::IdentifiedModbus;
 
 mod build;
 pub use build::MachineBuild;
-pub use build::BuildContext;
+pub use build::MachineBuildContext;
 pub use build::MachineBuildError;
 
 mod config;
 pub use config::ConfigProperty;
 pub use config::ConstrainedConfigProperty;
-pub type ConfigReaderHandle<T> = data::property::ReaderHandle<CONFIG_REGISTRY_ID, T>;
+pub type ConfigPropertyAccessHandle<T> = MachineConfigPropertyAccessHandle<T>;
 
 mod state;
 pub use state::StateProperty;
-pub type StateReaderHandle<T> = data::property::ReaderHandle<STATE_REGISTRY_ID, T>;
+pub type StatePropertyAccessHandle<T> = MachineStatePropertyAccessHandle<T>;
 
 mod measurement;
 pub use measurement::Measurement;
 pub use measurement::MeasurementStatistics;
-pub type MeasurementReaderHandle<T> = data::measurement::ReaderHandle<MEASUREMENT_REGISTRY_ID, T>;
+pub type MeasurementReaderHandle<T> = MachineMeasurementAccessHandle<T>;
 
 mod command;
 pub use command::Command;
 
-use crate::data;
+mod event;
+pub use event::EventEmitter;
 
 pub type MachineActResult = Result<(), MachineActError>;
 
@@ -65,25 +66,18 @@ impl From<anyhow::Error> for MachineActError {
     }
 }
 
-impl From<data::property::ReadError> for MachineActError {
-    fn from(value: data::property::ReadError) -> Self {
+impl From<resource::ReadError> for MachineActError {
+    fn from(value: resource::ReadError) -> Self {
         _ = value;
-        Self { error: anyhow!("Handle expired"), recoverable: false }
-    }
-}
-
-impl From<data::measurement::ReadError> for MachineActError {
-    fn from(value: data::measurement::ReadError) -> Self {
-        _ = value;
-        Self { error: anyhow!("Handle expired"), recoverable: false }
+        Self { error: anyhow!("Handle expired"), recoverable: true }
     }
 }
 
 pub struct SubscribeContext<'a> {
     pub ident: MachineIdentificationUnique,
-    pub config: data::property::Resolver<'a, CONFIG_REGISTRY_ID, 512>,
-    pub state: data::property::Resolver<'a, STATE_REGISTRY_ID, 512>,
-    pub measurements: data::measurement::Resolver<'a, MEASUREMENT_REGISTRY_ID, 512>,
+    pub config: MachineConfigPropertyResolver<'a>,
+    pub state: MachineStatePropertyResolver<'a>,
+    pub measurements: MachineMeasurementResolver<'a>,
 }
 
 pub type SubscribeResult = Result<(), SubscribeError>;
@@ -97,19 +91,8 @@ pub enum SubscribeError {
     InvalidResourceType,
 }
 
-impl From<data::property::ResolveError> for SubscribeError {
-    fn from(value: data::property::ResolveError) -> Self {
-        use data::property::ResolveError;
-        match value {
-            ResolveError::NoSuchProperty => SubscribeError::NoSuchResource,
-            ResolveError::InvalidType => SubscribeError::InvalidResourceType,
-        }
-    }
-}
-
-impl From<data::measurement::ResolveError> for SubscribeError {
-    fn from(value: data::measurement::ResolveError) -> Self {
-        use data::measurement::ResolveError;
+impl From<ResolveError> for SubscribeError {
+    fn from(value: ResolveError) -> Self {
         match value {
             ResolveError::NoSuchProperty => SubscribeError::NoSuchResource,
             ResolveError::InvalidType => SubscribeError::InvalidResourceType,
@@ -118,7 +101,7 @@ impl From<data::measurement::ResolveError> for SubscribeError {
 }
 
 pub struct ReactContext<'a> {
-    pub config: data::property::Reader<'a, CONFIG_REGISTRY_ID, 512>,
-    pub state: data::property::Reader<'a, STATE_REGISTRY_ID, 512>,
-    pub measurements: data::measurement::Reader<'a, MEASUREMENT_REGISTRY_ID, 512>,
+    pub config: MachineConfigPropertyReader<'a>,
+    pub state: MachineConfigPropertyReader<'a>,
+    pub measurements: MachineMeasurementReader<'a>,
 }

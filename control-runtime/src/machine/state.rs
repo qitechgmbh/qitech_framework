@@ -1,10 +1,10 @@
 use crate::with_uom;
-use crate::data::{StateRecorderHandle, property};
+use crate::resource::{MachineStatePropertyHandle};
 use crate::conversion::{Wrapped, WrappedIntoScalar};
 
 #[derive(Debug)]
 pub struct StateProperty<T: Wrapped> {
-    reg_handle: property::Handle<T::Inner>,
+    reg_handle: MachineStatePropertyHandle<T::Inner>,
     rec_handle: StateRecorderHandle,
 }
 

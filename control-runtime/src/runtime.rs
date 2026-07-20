@@ -9,19 +9,25 @@ use control_core::{MachineIdentification, MachineIdentificationUnique};
 use qitech_lib::ethercat_hal::MetaSubdevice;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 
-use crate::data::DataStore;
+use crate::resource::{ResourceJournals, MachineResourceRegistry};
 use crate::machine_registry::MachineRegistryEntry;
-use crate::{Config, Machine, BuildContext, MachineRegistry, ethercat};
+use crate::{Config, Machine, MachineBuildContext, MachineRegistry, ethercat};
 use crate::machine::MachineHardwareRegistry;
 
 pub struct Runtime {
-    registry: MachineRegistry,
-    machines: Vec<(MachineIdentificationUnique, Box<dyn Machine>)>,
+    // --- registries ---
+    machine_registry: MachineRegistry,
     hardware_registry: MachineHardwareRegistry,
-    controller: Option<ethercat::Controller>,
-    data_store: DataStore,
-    sub_devices: Vec<(MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>)>,
+    resource_registry: resource::Registry,
+    resource_journals: resource::ResourceJournals,
+
+    // --- connections
     // session: Session with hub
+    controller: Option<ethercat::Controller>,
+
+    // --- instances ---
+    machines: Vec<(MachineIdentificationUnique, Box<dyn Machine>)>,
+    sub_devices: Vec<(MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>)>,
 }
 
 impl Runtime {
@@ -32,7 +38,7 @@ impl Runtime {
         let interface = ethercat::find_interface(config.interface_discovery_retry_interval);
         println!("using ethercat interface: {interface}");
 
-        let controller = ethercat::init(&interface, config.ethercat);
+        let controller = ethercat::init_controller(&interface, config.ethercat);
         println!("initialized ethercat control");
 
         let mut hardware = MachineHardwareRegistry::new();
@@ -41,11 +47,12 @@ impl Runtime {
         let sub_devices = ethercat::setup(&controller, &mut hardware)?;
 
         let mut runtime = Self {
-            registry,
-            machines: vec![],
+            machine_registry: registry,
             hardware_registry: hardware,
+            resource_registry: MachineResourceRegistry::new(),
+            resource_journals: ResourceJournals::new(),
             controller: Some(controller),
-            data_store: DataStore::new(),
+            machines: vec![],
             sub_devices
         };
 
@@ -82,17 +89,18 @@ impl Runtime {
         for (ident_unique, hardware) in &self.hardware_registry {
             let ident = MachineIdentification::from(*ident_unique);
 
-            let Some(MachineRegistryEntry { build, schema }) = self.registry.find(ident) else {
+            let Some(MachineRegistryEntry { build, schema }) = self.machine_registry.find(ident) else {
                 bail!("Failed to find registry entry for machine {{{ident}}}");
             };
 
             let ethercat_interface = self.controller.as_ref().map(|v| v.channel.clone());
 
-            let builder = BuildContext::new(
+            let builder = MachineBuildContext::new(
                 *ident_unique, 
-                hardware.clone(), 
+                &mut self.resource_registry,
+                &mut self.resource_journals,
                 ethercat_interface,
-                &mut self.data_store
+                hardware.clone(), 
             );
 
             println!("Building '{}' with identification '{ident_unique}'", &schema.name);

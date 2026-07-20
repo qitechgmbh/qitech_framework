@@ -3,13 +3,13 @@ use crate::{
         Wrapped, 
         WrappedIntoOptionalF64,
     }, 
-    data::MachineMeasurementWriteHandle, 
+    resource::MachineMeasurementHandle, 
     with_uom,
 };
 
 #[derive(Debug)]
 pub struct Measurement<T: Wrapped> {
-    handle: MachineMeasurementWriteHandle,
+    handle: MachineMeasurementHandle,
     stats: MeasurementStatistics,
     value: T::Inner,
 }
@@ -21,7 +21,7 @@ where
     T:: Inner: Copy
 {
     pub(super) fn new(
-        handle: MachineMeasurementWriteHandle,
+        handle: MachineMeasurementHandle,
         stats: MeasurementStatistics,
         value: T::Inner,
     ) -> Self {
@@ -92,14 +92,14 @@ with_uom!(impl_uom);
 // impl statistics
 #[derive(Debug)]
 pub struct MeasurementStatistics {
-    min: Option<MachineMeasurementWriteHandle>,
-    max: Option<MachineMeasurementWriteHandle>,
+    min: Option<MachineMeasurementHandle>,
+    max: Option<MachineMeasurementHandle>,
 }
 
 impl MeasurementStatistics {
     pub fn new(
-        min: Option<MachineMeasurementWriteHandle>,
-        max: Option<MachineMeasurementWriteHandle>,
+        min: Option<MachineMeasurementHandle>,
+        max: Option<MachineMeasurementHandle>,
     ) -> Self {
         Self { min, max }
     }

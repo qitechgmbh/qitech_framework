@@ -1,7 +1,7 @@
 use crate::{MachineBuildError, conversion::Wrapped, machine::StateProperty};
-use super::BuildContext;
+use super::MachineBuildContext;
 
-impl<'a> BuildContext<'a> {
+impl<'a> MachineBuildContext<'a> {
     pub fn state<'b, T>(
         &'b mut self, 
         name: &'static str
@@ -22,7 +22,7 @@ pub struct StatePropertyBuilder<'a, 'b, T>
 where
     T: Wrapped
 {
-    root: &'b mut BuildContext<'a>,
+    root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
     initial_value: Option<T::Inner>
 }
@@ -46,7 +46,7 @@ where
             reg_handle.write(value);
         }
 
-        let rec = &mut self.root.data_store.recorder;
+        let rec = &mut self.root.data_store.journals;
         let rec_handle = rec.create_state_handle(ident, name);
 
         Ok(StateProperty::new(reg_handle, rec_handle))
