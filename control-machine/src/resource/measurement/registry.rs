@@ -7,7 +7,7 @@ use super::Measurement;
 /// > otherwise a resize would invalidate all pointers
 #[derive(Debug, Clone)]
 pub struct MeasurementRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
-    lookup: heapless::FnvIndexMap<Key, Entry, MAX_ITEMS>,
+    lookup: heapless::FnvIndexMap<Key, Entry, MAX_ITEMS>, a
 
     // tracks which slots have valid data
     occupied: heapless::Vec<bool, MAX_ITEMS>,
