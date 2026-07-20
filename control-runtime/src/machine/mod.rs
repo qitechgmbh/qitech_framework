@@ -5,6 +5,8 @@ use crate::resource::{
     MachineMeasurementAccessHandle, MachineMeasurementResolver
 };
 
+mod resource;
+
 pub mod hardware;
 pub use hardware::MachineHardwareRegistry;
 pub use hardware::Hardware;

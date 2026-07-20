@@ -1,9 +1,10 @@
 [workspace]
 members = [
     "control-core",
-    "control-hub", 
-    "control-runtime",
-    "qitech-control",
+    "control-machine"
+    # "control-hub", 
+    # "control-runtime",
+    # "qitech-control",
 ]
 resolver = "2"
 

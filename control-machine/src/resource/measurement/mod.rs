@@ -1,0 +1,150 @@
+use std::ptr::NonNull;
+
+use crate::{
+    conversion::{
+        Wrapped, 
+        WrappedIntoOptionalF64,
+    }, 
+    with_uom,
+};
+
+mod reader;
+
+mod registry;
+use registry::MeasurementRegistry;
+use registry::MeasurementHandle;
+
+#[derive(Debug)]
+pub struct Measurement<T: Wrapped> {
+    p_value: NonNull<f64>,
+    p_null: NonNull<bool>,
+    
+    stats: MeasurementStatistics,
+    value: T::Inner,
+}
+
+// scalar values
+impl<T> Measurement<T>
+where
+    T: Wrapped,
+    T:: Inner: Copy
+{
+    /*
+    fn read(&self) -> Option<f64> {
+        unsafe {
+            if self.p_null.read() {
+                None
+            } else {
+                Some(self.p_value.read())
+            }
+        }
+    }
+
+    fn write(&mut self, value: Option<f64>) {
+        unsafe {
+            match value {
+                Some(v) => {
+                    self.p_value.write(v);
+                    self.p_null.write(false);
+                }
+                None => {
+                    self.p_null.write(true);
+                }
+            }
+        }
+    }
+    */
+
+    pub fn get(&self) -> T::Inner {
+        self.value
+    }
+}
+
+impl<T> Measurement<T> 
+where
+    T: WrappedIntoOptionalF64,
+    T::Inner: Copy
+{
+    pub fn set(&mut self, value: T::Inner) {
+        self.value = value;
+
+        let value = T::into_opt_f64(value);
+        self.handle.write(value);
+        self.stats.update(value);
+    }
+}
+
+macro_rules! impl_uom {
+    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
+        impl Measurement<$unit> {
+            pub fn get_as<N>(&self) -> f64
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.get().get::<N>()
+            }
+
+            pub fn set_as<N>(&mut self, value: f64)
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.set(<$quantity>::new::<N>(value));
+            }
+        }
+
+        impl Measurement<Option<$unit>> {
+            pub fn get_as<N>(&self) -> Option<f64>
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.get().map(|q| q.get::<N>())
+            }
+
+            pub fn set_as<N>(&mut self, value: Option<f64>)
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.set(value.map(<$quantity>::new::<N>));
+            }
+        }
+    };
+}
+
+with_uom!(impl_uom);
+
+// impl statistics
+#[derive(Debug)]
+pub struct MeasurementStatistics {
+    min: Option<MachineMeasurementHandle>,
+    max: Option<MachineMeasurementHandle>,
+}
+
+impl MeasurementStatistics {
+    pub fn new(
+        min: Option<MachineMeasurementHandle>,
+        max: Option<MachineMeasurementHandle>,
+    ) -> Self {
+        Self { min, max }
+    }
+
+    pub fn update(&mut self, value: Option<f64>) {
+        let value = match value {
+            Some(v) => v,
+            None => return,
+        };
+
+        if let Some(min) = &mut self.min {
+            match min.read() {
+                Some(min) if value >= min => {}
+                _ => min.write(Some(value)),
+            }
+        }
+
+        if let Some(max) = &mut self.max {
+            match max.read() {
+                Some(max) if value <= max => {}
+                _ => max.write(Some(value)),
+            }
+        }
+    }
+}
