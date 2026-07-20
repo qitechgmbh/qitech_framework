@@ -7,16 +7,6 @@ identification:
   vendor: 1
   machine: 6
 
-"config": {
-  "diameter": {
-    "target": 1.75,
-    "tolerance": {
-      "tolerance_lower": 0.05,
-      "tolerance_upper": 0.05,
-    }
-  }
-}
-
 config:
   diameter:
     target: !millimeter

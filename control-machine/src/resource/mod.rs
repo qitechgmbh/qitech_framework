@@ -37,6 +37,7 @@ pub type ConfigPropertyReader<'a> =
 
 pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<CONFIG_PROPERTIES_REGISTRY_ID, T>;
 
+
 // --- state properties ---
 mod state_property;
 pub use state_property::StateProperty;
@@ -52,7 +53,8 @@ pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<STATE_PROPERTIES_RE
 
 // --- measurements ---
 mod measurement;
-pub use measurement::MeasurementRegistry;
+pub use measurement::Measurement;
+pub use measurement::MeasurementManager;
 pub use measurement::MeasurementResolver;
 pub use measurement::MeasurementReader;
 

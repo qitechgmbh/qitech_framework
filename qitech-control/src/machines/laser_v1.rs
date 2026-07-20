@@ -36,10 +36,20 @@ pub struct LaserV1 {
     last_request: Instant,
 }
 
+// laser_v1.config
+
 impl MachineBuild for LaserV1 {
     fn build(mut ctx: MachineBuildContext<'_>) -> Result<Self, MachineBuildError> {
         // --- hardware
         let device = ctx.get_serial_device::<LaserDevice>(0)?;
+
+        // TODO: define schema parse into resolve config
+        // let diameter_target = ctx.config(schemas::laser_v1::config::diameter.target);
+        // let DiameterCondif = ConfigPropertyCOnfig {
+        //     name: "diameter.target",
+        //     default: Length::new::<millimeter>(1.74),
+        //     lower_bound: Length::ZERO,
+        // }; schemas::laser_v1::config.diameter.target
 
         let diameter_target = ctx
             .config("diameter.target", Length::new::<millimeter>(1.75))

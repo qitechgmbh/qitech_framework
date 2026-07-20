@@ -52,13 +52,16 @@ where
 }
 
 // fallible variant
+#[allow(type_alias_bounds)]
+pub type ConstrainedConfigPropertyValidateFn<T: Wrapped> = Box<dyn Fn(&T::Inner) -> Result<(), String>>;
+
 pub struct ConstrainedConfigProperty<T: Wrapped> {
     ident: MachineIdentificationUnique,
     name: &'static str,
     handle: PropertyHandle<T::Inner>,
     journal: JournalHandle<MachineConfigMutation>,
     default: T::Inner,
-    validate: Box<dyn Fn(&T::Inner) -> Result<(), String>>,
+    validate: ConstrainedConfigPropertyValidateFn<T>,
 }
 
 impl<T> ConstrainedConfigProperty<T> 

@@ -3,7 +3,7 @@ use crate::with_uom;
 use crate::conversion::{Wrapped, WrappedIntoOptionalF64};
 
 mod registry;
-pub use registry::MeasurementRegistry;
+pub use registry::MeasurementManager;
 pub use registry::MeasurementResolver;
 pub use registry::MeasurementReader;
 

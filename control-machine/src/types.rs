@@ -1,8 +1,11 @@
+use std::{cell::RefCell, rc::Rc};
+use qitech_lib::{ethercat_hal::{devices::EthercatDevice, machine_ident_read::MachineDeviceInfo}, modbus::ModbusDevice};
+use control_core::MachineIdentificationUnique;
+
 use crate::resource::{
     ConfigPropertyReader, ConfigPropertyResolver, MeasurementReader, MeasurementResolver,
     ResolveError, StatePropertyReader, StatePropertyResolver,
 };
-use control_core::MachineIdentificationUnique;
 
 // --- act ---
 #[derive(Debug)]
@@ -63,4 +66,22 @@ impl From<ResolveError> for SubscribeError {
             ResolveError::InvalidType => SubscribeError::InvalidResourceType,
         }
     }
+}
+
+// --- hardware ---
+#[derive(Clone)]
+pub enum Hardware {
+    Ethercat(IdentifiedEthercat),
+    Modbus(IdentifiedModbus),
+}
+
+#[derive(Clone)]
+pub struct IdentifiedEthercat {
+    pub device: Rc<RefCell<dyn EthercatDevice>>,
+    pub ident: MachineDeviceInfo,
+}
+
+#[derive(Clone)]
+pub struct IdentifiedModbus {
+    pub device: Rc<RefCell<dyn ModbusDevice>>,
 }

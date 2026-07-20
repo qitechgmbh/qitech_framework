@@ -7,7 +7,7 @@ use super::{Measurement, Handle, Statistics, Config};
 /// > Note: must use fixed sized storage since we use pointers and 
 /// > otherwise a resize would invalidate all pointers
 #[derive(Debug, Clone)]
-pub struct MeasurementRegistry {
+pub struct MeasurementManager {
     lookup: heapless::FnvIndexMap<Key, Entry, MEASUREMENTS_COUNT_MAX>,
 
     // tracks which slots have valid data
@@ -20,7 +20,7 @@ pub struct MeasurementRegistry {
     stat_list: heapless::Vec<usize, MEASUREMENTS_COUNT_MAX>,
 }
 
-impl Default for MeasurementRegistry {
+impl Default for MeasurementManager {
     fn default() -> Self {
         Self {
             lookup: Default::default(),
@@ -33,10 +33,10 @@ impl Default for MeasurementRegistry {
     }
 }
 
-impl MeasurementRegistry {
+impl MeasurementManager {
     pub fn new() -> Self { Self::default() }
 
-    pub fn register<T>(
+    pub(crate) fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
         name: &'static str,
@@ -107,7 +107,7 @@ impl MeasurementRegistry {
 }
 
 // --- utils ---
-impl MeasurementRegistry {
+impl MeasurementManager {
     fn alloc<T>(
         &mut self,
         ident: MachineIdentificationUnique,
@@ -173,7 +173,7 @@ struct Entry {
 
 // --- resolver ---
 pub struct MeasurementResolver<'a> {
-    registry: &'a MeasurementRegistry,
+    registry: &'a MeasurementManager,
     ident: MachineIdentificationUnique,
 }
 
@@ -213,11 +213,11 @@ pub struct ReaderHandle<T> {
 }
 
 pub struct MeasurementReader<'a> {
-    registry: &'a MeasurementRegistry,
+    registry: &'a MeasurementManager,
 }
 
 impl<'a> MeasurementReader<'a> {
-    pub fn new(registry: &'a MeasurementRegistry) -> Self {
+    pub fn new(registry: &'a MeasurementManager) -> Self {
         Self { registry }
     }
 
