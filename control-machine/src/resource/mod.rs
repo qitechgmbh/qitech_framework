@@ -1,4 +1,6 @@
-pub mod types;
+mod types;
+pub use types::Journal;
+pub use types::JournalHandle;
 pub use types::RegisterError;
 pub use types::ResolveError;
 pub use types::ReadError;
@@ -10,17 +12,21 @@ pub use property::PropertyResolver;
 pub use property::PropertyReader;
 pub use property::PropertyReaderHandle;
 
+mod config_property;
+pub use config_property::ConfigProperty;
+pub use config_property::ConstrainedConfigProperty;
+
+mod state_property;
+pub use state_property::StateProperty;
+
 mod measurement;
 pub use measurement::MeasurementRegistry;
-pub use measurement::MeasurementHandle;
 pub use measurement::MeasurementResolver;
 pub use measurement::MeasurementReader;
-pub use measurement::MeasurementReaderHandle;
 
 const NAMES_COUNT_MAX: usize = 2048;
 const NAME_LEN_MAX: usize = 96;
 
-const MEASUREMENTS_REGISTRY_ID: usize = 0;
 const MEASUREMENTS_COUNT_MAX: usize = 512;
 
 const CONFIG_PROPERTIES_REGISTRY_ID: usize = 1;
@@ -34,12 +40,14 @@ const STATE_PROPERTIES_COUNT_MAX: usize = 512;
 pub struct NameRegistry(heapless::FnvIndexMap<&'static str, &'static str, NAMES_COUNT_MAX>);
 
 impl NameRegistry {
+    pub fn new() -> Self { Self(Default::default()) }
+
     /// Interns a name: returns a 'static lifetime version of input &str.
     /// Achieved by keeping a registry of all registered names, which are
     /// behind the scenes leaked strings. Bounded by the vec limit, 
     /// so worst case is ~0.2 MiB (2048 * 96). 
     /// Avoids reallocating on every clone without multi-threading issues.
-    fn register_name(&mut self, name: &str) -> Result<&'static str, RegisterError> {
+    pub fn register_name(&mut self, name: &str) -> Result<&'static str, RegisterError> {
         let reg = &mut self.0;
 
         if name.len() > NAME_LEN_MAX {

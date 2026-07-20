@@ -2,7 +2,7 @@ use std::{any::{TypeId, type_name}, collections::HashMap, marker::PhantomData, m
 use control_core::MachineIdentificationUnique;
 
 use crate::conversion::WrappedTryFromOptionalF64;
-use super::{ReadError, RegisterError, ResolveError};
+use crate::resource::{ReadError, RegisterError, ResolveError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Key {
@@ -119,7 +119,7 @@ impl<T> PropertyHandle<T> {
         unsafe { self.p_value.as_ref() }
     }
 
-    pub fn write(&mut self, value: T) {
+    pub fn write(&self, value: T) {
         unsafe { self.p_value.write(value) }
     }
 }

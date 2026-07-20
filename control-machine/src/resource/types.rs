@@ -1,4 +1,21 @@
-use std::fmt;
+use std::{cell::RefCell, fmt, rc::Rc};
+
+pub type Journal<T> = heapless::Vec<T, 1024>;
+
+#[derive(Debug)]
+pub struct JournalHandle<T> {
+    journal: Rc<RefCell<Journal<T>>>,
+}
+
+impl<T> JournalHandle<T> {
+    pub(crate) fn new(journal: Rc<RefCell<Journal<T>>>) -> Self {
+        Self { journal }
+    }
+
+    pub fn append(&self, entry: T) {
+        self.journal.borrow_mut().push(entry);
+    }
+}
 
 pub enum RegisterError {
     NameTooLarge { 

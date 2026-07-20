@@ -1,13 +1,14 @@
-use std::{any::TypeId, mem::MaybeUninit, ptr::NonNull};
+use std::{any::TypeId, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
-use crate::{conversion::Wrapped, resource::RegisterError};
-use super::Measurement;
+use crate::conversion::{Wrapped, WrappedTryFromOptionalF64};
+use crate::resource::{ReadError, RegisterError, ResolveError};
+use super::{Measurement, Handle, Statistics, Config};
 
 /// > Note: must use fixed sized storage since we use pointers and 
 /// > otherwise a resize would invalidate all pointers
 #[derive(Debug, Clone)]
-pub struct MeasurementRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
-    lookup: heapless::FnvIndexMap<Key, Entry, MAX_ITEMS>, a
+pub struct MeasurementRegistry<const MAX_ITEMS: usize> {
+    lookup: heapless::FnvIndexMap<Key, Entry, MAX_ITEMS>,
 
     // tracks which slots have valid data
     occupied: heapless::Vec<bool, MAX_ITEMS>,
@@ -19,7 +20,7 @@ pub struct MeasurementRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize>
     stat_list: heapless::Vec<usize, MAX_ITEMS>,
 }
 
-impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> MeasurementRegistry<REGISTRY_ID, MAX_ITEMS> {
+impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
     pub fn new() -> Self {
         Self {
             lookup: Default::default(),
@@ -31,41 +32,12 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> MeasurementRegistry<REGIS
         }
     }
 
-    fn alloc<T>(
-        &mut self,
-        ident: MachineIdentificationUnique,
-        name: &'static str,
-        is_stat: bool,
-    ) -> Result<(NonNull<f64>, NonNull<bool>), RegisterError> 
-    where 
-        T: Wrapped + 'static,
-    {
-        let key = Key { ident, name };
-
-        if self.lookup.contains_key(&key) {
-            return Err(RegisterError::AlreadyRegistered { name });
-        }
-
-        let index = self.claim_slot(name)?;
-        let entry = Entry { index, type_id: TypeId::of::<T>() };
-
-        self.lookup.insert(key, entry)
-            .expect("was able to claim slot and shares capacity");
-
-        unsafe {
-            let p_value = NonNull::new_unchecked(self.buf_values[index].as_mut_ptr());
-            let p_null = NonNull::new_unchecked(self.buf_nulls[index].as_mut_ptr());
-            if is_stat {
-                self.stat_list.push(index).expect("Cannot overflow");
-            }
-            Ok((p_value, p_null))
-        }
-    }
-
     pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
         name: &'static str,
+        config: Config,
+        initial_value: T::Inner,
     ) -> Result<Measurement<T>, RegisterError> 
     where 
         T: Wrapped + 'static,
@@ -82,17 +54,22 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> MeasurementRegistry<REGIS
         self.lookup.insert(key, entry)
             .expect("was able to claim slot and shares capacity");
 
-        unsafe {
-            let p_value = NonNull::new_unchecked(self.buf_values[index].as_mut_ptr());
-            let p_null = NonNull::new_unchecked(self.buf_nulls[index].as_mut_ptr());
+        let handle = self.alloc::<T>(ident, name, false)?;
 
-            Ok(Measurement {
-                p_value,
-                p_null,
-                stats: todo!(),
-                value: todo!(),
-            })
-        }
+        // --- init stats ---
+        let min = if config.record_min {
+            Some(self.alloc::<T>(ident, name, true)?)
+        } else { None };
+
+        let max = if config.record_max {
+            Some(self.alloc::<T>(ident, name, true)?)
+        } else { None };
+
+        Ok(Measurement {
+            handle,
+            stats: Statistics { min, max },
+            value: initial_value,
+        })
     }
 
     /// Release all previously-registered slots belonging to `ident`
@@ -122,6 +99,41 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> MeasurementRegistry<REGIS
         }
 
         to_remove.len()
+    }
+}
+
+
+// --- utils ---
+impl<const MAX_ITEMS: usize> MeasurementRegistry<MAX_ITEMS> {
+    fn alloc<T>(
+        &mut self,
+        ident: MachineIdentificationUnique,
+        name: &'static str,
+        is_stat: bool,
+    ) -> Result<Handle, RegisterError> 
+    where 
+        T: Wrapped + 'static,
+    {
+        let key = Key { ident, name };
+
+        if self.lookup.contains_key(&key) {
+            return Err(RegisterError::AlreadyRegistered { name });
+        }
+
+        let index = self.claim_slot(name)?;
+        let entry = Entry { index, type_id: TypeId::of::<T>() };
+
+        self.lookup.insert(key, entry)
+            .expect("was able to claim slot and shares capacity");
+
+        unsafe {
+            let p_value = NonNull::new_unchecked(self.buf_values[index].as_mut_ptr());
+            let p_null = NonNull::new_unchecked(self.buf_nulls[index].as_mut_ptr());
+            if is_stat {
+                self.stat_list.push(index).expect("Cannot overflow");
+            }
+            Ok(Handle { p_value, p_null })
+        }
     }
 
     /// Find a free slot, reusing a previously-freed one if available,
@@ -154,4 +166,81 @@ struct Key {
 struct Entry {
     index: usize,
     type_id: TypeId,
+}
+
+// --- resolver ---
+pub struct MeasurementResolver<'a, const MAX_ITEMS: usize> {
+    registry: &'a MeasurementRegistry<MAX_ITEMS>,
+    ident: MachineIdentificationUnique,
+}
+
+impl<'a, const MAX_ITEMS: usize> MeasurementResolver<'a, MAX_ITEMS> {
+    pub fn resolve<T: 'static>(
+        &self,
+        name: &'static str,
+    ) -> Result<ReaderHandle<T>, ResolveError> {
+        let key = Key { ident: self.ident, name };
+
+        let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
+            return Err(ResolveError::NoSuchProperty)
+        };
+        
+        if *type_id != TypeId::of::<T>() {
+            return Err(ResolveError::InvalidType);
+        }
+
+        let generation = unsafe {
+            self.registry.buf_generations[*index].assume_init()
+        };
+
+        Ok(ReaderHandle {
+            generation,
+            index: *index,
+            _marker: PhantomData,
+        })
+    }
+}
+
+// --- reader ---
+#[derive(Debug)]
+pub struct ReaderHandle<T> {
+    generation: u64,
+    index: usize,
+    _marker: PhantomData<T>,
+}
+
+pub struct MeasurementReader<'a, const MAX_ITEMS: usize> {
+    registry: &'a MeasurementRegistry<MAX_ITEMS>,
+}
+
+impl<'a, const MAX_ITEMS: usize> MeasurementReader<'a, MAX_ITEMS> {
+    pub(crate) fn new(registry: &'a MeasurementRegistry<MAX_ITEMS>) -> Self {
+        Self { registry }
+    }
+
+    pub fn read<T: WrappedTryFromOptionalF64>(
+        &self,
+        handle: &ReaderHandle<T>,
+    ) -> Result<T::Inner, ReadError> {
+        let generation = self.registry.buf_generations[handle.index];
+
+        // Safety:
+        // - register() verified T fits in storage
+        // - register() stored TypeId::of::<T>()
+        // - resolve() only creates PropertyHandle<T> after type check
+        unsafe {
+            if generation.assume_init() != handle.generation {
+                return Err(ReadError);
+            }
+
+            let null = self.registry.buf_nulls[handle.index].assume_init_read();
+
+            let value = if !null {
+                Some(self.registry.buf_values[handle.index].assume_init_read())
+            } else { None };
+            
+            let value = T::try_from_opt_f64(value).expect("T not allow to be None, found None!");
+            Ok(value)
+        }
+    }
 }

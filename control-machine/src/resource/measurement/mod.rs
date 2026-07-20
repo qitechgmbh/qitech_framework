@@ -1,25 +1,16 @@
 use std::ptr::NonNull;
-
-use crate::{
-    conversion::{
-        Wrapped, 
-        WrappedIntoOptionalF64,
-    }, 
-    with_uom,
-};
-
-mod reader;
+use crate::with_uom;
+use crate::conversion::{Wrapped, WrappedIntoOptionalF64};
 
 mod registry;
-use registry::MeasurementRegistry;
-use registry::MeasurementHandle;
+pub use registry::MeasurementRegistry;
+pub use registry::MeasurementResolver;
+pub use registry::MeasurementReader;
 
 #[derive(Debug)]
 pub struct Measurement<T: Wrapped> {
-    p_value: NonNull<f64>,
-    p_null: NonNull<bool>,
-    
-    stats: MeasurementStatistics,
+    handle: Handle,
+    stats: Statistics,
     value: T::Inner,
 }
 
@@ -29,32 +20,6 @@ where
     T: Wrapped,
     T:: Inner: Copy
 {
-    /*
-    fn read(&self) -> Option<f64> {
-        unsafe {
-            if self.p_null.read() {
-                None
-            } else {
-                Some(self.p_value.read())
-            }
-        }
-    }
-
-    fn write(&mut self, value: Option<f64>) {
-        unsafe {
-            match value {
-                Some(v) => {
-                    self.p_value.write(v);
-                    self.p_null.write(false);
-                }
-                None => {
-                    self.p_null.write(true);
-                }
-            }
-        }
-    }
-    */
-
     pub fn get(&self) -> T::Inner {
         self.value
     }
@@ -112,21 +77,52 @@ macro_rules! impl_uom {
 
 with_uom!(impl_uom);
 
-// impl statistics
-#[derive(Debug)]
-pub struct MeasurementStatistics {
-    min: Option<MachineMeasurementHandle>,
-    max: Option<MachineMeasurementHandle>,
+#[derive(Debug, Clone)]
+pub struct Config {
+    record_min: bool,
+    record_max: bool,
 }
 
-impl MeasurementStatistics {
-    pub fn new(
-        min: Option<MachineMeasurementHandle>,
-        max: Option<MachineMeasurementHandle>,
-    ) -> Self {
-        Self { min, max }
+#[derive(Debug)]
+struct Handle {
+    p_value: NonNull<f64>,
+    p_null: NonNull<bool>,
+}   
+
+impl Handle {
+    fn read(&self) -> Option<f64> {
+        unsafe {
+            if self.p_null.read() {
+                None
+            } else {
+                Some(self.p_value.read())
+            }
+        }
     }
 
+    fn write(&mut self, value: Option<f64>) {
+        unsafe {
+            match value {
+                Some(v) => {
+                    self.p_value.write(v);
+                    self.p_null.write(false);
+                }
+                None => {
+                    self.p_null.write(true);
+                }
+            }
+        }
+    }
+}
+
+// --- statistics ---
+#[derive(Debug)]
+struct Statistics {
+    min: Option<Handle>,
+    max: Option<Handle>,
+}
+
+impl Statistics {
     pub fn update(&mut self, value: Option<f64>) {
         let value = match value {
             Some(v) => v,
