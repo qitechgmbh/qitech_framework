@@ -8,7 +8,7 @@ use crate::resource::{ConfigPropertyManager, MeasurementManager, RegisterError, 
 mod hardware;
 mod resource;
 
-pub trait MachineBuild: Sized {
+pub trait Build: Sized {
     fn build(ctx: BuildContext<'_>) -> Result<Self, BuildError>;
 }
 

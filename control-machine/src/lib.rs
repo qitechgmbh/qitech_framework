@@ -21,7 +21,12 @@ pub type SubscribeResult = Result<(), SubscribeError>;
 
 mod conversion;
 pub mod resource;
-pub mod build;
+
+mod build;
+pub use build::BuildContext;
+pub use build::BuildResult;
+pub use build::BuildError;
+pub use build::Build;
 
 pub trait Machine {
     fn act(&mut self) -> ActResult;

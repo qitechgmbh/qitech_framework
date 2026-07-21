@@ -61,10 +61,6 @@ pub trait PropertyType {
     type Value: Clone + Default + 'static;
 }
 
-pub trait IntoScalar {
-    fn into_scalar(value: Self) -> ScalarValue;
-}
-
 pub trait ScalarPropertyType: PropertyType + Convertible<ScalarValue> {
     fn into_scalar(value: Self::Value) -> ScalarValue;
 }

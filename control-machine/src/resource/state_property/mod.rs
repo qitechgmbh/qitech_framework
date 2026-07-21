@@ -14,10 +14,9 @@ pub use manager::StatePropertyResolver;
 pub use manager::StatePropertyReader;
 pub use manager::StatePropertyAccessHandle;
 
-pub struct StatePropertyOptions<T> {
-    initial_value: Option<T>,
-    record_min: bool,
-    record_max: bool,
+#[derive(Debug, Default)]
+pub struct StatePropertyOptions<T: Default> {
+    pub initial_value: T,
 }
 
 #[derive(Debug)]

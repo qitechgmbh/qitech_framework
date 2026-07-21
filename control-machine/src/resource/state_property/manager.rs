@@ -60,7 +60,7 @@ impl StatePropertyManager {
         T: ScalarPropertyType + 'static
     {
         let handle = self.registry.register::<T>(ident, name, "")?;
-        handle.write(options.initial_value.unwrap_or_default());
+        handle.write(options.initial_value);
 
         let journal = JournalHandle::new(self.journal.clone());
 

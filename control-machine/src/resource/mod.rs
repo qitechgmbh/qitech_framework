@@ -1,5 +1,5 @@
-pub mod kind;
-pub use kind::Kind;
+mod kind;
+use kind::Kind;
 
 mod types;
 pub use types::Journal;
