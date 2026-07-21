@@ -2,28 +2,28 @@ use std::rc::Rc;
 use std::cell::{Ref, RefCell};
 use control_core::{MachineConfigMutation, MachineIdentificationUnique, ScalarValue};
 
-use crate::conversion::{Bounded, PropertyType, ScalarPropertyType};
+use crate::conversion::{Bounded, ScalarPropertyType};
+use crate::resource::config_property::ConfigPropertyOptions;
 use crate::resource::{
-    ConfigPropertySpecification, Journal, JournalHandle, PropertyAccessHandle, PropertyReader,
+    Journal, JournalHandle, PropertyAccessHandle, PropertyReader,
     PropertyRegistry, PropertyResolver, RegisterError, kind,
 };
 
 use super::ConfigProperty;
 
-use crate::resource::REGISTRY_ID_CONFIG_PROPERTIES as REGISTRY_ID;
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
 
 pub type Registry =
-    PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+    PropertyRegistry<SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
 pub type ConfigPropertyResolver<'a> =
-    PropertyResolver<'a, REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+    PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
 pub type ConfigPropertyReader<'a> =
-    PropertyReader<'a, REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+    PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
-pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<REGISTRY_ID, T>;
+pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<kind::ConfigProperty, T>;
 
 pub struct ConfigPropertyManager {
     registry: Registry,
@@ -31,17 +31,18 @@ pub struct ConfigPropertyManager {
 }
 
 impl ConfigPropertyManager {
-    pub fn register<Spec>(
+    pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
-    ) -> Result<ConfigProperty<Spec::Type>, RegisterError>
+        name: &'static str,
+        options: ConfigPropertyOptions<T::Value>,
+    ) -> Result<ConfigProperty<T>, RegisterError>
     where
-        Spec: ConfigPropertySpecification + 'static,
-        Spec::Type: ScalarPropertyType,
-        <Spec::Type as PropertyType>::Value: Bounded,
+        T: ScalarPropertyType + 'static,
+        T::Value: Bounded
     {
-        let handle = self.registry.register::<Spec>(ident)?;
-        handle.write(Spec::default_value());
+        let handle = self.registry.register::<T>(ident, name, "")?;
+        handle.write(options.default_value.clone());
 
         let journal = JournalHandle::new(self.journal.clone());
 
@@ -49,8 +50,9 @@ impl ConfigPropertyManager {
             handle,
             journal,
             ident,
-            name: Spec::NAME,
-            default: Spec::default_value(),
+            name,
+            default: options.default_value,
+            pred: None,
         })
     }
 

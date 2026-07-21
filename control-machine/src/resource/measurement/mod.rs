@@ -1,5 +1,4 @@
-use crate::conversion::{PropertyType, FloatPropertyType};
-use crate::resource::{PropertyHandle, Specification, kind};
+use crate::resource::PropertyHandle;
 
 mod manager;
 pub use manager::MeasurementManager;
@@ -7,37 +6,25 @@ pub use manager::MeasurementResolver;
 pub use manager::MeasurementReader;
 pub use manager::MeasurementAccessHandle;
 
-pub trait MeasurementSpecification 
-where 
-    Self: Specification<Kind = kind::Measurement>,
-    Self::Type: FloatPropertyType,
-    <<Self as Specification>::Type as PropertyType>::Value: Copy
-{
-    // --- additional parameters ---
-    const RECORD_MIN: bool = false;
-    const RECORD_MAX: bool = false;
-
-    // since uom ::new is not const we need this as func
-    fn initial_value() -> <Self::Type as PropertyType>::Value;
+pub struct MeasurementOptions<T> {
+    initial_value: Option<T>,
+    record_min: bool,
+    record_max: bool,
 }
 
 #[derive(Debug)]
-pub struct Measurement<T: PropertyType> {
-    handle: PropertyHandle<T::Value>,
-    // stats: Statistics<T>,
+pub struct Measurement<T> {
+    handle: PropertyHandle<T>,
 }
 
-impl<T: PropertyType> Measurement<T> 
-where 
-    T::Value: Copy
-{
-    pub fn get(&self) -> T::Value {
+impl<T: Copy> Measurement<T> {
+    pub fn get(&self) -> T {
         *self.handle.read()
     }
 }
 
-impl<T: PropertyType> Measurement<T> {
-    pub fn set(&mut self, value: T::Value) {
+impl<T> Measurement<T> {
+    pub fn set(&mut self, value: T) {
         self.handle.write(value);
     }
 }
@@ -82,21 +69,16 @@ macro_rules! impl_uom {
 with_uom!(impl_uom);
 */
 
-// --- statistics ---
-// #[derive(Debug)]
-// struct Statistics<T: PropertyType> {
-//     min: Option< PropertyHandle<T::Value>>,
-//     max: Option< PropertyHandle<T::Value>>,
-// }
-
 /*
-impl<T: PropertyType> Statistics<T> {
-    pub fn update(&mut self, value: T::Value) {
-        let value = match value {
-            Some(v) => v,
-            None => return,
-        };
+// --- statistics ---
+#[derive(Debug)]
+struct Statistics<T> {
+    min: Option<PropertyHandle<T>>,
+    max: Option<PropertyHandle<T>>,
+}
 
+impl<T: Copy> Statistics<T> {
+    pub fn update(&mut self, value: T) {
         if let Some(min) = &mut self.min {
             match min.read() {
                 Some(min) if value >= min => {}
@@ -112,4 +94,4 @@ impl<T: PropertyType> Statistics<T> {
         }
     }
 }
-*/
+    */

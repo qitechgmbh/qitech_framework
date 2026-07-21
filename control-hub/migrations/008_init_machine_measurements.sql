@@ -1,8 +1,8 @@
 CREATE TABLE control_hub.machine_measurements(
-    timestamp       DateTime64(3, 'UTC'),
-    identity        UInt64,
-    name            LowCardinality(String),
-    value           Nullable(Float64),
+    timestamp DateTime64(3, 'UTC'),
+    identity  UInt64,
+    name      LowCardinality(String),
+    value     Nullable(Float64),
 
     PROJECTION by_time(
         SELECT *

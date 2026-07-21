@@ -7,8 +7,6 @@ use control_core::MachineStateMutation;
 use crate::conversion::ScalarPropertyType;
 use crate::resource::JournalHandle;
 use crate::resource::PropertyHandle;
-use crate::resource::Specification;
-use crate::resource::kind;
 
 mod manager;
 pub use manager::StatePropertyManager;
@@ -16,10 +14,11 @@ pub use manager::StatePropertyResolver;
 pub use manager::StatePropertyReader;
 pub use manager::StatePropertyAccessHandle;
 
-pub trait StatePropertySpecification
-where 
-    Self: Specification<Kind = kind::StateProperty>,
-    Self::Type: ScalarPropertyType {}
+pub struct StatePropertyOptions<T> {
+    initial_value: Option<T>,
+    record_min: bool,
+    record_max: bool,
+}
 
 #[derive(Debug)]
 pub struct StateProperty<T: ScalarPropertyType> {

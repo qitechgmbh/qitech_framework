@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use chrono::Utc;
 use control_core::{MachineConfigMutation, MachineIdentificationUnique, OperationResult, Origin};
 
-use crate::resource::{JournalHandle, PropertyHandle, kind};
+use crate::resource::{JournalHandle, PropertyHandle};
 use crate::conversion::{Bounded, PropertyType, ScalarPropertyType};
 
 mod manager;
@@ -12,22 +12,11 @@ pub use manager::ConfigPropertyResolver;
 pub use manager::ConfigPropertyReader;
 pub use manager::ConfigPropertyAccessHandle;
 
-pub trait ConfigPropertySpecification 
-where
-    Self: super::Specification<Kind = kind::ConfigProperty>,
-    Self::Type: ScalarPropertyType,
-    <Self::Type as PropertyType>::Value: Bounded,
-{
-    // since uom ::new is not const we need a func ...
-    fn default_value() -> <Self::Type as PropertyType>::Value;
-
-    const MIN: Option<<<Self::Type as PropertyType>::Value as Bounded>::Bound> = None;
-    const MAX: Option<<<Self::Type as PropertyType>::Value as Bounded>::Bound> = None;
-
-    fn validate(value: &<Self::Type as PropertyType>::Value) -> Result<(), String> {
-        _ = value;
-        Ok(())
-    }
+pub struct ConfigPropertyOptions<T: Bounded> {
+    default_value: T,
+    min: T::Bound,
+    max: T::Bound,
+    pred: fn(&T) -> bool,
 }
 
 pub struct ConfigProperty<T: PropertyType> {
@@ -36,7 +25,7 @@ pub struct ConfigProperty<T: PropertyType> {
     handle: PropertyHandle<T::Value>,
     journal: JournalHandle<MachineConfigMutation>,
     default: T::Value,
-    // validate: fn(&T::Value) -> Result<(), String>,
+    pred: Option<fn(&T) -> bool>,
 }
 
 impl<T> ConfigProperty<T> 
@@ -53,12 +42,10 @@ where
 impl<T> ConfigProperty<T>
 where
     T: ScalarPropertyType,
-    T::Value: Copy,
+    T::Value: Clone,
 {
-    pub fn get(&self) -> T::Value { *self.handle.read() }
-
     pub fn set(&mut self, value: T::Value) -> Result<(), String> {
-        self.handle.write(value);
+        self.handle.write(value.clone());
 
         self.journal.append(MachineConfigMutation { 
             timestamp: Utc::now(), 
@@ -72,6 +59,22 @@ where
         Ok(())
     }
 }
+
+impl<T> ConfigProperty<T>
+where
+    T: ScalarPropertyType,
+    T::Value: Copy,
+{
+    pub fn get(&self) -> T::Value { *self.handle.read() }
+}
+
+// impl ConfigProperty<String> {
+//     pub fn get(&self) -> &str { self.handle.read() }
+// }
+// 
+// impl ConfigProperty<String> {
+//     pub fn get(&self) -> &str { self.handle.read() }
+// }
 
 /*
 // uom impl

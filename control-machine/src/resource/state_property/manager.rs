@@ -2,26 +2,24 @@ use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use control_core::{MachineIdentificationUnique, MachineStateMutation, ScalarValue};
 
-use crate::conversion::{PropertyType, ScalarPropertyType};
+use crate::conversion::ScalarPropertyType;
 use crate::resource::{
     RegisterError,
     kind,
     Journal, 
     JournalHandle, 
-    StatePropertySpecification,
     PropertyRegistry, 
     PropertyResolver, 
     PropertyReader,
     PropertyAccessHandle, 
 };
-use super::StateProperty;
 
-use crate::resource::REGISTRY_ID_STATE_PROPERTIES;
+use super::{StateProperty, StatePropertyOptions};
+
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
 
 pub type Registry = PropertyRegistry<
-    REGISTRY_ID_STATE_PROPERTIES, 
     SLOT_SIZE, 
     MAX_ITEMS, 
     kind::StateProperty, 
@@ -30,7 +28,6 @@ pub type Registry = PropertyRegistry<
 
 pub type StatePropertyResolver<'a> = PropertyResolver<
     'a, 
-    REGISTRY_ID_STATE_PROPERTIES, 
     SLOT_SIZE, 
     MAX_ITEMS, 
     kind::StateProperty, 
@@ -39,14 +36,13 @@ pub type StatePropertyResolver<'a> = PropertyResolver<
 
 pub type StatePropertyReader<'a> = PropertyReader<
     'a, 
-    REGISTRY_ID_STATE_PROPERTIES, 
     SLOT_SIZE, 
     MAX_ITEMS, 
     kind::StateProperty, 
     ScalarValue
 >;
 
-pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<REGISTRY_ID_STATE_PROPERTIES, T>;
+pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<kind::StateProperty, T>;
 
 pub struct StatePropertyManager {
     registry: Registry,
@@ -54,17 +50,17 @@ pub struct StatePropertyManager {
 }
 
 impl StatePropertyManager {
-    pub fn register<Spec>(
+    pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
-        initial_value: <Spec::Type as PropertyType>::Value,
-    ) -> Result<StateProperty<Spec::Type>, RegisterError> 
+        name: &'static str,
+        options: StatePropertyOptions<T::Value>,
+    ) -> Result<StateProperty<T>, RegisterError> 
     where 
-        Spec: StatePropertySpecification + 'static,
-        Spec::Type: ScalarPropertyType,
+        T: ScalarPropertyType + 'static
     {
-        let handle = self.registry.register::<Spec>(ident)?;
-        handle.write(initial_value);
+        let handle = self.registry.register::<T>(ident, name, "")?;
+        handle.write(options.initial_value.unwrap_or_default());
 
         let journal = JournalHandle::new(self.journal.clone());
 
@@ -72,7 +68,7 @@ impl StatePropertyManager {
             handle,
             journal,
             ident,
-            name: Spec::NAME,
+            name,
         })
     }
 

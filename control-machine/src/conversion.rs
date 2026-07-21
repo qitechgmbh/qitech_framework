@@ -1,21 +1,11 @@
 use std::fmt::Debug;
 use control_core::ScalarValue;
-use qitech_lib::units::{Length, length::millimeter};
 
 pub trait Convertible<T> {
     /// # Safety
     /// `bytes` must point to a valid instance of `Self`.
     unsafe fn convert(bytes: *const u8) -> T;
 }
-
-impl Convertible<Option<f64>> for millimeter {
-    unsafe fn convert(bytes: *const u8) -> Option<f64> {
-        let value = unsafe { &*(bytes as *const Length) };
-        Some(value.get::<millimeter>())
-    }
-}
-
-
 
 pub trait Bounded { 
     type Bound: Copy + PartialOrd + Debug;
@@ -68,25 +58,18 @@ impl<T: Debug + std::fmt::Display> std::fmt::Display for BoundsError<T> {
 impl<T: std::fmt::Display + Debug> std::error::Error for BoundsError<T> {}
 // --- wrapped ---
 pub trait PropertyType {
-    type Value: Clone + 'static;
+    type Value: Clone + Default + 'static;
 }
 
 pub trait IntoScalar {
     fn into_scalar(value: Self) -> ScalarValue;
 }
 
-pub trait ScalarPropertyType: PropertyType 
-where 
-    Self: Convertible<ScalarValue>,
-    <Self as PropertyType>::Value: Clone
-{
+pub trait ScalarPropertyType: PropertyType + Convertible<ScalarValue> {
     fn into_scalar(value: Self::Value) -> ScalarValue;
 }
 
-pub trait FloatPropertyType: PropertyType
-where 
-    <Self as PropertyType>::Value: Copy
-{
+pub trait FloatPropertyType: PropertyType + Convertible<Option<f64>> {
     fn into_opt_f64(value: Self::Value) -> Option<f64>;
 }
 
@@ -111,6 +94,10 @@ macro_rules! impl_float_export {
 impl_float_export!(bool, |v| if v { 1.0 } else { 0.0 });
 impl_float_export!(f64,  |v| v);
 impl_float_export!(i64,  |v| v as f64);
+
+// --- string ---
+// impl PropertyType for &mut str { type Value = &mut str; }
+// impl PropertyType for Option<&mut str> { type Value = &mut str; }
 
 // --- bool ---
 impl PropertyType for bool { type Value = bool; }
@@ -180,6 +167,13 @@ macro_rules! impl_uom {
             }
         }
 
+        impl Convertible<Option<f64>> for $unit {
+            unsafe fn convert(bytes: *const u8) -> Option<f64> {
+                let value = unsafe { *(bytes as *const $quantity) };
+                Some(value.get::<$unit>())
+            }
+        }
+
         impl FloatPropertyType for $unit {
             fn into_opt_f64(value: Self::Value) -> Option<f64> {
                 Some(value.get::<$unit>())
@@ -194,16 +188,23 @@ macro_rules! impl_uom {
 
         impl PropertyType for Option<$unit> { type Value = Option<$quantity>; }
 
-        impl FloatPropertyType for Option<$unit> {
-            fn into_opt_f64(value: Self::Value) -> Option<f64> {
-                value.map(|x| x.get::<$unit>())
-            }
-        }
-
         impl Convertible<ScalarValue> for Option<$unit> {
             unsafe fn convert(bytes: *const u8) -> ScalarValue {
                 let value = unsafe { *(bytes as *const Option<$quantity>) };
                 ScalarValue::Float { value: value.map(|x| x.get::<$unit>()) }
+            }
+        }
+
+        impl Convertible<Option<f64>> for Option<$unit> {
+            unsafe fn convert(bytes: *const u8) -> Option<f64> {
+                let value = unsafe { *(bytes as *const Option<$quantity>) };
+                value.map(|x| x.get::<$unit>())
+            }
+        }
+
+        impl FloatPropertyType for Option<$unit> {
+            fn into_opt_f64(value: Self::Value) -> Option<f64> {
+                value.map(|x| x.get::<$unit>())
             }
         }
 

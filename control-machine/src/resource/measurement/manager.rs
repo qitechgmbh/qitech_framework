@@ -1,27 +1,28 @@
 use control_core::{MachineIdentificationUnique};
-use crate::conversion::{Convertible, FloatPropertyType, PropertyType};
-
+use crate::conversion::FloatPropertyType;
 use crate::resource::{
-    PropertyAccessHandle, PropertyReader, PropertyRegistry, PropertyResolver, RegisterError, Specification, kind, 
+    kind, 
+    RegisterError, 
+    PropertyRegistry, 
+    PropertyResolver, 
+    PropertyReader, 
+    PropertyAccessHandle, 
 };
 
-use super::{Measurement, MeasurementSpecification};
+use super::{Measurement, MeasurementOptions};
 
-use crate::resource::REGISTRY_ID_MEASUREMENTS as REGISTRY_ID;
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
 
 pub type Registry = PropertyRegistry<
-    REGISTRY_ID, 
     SLOT_SIZE, 
     MAX_ITEMS, 
-    kind::StateProperty, 
+    kind::StateProperty,
     Option<f64>
 >;
 
 pub type MeasurementResolver<'a> = PropertyResolver<
     'a, 
-    REGISTRY_ID, 
     SLOT_SIZE, 
     MAX_ITEMS, 
     kind::StateProperty, 
@@ -30,49 +31,41 @@ pub type MeasurementResolver<'a> = PropertyResolver<
 
 pub type MeasurementReader<'a> = PropertyReader<
     'a, 
-    REGISTRY_ID, 
     SLOT_SIZE, 
     MAX_ITEMS, 
     kind::StateProperty, 
     Option<f64>
 >;
 
-pub type MeasurementAccessHandle<T> = PropertyAccessHandle<REGISTRY_ID, T>;
+pub type MeasurementAccessHandle<T> = PropertyAccessHandle<kind::StateProperty, T>;
 
 #[derive(Debug)]
 pub struct MeasurementManager {
     registry: Registry,
-    // stat_list: heapless::Vec<usize, MAX_ITEMS>,
 }
 
 impl MeasurementManager {
-    pub(crate) fn register<Spec>(
+    pub(crate) fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
-        initial_value: <Spec::Type as PropertyType>::Value,
-    ) -> Result<Measurement<Spec::Type>, RegisterError> 
+        name: &'static str,
+        options: MeasurementOptions<T::Value>,
+    ) -> Result<Measurement<T::Value>, RegisterError> 
     where 
-        Spec: MeasurementSpecification + 'static,
-        Spec::Type: FloatPropertyType,
-        <Spec as Specification>::Type: Convertible<Option<f64>>,
-        <<Spec as Specification>::Type as PropertyType>::Value: Copy,
+        T: FloatPropertyType + 'static
     {
-        let handle = self.registry.register::<Spec>(ident)?;
-        handle.write(initial_value);
+        let handle = self.registry.register::<T>(ident, name, "")?;
+        handle.write(options.initial_value.unwrap_or_default());
 
-        if Spec::RECORD_MIN {
-            // cannot register as properties, need a different mechanism
+        if options.record_min {
+            // TODO: implement
         }
 
-        if Spec::RECORD_MAX {
-            // cannot register as properties, need a different mechanism
+        if options.record_max {
+            // TODO: implement
         }
 
-        Ok(Measurement {
-            handle,
-            // stats: Statistics { min, max },
-            // value: initial_value,
-        })
+        Ok(Measurement { handle })
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
