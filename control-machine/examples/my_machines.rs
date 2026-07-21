@@ -1,29 +1,22 @@
 use control_macros::machine_build;
 use qitech_framework_machine::{Build, BuildContext, BuildResult, resource::{StateProperty, StatePropertyOptions}};
-use qitech_lib::units::{length::millimeter};
+use qitech_lib::units::{Length, length::millimeter};
 
 pub struct MockMachine {
-    state: StateProperty<millimeter>,
+    in_tolerance: StateProperty<Option<millimeter>>,
 }
 
 pub fn main() {}
 
 // #[machine_subscribe("laser_v1")]
-// 
+// state_property!("diameter.target")
 
-#[machine_build(machine = "laser_v1")]
+#[machine_build(mock_machine)]
 impl Build for MockMachine {
     fn build(mut ctx: BuildContext<'_>) -> BuildResult<Self> {
-
-        let x = state_property!("diameter.target");
-
         Ok(Self { 
-            state: ctx.register_state_property("diameter.target", StatePropertyOptions {
-                ..Default::default()
-            })?,
+            in_tolerance: state_property!("enabled", initial_value = false),
 
-            // state: 
-            // state: state_property!(diameter.target),
         })
 
         // ctx.state::<millimeter>("diameter.target").with_initial_value(Length::new::<millimeter>(1.75)).register()?

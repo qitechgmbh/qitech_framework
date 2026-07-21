@@ -27,20 +27,62 @@ mod raw;
 pub const VERSION: QmsVersion = QmsVersion { major: 1, minor: 0 };
 
 pub(crate) fn parse(data: &str) -> yaml_serde::Result<AnyMachineSchema> {
-    let schema = yaml_serde::from_str::<MachineSchema>(data)?;
+    let schema = yaml_serde::from_str::<Schema>(data)?;
     Ok(AnyMachineSchema::V1_0(schema))
 }
 
 #[derive(Debug, Clone)]
-pub struct MachineSchema {
+pub struct Schema {
     pub qms_version: QmsVersion,
     pub name: String,
     pub schema_revision: u32,
     pub identification: MachineIdentification,
-    pub config: StringMap<ConfigProperty>,
-    pub state: StringMap<StateProperty>,
+    pub config_properties: StringMap<ConfigProperty>,
+    pub state_properties: StringMap<StateProperty>,
     pub measurements: StringMap<MeasurementProperty>,
     pub commands: StringMap<Command>,
+    // events
+}
+
+impl Schema {
+    pub fn find_config_property<'a>(&'a self, name: &str) -> Option<&'a config::Value> {
+        let mut parts = name.split('.');
+        let first = parts.next()?;
+        let property = self.config_properties.get(first)?;
+        Self::walk_property(property, parts)
+    }
+
+    pub fn find_state_property<'a>(&'a self, name: &str) -> Option<&'a state::Value> {
+        let mut parts = name.split('.');
+        let first = parts.next()?;
+        let property = self.state_properties.get(first)?;
+        Self::walk_property(property, parts)
+    }
+
+    fn walk_property<'a, 'b, T, I>(
+        property: &'a Property<T>,
+        mut parts: I,
+    ) -> Option<&'a T>
+    where
+        I: Iterator<Item = &'b str>,
+    {
+        match &property.kind {
+            PropertyKind::Value(value) => {
+                // leaf: only valid if path is exhausted
+                if parts.next().is_none() {
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+
+            PropertyKind::Group(children) => {
+                let next = parts.next()?;
+                let child = children.get(next)?;
+                Self::walk_property(child, parts)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

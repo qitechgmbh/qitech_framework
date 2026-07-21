@@ -17,16 +17,16 @@ use crate::schema::v1_0::{Unit, measurement, state};
 
 use super::{
     raw, config, command,
-    Command, EnumVariants, LocalizedText, Property, PropertyKind, Range, MachineSchema, StringMap,
+    Command, EnumVariants, LocalizedText, Property, PropertyKind, Range, Schema, StringMap,
 };
 
-impl<'de> Deserialize<'de> for MachineSchema {
+impl<'de> Deserialize<'de> for Schema {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let raw = raw::MachineSchemaRaw::deserialize(deserializer)?;
-        MachineSchema::try_from(raw).map_err(D::Error::custom)
+        Schema::try_from(raw).map_err(D::Error::custom)
     }
 }
 

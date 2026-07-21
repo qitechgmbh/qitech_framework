@@ -5,14 +5,14 @@ pub use version::QmsVersion;
 
 // expose latest version directly
 mod version;
-mod migration;
+// mod migration;
 
 pub mod v1_0;
 pub use v1_0 as latest;
 
 pub type ParseError = yaml_serde::Error;
 
-pub fn parse_latest(data: &str) -> Result<latest::MachineSchema, ParseError> {
+pub fn parse_latest(data: &str) -> Result<latest::Schema, ParseError> {
     match AnyMachineSchema::from_str(data)? {
         AnyMachineSchema::UndefinedVersion(qms_version) => Err(ParseError::custom(format!(
             "Undefined version: {qms_version}"
@@ -31,7 +31,7 @@ pub fn parse_latest(data: &str) -> Result<latest::MachineSchema, ParseError> {
 pub enum AnyMachineSchema {
     UndefinedVersion(QmsVersion),
     UnsupportedVersion(QmsVersion),
-    V1_0(v1_0::MachineSchema),
+    V1_0(v1_0::Schema),
 }
 
 impl FromStr for AnyMachineSchema {

@@ -1,5 +1,8 @@
 use proc_macro::TokenStream;
 
+mod schema_utils;
+use schema_utils::Schema;
+
 mod machine_build;
 
 #[proc_macro_attribute]

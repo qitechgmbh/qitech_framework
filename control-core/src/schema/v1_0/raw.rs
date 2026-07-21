@@ -4,7 +4,7 @@ use crate::{MachineIdentification, schema::v1_0::{config, measurement, state}};
 use super::{
     LocalizedText, Property, PropertyKind,
     Command, QmsVersion, 
-    MachineSchema, StringMap,
+    Schema, StringMap,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -58,7 +58,7 @@ pub enum DescriptionNode {
     Leaf(LocalizedText),
 }
 
-impl TryFrom<MachineSchemaRaw> for MachineSchema {
+impl TryFrom<MachineSchemaRaw> for Schema {
     type Error = String;
 
     #[rustfmt::skip]
@@ -102,8 +102,8 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
             name: raw.name,
             schema_revision: raw.schema_revision,
             identification: raw.identification,
-            config,
-            state,
+            config_properties: config,
+            state_properties: state,
             measurements,
             commands: raw.commands,
         })

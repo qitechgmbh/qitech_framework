@@ -22,7 +22,6 @@ impl<'a> BuildContext<'a> {
     ) -> Result<StateProperty<T>, BuildError> 
     where 
         T: ScalarPropertyType + 'static,
-        <T as PropertyType>::Value: Bounded
     {
         Ok(self.state_properties.register::<T>(self.ident, name, options)?)
     }

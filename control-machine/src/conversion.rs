@@ -12,6 +12,16 @@ pub trait Bounded {
     fn as_bound(&self) -> Self::Bound;
 }
 
+impl Bounded for bool {
+    type Bound = Self;
+    fn as_bound(&self) -> Self::Bound { *self }
+}
+
+impl Bounded for Option<bool> {
+    type Bound = Self;
+    fn as_bound(&self) -> Self::Bound { *self }
+}
+
 impl Bounded for qitech_lib::units::Length {
     type Bound = Self;
     fn as_bound(&self) -> Self::Bound { *self }
