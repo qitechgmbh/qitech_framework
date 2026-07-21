@@ -1,5 +1,21 @@
 use std::fmt::Debug;
 use control_core::ScalarValue;
+use qitech_lib::units::{Length, length::millimeter};
+
+pub trait Convertible<T> {
+    /// # Safety
+    /// `bytes` must point to a valid instance of `Self`.
+    unsafe fn convert(bytes: *const u8) -> T;
+}
+
+impl Convertible<Option<f64>> for millimeter {
+    unsafe fn convert(bytes: *const u8) -> Option<f64> {
+        let value = unsafe { &*(bytes as *const Length) };
+        Some(value.get::<millimeter>())
+    }
+}
+
+
 
 pub trait Bounded { 
     type Bound: Copy + PartialOrd + Debug;
@@ -50,163 +66,150 @@ impl<T: Debug + std::fmt::Display> std::fmt::Display for BoundsError<T> {
 }
 
 impl<T: std::fmt::Display + Debug> std::error::Error for BoundsError<T> {}
-
 // --- wrapped ---
-pub trait Wrapped { type Inner; }
-
-pub trait WrappedIntoOptionalF64
-where 
-    Self: Wrapped,
-{
-    fn into_opt_f64(value: Self::Inner) -> Option<f64>;
+pub trait PropertyType {
+    type Value: Clone + 'static;
 }
 
-pub trait WrappedTryFromOptionalF64
-where 
-    Self: Wrapped,
-{
-    fn try_from_opt_f64(value: Option<f64>) -> Option<Self::Inner>;
+pub trait IntoScalar {
+    fn into_scalar(value: Self) -> ScalarValue;
 }
 
-pub trait WrappedIntoScalar
+pub trait ScalarPropertyType: PropertyType 
 where 
-    Self: Wrapped,
+    Self: Convertible<ScalarValue>,
+    <Self as PropertyType>::Value: Clone
 {
-    fn into_scalar(value: Self::Inner) -> ScalarValue;
+    fn into_scalar(value: Self::Value) -> ScalarValue;
 }
 
-pub trait NonNullableFloatWrapper
+pub trait FloatPropertyType: PropertyType
 where 
-    Self: Wrapped,
+    <Self as PropertyType>::Value: Copy
 {
-    fn from_f64(value: f64) -> Self::Inner;
-    fn into_f64(value: Self::Inner) -> f64;
+    fn into_opt_f64(value: Self::Value) -> Option<f64>;
 }
 
-pub trait NullableFloatWrapper
-where 
-    Self: Wrapped + WrappedIntoOptionalF64,
-    Self::Inner: Copy
-{
-    fn from_opt_f64(value: Option<f64>) -> Self::Inner;
+macro_rules! impl_float_export {
+    ($ty:ty, $expr:expr) => {
+        impl Convertible<Option<f64>> for $ty {
+            unsafe fn convert(bytes: *const u8) -> Option<f64> {
+                let value = unsafe { *(bytes as *const $ty) };
+                Some($expr(value))
+            }
+        }
+
+        impl Convertible<Option<f64>> for Option<$ty> {
+            unsafe fn convert(bytes: *const u8) -> Option<f64> {
+                let value = unsafe { *(bytes as *const Option<$ty>) };
+                value.map($expr)
+            }
+        }
+    };
 }
 
-// bool
-impl Wrapped for bool { type Inner = bool; }
+impl_float_export!(bool, |v| if v { 1.0 } else { 0.0 });
+impl_float_export!(f64,  |v| v);
+impl_float_export!(i64,  |v| v as f64);
 
-impl WrappedIntoScalar for bool {
-    fn into_scalar(value: Self::Inner) -> ScalarValue {
+// --- bool ---
+impl PropertyType for bool { type Value = bool; }
+
+impl Convertible<ScalarValue> for bool {
+    unsafe fn convert(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const bool) };
         ScalarValue::Boolean { value: Some(value) }
     }
 }
 
-impl Wrapped for Option<bool> { type Inner = Option<bool>; }
+impl ScalarPropertyType for bool {
+    fn into_scalar(value: Self::Value) -> ScalarValue {
+        ScalarValue::Boolean { value: Some(value) }
+    }
+}
 
-impl WrappedIntoScalar for Option<bool> {
-    fn into_scalar(value: Self::Inner) -> ScalarValue {
+// --- nullable bool ---
+impl Convertible<ScalarValue> for Option<bool> {
+    unsafe fn convert(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const Option<bool>) };
         ScalarValue::Boolean { value }
     }
 }
 
-// f64
-impl Wrapped for f64 { type Inner = f64; }
-
-impl WrappedIntoScalar for f64 {
-    fn into_scalar(value: Self::Inner) -> ScalarValue {
+// --- f64 ---
+impl Convertible<ScalarValue> for f64 {
+    unsafe fn convert(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const f64) };
         ScalarValue::Float { value: Some(value) }
     }
 }
 
-impl NonNullableFloatWrapper for f64 {
-    fn from_f64(value: f64) -> f64 { value }
-    fn into_f64(value: f64) -> f64 { value }
+// --- nullable f64 ---
+impl Convertible<ScalarValue> for Option<f64> {
+    unsafe fn convert(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const Option<f64>) };
+        ScalarValue::Float { value }
+    }
 }
 
-impl WrappedIntoOptionalF64 for f64 {
-    fn into_opt_f64(value: f64) -> Option<f64> { Some(value) }
-}
-
-impl Wrapped for Option<f64> { type Inner = Option<f64>; }
-impl NullableFloatWrapper for Option<f64> {
-    fn from_opt_f64(value: Option<f64>) -> Self::Inner { value }
-}
-
-impl WrappedIntoOptionalF64 for Option<f64> {
-    fn into_opt_f64(value: Self::Inner) -> Option<f64> { value }
-}
-
-// i64
-impl Wrapped for i64 { type Inner = i64; }
-
-impl WrappedIntoScalar for i64 {
-    fn into_scalar(value: Self::Inner) -> ScalarValue {
+// --- i64 ---
+impl Convertible<ScalarValue> for i64 {
+    unsafe fn convert(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const i64) };
         ScalarValue::Integer { value: Some(value) }
     }
 }
 
-impl NonNullableFloatWrapper for i64 {
-    fn from_f64(value: f64) -> i64 { value as i64 }
-    fn into_f64(value: i64) -> f64 { value as f64 }
-}
-
-impl WrappedIntoOptionalF64 for i64 {
-    fn into_opt_f64(value: i64) -> Option<f64> { Some(value as f64) }
-}
-
-impl Wrapped for Option<i64> { type Inner = Option<i64>; }
-impl NullableFloatWrapper for Option<i64> {
-    fn from_opt_f64(value: Option<f64>) -> Self::Inner { value.map(|x| x as i64) }
-}
-
-impl WrappedIntoOptionalF64 for Option<i64> {
-    fn into_opt_f64(value: Self::Inner) -> Option<f64> { value.map(|x| x as f64) }
+// --- nullable i64 ---
+impl Convertible<ScalarValue> for Option<i64> {
+    unsafe fn convert(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const Option<i64>) };
+        ScalarValue::Integer { value }
+    }
 }
 
 // uom
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
-        impl Wrapped for $unit { type Inner = $quantity; }
+        impl PropertyType for $unit { type Value = $quantity; }
 
-        impl WrappedIntoScalar for $unit {
-            fn into_scalar(value: Self::Inner) -> ScalarValue {
-                ScalarValue::Float { value: Self::into_opt_f64(value) }
+        impl Convertible<ScalarValue> for $unit {
+            unsafe fn convert(bytes: *const u8) -> ScalarValue {
+                let value = unsafe { *(bytes as *const $quantity) };
+                ScalarValue::Float { value: Some(value.get::<$unit>()) }
             }
         }
 
-        impl NonNullableFloatWrapper for $unit {
-            fn from_f64(value: f64) -> Self::Inner { <Self::Inner>::new::<Self>(value) }
-            fn into_f64(value: Self::Inner) -> f64 { value.get::<Self>() }
-        }
-
-        impl WrappedIntoOptionalF64 for $unit {
-            fn into_opt_f64(value: Self::Inner) -> Option<f64> { Some(value.get::<$unit>()) }
-        }
-
-        impl WrappedTryFromOptionalF64 for $unit {
-            fn try_from_opt_f64(value: Option<f64>) -> Option<Self::Inner> { 
-                Some(<Self::Inner>::new::<Self>(value?))
+        impl FloatPropertyType for $unit {
+            fn into_opt_f64(value: Self::Value) -> Option<f64> {
+                Some(value.get::<$unit>())
             }
         }
 
-        impl Wrapped for Option<$unit> { type Inner = Option<$quantity>; }
-
-        impl WrappedIntoScalar for Option<$unit> {
-            fn into_scalar(value: Self::Inner) -> ScalarValue {
-                ScalarValue::Float { value: Self::into_opt_f64(value) }
+        impl ScalarPropertyType for $unit {
+            fn into_scalar(value: Self::Value) -> ScalarValue {
+                ScalarValue::Float { value: Some(value.get::<$unit>()) }
             }
         }
 
-        impl NullableFloatWrapper for Option<$unit> {
-            fn from_opt_f64(value: Option<f64>) -> Self::Inner { value.map(|x| <$quantity>::new::<$unit>(x)) }
+        impl PropertyType for Option<$unit> { type Value = Option<$quantity>; }
+
+        impl FloatPropertyType for Option<$unit> {
+            fn into_opt_f64(value: Self::Value) -> Option<f64> {
+                value.map(|x| x.get::<$unit>())
+            }
         }
 
-        impl WrappedIntoOptionalF64 for Option<$unit> {
-            fn into_opt_f64(value: Self::Inner) -> Option<f64> { value.map(|x| x.get::<$unit>()) }
+        impl Convertible<ScalarValue> for Option<$unit> {
+            unsafe fn convert(bytes: *const u8) -> ScalarValue {
+                let value = unsafe { *(bytes as *const Option<$quantity>) };
+                ScalarValue::Float { value: value.map(|x| x.get::<$unit>()) }
+            }
         }
 
-        impl WrappedTryFromOptionalF64 for Option<$unit> {
-            fn try_from_opt_f64(value: Option<f64>) -> Option<Self::Inner> {
-                Some(value.map(|x| <$quantity>::new::<$unit>(x)))
+        impl ScalarPropertyType for Option<$unit> {
+            fn into_scalar(value: Self::Value) -> ScalarValue {
+                ScalarValue::Float { value: value.map(|x| x.get::<$unit>()) }
             }
         }
     };

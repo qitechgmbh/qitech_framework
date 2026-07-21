@@ -54,32 +54,32 @@ impl<T: Debug + std::fmt::Display> std::fmt::Display for BoundsError<T> {
 impl<T: std::fmt::Display + Debug> std::error::Error for BoundsError<T> {}
 
 // --- wrapped ---
-pub trait Wrapped { type Inner; }
+pub trait Property { type Inner; }
 
 pub trait WrappedIntoOptionalF64
 where 
-    Self: Wrapped,
+    Self: Property,
 {
     fn into_opt_f64(value: Self::Inner) -> Option<f64>;
 }
 
 pub trait WrappedTryFromOptionalF64
 where 
-    Self: Wrapped,
+    Self: Property,
 {
     fn try_from_opt_f64(value: Option<f64>) -> Option<Self::Inner>;
 }
 
 pub trait WrappedIntoScalar
 where 
-    Self: Wrapped,
+    Self: Property,
 {
     fn into_scalar(value: Self::Inner) -> ScalarValue;
 }
 
 pub trait NonNullableFloatWrapper
 where 
-    Self: Wrapped,
+    Self: Property,
 {
     fn from_f64(value: f64) -> Self::Inner;
     fn into_f64(value: Self::Inner) -> f64;
@@ -87,14 +87,14 @@ where
 
 pub trait NullableFloatWrapper
 where 
-    Self: Wrapped + WrappedIntoOptionalF64,
+    Self: Property + WrappedIntoOptionalF64,
     Self::Inner: Copy
 {
     fn from_opt_f64(value: Option<f64>) -> Self::Inner;
 }
 
 // bool
-impl Wrapped for bool { type Inner = bool; }
+impl Property for bool { type Inner = bool; }
 
 impl WrappedIntoScalar for bool {
     fn into_scalar(value: Self::Inner) -> ScalarValue {
@@ -102,7 +102,7 @@ impl WrappedIntoScalar for bool {
     }
 }
 
-impl Wrapped for Option<bool> { type Inner = Option<bool>; }
+impl Property for Option<bool> { type Inner = Option<bool>; }
 
 impl WrappedIntoScalar for Option<bool> {
     fn into_scalar(value: Self::Inner) -> ScalarValue {
@@ -111,7 +111,7 @@ impl WrappedIntoScalar for Option<bool> {
 }
 
 // f64
-impl Wrapped for f64 { type Inner = f64; }
+impl Property for f64 { type Inner = f64; }
 
 impl WrappedIntoScalar for f64 {
     fn into_scalar(value: Self::Inner) -> ScalarValue {
@@ -128,7 +128,7 @@ impl WrappedIntoOptionalF64 for f64 {
     fn into_opt_f64(value: f64) -> Option<f64> { Some(value) }
 }
 
-impl Wrapped for Option<f64> { type Inner = Option<f64>; }
+impl Property for Option<f64> { type Inner = Option<f64>; }
 impl NullableFloatWrapper for Option<f64> {
     fn from_opt_f64(value: Option<f64>) -> Self::Inner { value }
 }
@@ -138,7 +138,7 @@ impl WrappedIntoOptionalF64 for Option<f64> {
 }
 
 // i64
-impl Wrapped for i64 { type Inner = i64; }
+impl Property for i64 { type Inner = i64; }
 
 impl WrappedIntoScalar for i64 {
     fn into_scalar(value: Self::Inner) -> ScalarValue {
@@ -155,7 +155,7 @@ impl WrappedIntoOptionalF64 for i64 {
     fn into_opt_f64(value: i64) -> Option<f64> { Some(value as f64) }
 }
 
-impl Wrapped for Option<i64> { type Inner = Option<i64>; }
+impl Property for Option<i64> { type Inner = Option<i64>; }
 impl NullableFloatWrapper for Option<i64> {
     fn from_opt_f64(value: Option<f64>) -> Self::Inner { value.map(|x| x as i64) }
 }
@@ -167,7 +167,7 @@ impl WrappedIntoOptionalF64 for Option<i64> {
 // uom
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
-        impl Wrapped for $unit { type Inner = $quantity; }
+        impl Property for $unit { type Inner = $quantity; }
 
         impl WrappedIntoScalar for $unit {
             fn into_scalar(value: Self::Inner) -> ScalarValue {
@@ -190,7 +190,7 @@ macro_rules! impl_uom {
             }
         }
 
-        impl Wrapped for Option<$unit> { type Inner = Option<$quantity>; }
+        impl Property for Option<$unit> { type Inner = Option<$quantity>; }
 
         impl WrappedIntoScalar for Option<$unit> {
             fn into_scalar(value: Self::Inner) -> ScalarValue {

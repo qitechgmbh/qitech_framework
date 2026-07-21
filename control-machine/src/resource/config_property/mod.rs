@@ -1,42 +1,48 @@
 use std::borrow::Cow;
 
 use chrono::Utc;
-use qitech_lib::units::*;
 use control_core::{MachineConfigMutation, MachineIdentificationUnique, OperationResult, Origin};
 
-use crate::resource::{JournalHandle, PropertyHandle};
-use crate::conversion::{Wrapped, WrappedIntoScalar};
+use crate::resource::{JournalHandle, PropertyHandle, kind};
+use crate::conversion::{Bounded, PropertyType, ScalarPropertyType};
 
 mod manager;
 pub use manager::ConfigPropertyManager;
+pub use manager::ConfigPropertyResolver;
+pub use manager::ConfigPropertyReader;
+pub use manager::ConfigPropertyAccessHandle;
 
-pub trait ConfigPropertySpec {
-    // --- main ---
-    const NAME: &'static str;
-    type Value: 'static + Wrapped;
-
+pub trait ConfigPropertySpecification 
+where
+    Self: super::Specification<Kind = kind::ConfigProperty>,
+    Self::Type: ScalarPropertyType,
+    <Self::Type as PropertyType>::Value: Bounded,
+{
     // since uom ::new is not const we need a func ...
-    fn initial_value() -> <Self::Value as Wrapped>::Inner;
-    fn default_value() -> <Self::Value as Wrapped>::Inner;
+    fn default_value() -> <Self::Type as PropertyType>::Value;
+
+    const MIN: Option<<<Self::Type as PropertyType>::Value as Bounded>::Bound> = None;
+    const MAX: Option<<<Self::Type as PropertyType>::Value as Bounded>::Bound> = None;
+
+    fn validate(value: &<Self::Type as PropertyType>::Value) -> Result<(), String> {
+        _ = value;
+        Ok(())
+    }
 }
 
-pub trait ConstrainedConfigPropertySpec: ConfigPropertySpec {
-    const MIN: Option<<Self::Value as Wrapped>::Inner>;
-    const MAX: Option<<Self::Value as Wrapped>::Inner>;
-}
-
-pub struct ConfigProperty<T: Wrapped> {
+pub struct ConfigProperty<T: PropertyType> {
     ident: MachineIdentificationUnique,
     name: &'static str,
-    handle: PropertyHandle<T::Inner>,
+    handle: PropertyHandle<T::Value>,
     journal: JournalHandle<MachineConfigMutation>,
-    default: T::Inner,
+    default: T::Value,
+    // validate: fn(&T::Value) -> Result<(), String>,
 }
 
 impl<T> ConfigProperty<T> 
 where 
-    T: Wrapped,
-    T::Inner: Clone
+    T: PropertyType,
+    T::Value: Clone
 {
     /// reset property back to default value
     pub fn reset(&mut self) {
@@ -46,12 +52,12 @@ where
 
 impl<T> ConfigProperty<T>
 where
-    T: WrappedIntoScalar,
-    T::Inner: Copy,
+    T: ScalarPropertyType,
+    T::Value: Copy,
 {
-    pub fn get(&self) -> T::Inner { *self.handle.read() }
+    pub fn get(&self) -> T::Value { *self.handle.read() }
 
-    pub fn set(&mut self, value: T::Inner) {
+    pub fn set(&mut self, value: T::Value) -> Result<(), String> {
         self.handle.write(value);
 
         self.journal.append(MachineConfigMutation { 
@@ -62,63 +68,12 @@ where
             origin: Origin::Machine,
             result: OperationResult::Success,
         });
-    }
-}
 
-// fallible variant
-#[allow(type_alias_bounds)]
-pub type ConstrainedConfigPropertyValidateFn<T: Wrapped> = Box<dyn Fn(&T::Inner) -> Result<(), String>>;
-
-pub struct ConstrainedConfigProperty<T: Wrapped> {
-    ident: MachineIdentificationUnique,
-    name: &'static str,
-    handle: PropertyHandle<T::Inner>,
-    journal: JournalHandle<MachineConfigMutation>,
-    default: T::Inner,
-    
-    validate: ConstrainedConfigPropertyValidateFn<T>,
-}
-
-impl<T> ConstrainedConfigProperty<T> 
-where 
-    T: Wrapped,
-    T::Inner: Clone
-{
-    /// reset property to default value
-    pub fn reset(&mut self) {
-        self.handle .write(self.default.clone());
-    }
-}
-
-impl<T> ConstrainedConfigProperty<T>
-where
-    T: WrappedIntoScalar,
-    T::Inner: Copy,
-{
-    pub fn get(&self) -> T::Inner { *self.handle.read() }
-
-    pub fn set(&mut self, value: T::Inner) -> Result<(), String> {
-        let mut journal_entry = MachineConfigMutation { 
-            timestamp: Utc::now(), 
-            ident: self.ident, 
-            name: Cow::Borrowed(self.name), 
-            value: T::into_scalar(value),
-            origin: Origin::Machine,
-            result: OperationResult::Success,
-        };
-
-        if let Err(e) = (self.validate)(&value) {
-            journal_entry.result = OperationResult::Failure;
-            self.journal.append(journal_entry);
-            return Err(e);
-        }
-
-        self.handle.write(value);
-        self.journal.append(journal_entry);
         Ok(())
     }
 }
 
+/*
 // uom impl
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
@@ -189,3 +144,4 @@ macro_rules! impl_uom {
 }
 
 with_uom!(impl_uom);
+*/

@@ -4,41 +4,37 @@ use chrono::Utc;
 use control_core::MachineIdentificationUnique;
 use control_core::MachineStateMutation;
 
-use crate::resource::PropertyHandle;
+use crate::conversion::ScalarPropertyType;
 use crate::resource::JournalHandle;
-use crate::conversion::{Wrapped, WrappedIntoScalar};
+use crate::resource::PropertyHandle;
+use crate::resource::Specification;
+use crate::resource::kind;
 
 mod manager;
 pub use manager::StatePropertyManager;
+pub use manager::StatePropertyResolver;
+pub use manager::StatePropertyReader;
+pub use manager::StatePropertyAccessHandle;
 
-pub trait StatePropertySpec {
-    // --- main ---
-    const NAME: &'static str;
-    type Value: 'static + Wrapped where <Self::Value as Wrapped>::Inner: Default;
-
-    // since uom ::new is not const we need this cancer ...
-    fn initial_value() -> <Self::Value as Wrapped>::Inner 
-    where 
-        <Self::Value as Wrapped>::Inner: Default;
-}
+pub trait StatePropertySpecification
+where 
+    Self: Specification<Kind = kind::StateProperty>,
+    Self::Type: ScalarPropertyType {}
 
 #[derive(Debug)]
-pub struct StateProperty<T: Wrapped> {
+pub struct StateProperty<T: ScalarPropertyType> {
     ident: MachineIdentificationUnique,
     name: &'static str,
-    handle: PropertyHandle<T::Inner>,
+    handle: PropertyHandle<T::Value>,
     journal: JournalHandle<MachineStateMutation>,
 }
 
-impl<T> StateProperty<T>
-where
-    T: WrappedIntoScalar,
-    T::Inner: Clone,
-{
-    pub fn get(&self) -> &T::Inner { self.handle.read() }
+impl<T: ScalarPropertyType> StateProperty<T> {
+    pub fn get(&self) -> &T::Value { self.handle.read() }
 
-    pub fn set(&mut self, value: T::Inner) {
+    pub fn set(&mut self, value: T::Value) {
         self.handle.write(value.clone());
+
         self.journal.append(MachineStateMutation { 
             timestamp: Utc::now(), 
             ident: self.ident, 

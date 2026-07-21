@@ -39,6 +39,16 @@ pub use logs::LogOrigin;
 
 pub mod schema;
 
+#[derive(Debug)]
+pub enum MachineResourceKind {
+    Name,
+    StateProperty,
+    ConfigProperty,
+    Measurement,
+    Command,
+    Event,
+}
+
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
 

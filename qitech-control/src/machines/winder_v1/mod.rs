@@ -107,6 +107,8 @@ impl Machine for WinderV1 {
             return Err(SubscribeError::TooManySubscriptions);
         }
 
+        // resolve!(machine = "laser_v1", "diameter")
+        
         self.laser_subscription = Some(LaserSubscription { 
             ident: ctx.ident, 
             current: ctx.measurements.resolve("diameter")?,

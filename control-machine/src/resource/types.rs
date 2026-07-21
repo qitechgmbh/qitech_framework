@@ -1,5 +1,7 @@
 use std::{cell::RefCell, fmt::{self, Debug}, rc::Rc};
 
+use control_core::MachineResourceKind;
+
 pub type Journal<T> = heapless::Vec<T, 1024>;
 
 #[derive(Debug)]
@@ -18,27 +20,18 @@ impl<T: Debug> JournalHandle<T> {
     }
 }
 
-pub enum RegisterError {
-    NameTooLarge { 
-        name: String,
-    },
-    NameRegistryFull {
-        name: String 
-    },
-    RegistryFull { 
-        name: &'static str 
-    },
-    AlreadyRegistered { 
-        name: &'static str 
-    },
-    TypeTooLarge { 
-        r#type: &'static str, 
-        name: &'static str 
-    },
-    AlignmentTooLarge { 
-        r#type: &'static str, 
-        name: &'static str 
-    },
+#[derive(Debug)]
+pub struct RegisterError {
+    pub resource_kind: MachineResourceKind,
+    pub resource_name: &'static str,
+    pub reason: RegisterErrorReason,
+}
+
+#[derive(Debug)]
+pub enum RegisterErrorReason {
+    AlreadyRegistered,
+    RegistryFull,
+    NameTooLarge,
 }
 
 #[derive(Debug, Clone, Copy)]

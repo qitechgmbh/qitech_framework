@@ -1,12 +1,13 @@
 use std::marker::PhantomData;
 
-use crate::{build::BuildError, conversion::Wrapped, resource::{StateProperty, StatePropertySpec}};
+use crate::{build::BuildError, conversion::{PropertyType, ScalarPropertyType}, resource::{Specification, StateProperty, StatePropertySpecification}};
 use super::BuildContext;
 
 impl<'a> BuildContext<'a> {
-    pub fn state<'b, T: StatePropertySpec>(&'b mut self) -> StatePropertyBuilder<'a, 'b, T>
+    pub fn state<'b, Spec: StatePropertySpecification>(&'b mut self) -> StatePropertyBuilder<'a, 'b, Spec>
     where 
-        'a: 'b
+        'a: 'b,
+        <Spec as Specification>::Type: ScalarPropertyType,
     {
         StatePropertyBuilder { root: self, _marker: PhantomData }
     }
@@ -14,22 +15,25 @@ impl<'a> BuildContext<'a> {
 
 pub struct StatePropertyBuilder<'a, 'b, T>
 where
-    T: StatePropertySpec
+    T: StatePropertySpecification,
+    <T as Specification>::Type: ScalarPropertyType
 {
     root: &'b mut BuildContext<'a>,
     _marker: PhantomData<T>,
 }
 
-impl<T> StatePropertyBuilder<'_, '_, T>
+impl<Spec> StatePropertyBuilder<'_, '_, Spec>
 where
-    T: StatePropertySpec,
-    <T::Value as Wrapped>::Inner: Default
+    Spec: StatePropertySpecification + 'static,
+    <Spec as Specification>::Type: ScalarPropertyType,
 {
-    pub fn register(self) -> Result<StateProperty<T::Value>, BuildError> {
-        let out = self.root.state_properties.register::<T::Value>(
+    pub fn register(
+        self, 
+        initial_value: <Spec::Type as PropertyType>::Value,
+    ) -> Result<StateProperty<Spec::Type>, BuildError> {
+        let out = self.root.state_properties.register::<Spec>(
             self.root.ident, 
-            T::NAME, 
-            T::initial_value()
+            initial_value,
         )?;
 
         Ok(out)

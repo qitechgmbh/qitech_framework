@@ -1,5 +1,4 @@
 use std::fmt::{self, Display, Formatter};
-
 use crate::resource::RegisterError;
 
 #[derive(Debug)]
@@ -12,65 +11,18 @@ pub enum BuildError {
     ExpectedSerialDeviceAtIndex { index: usize },
     DeviceTypeMismatch { index: usize, expected: &'static str },
     // --- resource errors ---
-    AlreadyRegistered {
-        registry: &'static str,
-        name: &'static str,
-    },
-    RegistryFull {
-        registry: &'static str,
-        name: &'static str,
-    },
-    TypeTooLarge { 
-        r#type: &'static str, 
-        name: &'static str 
-    },
-    AlignmentTooLarge { 
-        r#type: &'static str, 
-        name: &'static str 
-    },
-    SchemaViolation,
-    // --- custom ---
-    Custom(String),
+    RegisterError(RegisterError),
 }
 
 impl From<RegisterError> for BuildError {
     fn from(value: RegisterError) -> Self {
-        use RegisterError::*;
-        match value {
-            AlreadyRegistered { name } => BuildError::AlreadyRegistered { 
-                registry: "measurements",  
-                name 
-            },
-            RegistryFull { name } => BuildError::RegistryFull { 
-                registry: "measurements",  
-                name,  
-            },
-            TypeTooLarge { r#type, name } => BuildError::TypeTooLarge {
-                r#type, 
-                name
-            },
-            AlignmentTooLarge { r#type, name } => BuildError::TypeTooLarge {
-                r#type, 
-                name,
-            },
-            NameTooLarge { name } => { todo!(); },
-            NameRegistryFull { name } => { todo!();  },
-        }
+        BuildError::RegisterError(value)
     }
 }
 
 impl Display for BuildError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AlreadyRegistered { registry, name } => {
-                write!(f, "'{registry}.{name}' already registered")
-            }
-            Self::RegistryFull { registry, name } => {
-                write!(f, "failed to register {name}: registry '{registry}' full")
-            }
-            Self::SchemaViolation => {
-                write!(f, "machine schema violation")
-            }
             Self::ExpectedEtherCATInterface => {
                 write!(f, "machine required a valid ethercat interface")
             }
@@ -89,7 +41,6 @@ impl Display for BuildError {
             Self::DeviceTypeMismatch { index, expected } => {
                 write!(f, "device type mismatch at index {index}. Expected: {expected}")
             }
-            Self::Custom(err) => Display::fmt(err, f),
             _ => todo!()
         }
     }

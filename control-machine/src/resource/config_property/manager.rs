@@ -1,63 +1,56 @@
-use std::cell::{self, RefCell};
 use std::rc::Rc;
-use control_core::{MachineConfigMutation, MachineIdentificationUnique};
+use std::cell::{Ref, RefCell};
+use control_core::{MachineConfigMutation, MachineIdentificationUnique, ScalarValue};
 
-use crate::conversion::{Bounded, Wrapped};
-use crate::resource::{ConstrainedConfigProperty, Journal, JournalHandle, PropertyRegistry, RegisterError};
+use crate::conversion::{Bounded, PropertyType, ScalarPropertyType};
+use crate::resource::{
+    ConfigPropertySpecification, Journal, JournalHandle, PropertyAccessHandle, PropertyReader,
+    PropertyRegistry, PropertyResolver, RegisterError, kind,
+};
+
 use super::ConfigProperty;
 
+use crate::resource::REGISTRY_ID_CONFIG_PROPERTIES as REGISTRY_ID;
+const SLOT_SIZE: usize = 32;
+const MAX_ITEMS: usize = 512;
+
+pub type Registry =
+    PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+
+pub type ConfigPropertyResolver<'a> =
+    PropertyResolver<'a, REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+
+pub type ConfigPropertyReader<'a> =
+    PropertyReader<'a, REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+
+pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<REGISTRY_ID, T>;
+
 pub struct ConfigPropertyManager {
-    registry: PropertyRegistry<1, 512>,
+    registry: Registry,
     journal: Rc<RefCell<Journal<MachineConfigMutation>>>,
 }
 
 impl ConfigPropertyManager {
-    pub(crate) fn register<T>(
+    pub fn register<Spec>(
         &mut self,
         ident: MachineIdentificationUnique,
-        name: &'static str,
-        default_value: T::Inner,
-        initial_value: T::Inner,
-    ) -> Result<ConfigProperty<T>, RegisterError> 
-    where 
-        T: Wrapped + 'static,
+    ) -> Result<ConfigProperty<Spec::Type>, RegisterError>
+    where
+        Spec: ConfigPropertySpecification + 'static,
+        Spec::Type: ScalarPropertyType,
+        <Spec::Type as PropertyType>::Value: Bounded,
     {
-        let handle = self.registry.register(ident, name)?;
-        handle.write(initial_value);
+        let handle = self.registry.register::<Spec>(ident)?;
+        handle.write(Spec::default_value());
+
+        let journal = JournalHandle::new(self.journal.clone());
 
         Ok(ConfigProperty {
             handle,
-            journal: JournalHandle::new(self.journal.clone()),
+            journal,
             ident,
-            name,
-            default: default_value,
-        })
-    }
-
-    pub(crate) fn register_constrained<T>(
-        &mut self,
-        ident: MachineIdentificationUnique,
-        name: &'static str,
-        default_value: T::Inner,
-        initial_value: T::Inner,
-        min: Option<<T::Inner as Bounded>::Bound>,
-        max: Option<<T::Inner as Bounded>::Bound>,
-        pred: Option<fn(&T::Inner) -> Result<(), String>>,
-    ) -> Result<ConstrainedConfigProperty<T>, RegisterError> 
-    where 
-        T: Wrapped + 'static,
-        T::Inner: Bounded
-    {
-        let handle = self.registry.register(ident, name)?;
-        handle.write(initial_value);
-
-        Ok(ConstrainedConfigProperty {
-            handle,
-            journal: JournalHandle::new(self.journal.clone()),
-            ident,
-            name,
-            default: default_value,
-            validate: todo!(),
+            name: Spec::NAME,
+            default: Spec::default_value(),
         })
     }
 
@@ -65,7 +58,7 @@ impl ConfigPropertyManager {
         self.registry.unregister_machine(ident)
     }
 
-    pub fn journal(&self) -> cell::Ref<'_, Journal<MachineConfigMutation>> {
+    pub fn journal(&self) -> Ref<'_, Journal<MachineConfigMutation>> {
         self.journal.borrow()
     }
 

@@ -1,18 +1,46 @@
-const NAMES_COUNT_MAX: usize = 2048;
-const NAME_LEN_MAX: usize = 96;
+use control_core::MachineResourceKind;
 
-const CONFIG_PROPERTIES_REGISTRY_ID: usize = 1;
-const CONFIG_PROPERTIES_COUNT_MAX: usize = 512;
+const REGISTRY_ID_CONFIG_PROPERTIES: usize = 1;
+const REGISTRY_ID_STATE_PROPERTIES: usize = 2;
+const REGISTRY_ID_MEASUREMENTS: usize = 3;
 
-const STATE_PROPERTIES_REGISTRY_ID: usize = 2;
-const STATE_PROPERTIES_COUNT_MAX: usize = 512;
+pub trait Kind: private::Kind {}
+mod private { pub trait Kind: { const KIND: control_core::MachineResourceKind; }}
 
-const MEASUREMENTS_COUNT_MAX: usize = 512;
+pub mod kind {
+    #[derive(Debug)]
+    pub struct StateProperty;
+    #[derive(Debug)]
+    pub struct ConfigProperty;
+    #[derive(Debug)]
+    pub struct Measurement;
+    #[derive(Debug)]
+    pub struct Command;
+    #[derive(Debug)]
+    pub struct Event;
+}
+
+macro_rules! impl_kind {
+    ($kind:tt) => {
+        impl private::Kind for kind::$kind {
+            const KIND: MachineResourceKind = MachineResourceKind::$kind;
+        }
+        
+        impl Kind for kind::$kind {}
+    };
+}
+
+impl_kind!(ConfigProperty);
+impl_kind!(StateProperty);
+impl_kind!(Measurement);
+impl_kind!(Command);
+impl_kind!(Event);
 
 mod types;
 pub use types::Journal;
 pub use types::JournalHandle;
 pub use types::RegisterError;
+pub use types::RegisterErrorReason;
 pub use types::ResolveError;
 pub use types::ReadError;
 
@@ -22,77 +50,38 @@ pub use property::PropertyHandle;
 pub use property::PropertyResolver;
 pub use property::PropertyReader;
 pub use property::PropertyAccessHandle;
-
 // --- config properties ---
 mod config_property;
-pub use config_property::ConfigPropertySpec;
-pub use config_property::ConstrainedConfigPropertySpec;
+pub use config_property::ConfigPropertySpecification;
 pub use config_property::ConfigProperty;
-pub use config_property::ConstrainedConfigProperty;
 pub use config_property::ConfigPropertyManager;
-
-pub type ConfigPropertyResolver<'a> = 
-    PropertyResolver<'a, CONFIG_PROPERTIES_REGISTRY_ID, CONFIG_PROPERTIES_COUNT_MAX>;
-
-pub type ConfigPropertyReader<'a> = 
-    PropertyReader<'a, CONFIG_PROPERTIES_REGISTRY_ID, CONFIG_PROPERTIES_COUNT_MAX>;
-
-pub type ConfigPropertyAccessHandle<T> = PropertyAccessHandle<CONFIG_PROPERTIES_REGISTRY_ID, T>;
-
+pub use config_property::ConfigPropertyResolver;
+pub use config_property::ConfigPropertyReader;
+pub use config_property::ConfigPropertyAccessHandle;
 
 // --- state properties ---
 mod state_property;
-pub use state_property::StatePropertySpec;
 pub use state_property::StateProperty;
+pub use state_property::StatePropertySpecification;
 pub use state_property::StatePropertyManager;
-
-pub type StatePropertyResolver<'a> = 
-    PropertyResolver<'a, STATE_PROPERTIES_REGISTRY_ID, STATE_PROPERTIES_COUNT_MAX>;
-
-pub type StatePropertyReader<'a> = 
-    PropertyReader<'a, STATE_PROPERTIES_REGISTRY_ID, STATE_PROPERTIES_COUNT_MAX>;
-
-pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<STATE_PROPERTIES_REGISTRY_ID, T>;
+pub use state_property::StatePropertyResolver;
+pub use state_property::StatePropertyReader;
+pub use state_property::StatePropertyAccessHandle;
 
 // --- measurements ---
 mod measurement;
 pub use measurement::Measurement;
-pub use measurement::MeasurementSpec;
+pub use measurement::MeasurementSpecification;
 pub use measurement::MeasurementManager;
 pub use measurement::MeasurementResolver;
 pub use measurement::MeasurementReader;
+pub use measurement::MeasurementAccessHandle;
 
-// --- name registry ---
-#[derive(Debug, Default)]
-pub struct NameRegistry(heapless::FnvIndexMap<&'static str, &'static str, NAMES_COUNT_MAX>);
-
-impl NameRegistry {
-    pub fn new() -> Self { Self(Default::default()) }
-
-    /// Interns a name: returns a 'static lifetime version of input &str.
-    /// Achieved by keeping a registry of all registered names, which are
-    /// behind the scenes leaked strings. Bounded by the vec limit, 
-    /// so worst case is ~0.2 MiB (2048 * 96). 
-    /// Avoids reallocating on every clone without multi-threading issues.
-    pub fn register_name(&mut self, name: &str) -> Result<&'static str, RegisterError> {
-        let reg = &mut self.0;
-
-        if name.len() > NAME_LEN_MAX {
-            return Err(RegisterError::NameTooLarge { name: name.to_string() });
-        }
-
-        if let Some(&existing) = reg.get(name) {
-            return Ok(existing);
-        }
-
-        if reg.len() >= reg.capacity() {
-            return Err(RegisterError::NameRegistryFull { name: name.to_string() })
-        }
-
-        // entry not found, create a new one by leaking the address
-        let leaked: &'static str = name.to_string().leak();
-        reg.insert(leaked, leaked).expect("validated prior");
-        Ok(leaked)
-    }
+pub trait Specification {
+    const NAME: &'static str;
+    type Kind: Kind;
+    type Type: 'static;
 }
 
+// config_property!("diameter.target") -> ctx.config_property("diameter.target", kind::)
+// config_property!(name = "diameter.target", predicate = |x| x == 10)

@@ -1,4 +1,4 @@
-use crate::{MachineBuildError, conversion::Wrapped, machine::StateProperty};
+use crate::{MachineBuildError, conversion::Property, machine::StateProperty};
 use super::MachineBuildContext;
 
 impl<'a> MachineBuildContext<'a> {
@@ -8,7 +8,7 @@ impl<'a> MachineBuildContext<'a> {
     ) -> StatePropertyBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: Wrapped,
+        T: Property,
     {
         StatePropertyBuilder { 
             root: self, 
@@ -20,7 +20,7 @@ impl<'a> MachineBuildContext<'a> {
 
 pub struct StatePropertyBuilder<'a, 'b, T>
 where
-    T: Wrapped
+    T: Property
 {
     root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
@@ -29,7 +29,7 @@ where
 
 impl<T> StatePropertyBuilder<'_, '_, T>
 where
-    T: Wrapped + 'static,
+    T: Property + 'static,
 {
     pub fn initial_value(&mut self, value: T::Inner) -> &mut Self {
         self.initial_value = Some(value);

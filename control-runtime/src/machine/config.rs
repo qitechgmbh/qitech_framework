@@ -3,9 +3,9 @@ use control_core::{OperationResult, Origin};
 
 use crate::with_uom;
 use crate::resource::{MachineConfigPropertyHandle};
-use crate::conversion::{Wrapped, WrappedIntoScalar};
+use crate::conversion::{Property, WrappedIntoScalar};
 
-pub struct ConfigProperty<T: Wrapped> {
+pub struct ConfigProperty<T: Property> {
     reg_handle: MachineConfigPropertyHandle<T::Inner>,
     rec_handle: ConfigRecorderHandle,
     default: T::Inner,
@@ -13,7 +13,7 @@ pub struct ConfigProperty<T: Wrapped> {
 
 impl<T> ConfigProperty<T> 
 where 
-    T: Wrapped,
+    T: Property,
     T::Inner: Clone
 {
     pub(crate) fn new(
@@ -44,7 +44,7 @@ where
 }
 
 // fallible variant
-pub struct ConstrainedConfigProperty<T: Wrapped> {
+pub struct ConstrainedConfigProperty<T: Property> {
     reg_handle: property::Handle<T::Inner>,
     rec_handle: ConfigRecorderHandle,
     default: T::Inner,
@@ -53,7 +53,7 @@ pub struct ConstrainedConfigProperty<T: Wrapped> {
 
 impl<T> ConstrainedConfigProperty<T> 
 where 
-    T: Wrapped,
+    T: Property,
     T::Inner: Clone
 {
     pub(crate) fn new(

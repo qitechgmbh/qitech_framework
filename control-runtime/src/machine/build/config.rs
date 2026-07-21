@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{Machine, MachineBuildError, conversion::{Bounded, Wrapped, in_bounds}, machine::config::{ConfigProperty, ConstrainedConfigProperty}};
+use crate::{Machine, MachineBuildError, conversion::{Bounded, Property, in_bounds}, machine::config::{ConfigProperty, ConstrainedConfigProperty}};
 use super::MachineBuildContext;
 
 impl<'a> MachineBuildContext<'a> {
@@ -11,7 +11,7 @@ impl<'a> MachineBuildContext<'a> {
     ) -> ConfigPropertyBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: Wrapped,
+        T: Property,
     {
         ConfigPropertyBuilder {
             root: self,
@@ -24,7 +24,7 @@ impl<'a> MachineBuildContext<'a> {
 
 pub struct ConfigPropertyBuilder<'a, 'b, T>
 where
-    T: Wrapped
+    T: Property
 {
     root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
@@ -34,7 +34,7 @@ where
 
 impl<T> ConfigPropertyBuilder<'_, '_, T>
 where
-    T: Wrapped + 'static,
+    T: Property + 'static,
     T::Inner: Clone,
 {
     pub fn initial_value(&mut self, value: T::Inner) -> &mut Self {
@@ -62,7 +62,7 @@ where
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
 where
-    T: Wrapped + 'static,
+    T: Property + 'static,
     T::Inner: Clone + Bounded,
 {
     pub fn with_lower_bound<M: Machine + 'static>(
@@ -113,15 +113,15 @@ where
 }
 
 #[allow(type_alias_bounds)]
-type ValidateFn<T: Wrapped> = fn(&T::Inner) -> Result<(), String>;
+type ValidateFn<T: Property> = fn(&T::Inner) -> Result<(), String>;
 
-type ValidateApiChangeFn<T: Wrapped> = fn(&T::Inner) -> Result<(), String>;
+type ValidateApiChangeFn<T: Property> = fn(&T::Inner) -> Result<(), String>;
 
 type AfterApiChanged<M: Machine> = fn(&mut M) -> Result<(), ()>;
 
 pub struct FallibleConfigPropertyBuilder<'a, 'b, T, M>
 where
-    T: Wrapped + 'static,
+    T: Property + 'static,
     T::Inner: Bounded,
     M: Machine + 'static
 {
@@ -141,7 +141,7 @@ where
 
 impl<T, M> FallibleConfigPropertyBuilder<'_, '_, T, M>
 where
-    T: Wrapped + 'static,
+    T: Property + 'static,
     T::Inner: Clone + Bounded,
     M: Machine + 'static
 {

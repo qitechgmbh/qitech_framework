@@ -1,11 +1,12 @@
 [package]
-name = "control_machine"
+name = "qitech_framework_machine"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 # --- internal deps ---
 control_core = { path = "../control-core" }
+control_macros = { path = "../control-macros" }
 
 # --- workspace deps ---
 serde = { workspace = true }

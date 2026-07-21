@@ -1,58 +1,48 @@
-use std::ptr::NonNull;
-use crate::conversion::{Wrapped, WrappedIntoOptionalF64};
+use crate::conversion::{PropertyType, FloatPropertyType};
+use crate::resource::{PropertyHandle, Specification, kind};
 
-mod registry;
-pub use registry::MeasurementManager;
-pub use registry::MeasurementResolver;
-pub use registry::MeasurementReader;
+mod manager;
+pub use manager::MeasurementManager;
+pub use manager::MeasurementResolver;
+pub use manager::MeasurementReader;
+pub use manager::MeasurementAccessHandle;
 
-pub trait MeasurementSpec {
-    // --- info ---
-    const NAME: &'static str;
-    type Value: 'static + Wrapped where <Self::Value as Wrapped>::Inner: Default;
-
+pub trait MeasurementSpecification 
+where 
+    Self: Specification<Kind = kind::Measurement>,
+    Self::Type: FloatPropertyType,
+    <<Self as Specification>::Type as PropertyType>::Value: Copy
+{
     // --- additional parameters ---
     const RECORD_MIN: bool = false;
     const RECORD_MAX: bool = false;
 
-    // since uom ::new is not const we need this cancer ...
-    fn initial_value() -> <Self::Value as Wrapped>::Inner 
-    where 
-        <Self::Value as Wrapped>::Inner: Default;
+    // since uom ::new is not const we need this as func
+    fn initial_value() -> <Self::Type as PropertyType>::Value;
 }
 
 #[derive(Debug)]
-pub struct Measurement<T: Wrapped> {
-    handle: Handle,
-    value: T::Inner,
-    stats: Statistics,
+pub struct Measurement<T: PropertyType> {
+    handle: PropertyHandle<T::Value>,
+    // stats: Statistics<T>,
 }
 
-// scalar values
-impl<T> Measurement<T>
-where
-    T: Wrapped,
-    T:: Inner: Copy
+impl<T: PropertyType> Measurement<T> 
+where 
+    T::Value: Copy
 {
-    pub fn get(&self) -> T::Inner {
-        self.value
+    pub fn get(&self) -> T::Value {
+        *self.handle.read()
     }
 }
 
-impl<T> Measurement<T> 
-where
-    T: WrappedIntoOptionalF64,
-    T::Inner: Copy
-{
-    pub fn set(&mut self, value: T::Inner) {
-        self.value = value;
-
-        let value = T::into_opt_f64(value);
+impl<T: PropertyType> Measurement<T> {
+    pub fn set(&mut self, value: T::Value) {
         self.handle.write(value);
-        self.stats.update(value);
     }
 }
 
+/*
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
         impl Measurement<$unit> {
@@ -90,54 +80,18 @@ macro_rules! impl_uom {
 }
 
 with_uom!(impl_uom);
-
-#[derive(Debug, Clone)]
-pub struct Config {
-    record_min: bool,
-    record_max: bool,
-}
-
-#[derive(Debug)]
-struct Handle {
-    p_value: NonNull<f64>,
-    p_null: NonNull<bool>,
-}   
-
-impl Handle {
-    fn read(&self) -> Option<f64> {
-        unsafe {
-            if self.p_null.read() {
-                None
-            } else {
-                Some(self.p_value.read())
-            }
-        }
-    }
-
-    fn write(&mut self, value: Option<f64>) {
-        unsafe {
-            match value {
-                Some(v) => {
-                    self.p_value.write(v);
-                    self.p_null.write(false);
-                }
-                None => {
-                    self.p_null.write(true);
-                }
-            }
-        }
-    }
-}
+*/
 
 // --- statistics ---
-#[derive(Debug)]
-struct Statistics {
-    min: Option<Handle>,
-    max: Option<Handle>,
-}
+// #[derive(Debug)]
+// struct Statistics<T: PropertyType> {
+//     min: Option< PropertyHandle<T::Value>>,
+//     max: Option< PropertyHandle<T::Value>>,
+// }
 
-impl Statistics {
-    pub fn update(&mut self, value: Option<f64>) {
+/*
+impl<T: PropertyType> Statistics<T> {
+    pub fn update(&mut self, value: T::Value) {
         let value = match value {
             Some(v) => v,
             None => return,
@@ -158,3 +112,4 @@ impl Statistics {
         }
     }
 }
+*/

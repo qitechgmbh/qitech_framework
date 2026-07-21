@@ -1,58 +1,88 @@
-use std::{any::{TypeId, type_name}, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 use control_core::MachineIdentificationUnique;
+use std::{any::TypeId, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
-use crate::conversion::WrappedTryFromOptionalF64;
 use crate::resource::{ReadError, RegisterError, ResolveError};
+use crate::{
+    conversion::{Convertible, PropertyType},
+    resource::{Kind, RegisterErrorReason, Specification},
+};
+
+type Converter<T> = unsafe fn(*const u8) -> T;
 
 #[derive(Debug)]
-pub struct PropertyRegistry<const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
-    lookup: HashMap<Key, Entry>,
+pub struct PropertyRegistry<
+    const REGISTRY_ID: usize,
+    const SLOT_SIZE: usize,
+    const MAX_ITEMS: usize,
+    RK: Kind,
+    Format,
+> {
+    lookup: HashMap<Key, Entry<Format>>,
     occupied: heapless::Vec<bool, MAX_ITEMS>,
     buf_generations: [MaybeUninit<u64>; MAX_ITEMS],
-    buf_storage:     [MaybeUninit<Storage>; MAX_ITEMS],
+    buf_storage: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
+    _marker: PhantomData<RK>,
 }
 
-impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> Default for 
-    PropertyRegistry<REGISTRY_ID, MAX_ITEMS> {
+impl<const REGISTRY_ID: usize, const SLOT_SIZE: usize, const MAX_ITEMS: usize, RK: Kind, Format>
+    Default for PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>
+{
     fn default() -> Self {
-        Self { 
+        Self {
             lookup: Default::default(),
             occupied: Default::default(),
-            buf_generations: [MaybeUninit::uninit(); MAX_ITEMS], 
+            buf_generations: [MaybeUninit::uninit(); MAX_ITEMS],
             buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
+            _marker: PhantomData,
         }
     }
 }
 
-impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY_ID, MAX_ITEMS> {
-    pub fn new() -> Self { Self::default() }
+impl<const REGISTRY_ID: usize, const SLOT_SIZE: usize, const MAX_ITEMS: usize, RK: Kind, Format>
+    PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-    pub(crate) fn register<T: 'static>(
+    pub(crate) fn register<Spec>(
         &mut self,
         ident: MachineIdentificationUnique,
-        name: &'static str,
-    ) -> Result<PropertyHandle<T>, RegisterError> {
-        if size_of::<T>() > size_of::<Storage>() {
-            return Err(RegisterError::TypeTooLarge {
-                r#type: type_name::<T>(),
-                name,
-            });
+    ) -> Result<PropertyHandle<<Spec::Type as PropertyType>::Value>, RegisterError>
+    where
+        Spec: Specification + 'static,
+        Spec::Type: PropertyType + Convertible<Format>,
+        <Spec::Type as PropertyType>::Value: 'static,
+    {
+        const {
+            assert!(size_of::<<Spec::Type as PropertyType>::Value>() <= 16);
+
+            assert!(
+                size_of::<<Spec::Type as PropertyType>::Value>() <= size_of::<Storage<SLOT_SIZE>>()
+            );
+
+            assert!(
+                align_of::<<Spec::Type as PropertyType>::Value>()
+                    <= align_of::<Storage<SLOT_SIZE>>()
+            );
         }
 
-        if align_of::<T>() > align_of::<Storage>() {
-            return Err(RegisterError::AlignmentTooLarge {
-                r#type: type_name::<T>(),
-                name,
-            });
-        }
-
-        let index = self.find_free_slot()?;
+        let index = self.find_free_slot(Spec::NAME)?;
 
         self.occupied[index] = true;
-        self.buf_storage[index].write(Storage { bytes: [0u8; 16] });
+        self.buf_storage[index].write(Storage {
+            bytes: [0u8; SLOT_SIZE],
+        });
 
-        let key = Key { ident, name };
-        let entry = Entry { index, type_id: TypeId::of::<T>() };
+        let key = Key {
+            ident,
+            name: Spec::NAME,
+        };
+        let entry = Entry {
+            index,
+            converter: <Spec::Type as Convertible<Format>>::convert,
+            spec_type_id: TypeId::of::<Spec>(),
+        };
 
         self.lookup.insert(key, entry);
 
@@ -60,17 +90,14 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY
             NonNull::new_unchecked(
                 self.buf_storage[index]
                     .as_mut_ptr()
-                    .cast::<T>(),
+                    .cast::<<Spec::Type as PropertyType>::Value>(),
             )
         };
 
         Ok(PropertyHandle { p_value })
     }
 
-    pub(crate) fn unregister_machine(
-        &mut self,
-        ident: MachineIdentificationUnique,
-    ) -> usize {
+    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
         // Collect keys to remove
         let mut to_remove = heapless::Vec::<Key, MAX_ITEMS>::new();
         for key in self.lookup.keys() {
@@ -84,7 +111,7 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY
                 // mark unoccupied
                 self.occupied[entry.index] = false;
 
-                // ensure old handles don't read anymore 
+                // ensure old handles don't read anymore
                 unsafe {
                     *self.buf_generations[entry.index].assume_init_mut() += 1;
                 }
@@ -94,11 +121,15 @@ impl<const REGISTRY_ID: usize, const MAX_ITEMS: usize> PropertyRegistry<REGISTRY
         to_remove.len()
     }
 
-    fn find_free_slot(&self) -> Result<usize, RegisterError> {
+    fn find_free_slot(&self, resource_name: &'static str) -> Result<usize, RegisterError> {
         self.occupied
             .iter()
             .position(|slot| !slot)
-            .ok_or(RegisterError::RegistryFull { name: "TODO" })
+            .ok_or(RegisterError {
+                resource_kind: RK::KIND,
+                resource_name,
+                reason: RegisterErrorReason::RegistryFull,
+            })
     }
 }
 
@@ -109,9 +140,10 @@ struct Key {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Entry {
+struct Entry<ExportFormat> {
     index: usize,
-    type_id: TypeId,
+    spec_type_id: TypeId,
+    converter: Converter<ExportFormat>,
 }
 
 #[derive(Debug)]
@@ -131,23 +163,38 @@ impl<T> PropertyHandle<T> {
 
 #[derive(Clone, Copy)]
 #[repr(align(16))]
-struct Storage { bytes: [u8; 16] }
-
-pub struct PropertyReader<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
-    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>,
+struct Storage<const SLOT_SIZE: usize> {
+    bytes: [u8; SLOT_SIZE],
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> 
-    PropertyReader<'a, REGISTRY_ID, MAX_ITEMS>
+pub struct PropertyReader<
+    'a,
+    const REGISTRY_ID: usize,
+    const SLOT_SIZE: usize,
+    const MAX_ITEMS: usize,
+    RK: Kind,
+    Format,
+> {
+    registry: &'a PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>,
+}
+
+impl<'a, const REGISTRY_ID: usize, const SLOT_SIZE: usize, const MAX_ITEMS: usize, RK: Kind, Format>
+    PropertyReader<'a, REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>
 {
-    pub fn new(registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>) -> Self {
+    pub fn new(
+        registry: &'a PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>,
+    ) -> Self {
         Self { registry }
     }
 
-    pub fn read<T: WrappedTryFromOptionalF64>(
+    pub fn read<Spec>(
         &self,
-        handle: &PropertyAccessHandle<REGISTRY_ID, T>,
-    ) -> Result<&T::Inner, ReadError> {
+        handle: &PropertyAccessHandle<REGISTRY_ID, <Spec::Type as PropertyType>::Value>,
+    ) -> Result<&<Spec::Type as PropertyType>::Value, ReadError>
+    where
+        Spec: Specification,
+        Spec::Type: PropertyType,
+    {
         let generation = &self.registry.buf_generations[handle.index];
 
         // Safety:
@@ -160,7 +207,7 @@ impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
             }
 
             let storage = &self.registry.buf_storage[handle.index].assume_init_read();
-            Ok(&*(storage.bytes.as_ptr() as *const T::Inner))
+            Ok(&*(storage.bytes.as_ptr() as *const <Spec::Type as PropertyType>::Value))
         }
     }
 }
@@ -171,31 +218,48 @@ pub struct PropertyAccessHandle<const REGISTRY_ID: usize, T> {
     _marker: PhantomData<T>,
 }
 
-pub struct PropertyResolver<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize> {
-    registry: &'a PropertyRegistry<REGISTRY_ID, MAX_ITEMS>,
-    ident: MachineIdentificationUnique, 
+pub struct PropertyResolver<
+    'a,
+    const REGISTRY_ID: usize,
+    const SLOT_SIZE: usize,
+    const MAX_ITEMS: usize,
+    RK: Kind,
+    Format,
+> {
+    registry: &'a PropertyRegistry<REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>,
+    ident: MachineIdentificationUnique,
 }
 
-impl<'a, const REGISTRY_ID: usize, const MAX_ITEMS: usize>
-    PropertyResolver<'a, REGISTRY_ID, MAX_ITEMS>
+impl<'a, const REGISTRY_ID: usize, const SLOT_SIZE: usize, const MAX_ITEMS: usize, RK: Kind, Format>
+    PropertyResolver<'a, REGISTRY_ID, SLOT_SIZE, MAX_ITEMS, RK, Format>
 {
-    pub fn resolve<T: 'static>(
+    pub fn resolve<Spec>(
         &self,
-        name: &'static str,
-    ) -> Result<PropertyAccessHandle<REGISTRY_ID, T>, ResolveError> {
-        let key = Key { ident: self.ident, name };
-
-        let Some(Entry { index, type_id }) = self.registry.lookup.get(&key) else {
-            return Err(ResolveError::NoSuchProperty)
+    ) -> Result<PropertyAccessHandle<REGISTRY_ID, <Spec::Type as PropertyType>::Value>, ResolveError>
+    where
+        Spec: Specification + 'static,
+        Spec::Type: PropertyType + Convertible<Format>,
+        <Spec::Type as PropertyType>::Value: 'static,
+    {
+        let key = Key {
+            ident: self.ident,
+            name: Spec::NAME,
         };
-        
-        if *type_id != TypeId::of::<T>() {
+
+        let Some(Entry {
+            index,
+            spec_type_id,
+            ..
+        }) = self.registry.lookup.get(&key)
+        else {
+            return Err(ResolveError::NoSuchProperty);
+        };
+
+        if *spec_type_id != TypeId::of::<Spec>() {
             return Err(ResolveError::NoSuchProperty);
         }
 
-        let generation = unsafe {
-            self.registry.buf_generations[*index].assume_init()
-        };
+        let generation = unsafe { self.registry.buf_generations[*index].assume_init() };
 
         Ok(PropertyAccessHandle {
             index: *index,

@@ -1,35 +1,48 @@
 use std::marker::PhantomData;
 
-use crate::conversion::Wrapped;
-use crate::resource::{Measurement, MeasurementSpec};
+use crate::conversion::{Convertible, FloatPropertyType, PropertyType};
+use crate::resource::{Measurement, MeasurementSpecification, Specification};
 use super::{BuildContext, BuildError};
 
+pub struct MeasurementOptions {
+    record_min: bool,
+    record_max: bool,
+}
+
 impl<'a> BuildContext<'a> {
-    pub fn measurement<'b, T>(&'b mut self) -> MeasurementBuilder<'a, 'b, T>
+    pub fn register_measurement<'b, T>(
+        &'b mut self, 
+        name: &'static str, 
+        options: MeasurementOptions
+    ) -> Result<Measurement<T::Value>, BuildError>
     where
         'a: 'b,
-        T: MeasurementSpec
+        T: FloatPropertyType
     {
-        MeasurementBuilder { root: self, _marker: PhantomData }
+        let out = self.measurements.register::<T>(
+            self.ident, 
+            options,
+        )
     }
 }
 
-pub struct MeasurementBuilder<'a, 'b, T: MeasurementSpec> {
+pub struct MeasurementBuilder<'a, 'b, T>
+where 
+    T: FloatPropertyType
+{
     root: &'b mut BuildContext<'a>,
     _marker: PhantomData<T>,
 }
 
-impl<T: MeasurementSpec> MeasurementBuilder<'_, '_, T> 
+impl<T> MeasurementBuilder<'_, '_, T> 
 where 
-    <T::Value as Wrapped>::Inner: Default
+    T: FloatPropertyType
 {
-    pub fn register(self) -> Result<Measurement<T::Value>, BuildError> {
-        let out = self.root.measurements.register(
+    pub fn register(self) -> Result<Measurement<T::Type>, BuildError> {
+        
+        let out = self.root.measurements.register::<T>(
             self.root.ident, 
-            T::NAME,
             T::initial_value(),
-            T::RECORD_MIN,
-            T::RECORD_MAX,
         )?;
 
         Ok(out)

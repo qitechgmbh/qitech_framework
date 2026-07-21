@@ -1,4 +1,4 @@
-use crate::{MachineBuildError, MachineBuildContext, conversion::Wrapped, resource};
+use crate::{MachineBuildError, MachineBuildContext, conversion::Property, resource};
 use super::super::{Measurement, MeasurementStatistics};
 
 impl<'a> MachineBuildContext<'a> {
@@ -8,7 +8,7 @@ impl<'a> MachineBuildContext<'a> {
     ) -> MeasurementBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: Wrapped,
+        T: Property,
         T::Inner: Default
     {
         MeasurementBuilder {
@@ -23,7 +23,7 @@ impl<'a> MachineBuildContext<'a> {
 
 pub struct MeasurementBuilder<'a, 'b, T>
 where
-    T: Wrapped
+    T: Property
 {
     root: &'b mut MachineBuildContext<'a>,
     name: &'static str,
@@ -34,7 +34,7 @@ where
 
 impl<T> MeasurementBuilder<'_, '_, T>
 where
-    T: Wrapped + 'static,
+    T: Property + 'static,
     T::Inner: Default + Copy
 {
     pub fn record_min(&mut self) -> &mut Self {

@@ -1,6 +1,6 @@
 use crate::{
     conversion::{
-        Wrapped, 
+        Property, 
         WrappedIntoOptionalF64,
     }, 
     resource::MachineMeasurementHandle, 
@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Measurement<T: Wrapped> {
+pub struct Measurement<T: Property> {
     handle: MachineMeasurementHandle,
     stats: MeasurementStatistics,
     value: T::Inner,
@@ -17,7 +17,7 @@ pub struct Measurement<T: Wrapped> {
 // scalar values
 impl<T> Measurement<T>
 where
-    T: Wrapped,
+    T: Property,
     T:: Inner: Copy
 {
     pub(super) fn new(

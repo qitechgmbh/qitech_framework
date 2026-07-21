@@ -5,11 +5,12 @@ use crate::resource::{ConfigPropertyManager, MeasurementManager, StatePropertyMa
 
 mod types;
 pub use types::BuildError;
+pub type BuildResult<T> = Result<T, BuildError>;
 
+mod hardware;
 mod config;
 mod state;
 mod measurement;
-// ctx.state.register(registration: StatePropertyRegistration)
 
 pub trait MachineBuild: Sized {
     fn build(ctx: BuildContext<'_>) -> Result<Self, BuildError>;
