@@ -10,7 +10,7 @@ const VENDORS_EXPORT_FILE_NAME: &str = "vendors.rs";
 const QUANTITIES_PATH: &str = "quantities.toml";
 const QUANTITIES_DATA: &str = include_str!("quantities.toml");
 const WITH_UOM_EXPORT_FILE_NAME: &str = "with_uom.rs";
-const PARSE_VALUE_TYPE_EXPORT_FILE_NAME: &str = "parse_value_type.rs";
+const PARSE_TYPE_EXPORT_FILE_NAME: &str = "parse_type.rs";
 
 /// Generates code related to vendors
 fn main() -> io::Result<()> {
@@ -129,7 +129,7 @@ fn create_parse_value_type(out_dir: &String) -> io::Result<()> {
             "percentage" => ValueType::Float(FloatSemantic::Percentage),
     "#;
 
-    let out_path = Path::new(&out_dir).join(PARSE_VALUE_TYPE_EXPORT_FILE_NAME);   
+    let out_path = Path::new(&out_dir).join(PARSE_TYPE_EXPORT_FILE_NAME);   
     let mut file = BufWriter::new(File::create(&out_path)?);
 
     let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)

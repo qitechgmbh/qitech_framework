@@ -1,6 +1,6 @@
 use crate::machine_schema::r#type::{self, Type};
 
-use super::{EnumVariants, Range, FloatSemantic};
+use super::{EnumVariants, FloatSemantic, Range};
 
 #[derive(Debug, Clone)]
 pub struct ConfigPropertyValue {
@@ -49,10 +49,12 @@ pub enum ConfigPropertyValueKind {
 }
 
 // --- deserialize implemenations ---
-use std::str::FromStr;
+use serde::{
+    Deserialize,
+    de::{DeserializeOwned, Deserializer, EnumAccess, Error, VariantAccess, Visitor},
+};
 use std::fmt::{self, Display};
-use serde::{Deserialize, de::{Error, Deserializer, DeserializeOwned, Visitor, EnumAccess}};
-use serde::de::value::{EnumAccessDeserializer};
+use std::str::FromStr;
 
 impl<'de> Deserialize<'de> for ConfigPropertyValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -78,60 +80,35 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
                     .strip_prefix('!')
                     .ok_or_else(|| A::Error::custom("expected yaml tag"))?;
 
-                let ty = r#type::parse(tag)
-                    .map_err(A::Error::custom)?;
-
-                match ty {
+                match r#type::parse(tag).map_err(A::Error::custom)? {
                     Type::Enum => {
-                        let helper =
-                            EnumValueHelper::deserialize(
-                                EnumAccessDeserializer::new(data)
-                            )?;
-
+                        let helper = variant.newtype_variant()?;
                         process_enum(helper)
                     }
 
                     Type::String => {
-                        let helper =
-                            StringValueHelper::deserialize(
-                                EnumAccessDeserializer::new(data)
-                            )?;
-
+                        let helper = variant.newtype_variant()?;
                         process_string(helper)
                     }
 
                     Type::Boolean => {
-                        let helper =
-                            BooleanValueHelper::deserialize(
-                                EnumAccessDeserializer::new(data)
-                            )?;
-
+                        let helper = variant.newtype_variant()?;
                         process_bool(helper)
                     }
 
                     Type::Integer => {
-                        let helper =
-                            NumericValueHelper::deserialize(
-                                EnumAccessDeserializer::new(data)
-                            )?;
-
+                        let helper = variant.newtype_variant()?;
                         process_integer(helper)
                     }
 
                     Type::Float(semantic) => {
-                        let helper =
-                            NumericValueHelper::deserialize(
-                                EnumAccessDeserializer::new(data)
-                            )?;
-
+                        let helper = variant.newtype_variant()?;
                         process_float(helper, semantic)
                     }
 
-                    other => {
-                        Err(A::Error::custom(format!(
-                            "unsupported config property type: {other:?}"
-                        )))
-                    }
+                    other => Err(A::Error::custom(format!(
+                        "unsupported config property type: {other:?}"
+                    ))),
                 }
             }
         }
@@ -177,9 +154,9 @@ fn process_enum<E: Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue
     }
 
     Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Enum { variants, default }, 
-        nullable, 
-        persistent 
+        kind: ConfigPropertyValueKind::Enum { variants, default },
+        nullable,
+        persistent,
     })
 }
 
@@ -222,9 +199,9 @@ fn process_string<E: Error>(helper: StringValueHelper) -> Result<ConfigPropertyV
     }
 
     Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::String { default, bounds }, 
-        nullable, 
-        persistent 
+        kind: ConfigPropertyValueKind::String { default, bounds },
+        nullable,
+        persistent,
     })
 }
 
@@ -254,9 +231,9 @@ fn process_bool<E: Error>(helper: BooleanValueHelper) -> Result<ConfigPropertyVa
     }
 
     Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Boolean { default }, 
-        nullable, 
-        persistent 
+        kind: ConfigPropertyValueKind::Boolean { default },
+        nullable,
+        persistent,
     })
 }
 
@@ -276,9 +253,9 @@ fn process_integer<E: Error>(helper: NumericValueHelper<i64>) -> Result<ConfigPr
     }
 
     Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Integer { default, range }, 
-        nullable, 
-        persistent 
+        kind: ConfigPropertyValueKind::Integer { default, range },
+        nullable,
+        persistent,
     })
 }
 
@@ -301,18 +278,19 @@ fn process_float<E: Error>(
     }
 
     Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Float { semantic, default, range }, 
-        nullable, 
-        persistent 
+        kind: ConfigPropertyValueKind::Float {
+            semantic,
+            default,
+            range,
+        },
+        nullable,
+        persistent,
     })
 }
 
 // --- helpers ---
 #[derive(Debug, Clone, Deserialize)]
-#[serde(
-    deny_unknown_fields,
-    bound(deserialize = "T: DeserializeOwned")
-)]
+#[serde(deny_unknown_fields, bound(deserialize = "T: DeserializeOwned"))]
 struct NumericValueHelper<T>
 where
     T: FromStr,
@@ -331,4 +309,6 @@ where
     pub persistent: bool,
 }
 
-fn persistent_default() -> bool { true }
+fn persistent_default() -> bool {
+    true
+}
