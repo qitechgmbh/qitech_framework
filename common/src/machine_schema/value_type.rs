@@ -1,10 +1,13 @@
 #[derive(Debug, Clone, Copy)]
 pub enum ValueType {
+    Array,
     Enum,
     String,
     Boolean,
     Integer,
     Float(FloatSemantic),
+    Command,
+    Event,
 }
 
 #[derive(Debug, Clone, Copy)]

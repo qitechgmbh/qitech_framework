@@ -36,7 +36,7 @@ mod raw;
 #[derive(Debug, Clone)]
 pub struct MachineSchema {
     // --- meta data ---
-    pub qf_version: Version,
+    pub qms_version: Version,
     pub revision: u32,
 
     // --- interface ---
@@ -108,8 +108,8 @@ impl<'de> Deserialize<'de> for MachineSchema {
     {
         let raw = raw::MachineSchemaRaw::deserialize(deserializer)?;
 
-        if !Version::is_supported(raw.qf_version) {
-            return Err(D::Error::custom(format!("Unsupported version: {}", raw.qf_version)));
+        if !Version::is_supported(raw.qms_version) {
+            return Err(D::Error::custom(format!("Unsupported version: {}", raw.qms_version)));
         }
 
         MachineSchema::try_from(raw).map_err(D::Error::custom)

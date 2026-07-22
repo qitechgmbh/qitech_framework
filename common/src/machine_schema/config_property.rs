@@ -51,7 +51,7 @@ pub enum ConfigPropertyValueKind {
 // --- deserialize implemenations ---
 use std::str::FromStr;
 use std::fmt::Display;
-use serde::{Deserialize, de::{self, Deserializer, DeserializeOwned}};
+use serde::{Deserialize, de::{Error, Deserializer, DeserializeOwned}};
 use super::ValueType;
 
 impl<'de> Deserialize<'de> for ConfigPropertyValue {
@@ -62,7 +62,7 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
         let value = yaml_serde::Value::deserialize(deserializer)?;
 
         let yaml_serde::Value::Tagged(tagged) = value else {
-            return Err(de::Error::custom("expected tagged value"));
+            return Err(Error::custom("expected tagged value"));
         };
 
         // skip te '!'
@@ -70,41 +70,42 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
 
         // read the value type / tag
         let value_t = value_type::parse(tag)
-            .map_err(de::Error::custom)?;
+            .map_err(Error::custom)?;
         
         let value = tagged.value;
 
         match value_t {
             ValueType::Enum => {
                 let helper = EnumValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 process_enum(helper)
             },
             ValueType::String => {
                 let helper = StringValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 process_string(helper)
             }
             ValueType::Boolean => {
                 let helper = BooleanValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 process_bool(helper)
             }
             ValueType::Integer => {
                 let helper = NumericValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 process_integer(helper)
             }
             ValueType::Float(semantic) => {
                 let helper = NumericValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 process_float(helper, semantic)
             },
+            other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
     }
 }
@@ -125,7 +126,7 @@ pub struct EnumValueHelper {
     default: Option<String>,
 }
 
-fn process_enum<E: de::Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue, E> {
+fn process_enum<E: Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue, E> {
     let EnumValueHelper {
         nullable,
         persistent,
@@ -166,7 +167,7 @@ struct StringValueHelper {
     persistent: bool,
 }
 
-fn process_string<E: de::Error>(helper: StringValueHelper) -> Result<ConfigPropertyValue, E> {
+fn process_string<E: Error>(helper: StringValueHelper) -> Result<ConfigPropertyValue, E> {
     let StringValueHelper {
         default,
         bounds,
@@ -175,7 +176,7 @@ fn process_string<E: de::Error>(helper: StringValueHelper) -> Result<ConfigPrope
     } = helper;
 
     if !nullable && default.is_none() {
-        return Err(de::Error::custom(
+        return Err(Error::custom(
             "`default` is required when `nullable` is `false`",
         ));
     }
@@ -184,7 +185,7 @@ fn process_string<E: de::Error>(helper: StringValueHelper) -> Result<ConfigPrope
     if let Some(v) = &default {
         let len = v.len() as u32;
         if !bounds.in_range(len) {
-            return Err(de::Error::custom(format!(
+            return Err(Error::custom(format!(
                 "default value '{v}' (len = {len}) is outside the allowed length range {bounds}"
             )));
         }
@@ -209,7 +210,7 @@ pub struct BooleanValueHelper {
     pub persistent: bool,
 }
 
-fn process_bool<E: de::Error>(helper: BooleanValueHelper) -> Result<ConfigPropertyValue, E> {
+fn process_bool<E: Error>(helper: BooleanValueHelper) -> Result<ConfigPropertyValue, E> {
     let BooleanValueHelper {
         default,
         nullable,
@@ -217,7 +218,7 @@ fn process_bool<E: de::Error>(helper: BooleanValueHelper) -> Result<ConfigProper
     } = helper;
 
     if !nullable && default.is_none() {
-        return Err(de::Error::custom(
+        return Err(Error::custom(
             "`default` is required when `nullable` is `false`",
         ));
     }
@@ -230,7 +231,7 @@ fn process_bool<E: de::Error>(helper: BooleanValueHelper) -> Result<ConfigProper
 }
 
 // --- integer ---
-fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<ConfigPropertyValue, E> {
+fn process_integer<E: Error>(helper: NumericValueHelper<i64>) -> Result<ConfigPropertyValue, E> {
     let NumericValueHelper {
         default,
         range,
@@ -239,7 +240,7 @@ fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<Conf
     } = helper;
 
     if !nullable && default.is_none() {
-        return Err(de::Error::custom(
+        return Err(Error::custom(
             "`default` is required when `nullable` is `false`",
         ));
     }
@@ -252,7 +253,7 @@ fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<Conf
 }
 
 // --- float ---
-fn process_float<E: de::Error>(
+fn process_float<E: Error>(
     helper: NumericValueHelper<f64>,
     semantic: FloatSemantic,
 ) -> Result<ConfigPropertyValue, E> {
@@ -264,7 +265,7 @@ fn process_float<E: de::Error>(
     } = helper;
 
     if !nullable && default.is_none() {
-        return Err(de::Error::custom(
+        return Err(Error::custom(
             "`default` is required when `nullable` is `false`",
         ));
     }

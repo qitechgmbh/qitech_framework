@@ -117,6 +117,9 @@ fn create_parse_value_type(out_dir: &String) -> io::Result<()> {
     const BASE: &str = r#"
     pub fn parse(tag: &str) -> Result<ValueType, String> {
         Ok(match tag {
+            "command" => ValueType::Command,
+            "event" => ValueType::Event,
+            "array" => ValueType::Array,
             "enum" => ValueType::Enum,
             "string" => ValueType::String,
             "integer" => ValueType::Integer,

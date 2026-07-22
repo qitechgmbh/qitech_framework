@@ -1,4 +1,4 @@
-qf_version: 1.0
+qms_version: 1.0
 revision: 1
 
 identification:
@@ -40,3 +40,8 @@ events:
     worker_id: !integer
     some_array: !array
       item: !float
+
+  order:
+    completed: !event
+      hello: 
+        world: !string

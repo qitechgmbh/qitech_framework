@@ -32,7 +32,7 @@ pub struct Statistics {
 }
 
 // --- deserialize implemenations ---
-use serde::de::{self, Deserializer};
+use serde::de::{Error, Deserializer};
 use crate::machine_schema::{FloatSemantic, value_type};
 
 use super::ValueType;
@@ -45,7 +45,7 @@ impl<'de> Deserialize<'de> for Value {
         let value = yaml_serde::Value::deserialize(deserializer)?;
 
         let yaml_serde::Value::Tagged(tagged) = value else {
-            return Err(de::Error::custom("expected tagged value"));
+            return Err(Error::custom("expected tagged value"));
         };
 
         // skip te '!'
@@ -53,35 +53,36 @@ impl<'de> Deserialize<'de> for Value {
 
         // read the value type / tag
         let value_t = value_type::parse(tag)
-            .map_err(de::Error::custom)?;
+            .map_err(Error::custom)?;
         
         let value = tagged.value;
 
         match value_t {
             ValueType::Enum => {
-                Err(de::Error::custom("enums are not supported for measurements"))
+                Err(Error::custom("enums are not supported for measurements"))
             },
             ValueType::String => {
-                Err(de::Error::custom("strings are not supported for measurements"))
+                Err(Error::custom("strings are not supported for measurements"))
             }
             ValueType::Boolean => {
                 let BooleanHelper { nullable } = BooleanHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                  Ok(Value { kind: ValueKind::Boolean, nullable })
             }
             ValueType::Integer => {
                 let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Integer { statistics }, nullable })
             }
             ValueType::Float(semantic) => {
                 let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Float { semantic, statistics }, nullable })
             },
+            other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
     }
 }

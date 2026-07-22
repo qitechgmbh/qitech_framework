@@ -20,7 +20,7 @@ pub struct Identification {
 /// Raw representation of the yaml doc
 pub struct MachineSchemaRaw {
     // --- meta data ---
-    pub qf_version: Version,
+    pub qms_version: Version,
     pub revision: u32,
 
     // --- interface ---
@@ -113,7 +113,7 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
         let Identification { name, vendor_id, machine_id } = raw.identification;
 
         Ok(Self {
-            qf_version: raw.qf_version,
+            qms_version: raw.qms_version,
             name,
             revision: raw.revision,
             identification: MachineIdentification { 

@@ -24,7 +24,7 @@ pub enum ValueKind {
 }
 
 // --- deserialize implemenations ---
-use serde::{Deserialize, de::{self, Deserializer}};
+use serde::{Deserialize, de::{Error, Deserializer}};
 use super::ValueType;
 
 impl<'de> Deserialize<'de> for Value {
@@ -35,7 +35,7 @@ impl<'de> Deserialize<'de> for Value {
         let value = yaml_serde::Value::deserialize(deserializer)?;
 
         let yaml_serde::Value::Tagged(tagged) = value else {
-            return Err(de::Error::custom("expected tagged value"));
+            return Err(Error::custom("expected tagged value"));
         };
 
         // skip te '!'
@@ -43,41 +43,42 @@ impl<'de> Deserialize<'de> for Value {
 
         // read the value type / tag
         let value_t = value_type::parse(tag)
-            .map_err(de::Error::custom)?;
+            .map_err(Error::custom)?;
         
         let value = tagged.value;
 
         match value_t {
             ValueType::Enum => {
                 let EnumValueHelper { nullable, variants } = EnumValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Enum { variants }, nullable })
             },
             ValueType::String => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::String, nullable })
             }
             ValueType::Boolean => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Boolean, nullable })
             }
             ValueType::Integer => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::String, nullable })
             }
             ValueType::Float(semantic) => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(de::Error::custom)?;
+                    .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Float { semantic }, nullable })
             },
+            other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
     }
 }
