@@ -1,4 +1,4 @@
-use crate::machine_schema::value_type;
+use crate::machine_schema::r#type;
 
 use super::{EnumVariants, FloatSemantic};
 
@@ -25,7 +25,7 @@ pub enum ValueKind {
 
 // --- deserialize implemenations ---
 use serde::{Deserialize, de::{Error, Deserializer}};
-use super::ValueType;
+use super::Type;
 
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -42,37 +42,37 @@ impl<'de> Deserialize<'de> for Value {
         let tag = &tagged.tag.to_string()[1..];
 
         // read the value type / tag
-        let value_t = value_type::parse(tag)
+        let value_t = r#type::parse(tag)
             .map_err(Error::custom)?;
         
         let value = tagged.value;
 
         match value_t {
-            ValueType::Enum => {
+            Type::Enum => {
                 let EnumValueHelper { nullable, variants } = EnumValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Enum { variants }, nullable })
             },
-            ValueType::String => {
+            Type::String => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::String, nullable })
             }
-            ValueType::Boolean => {
+            Type::Boolean => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Boolean, nullable })
             }
-            ValueType::Integer => {
+            Type::Integer => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::String, nullable })
             }
-            ValueType::Float(semantic) => {
+            Type::Float(semantic) => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 

@@ -20,21 +20,21 @@ pub enum LogOrigin {
 }
 
 impl LogOrigin {
-    pub fn to_u64(self) -> u64 {
+    pub const fn to_u64(self) -> u64 {
         match self {
-            LogOrigin::Hub => 0,
-            LogOrigin::Runtime => 1,
-            LogOrigin::Machine(ident) => ident.to_u64(),
+            LogOrigin::Hub => 1 << 63,
+            LogOrigin::Runtime => 1 << 62,
+            LogOrigin::Machine(id) => id.to_u64(),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[repr(i8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum LogLevel {
-    Trace   = 0,
-    Debug   = 1,
-    Info    = 2,
-    Warn    = 3,
-    Error   = 4,
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warn = 3,
+    Error = 4,
 }

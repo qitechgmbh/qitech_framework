@@ -8,14 +8,24 @@ pub type LocalizedText = Map<LanguageIdentifier, String>;
 
 #[derive(Debug, Clone)]
 pub struct Node<V> {
-    pub description: LocalizedText,
     pub kind: NodeKind<V>,
+    pub metadata: NodeMetadata,
 }
 
 #[derive(Debug, Clone)]
 pub enum NodeKind<V> {
     Branch(StringMap<Node<V>>),
     Leaf(V),
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NodeMetadata {
+    pub description: LocalizedText,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FieldMetadata {
+    pub description: LocalizedText,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -27,7 +37,7 @@ pub enum Range<T> {
     Between { min: T, max: T },
 }
 
-impl<T: PartialOrd> Range<T> {
+impl<T: Copy + PartialOrd> Range<T> {
     pub fn in_range(self, value: T) -> bool {
         match self {
             Range::Unbounded => true,
@@ -38,10 +48,7 @@ impl<T: PartialOrd> Range<T> {
     }
 }
 
-impl<T: Display> Display for Range<T> 
-where 
-    T: Display
-{
+impl<T: Display> Display for Range<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Range::Unbounded => write!(f, ".."),
@@ -55,7 +62,7 @@ where
 // --- deserialize implemenations ---
 use std::str::FromStr;
 use std::marker::PhantomData;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde::de::{Error, Deserializer, Visitor, EnumAccess, MapAccess};
 use serde::de::value::{EnumAccessDeserializer, MapAccessDeserializer};
 
@@ -67,11 +74,9 @@ where
     where
         D: Deserializer<'de>,
     {
-        let kind = NodeKind::deserialize(deserializer)?;
-
         Ok(Self {
-            description: LocalizedText::default(),
-            kind,
+            kind: NodeKind::deserialize(deserializer)?,
+            metadata: NodeMetadata::default(),
         })
     }
 }
@@ -100,18 +105,16 @@ where
             where
                 A: EnumAccess<'de>,
             {
-                let value = V::deserialize(EnumAccessDeserializer::new(data))?;
-
-                Ok(NodeKind::Leaf(value))
+                let leaf = V::deserialize(EnumAccessDeserializer::new(data))?;
+                Ok(NodeKind::Leaf(leaf))
             }
 
             fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
             where
                 A: MapAccess<'de>,
             {
-                let group = StringMap::deserialize(MapAccessDeserializer::new(map))?;
-
-                Ok(NodeKind::Branch(group))
+                let branch = StringMap::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(NodeKind::Branch(branch))
             }
         }
 

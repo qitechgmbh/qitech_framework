@@ -119,6 +119,7 @@ fn create_parse_value_type(out_dir: &String) -> io::Result<()> {
         Ok(match tag {
             "command" => ValueType::Command,
             "event" => ValueType::Event,
+            "object" => ValueType::Object,
             "array" => ValueType::Array,
             "enum" => ValueType::Enum,
             "string" => ValueType::String,

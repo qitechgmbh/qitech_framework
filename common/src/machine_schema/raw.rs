@@ -2,8 +2,7 @@ use serde::Deserialize;
 
 use crate::{MachineIdentification, Version};
 use super::{
-    LocalizedText, Node, NodeKind,
-    MachineSchema, StringMap,
+    MachineSchema, StringMap, Node, NodeKind, NodeMetadata, Command, Event,
     config_property, state_property, measurement
 };
 
@@ -35,40 +34,40 @@ pub struct MachineSchemaRaw {
     #[serde(default)]
     pub measurements: StringMap<Node<measurement::Value>>,
 
-    // #[serde(default)]
-    // pub commands: StringMap<Command>,
+    #[serde(default)]
+    pub commands: StringMap<Node<Command>>,
 
     #[serde(default)]
-    pub descriptions: Descriptions,
+    pub events: StringMap<Node<Event>>,
+
+    #[serde(default)]
+    pub metadata: ResourcesMetadata,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Descriptions {
+pub struct ResourcesMetadata {
     #[serde(default)]
-    pub config: StringMap<DescriptionNode>,
+    pub config: StringMap<MetadataNode>,
 
     #[serde(default)]
-    pub state: StringMap<DescriptionNode>,
+    pub state: StringMap<MetadataNode>,
 
     #[serde(default)]
-    pub measurements: StringMap<DescriptionNode>,
+    pub measurements: StringMap<MetadataNode>,
 
-    // #[serde(default)]
-    // pub commands: StringMap<CommandDescriptions>,
+    #[serde(default)]
+    pub commands: StringMap<MetadataNode>,
+
+    #[serde(default)]
+    pub events: StringMap<MetadataNode>,
 }
-
-// #[derive(Debug, Clone)]
-// pub struct CommandDescriptions {
-//     pub description: LocalizedText,
-//     pub parameters: StringMap<DescriptionNode>,
-// }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
-pub enum DescriptionNode {
-    Branch(StringMap<DescriptionNode>),
-    Leaf(LocalizedText),
+pub enum MetadataNode {
+    Branch(StringMap<MetadataNode>),
+    Leaf(NodeMetadata),
 }
 
 impl TryFrom<MachineSchemaRaw> for MachineSchema {
@@ -76,40 +75,36 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
 
     #[rustfmt::skip]
     fn try_from(raw: MachineSchemaRaw) -> Result<Self, Self::Error> {
-        let config = merge_with_properties(
+        let config = merge_with_metadata(
             "config", "config", 
-            raw.descriptions.config, 
+            raw.metadata.config, 
             raw.config,
         )?;
 
-        let state = merge_with_properties(
+        let state = merge_with_metadata(
             "state", "state", 
-            raw.descriptions.state, 
+            raw.metadata.state, 
             raw.state,
         )?;
 
-        let measurements = merge_with_properties(
+        let measurements = merge_with_metadata(
             "measurements", "measurements",
-            raw.descriptions.measurements,
+            raw.metadata.measurements,
             raw.measurements,
         )?;
 
-        // let mut commands = StringMap::new();
-        // for (name, descriptions) in raw.descriptions.commands {
-        //     let Some(mut command) = raw.commands.shift_remove(&name) else {
-        //         return Err(format!("description for unknown property: commands.{name}"));
-        //     };
-// 
-        //     command.description = descriptions.description;
-        //     command.parameters = merge_with_properties(
-        //         "commands", "commands",
-        //         descriptions.parameters,
-        //         command.parameters,
-        //     )?;
-// 
-        //     commands.insert(name, command);
-        // }
+        let commands = merge_with_metadata(
+            "commands", "commands",
+            raw.metadata.commands,
+            raw.commands,
+        )?;
         
+        let events = merge_with_metadata(
+            "events", "events",
+            raw.metadata.events,
+            raw.events,
+        )?;
+
         let Identification { name, vendor_id, machine_id } = raw.identification;
 
         Ok(Self {
@@ -123,29 +118,30 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
             config_properties: config,
             state_properties: state,
             measurements,
-            // commands: raw.commands,
+            commands,
+            events,
         })
     }
 }
 
-fn merge_with_properties<V>(
+fn merge_with_metadata<V>(
     section: &str,
     key: &str,
-    descs: StringMap<DescriptionNode>,
+    metadata: StringMap<MetadataNode>,
     mut props: StringMap<Node<V>>,
 ) -> Result<StringMap<Node<V>>, String> {
-    for (name, node) in descs {
+    for (name, node) in metadata {
         let Some(prop) = props.get_mut(&name) else {
             return Err(format!("description for unknown {section} property: {key}.{name}"));
         };
 
         match (&mut prop.kind, node) {
-            (NodeKind::Leaf(_), DescriptionNode::Leaf(desc)) => {
-                prop.description = desc;
+            (NodeKind::Leaf(_), MetadataNode::Leaf(metadata)) => {
+                prop.metadata = metadata;
             }
-            (NodeKind::Branch(children), DescriptionNode::Branch(child_descs)) => {
+            (NodeKind::Branch(children), MetadataNode::Branch(child_descs)) => {
                 let nested_key = format!("{key}.{name}");
-                let merged = merge_with_properties(
+                let merged = merge_with_metadata(
                     section,
                     &nested_key,
                     child_descs,
@@ -153,12 +149,12 @@ fn merge_with_properties<V>(
                 )?;
                 *children = merged;
             }
-            (NodeKind::Leaf(_), DescriptionNode::Branch(_)) => {
+            (NodeKind::Leaf(_), MetadataNode::Branch(_)) => {
                 return Err(format!(
                     "expected a description for {section} property {key}.{name}, found a group"
                 ));
             }
-            (NodeKind::Branch(_), DescriptionNode::Leaf(_)) => {
+            (NodeKind::Branch(_), MetadataNode::Leaf(_)) => {
                 return Err(format!(
                     "expected a group of descriptions for {section} property {key}.{name}, found a single description"
                 ));

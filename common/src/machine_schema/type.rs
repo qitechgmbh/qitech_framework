@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, Copy)]
-pub enum ValueType {
+pub enum Type {
+    Object,
     Array,
     Enum,
     String,
@@ -163,5 +164,4 @@ pub enum VolumeRateUnit {
     LiterPerMinute,
 } 
 
-// --- deserialize implemenations ---
 include!(concat!(env!("OUT_DIR"), "/parse_value_type.rs"));

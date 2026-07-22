@@ -7,12 +7,18 @@ identification:
   machine_id: 99
 
 config: 
-  enum: !enum 
+  hello: !enum
+    variants: [apple, tomato, carrot]
+    default: apple
+    nullable: true
+
+  world: !enum
     variants: [apple, tomato, carrot]
     default: apple
 
   num: !millimeter
     default: 1.0
+    nullable: true
 
 state:
   enum: !enum 
@@ -30,18 +36,30 @@ commands:
       arg1: !enum
         variants: [apple, tomato, carrot]
 
+    group:
+      arg_2: !command
 
-      group:
-        arg_2: !command
 
 events: 
-  order_started: !event
-    order_id: !integer
-    worker_id: !integer
-    some_array: !array
-      item: !float
+  hello: !event
+    world: !string
+    object: !object
+      fields: 
+        hello: !string
 
-  order:
-    completed: !event
-      hello: 
-        world: !string
+  event_v2: !event
+    cd: !millimeter
+      
+metadata:
+  config:
+    hello:  
+      description:
+        de-DE: "Meine Enum"
+
+      eks_dee: ""
+
+  commands:
+    puller:
+      start:
+        description:
+          de-DE: "WHAT"

@@ -11,58 +11,59 @@ pub enum ScalarValueKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum ScalarValue {
-    Enum { value: String },
-    String { value: Option<String> },
-    Boolean { value: Option<bool> },
-    Integer { value: Option<i64> },
-    Float { value: Option<f64> },
+    Enum(Option<String>),
+    String(Option<String>),
+    Boolean(Option<bool>),
+    Integer(Option<i64>),
+    Float(Option<f64>),
 }
 
 impl ScalarValue {
     pub fn kind(&self) -> ScalarValueKind {
         use ScalarValue::*;
+
         match self {
-            Enum { .. } => ScalarValueKind::String,
-            String { .. } => ScalarValueKind::String,
-            Boolean { .. } => ScalarValueKind::Boolean,
-            Integer { .. } => ScalarValueKind::Integer,
-            Float { .. } => ScalarValueKind::Float,
+            Enum(_) => ScalarValueKind::Enum,
+            String(_) => ScalarValueKind::String,
+            Boolean(_) => ScalarValueKind::Boolean,
+            Integer(_) => ScalarValueKind::Integer,
+            Float(_) => ScalarValueKind::Float,
         }
     }
 
     pub fn r#enum(self) -> Option<String> {
         match self {
-            ScalarValue::String { value } => value,
+            ScalarValue::Enum(value) => value,
             other => panic!("expected Enum, got {:?}", other),
         }
     }
 
     pub fn string(self) -> Option<String> {
         match self {
-            ScalarValue::String { value } => value,
+            ScalarValue::String(value) => value,
             other => panic!("expected String, got {:?}", other),
         }
     }
 
     pub fn integer(self) -> Option<i64> {
         match self {
-            ScalarValue::Integer { value } => value,
+            ScalarValue::Integer(value) => value,
             other => panic!("expected Integer, got {:?}", other),
         }
     }
 
     pub fn float(self) -> Option<f64> {
         match self {
-            ScalarValue::Float { value } => value,
+            ScalarValue::Float(value) => value,
             other => panic!("expected Float, got {:?}", other),
         }
     }
 
     pub fn boolean(self) -> Option<bool> {
         match self {
-            ScalarValue::Boolean { value } => value,
+            ScalarValue::Boolean(value) => value,
             other => panic!("expected Boolean, got {:?}", other),
         }
     }

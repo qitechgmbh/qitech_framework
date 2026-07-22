@@ -1,5 +1,4 @@
 use std::str::FromStr;
-
 use crate::{MachineIdentification, Version};
 
 mod types;
@@ -8,14 +7,16 @@ use types::StringMap;
 pub use types::LocalizedText;
 pub use types::Node;
 pub use types::NodeKind;
+pub use types::NodeMetadata;
+pub use types::FieldMetadata;
 pub use types::Range;
 
 mod enum_variants;
 pub use enum_variants::EnumVariants;
 
-mod value_type;
-pub use value_type::ValueType;
-pub use value_type::FloatSemantic;
+mod r#type;
+pub use r#type::Type;
+pub use r#type::FloatSemantic;
 
 mod config_property;
 pub use config_property::ConfigPropertyValue;
@@ -28,8 +29,15 @@ pub type StateProperty = Node<state_property::Value>;
 mod measurement;
 pub type MeasurementProperty = Node<measurement::Value>;
 
-// pub mod command;
+mod command;
+pub use command::Command;
+pub use command::CommandField;
+pub use command::CommandFieldKind;
+
 mod event;
+pub use event::Event;
+pub use event::EventField;
+pub use event::EventFieldKind;
 
 mod raw;
 
@@ -42,11 +50,11 @@ pub struct MachineSchema {
     // --- interface ---
     pub name: String,
     pub identification: MachineIdentification,
-    pub config_properties: StringMap<ConfigProperty>,
-    pub state_properties: StringMap<StateProperty>,
-    pub measurements: StringMap<MeasurementProperty>,
-    // pub commands: StringMap<Node<Command>>,
-    // events
+    pub config_properties: StringMap<Node<ConfigPropertyValue>>,
+    pub state_properties: StringMap<Node<state_property::Value>>,
+    pub measurements: StringMap<Node<measurement::Value>>,
+    pub commands: StringMap<Node<Command>>,
+    pub events: StringMap<Node<Event>>,
 }
 
 impl FromStr for MachineSchema {

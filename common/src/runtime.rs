@@ -26,56 +26,69 @@ pub enum RuntimeRequestKind {
         /// source machine
         source: MachineIdentificationUnique,
 
-        /// subscriber
+        /// target subscriber
         subscriber: MachineIdentificationUnique,
     },
 
     SetMachineConfiguration {
-        /// identification of the machine to execute operation on
-        ident: MachineIdentificationUnique,
+        /// target machine
+        target: MachineIdentificationUnique,
 
-        /// identification of the machine to execute operation on
-        path:  String,
+        /// configuration resource path
+        resource_path: String,
 
+        /// assigned value
         value: ScalarValue,
     },
 
     InvokeMachineCommand {
-        /// identification of the machine to execute operation on
-        ident: MachineIdentificationUnique,
+        /// target machine
+        target: MachineIdentificationUnique,
 
-        /// resource path e.g. 'puller.start'
-        path: String,
+        /// command resource path
+        resource_path: String,
 
-        /// command arguments e.g. { ??? }
-        data: serde_json::Value,
-    },
+        /// command arguments
+        arguments: serde_json::Value,
+    }
 }
 
 // --- report ---
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct RuntimeReport {
-    pub created_at: DateTime<Utc>,
+    /// report creation timestamp
+    pub timestamp: DateTime<Utc>,
+
+    /// results for completed requests
     pub responses: Vec<(u64, OperationResult)>,
+
+    /// runtime activity
     pub runtime: RuntimeReportData,
+
+    /// machine activity
     pub machines: MachinesReport,
+
+    /// runtime log records
     pub logs: Vec<LogRecord>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct RuntimeReportData {
-    /// list of all events emitted by the runtime itself
+    /// runtime state mutations
     pub state_mutations: Vec<RuntimeStateMutation>,
 
-    /// list of all events emitted by the runtime itself
+    /// runtime events
     pub events: Vec<RuntimeEvent>,
 }
 
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuntimeEvent { 
-    pub timestamp: DateTime<Utc>,
+pub struct RuntimeEvent {
+    /// event kind
     pub kind: RuntimeEventKind,
+
+    /// event timestamp
+    pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,15 +102,15 @@ pub enum RuntimeEventKind {
     EtherCATDiscoveryCompleted { interface_name: String },
 
     // --- ether cat initialization ---
-    EthercatDeviceInitializationStarted,
-    EthercatDeviceInitializationUpdate { state: String },
-    EthercatDeviceInitializationFailed { error: String },
-    EthercatDeviceInitializationCompleted {
+    EtherCATDeviceInitializationStarted,
+    EtherCATDeviceInitializationUpdate { state: String },
+    EtherCATDeviceInitializationFailed { error: String },
+    EtherCATDeviceInitializationCompleted {
         // devices: Vec<EtherCatDeviceMetaData>
     },
 
-    // --- serial ---
-    DiscoveredModbusDevice { path: String },
+    // --- modbus ---
+    ModbusDeviceDiscovered { path: String },
 
     // --- machines ---
     MachineConnected { ident: MachineIdentificationUnique },
@@ -107,15 +120,18 @@ pub enum RuntimeEventKind {
 // --- state ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeStateMutation {
-    timestamp: DateTime<Utc>,
-    new_state: RuntimeState,
+    /// updated runtime state
+    pub state: RuntimeState,
+
+    /// mutation timestamp
+    pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeState {
     Started,
     Stopped,
-    DicoveringEtherCATInterface,
+    DiscoveringEtherCATInterface,
     InitializingEtherCAT,
     ScanningSerialPorts,
     BuildingMachines,

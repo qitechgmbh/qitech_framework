@@ -33,9 +33,9 @@ pub struct Statistics {
 
 // --- deserialize implemenations ---
 use serde::de::{Error, Deserializer};
-use crate::machine_schema::{FloatSemantic, value_type};
+use crate::machine_schema::{FloatSemantic, r#type};
 
-use super::ValueType;
+use super::Type;
 
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -52,31 +52,31 @@ impl<'de> Deserialize<'de> for Value {
         let tag = &tagged.tag.to_string()[1..];
 
         // read the value type / tag
-        let value_t = value_type::parse(tag)
+        let value_t = r#type::parse(tag)
             .map_err(Error::custom)?;
         
         let value = tagged.value;
 
         match value_t {
-            ValueType::Enum => {
+            Type::Enum => {
                 Err(Error::custom("enums are not supported for measurements"))
             },
-            ValueType::String => {
+            Type::String => {
                 Err(Error::custom("strings are not supported for measurements"))
             }
-            ValueType::Boolean => {
+            Type::Boolean => {
                 let BooleanHelper { nullable } = BooleanHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
                  Ok(Value { kind: ValueKind::Boolean, nullable })
             }
-            ValueType::Integer => {
+            Type::Integer => {
                 let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
                 Ok(Value { kind: ValueKind::Integer { statistics }, nullable })
             }
-            ValueType::Float(semantic) => {
+            Type::Float(semantic) => {
                 let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
