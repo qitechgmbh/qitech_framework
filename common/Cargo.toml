@@ -24,3 +24,4 @@ toml = "1.1.2"
 [features]
 default = ["schema"]
 schema = ["dep:yaml_serde", "dep:indexmap", "dep:unic-langid"]
+with_uom = []

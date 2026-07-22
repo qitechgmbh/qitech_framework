@@ -1,6 +1,13 @@
 // exposes with_uom!() for macro calls that operate on uom units
 // generates the macro from the units.toml file using build.rs
+#[cfg(feature = "with_uom")]
 include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
+
+#[cfg(feature = "schema")]
+pub mod schema;
+
+#[cfg(feature = "schema")]
+pub use schema::MachineSchema;
 
 mod ident;
 pub use ident::MachineIdentification;
@@ -11,12 +18,6 @@ pub use ident::DeviceMachineIdentification;
 pub use ident::DeviceHardwareIdentification;
 pub use ident::DeviceHardwareIdentificationEthercat;
 pub use ident::DeviceHardwareIdentificationSerial;
-
-#[cfg(feature = "schema")]
-pub mod schema;
-
-#[cfg(feature = "schema")]
-pub use schema::MachineSchema;
 
 mod machine;
 pub use machine::MachinesReport;

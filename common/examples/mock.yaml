@@ -1,65 +1,180 @@
 qms_version: 1.0
-revision: 1
+revision: 4
 
 identification:
-  name: mock_machine
-  vendor_id: 1
-  machine_id: 99
+  name: winding_machine
+  vendor_id: 12
+  machine_id: 4501
 
-config: 
-  hello: !enum
-    variants: [apple, tomato, carrot]
-    default: apple
-    nullable: true
+config:
+  machine:
+    enabled: !boolean
+      default: true
 
-  world: !enum
-    variants: [apple, tomato, carrot]
-    default: apple
+    mode: !enum
+      variants: [manual, setup, automatic]
+      default: automatic
 
-  num: !millimeter
-    default: 1.0
-    nullable: true
+  spindle:
+    max_speed: !revolution_per_minute
+      default: 12000
+      range: 0..24000
+
+    acceleration: !meter_per_second_squared
+      default: 5.0
+      range: 0..20
+
+  laser:
+    power: !percentage
+      default: 150.0
+      range: 0..100
+
+    diameter: !millimeter
+      nullable: true
+
+  material:
+    thickness: !millimeter
+      default: 1.0
+
+    density: !kilogram
+      nullable: true
+
 
 state:
-  enum: !enum 
-    variants: [apple, tomato, carrot]
+  machine:
+    status: !enum
+      variants: [idle, running, paused, fault]
+
+    active_recipe: !string
+
+  spindle:
+    speed: !revolution_per_minute
+    load: !percentage
+
+  axis:
+    position_x: !millimeter
+    position_y: !millimeter
+    position_z: !millimeter
+
 
 measurements:
-  counter: !float
+  temperature: !degree_celsius
+  humidity: !percentage
+
+  spindle:
+    torque: !ratio
+    vibration: !millimeter
+
+  energy:
+    current: !ampere
+    voltage: !volt
+    frequency: !hertz
+
 
 commands:
-  start_winding: !command
 
-  puller:
+  reset: !command
+
+  emergency_stop: !command
+
+
+  spindle:
     start: !command
-      arg0: !float
-      arg1: !enum
-        variants: [apple, tomato, carrot]
+      speed: !revolution_per_minute
 
-    group:
-      arg_2: !command
+    stop: !command
+
+    set_speed: !command
+      speed: !revolution_per_minute
+      acceleration: !meter_per_second_squared
 
 
-events: 
-  hello: !event
-    world: !string
-    object: !object
-      fields: 
-        hello: !string
+  axis:
+    move_absolute: !command
+      position: !object
+        fields:
+          x: !millimeter
+          y: !millimeter
+          z: !millimeter
 
-  event_v2: !event
-    cd: !millimeter
-      
+      velocity: !meter_per_second
+
+    jog: !command
+      axis: !enum
+        variants: [x, y, z]
+
+      distance: !millimeter
+      velocity: !millimeter_per_second
+
+
+  recipe:
+    load: !command
+      name: !string
+
+      parameters: !object
+        fields:
+          speed: !meter_per_minute
+          temperature: !degree_celsius
+
+
+events:
+
+  machine_started: !event
+    operator: !string
+
+  machine_stopped: !event
+    reason: !enum
+      variants: [operator, alarm, emergency]
+
+
+  spindle:
+    started: !event
+      speed: !revolution_per_minute
+
+    overloaded: !event
+      load: !percentage
+      duration: !second
+
+
+  alarm: !event
+    code: !integer
+
+    details: !object
+      fields:
+        message: !string
+
+        severity: !enum
+          variants: [warning, error, critical]
+
+
+  production_completed: !event
+    count: !integer
+
+    duration: !second
+
+
 metadata:
   config:
-    hello:  
-      description:
-        de-DE: "Meine Enum"
+    spindle:
+      max_speed:
+        description:
+          en-US: "Maximum spindle speed"
+          de-DE: "Maximale Spindeldrehzahl"
 
-      eks_dee: ""
+    laser:
+      diameter:
+        description:
+          en-US: "Laser spot diameter"
+
 
   commands:
-    puller:
-      start:
+    axis:
+      move_absolute:
         description:
-          de-DE: "WHAT"
+          en-US: "Move axis to absolute position"
+
+
+  events:
+    alarm:
+      description:
+          en-US: "Machine alarm event"
