@@ -74,11 +74,7 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let tag = tag
-                    .strip_prefix('!')
-                    .ok_or_else(|| A::Error::custom("expected yaml tag"))?;
-
-                match Type::parse(tag).map_err(A::Error::custom)? {
+                match Type::parse(&tag).map_err(A::Error::custom)? {
                     Type::Enum => {
                         let helper = variant.newtype_variant()?;
                         process_enum(helper)

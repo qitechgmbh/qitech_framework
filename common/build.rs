@@ -41,7 +41,7 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
     // encapsulate inside private module
     writeln!(file, "mod generated {{")?;
 
-    // constants
+    // --- emit constants ---
     writeln!(file, "pub struct Entry {{ pub id: u16, pub name: &'static str }}\n")?;
     for (abbr, Entry { id, name }) in &entries {
         let abbr = abbr.to_uppercase();
@@ -49,7 +49,7 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
     }
     writeln!(file)?;
 
-    // get_by_id
+    // --- emit get_by_id(...) ---
     writeln!(file, "pub const fn get_name(id: u16) -> Option<&'static str> {{")?;
     writeln!(file, "    match id {{")?;
     for Entry { id, name } in entries.values() {
@@ -60,7 +60,7 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
     writeln!(file, "}}")?;
     writeln!(file)?;
 
-    // get_by_name
+    // --- emit get_by_name(...) ---
     writeln!(file, "pub fn get_id(name: &str) -> Option<u16> {{")?;
     writeln!(file, "    match name {{")?;
     for Entry { id, name } in entries.values() {
@@ -70,19 +70,9 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
     writeln!(file, "    }}")?;
     writeln!(file, "}}")?;
 
+    // --- finish module ---
     writeln!(file, "}}")?;
     Ok(())
-}
-
-#[derive(serde::Deserialize)]
-struct UomFile {
-    quantity: Vec<UomEntry>,
-}
-
-#[derive(serde::Deserialize)]
-struct UomEntry {
-    name: String,
-    units: Vec<String>,
 }
 
 /// generates quantity.rs from quantities.rs
@@ -90,7 +80,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     let out_path = Path::new(&out_dir).join(QUANTITY_EXPORT_FILE_NAME);   
     let mut file = BufWriter::new(File::create(&out_path)?);
 
-    // enclose in generated module to make it obvious in place
+    // encapsulate inside private module
     writeln!(file, "mod generated {{")?;
     writeln!(file, "use super::*;")?;
 
@@ -107,7 +97,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     writeln!(file, "}}")?;
 
-    // --- pass two: emit Quantit Unit types ---
+    // --- pass two: emit Quantity unit types ---
     for UomEntry { name, units } in &quantity {
         writeln!(file, "#[derive(Debug, Clone, Copy)]")?;
         writeln!(file, "pub enum {name}Unit {{")?;
@@ -132,7 +122,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     writeln!(file, "    }}")?;
     writeln!(file, "}}")?;
 
-    // --- pass four: emit Display for Quantity Unit Types ---
+    // --- pass four: emit Display for quantity unit types ---
     for UomEntry { name, units } in &quantity {
         writeln!(file, "impl Display for {name}Unit {{")?;
         writeln!(file, "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{")?;
@@ -148,7 +138,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
         writeln!(file, "}}")?;
     }
 
-    // --- pass four: emit Quantity::parse(tag: &str) ---
+    // --- pass five: emit Quantity::parse(tag: &str) ---
     writeln!(file, "impl Quantity {{")?;
     writeln!(file, "    pub fn parse(tag: &str) -> Option<Self> {{")?;
     writeln!(file, "        Some(match tag {{")?;
@@ -208,6 +198,17 @@ fn create_with_uom(out_dir: &String) -> io::Result<()>  {
 }
 
 // --- utils ---
+#[derive(serde::Deserialize)]
+struct UomFile {
+    quantity: Vec<UomEntry>,
+}
+
+#[derive(serde::Deserialize)]
+struct UomEntry {
+    name: String,
+    units: Vec<String>,
+}
+
 fn pascal_to_snake(input: &str) -> String {
     let mut out = String::with_capacity(input.len() + 8);
     for (i, ch) in input.chars().enumerate() {
