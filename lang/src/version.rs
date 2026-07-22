@@ -1,24 +1,22 @@
 use std::{fmt, str::FromStr};
 use serde::{Deserialize, Deserializer, Serialize, de::{self, Visitor}};
 
-/// QiTech Machine Schema Version used for tracking schema changes
-/// and ensuring the correct format is used for deserializing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub struct QmsVersion {
+pub struct Version {
     pub(super) major: u32,
     pub(super) minor: u32,
 }
 
-impl QmsVersion {
+impl Version {
     /// Versions that are fully supported and safe to use.
-    pub const SUPPORTED_VERSIONS: &[QmsVersion] = &[v1_0::VERSION];
+    pub const SUPPORTED_VERSIONS: &[Version] = &[v1_0::VERSION];
 
     /// Versions that still parse and work, but should trigger a warning
     /// since they're on their way to becoming unsupported.
-    pub const DEPRECATED_VERSIONS: &[QmsVersion] = &[];
+    pub const DEPRECATED_VERSIONS: &[Version] = &[];
 
     /// Versions that are known but should be rejected outright
-    pub const UNSUPPORTED_VERSIONS: &[QmsVersion] = &[];
+    pub const UNSUPPORTED_VERSIONS: &[Version] = &[];
 
     /// Whether this version is in the fully-supported list.
     pub const fn is_supported(self) -> bool {
@@ -34,7 +32,7 @@ impl QmsVersion {
     pub const fn is_unsupported(self) -> bool {
         let mut i = 0;
         while i < Self::UNSUPPORTED_VERSIONS.len() {
-            let QmsVersion { major, minor } = Self::UNSUPPORTED_VERSIONS[i];
+            let Version { major, minor } = Self::UNSUPPORTED_VERSIONS[i];
             if major == self.major && minor == self.minor {
                 return true;
             }
@@ -44,10 +42,10 @@ impl QmsVersion {
         false
     }
 
-    const fn contains(list: &[QmsVersion], version: QmsVersion) -> bool {
+    const fn contains(list: &[Version], version: Version) -> bool {
         let mut i = 0;
         while i < list.len() {
-            let QmsVersion { major, minor } = list[i];
+            let Version { major, minor } = list[i];
             if major == version.major && minor == version.minor {
                 return true;
             }
@@ -58,7 +56,7 @@ impl QmsVersion {
     }
 }
 
-impl FromStr for QmsVersion {
+impl FromStr for Version {
     type Err = &'static str;
 
     /// Parses a version string in strict `"major.minor"` format,
@@ -88,7 +86,7 @@ impl FromStr for QmsVersion {
     }
 }
 
-impl<'de> Deserialize<'de> for QmsVersion {
+impl<'de> Deserialize<'de> for Version {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -96,10 +94,10 @@ impl<'de> Deserialize<'de> for QmsVersion {
         struct VersionVisitor;
 
         impl Visitor<'_> for VersionVisitor {
-            type Value = QmsVersion;
+            type Value = Version;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a schema version in the format major.minor")
+                formatter.write_str("a language version in the format major.minor")
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
@@ -114,7 +112,7 @@ impl<'de> Deserialize<'de> for QmsVersion {
     }
 }
 
-impl fmt::Display for QmsVersion {
+impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.major, self.minor)
     }

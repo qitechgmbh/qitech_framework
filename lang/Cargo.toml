@@ -20,3 +20,7 @@ unic-langid = { version = "0.9.6", default-features = false, features = ["serde"
 [build-dependencies]
 serde = { workspace = true }
 toml = "1.1.2"
+
+[features]
+default = []
+v1_0 = []
