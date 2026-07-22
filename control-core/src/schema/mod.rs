@@ -3,11 +3,12 @@ use serde::de::Error;
 
 pub use version::QmsVersion;
 
-// expose latest version directly
 mod version;
-// mod migration;
+mod migration;
 
 pub mod v1_0;
+
+// expose latest version directly
 pub use v1_0 as latest;
 
 pub type ParseError = yaml_serde::Error;

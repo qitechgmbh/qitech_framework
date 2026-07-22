@@ -1,5 +1,5 @@
 use serde::Deserialize ;
-use super::{EnumVariants, Unit};
+use super::{EnumVariants, FloatSemantic};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -7,13 +7,7 @@ pub enum Value {
     String(ScalarValue),
     Boolean(ScalarValue),
     Integer(ScalarValue),
-    Float(ScalarValue),
-    Fraction(ScalarValue),
-    Percentage(ScalarValue),
-    Quantity {
-        value: ScalarValue,
-        unit: Unit,
-    },
+    Float(FloatValue),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,6 +20,18 @@ pub struct EnumValue {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScalarValue {
+    /// Whether this value is allowed to be null. Optional.
+    /// Default is `false`.
+    #[serde(default)]
+    pub nullable: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FloatValue {
+    /// Representation of the float. E.g. plain, fraction, millimeter
+    pub semantic: FloatSemantic,
+
     /// Whether this value is allowed to be null. Optional.
     /// Default is `false`.
     #[serde(default)]

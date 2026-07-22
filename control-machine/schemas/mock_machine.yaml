@@ -13,7 +13,6 @@ config:
   
 state:
   enabled: !boolean
-    nullable: true
 
 measurements:
   counter: !integer

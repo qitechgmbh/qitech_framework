@@ -1,4 +1,4 @@
-use super::{EnumVariants, Range, Unit};
+use super::{EnumVariants, Range, FloatSemantic};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -7,12 +7,6 @@ pub enum Value {
     Boolean(BooleanValue),
     Integer(IntegerValue),
     Float(FloatValue),
-    Fraction(FloatValue),
-    Percentage(FloatValue),
-    Quantity {
-        value: FloatValue,
-        unit: Unit,
-    },
 }
 
 #[derive(Debug, Clone)]
@@ -55,22 +49,36 @@ pub struct BooleanValue {
     pub persistent: bool,
 }
 
-
 #[derive(Debug, Clone)]
-pub struct NumericValue<T> {
+pub struct IntegerValue {
     /// Whether this value is allowed to be null. If `true`, `default` becomes optional.
     /// Default is `false`.
     pub nullable: bool,
     /// Default value. Required if `nullable` is `false`.
     /// Default is `None` if `nullable` is `true`.
-    pub default: Option<T>,
+    pub default: Option<i64>,
     /// Allowed range for this value. Optional.
     /// Default is unbounded.
-    pub range: Range<T>,
+    pub range: Range<i64>,
     /// Whether this property should be included in config exports. Optional.
     /// Default is `true`.
     pub persistent: bool,
 }
 
-pub type IntegerValue = NumericValue<i64>;
-pub type FloatValue = NumericValue<f64>;
+#[derive(Debug, Clone)]
+pub struct FloatValue {
+    /// Representation of the float. E.g. plain, fraction, millimeter
+    pub semantic: FloatSemantic,
+    /// Whether this value is allowed to be null. If `true`, `default` becomes optional.
+    /// Default is `false`.
+    pub nullable: bool,
+    /// Default value. Required if `nullable` is `false`.
+    /// Default is `None` if `nullable` is `true`.
+    pub default: Option<f64>,
+    /// Allowed range for this value. Optional.
+    /// Default is unbounded.
+    pub range: Range<f64>,
+    /// Whether this property should be included in config exports. Optional.
+    /// Default is `true`.
+    pub persistent: bool,
+}

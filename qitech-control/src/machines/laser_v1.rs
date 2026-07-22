@@ -14,6 +14,7 @@ use control_runtime::{
 
 use control_runtime::machine::{ConstrainedConfigProperty, Measurement, StateProperty};
 
+#[machine("laser_v1")]
 pub struct LaserV1 {
     // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,

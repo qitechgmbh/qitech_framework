@@ -1,8 +1,9 @@
 [workspace]
 members = [
-    "control-core",
-    "control-machine",
-    "control-macros",
+    "lang"
+    # "control-core",
+    # "control-machine",
+    # "control-macros",
     # "control-hub", 
     # "control-runtime",
     # "qitech-control",

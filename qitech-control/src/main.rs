@@ -21,8 +21,8 @@ pub fn main() -> anyhow::Result<()> {
 
     // --- register machines --- 
     let mut registry = MachineRegistry::default();
-    registry.register::<LaserV1>(include_str!("../schemas/laser_v1.yaml"))?;
-    registry.register::<WinderV1>(include_str!("../schemas/winder_v1.yaml"))?;
+    registry.register::<LaserV1>()?;
+    registry.register::<WinderV1>()?;
 
     // --- create runtime ---
     let runtime = Runtime::init(init_config(), registry)?;

@@ -4,6 +4,7 @@ pub enum ConfigRevisionMigration {
     RemoveField { field: String },
     ChangeName { field: String, new_name: String },
     ChangeType { field: String, new_type: () },
+    ChangeDefault { field: String, new_type: () },
 }
 
 pub enum StateRevisionMigration {

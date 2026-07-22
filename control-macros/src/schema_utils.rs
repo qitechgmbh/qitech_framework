@@ -84,7 +84,56 @@ fn manifest_dir() -> Result<String> {
 }
 
 // --- utils ---
-pub fn value_to_type(
+pub fn config_value_to_type(
+    value: &schema::latest::config::Value,
+) -> syn::Result<syn::Type> {
+    use schema::latest::config::*;
+
+    match value {
+        Value::Boolean(BooleanValue { nullable, default, persistent }) => {
+            if *nullable {
+                Ok(syn::parse_quote! { Option<bool> })
+            } else {
+                Ok(syn::parse_quote! { bool })
+            }
+        }
+
+        Value::Float(FloatValue { nullable, default, range, persistent }) => {
+            if *nullable {
+                Ok(syn::parse_quote! { Option<f64> })
+            } else {
+                Ok(syn::parse_quote! { f64 })
+            }
+        }
+
+        Value::Integer(IntegerValue { nullable, default, range, persistent }) => {
+            if *nullable {
+                Ok(syn::parse_quote! { Option<i64> })
+            } else {
+                Ok(syn::parse_quote! { i64 })
+            }
+        }
+
+        Value::Quantity { value, unit } => {
+            let ty: syn::Type = syn::parse_quote! {
+                qitech_lib::units::length::millimeter
+            };
+
+            if value.nullable {
+                Ok(syn::parse_quote! { Option<i64> })
+            } else {
+                Ok(syn::parse_quote! { i64 })
+            }
+        }
+
+        _ => Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "unsupported state property type",
+        )),
+    }
+}
+
+pub fn state_value_to_type(
     value: &schema::latest::state::Value,
 ) -> syn::Result<syn::Type> {
     use schema::latest::state::{ScalarValue, Value};
@@ -115,6 +164,10 @@ pub fn value_to_type(
         }
 
         Value::Quantity { value, unit } => {
+            let ty: syn::Type = syn::parse_quote! {
+                qitech_lib::units::length::millimeter
+            };
+
             if value.nullable {
                 Ok(syn::parse_quote! { Option<i64> })
             } else {

@@ -1,17 +1,11 @@
 use serde::Deserialize ;
-use super::Unit;
+use super::FloatSemantic;
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Boolean(BooleanValue),
     Integer(NumericValue),
-    Float(NumericValue),
-    Fraction(NumericValue),
-    Percentage(NumericValue),
-    Quantity {
-        value: NumericValue,
-        unit: Unit,
-    },
+    Float(FloatValue),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,6 +20,22 @@ pub struct BooleanValue {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NumericValue {
+    /// Whether this value is allowed to be null. Optional.
+    /// Default is `false`.
+    #[serde(default)]
+    pub nullable: bool,
+    /// Which statistical aggregates should be tracked for this value
+    /// over time (e.g. running min/max). Optional.
+    /// Default is no statistics tracked.
+    #[serde(default)]
+    pub statistics: NumericValueStatistics,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FloatValue {
+    /// Semantic Representation of the float. E.g. plain, fraction, millimeter
+    pub semantic: FloatSemantic,
     /// Whether this value is allowed to be null. Optional.
     /// Default is `false`.
     #[serde(default)]
