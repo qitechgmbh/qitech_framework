@@ -1,7 +1,8 @@
 use serde::Deserialize;
 
-use crate::{MachineIdentification, Version};
+use crate::MachineIdentification;
 use super::{
+    Version,
     MachineSchema, StringMap, Node, NodeKind, NodeMetadata, Command, Event,
     config_property, state_property, measurement
 };

@@ -9,19 +9,18 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 qitech_lib = { workspace = true }
 
-# --- general ---
+# --- report ---
 soa_derive = "0.14.0"
 
 # --- schema ---
-yaml_serde = { version = "0.10.4", default-features = false }
-indexmap = { version = "2", default-features = false, features = ["serde"] }
-unic-langid = { version = "0.9.6", default-features = false, features = ["serde"]}
+yaml_serde = { version = "0.10.4", default-features = false, optional = true }
+indexmap = { version = "2", default-features = false, features = ["serde"], optional = true }
+unic-langid = { version = "0.9.6", default-features = false, features = ["serde"], optional = true }
 
 [build-dependencies]
 serde = { workspace = true }
 toml = "1.1.2"
 
 [features]
-default = ["latest"]
-latest = ["v1_0"]
-v1_0 = []
+default = ["schema"]
+schema = ["dep:yaml_serde", "dep:indexmap", "dep:unic-langid"]

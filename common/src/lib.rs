@@ -2,9 +2,6 @@
 // generates the macro from the units.toml file using build.rs
 include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
 
-mod version;
-pub use version::Version;
-
 mod ident;
 pub use ident::MachineIdentification;
 pub use ident::MachineIdentificationUnique;
@@ -15,8 +12,11 @@ pub use ident::DeviceHardwareIdentification;
 pub use ident::DeviceHardwareIdentificationEthercat;
 pub use ident::DeviceHardwareIdentificationSerial;
 
-pub mod machine_schema;
-pub use machine_schema::MachineSchema;
+#[cfg(feature = "schema")]
+pub mod schema;
+
+#[cfg(feature = "schema")]
+pub use schema::MachineSchema;
 
 mod machine;
 pub use machine::MachinesReport;

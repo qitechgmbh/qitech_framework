@@ -1,4 +1,7 @@
-use crate::{MachineIdentification, Version};
+use crate::MachineIdentification;
+
+mod version;
+pub use version::Version;
 
 mod types;
 use types::{Map, StringMap};
