@@ -33,7 +33,7 @@ pub struct Statistics {
 
 // --- deserialize implemenations ---
 use serde::de::{self, Deserializer};
-use crate::machine_schema::FloatSemantic;
+use crate::machine_schema::{FloatSemantic, value_type};
 
 use super::ValueType;
 
@@ -48,18 +48,21 @@ impl<'de> Deserialize<'de> for Value {
             return Err(de::Error::custom("expected tagged value"));
         };
 
-        // read the value type / tag
-        let value_t = yaml_serde::from_str::<ValueType>(&tagged.tag.to_string())
-            .map_err(de::Error::custom)?;
+        // skip te '!'
+        let tag = &tagged.tag.to_string()[1..];
 
+        // read the value type / tag
+        let value_t = value_type::parse(tag)
+            .map_err(de::Error::custom)?;
+        
         let value = tagged.value;
 
         match value_t {
             ValueType::Enum => {
-                return Err(de::Error::custom("enums are not supported for measurements"));
+                Err(de::Error::custom("enums are not supported for measurements"))
             },
             ValueType::String => {
-                return Err(de::Error::custom("strings are not supported for measurements"));
+                Err(de::Error::custom("strings are not supported for measurements"))
             }
             ValueType::Boolean => {
                 let BooleanHelper { nullable } = BooleanHelper::deserialize(value)

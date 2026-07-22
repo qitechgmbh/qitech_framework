@@ -39,7 +39,7 @@ impl EnumVariants {
         self.values.len()
     }
 
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
 

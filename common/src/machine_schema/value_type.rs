@@ -158,17 +158,7 @@ pub enum VolumeRateUnit {
     CubicMeterPerSecond,
     LiterPerSecond,
     LiterPerMinute,
-} // --- deserialize implemenations ---
-use serde::{
-    Deserialize,
-    de::{DeserializeOwned, Deserializer, Error},
-};
-use std::fmt::Display;
-use std::str::FromStr;
-impl<'de> Deserialize<'de> for ValueType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-    }
-}
+} 
+
+// --- deserialize implemenations ---
+include!(concat!(env!("OUT_DIR"), "/parse_value_type.rs"));

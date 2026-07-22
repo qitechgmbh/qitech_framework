@@ -1189,6 +1189,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "qf_common"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "indexmap",
+ "qitech_lib",
+ "serde",
+ "serde_json",
+ "soa_derive",
+ "toml",
+ "unic-langid",
+ "yaml_serde",
+]
+
+[[package]]
 name = "qitech_lib"
 version = "0.1.0"
 source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=657ca9a2a89c928108626d12bb7476dab4071dbe#657ca9a2a89c928108626d12bb7476dab4071dbe"
@@ -1201,21 +1216,6 @@ dependencies = [
  "modbus",
  "tokio",
  "units",
-]
-
-[[package]]
-name = "qmf_common"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "indexmap",
- "qitech_lib",
- "serde",
- "serde_json",
- "soa_derive",
- "toml",
- "unic-langid",
- "yaml_serde",
 ]
 
 [[package]]

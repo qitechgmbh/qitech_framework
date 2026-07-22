@@ -8,6 +8,15 @@ use super::{
 };
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Identification {
+    pub name: String,
+    pub vendor_id: u16,
+    pub machine_id: u16,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 /// Raw representation of the yaml doc
 pub struct MachineSchemaRaw {
     // --- meta data ---
@@ -15,11 +24,10 @@ pub struct MachineSchemaRaw {
     pub revision: u32,
 
     // --- interface ---
-    pub name: String,
-    pub identification: MachineIdentification,
+    pub identification: Identification,
 
     #[serde(default)]
-    pub config: StringMap<Node<config_property::Value>>,
+    pub config: StringMap<Node<config_property::ConfigPropertyValue>>,
 
     #[serde(default)]
     pub state: StringMap<Node<state_property::Value>>,
@@ -35,6 +43,7 @@ pub struct MachineSchemaRaw {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Descriptions {
     #[serde(default)]
     pub config: StringMap<DescriptionNode>,
@@ -49,11 +58,11 @@ pub struct Descriptions {
     // pub commands: StringMap<CommandDescriptions>,
 }
 
-#[derive(Debug, Clone)]
-pub struct CommandDescriptions {
-    pub description: LocalizedText,
-    pub parameters: StringMap<DescriptionNode>,
-}
+// #[derive(Debug, Clone)]
+// pub struct CommandDescriptions {
+//     pub description: LocalizedText,
+//     pub parameters: StringMap<DescriptionNode>,
+// }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
@@ -66,7 +75,7 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
     type Error = String;
 
     #[rustfmt::skip]
-    fn try_from(mut raw: MachineSchemaRaw) -> Result<Self, Self::Error> {
+    fn try_from(raw: MachineSchemaRaw) -> Result<Self, Self::Error> {
         let config = merge_with_properties(
             "config", "config", 
             raw.descriptions.config, 
@@ -101,20 +110,25 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
         //     commands.insert(name, command);
         // }
         
+        let Identification { name, vendor_id, machine_id } = raw.identification;
+
         Ok(Self {
             qf_version: raw.qf_version,
-            name: raw.name,
+            name,
             revision: raw.revision,
-            identification: raw.identification,
+            identification: MachineIdentification { 
+                vendor_id, 
+                machine_id, 
+            },
             config_properties: config,
             state_properties: state,
             measurements,
-            commands: raw.commands,
+            // commands: raw.commands,
         })
     }
 }
 
-pub fn merge_with_properties<V>(
+fn merge_with_properties<V>(
     section: &str,
     key: &str,
     descs: StringMap<DescriptionNode>,

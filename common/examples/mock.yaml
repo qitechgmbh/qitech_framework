@@ -1,0 +1,42 @@
+qf_version: 1.0
+revision: 1
+
+identification:
+  name: mock_machine
+  vendor_id: 1
+  machine_id: 99
+
+config: 
+  enum: !enum 
+    variants: [apple, tomato, carrot]
+    default: apple
+
+  num: !millimeter
+    default: 1.0
+
+state:
+  enum: !enum 
+    variants: [apple, tomato, carrot]
+
+measurements:
+  counter: !float
+
+commands:
+  start_winding: !command
+
+  puller:
+    start: !command
+      arg0: !float
+      arg1: !enum
+        variants: [apple, tomato, carrot]
+
+
+      group:
+        arg_2: !command
+
+events: 
+  order_started: !event
+    order_id: !integer
+    worker_id: !integer
+    some_array: !array
+      item: !float

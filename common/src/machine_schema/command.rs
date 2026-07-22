@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::{fmt::Display, str::FromStr};
-use super::{StringMap, CommandParameter};
+use super::{StringMap, Node};
 
 // TODO: rethink default definitions and arrays
 pub type CommandParameters = StringMap<CommandParameter>;

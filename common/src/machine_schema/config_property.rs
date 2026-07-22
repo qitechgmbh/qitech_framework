@@ -1,16 +1,18 @@
+use crate::machine_schema::value_type;
+
 use super::{EnumVariants, Range, FloatSemantic};
 
 #[derive(Debug, Clone)]
-pub struct Value {
-    pub kind: ValueKind,
+pub struct ConfigPropertyValue {
+    pub kind: ConfigPropertyValueKind,
     pub nullable: bool,
     pub persistent: bool,
 }
 
 #[derive(Debug, Clone)]
-pub enum ValueKind {
+pub enum ConfigPropertyValueKind {
     Enum {
-    /// Variants of the enum. Required.
+        /// Variants of the enum. Required.
         variants: EnumVariants,
         /// Default enum variant. Required.
         default: Option<String>,
@@ -52,7 +54,7 @@ use std::fmt::Display;
 use serde::{Deserialize, de::{self, Deserializer, DeserializeOwned}};
 use super::ValueType;
 
-impl<'de> Deserialize<'de> for Value {
+impl<'de> Deserialize<'de> for ConfigPropertyValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -63,10 +65,13 @@ impl<'de> Deserialize<'de> for Value {
             return Err(de::Error::custom("expected tagged value"));
         };
 
-        // read the value type / tag
-        let value_t = yaml_serde::from_str::<ValueType>(&tagged.tag.to_string())
-            .map_err(de::Error::custom)?;
+        // skip te '!'
+        let tag = &tagged.tag.to_string()[1..];
 
+        // read the value type / tag
+        let value_t = value_type::parse(tag)
+            .map_err(de::Error::custom)?;
+        
         let value = tagged.value;
 
         match value_t {
@@ -120,7 +125,7 @@ pub struct EnumValueHelper {
     default: Option<String>,
 }
 
-fn process_enum<E: de::Error>(helper: EnumValueHelper) -> Result<Value, E> {
+fn process_enum<E: de::Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue, E> {
     let EnumValueHelper {
         nullable,
         persistent,
@@ -136,12 +141,12 @@ fn process_enum<E: de::Error>(helper: EnumValueHelper) -> Result<Value, E> {
         };
 
         if variants.get_int(variant).is_none() {
-            return Err(E::custom(format!("no such variant {:?}", variant)));
+            return Err(E::custom(format!("no variant named '{}'", variant)));
         }
     }
 
-    Ok(Value {
-        kind: ValueKind::Enum { variants, default }, 
+    Ok(ConfigPropertyValue {
+        kind: ConfigPropertyValueKind::Enum { variants, default }, 
         nullable, 
         persistent 
     })
@@ -161,7 +166,7 @@ struct StringValueHelper {
     persistent: bool,
 }
 
-fn process_string<E: de::Error>(helper: StringValueHelper) -> Result<Value, E> {
+fn process_string<E: de::Error>(helper: StringValueHelper) -> Result<ConfigPropertyValue, E> {
     let StringValueHelper {
         default,
         bounds,
@@ -185,8 +190,8 @@ fn process_string<E: de::Error>(helper: StringValueHelper) -> Result<Value, E> {
         }
     }
 
-    Ok(Value {
-        kind: ValueKind::String { default, bounds }, 
+    Ok(ConfigPropertyValue {
+        kind: ConfigPropertyValueKind::String { default, bounds }, 
         nullable, 
         persistent 
     })
@@ -204,7 +209,7 @@ pub struct BooleanValueHelper {
     pub persistent: bool,
 }
 
-fn process_bool<E: de::Error>(helper: BooleanValueHelper) -> Result<Value, E> {
+fn process_bool<E: de::Error>(helper: BooleanValueHelper) -> Result<ConfigPropertyValue, E> {
     let BooleanValueHelper {
         default,
         nullable,
@@ -217,15 +222,15 @@ fn process_bool<E: de::Error>(helper: BooleanValueHelper) -> Result<Value, E> {
         ));
     }
 
-    Ok(Value {
-        kind: ValueKind::Boolean { default }, 
+    Ok(ConfigPropertyValue {
+        kind: ConfigPropertyValueKind::Boolean { default }, 
         nullable, 
         persistent 
     })
 }
 
 // --- integer ---
-fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<Value, E> {
+fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<ConfigPropertyValue, E> {
     let NumericValueHelper {
         default,
         range,
@@ -239,8 +244,8 @@ fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<Valu
         ));
     }
 
-    Ok(Value {
-        kind: ValueKind::Integer { default, range }, 
+    Ok(ConfigPropertyValue {
+        kind: ConfigPropertyValueKind::Integer { default, range }, 
         nullable, 
         persistent 
     })
@@ -250,7 +255,7 @@ fn process_integer<E: de::Error>(helper: NumericValueHelper<i64>) -> Result<Valu
 fn process_float<E: de::Error>(
     helper: NumericValueHelper<f64>,
     semantic: FloatSemantic,
-) -> Result<Value, E> {
+) -> Result<ConfigPropertyValue, E> {
     let NumericValueHelper {
         default,
         range,
@@ -264,8 +269,8 @@ fn process_float<E: de::Error>(
         ));
     }
 
-    Ok(Value {
-        kind: ValueKind::Float { semantic, default, range }, 
+    Ok(ConfigPropertyValue {
+        kind: ConfigPropertyValueKind::Float { semantic, default, range }, 
         nullable, 
         persistent 
     })

@@ -1,3 +1,5 @@
+use crate::machine_schema::value_type;
+
 use super::{EnumVariants, FloatSemantic};
 
 #[derive(Debug, Clone)]
@@ -8,17 +10,17 @@ pub struct Value {
 
 #[derive(Debug, Clone)]
 pub enum ValueKind {
-    Enum(EnumValue),
+    Enum {
+        /// The set of allowed variants for this value. Required.
+        variants: EnumVariants,
+    },
     String,
     Boolean,
     Integer,
-    Float(FloatSemantic),
-}
-
-#[derive(Debug, Clone)]
-pub struct EnumValue {
-    /// The set of allowed variants for this value. Required.
-    pub variants: EnumVariants,
+    Float {
+        /// Representation of the float. E.g. plain, fraction, millimeter
+        semantic: FloatSemantic,
+    },
 }
 
 // --- deserialize implemenations ---
@@ -36,10 +38,13 @@ impl<'de> Deserialize<'de> for Value {
             return Err(de::Error::custom("expected tagged value"));
         };
 
-        // read the value type / tag
-        let value_t = yaml_serde::from_str::<ValueType>(&tagged.tag.to_string())
-            .map_err(de::Error::custom)?;
+        // skip te '!'
+        let tag = &tagged.tag.to_string()[1..];
 
+        // read the value type / tag
+        let value_t = value_type::parse(tag)
+            .map_err(de::Error::custom)?;
+        
         let value = tagged.value;
 
         match value_t {
@@ -47,7 +52,7 @@ impl<'de> Deserialize<'de> for Value {
                 let EnumValueHelper { nullable, variants } = EnumValueHelper::deserialize(value)
                     .map_err(de::Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Enum(EnumValue { variants }), nullable })
+                Ok(Value { kind: ValueKind::Enum { variants }, nullable })
             },
             ValueType::String => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
@@ -71,7 +76,7 @@ impl<'de> Deserialize<'de> for Value {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(de::Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Float(semantic), nullable })
+                Ok(Value { kind: ValueKind::Float { semantic }, nullable })
             },
         }
     }

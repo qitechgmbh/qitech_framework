@@ -1,8 +1,6 @@
-use crate::{MachineIdentification, Version};
+use std::str::FromStr;
 
-pub type ConfigProperty = Node<config_property::Value>;
-pub type StateProperty = Node<state_property::Value>;
-pub type MeasurementProperty = Node<measurement::Value>;
+use crate::{MachineIdentification, Version};
 
 mod types;
 use types::Map;
@@ -19,10 +17,20 @@ mod value_type;
 pub use value_type::ValueType;
 pub use value_type::FloatSemantic;
 
-pub mod config_property;
-pub mod state_property;
-pub mod measurement;
+mod config_property;
+pub use config_property::ConfigPropertyValue;
+pub use config_property::ConfigPropertyValueKind;
+pub type ConfigProperty = Node<ConfigPropertyValue>;
+
+mod state_property;
+pub type StateProperty = Node<state_property::Value>;
+
+mod measurement;
+pub type MeasurementProperty = Node<measurement::Value>;
+
 // pub mod command;
+mod event;
+
 mod raw;
 
 #[derive(Debug, Clone)]
@@ -41,8 +49,16 @@ pub struct MachineSchema {
     // events
 }
 
+impl FromStr for MachineSchema {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, String> {
+        yaml_serde::from_str(s).map_err(|e| e.to_string())
+    }
+}
+
 impl MachineSchema {
-    pub fn find_config_property<'a>(&'a self, name: &str) -> Option<&'a config_property::ValueKind> {
+    pub fn find_config_property<'a>(&'a self, name: &str) -> Option<&'a config_property::ConfigPropertyValue> {
         let mut parts = name.split('.');
         let first = parts.next()?;
         let property = self.config_properties.get(first)?;
@@ -82,6 +98,7 @@ impl MachineSchema {
     }
 }
 
+// --- deserialize implemenations ---
 use serde::de::{Deserializer, Deserialize, Error};
 
 impl<'de> Deserialize<'de> for MachineSchema {
@@ -90,6 +107,11 @@ impl<'de> Deserialize<'de> for MachineSchema {
         D: Deserializer<'de>,
     {
         let raw = raw::MachineSchemaRaw::deserialize(deserializer)?;
+
+        if !Version::is_supported(raw.qf_version) {
+            return Err(D::Error::custom(format!("Unsupported version: {}", raw.qf_version)));
+        }
+
         MachineSchema::try_from(raw).map_err(D::Error::custom)
     }
 }

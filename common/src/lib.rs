@@ -11,9 +11,8 @@ pub use ident::DeviceHardwareIdentification;
 pub use ident::DeviceHardwareIdentificationEthercat;
 pub use ident::DeviceHardwareIdentificationSerial;
 
-mod machine_schema;
+pub mod machine_schema;
 pub use machine_schema::MachineSchema;
-
 
 mod machine;
 pub use machine::MachinesReport;
@@ -63,3 +62,7 @@ pub mod vendors {
         private::get_id(name)
     }
 }
+
+// exposes with_uom!() for macro calls that operate on uom units
+// generates the macro from the units.toml file using build.rs
+include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
