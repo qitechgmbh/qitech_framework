@@ -1,8 +1,6 @@
 use std::fmt::Display;
 use std::str::FromStr;
-
-use crate::machine_schema::{FieldMetadata, Range, Type, r#type};
-use crate::machine_schema::{EnumVariants, FloatSemantic, types::StringMap};
+use super::{StringMap, Type, FloatSemantic, EnumVariants, Range, FieldMetadata};
 
 #[derive(Debug, Clone)]
 pub struct Command {
@@ -68,7 +66,7 @@ impl<'de> Deserialize<'de> for Command {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = r#type::parse(&tag)
+                let value_type = Type::parse(&tag)
                     .map_err(A::Error::custom)?;
 
                 if !matches!(value_type, Type::Command) {
@@ -105,7 +103,7 @@ impl<'de> Deserialize<'de> for CommandField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = r#type::parse(&tag)
+                let value_type = Type::parse(&tag)
                     .map_err(A::Error::custom)?;
 
                 match value_type {

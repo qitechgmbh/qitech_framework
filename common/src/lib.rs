@@ -1,3 +1,7 @@
+// exposes with_uom!() for macro calls that operate on uom units
+// generates the macro from the units.toml file using build.rs
+include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
+
 mod version;
 pub use version::Version;
 
@@ -46,6 +50,9 @@ pub use types::ScalarValueKind;
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
 
+    pub use generated::Entry;
+    pub const QITECH: Entry = generated::QITECH;
+
     pub const fn contains_id(id: u16) -> bool {
         get_name(id).is_some()
     }
@@ -55,14 +62,10 @@ pub mod vendors {
     }
 
     pub const fn get_name(id: u16) -> Option<&'static str> {
-        private::get_name(id)
+        generated::get_name(id)
     }
 
     pub fn get_id(name: &str) -> Option<u16> {
-        private::get_id(name)
+        generated::get_id(name)
     }
 }
-
-// exposes with_uom!() for macro calls that operate on uom units
-// generates the macro from the units.toml file using build.rs
-include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));

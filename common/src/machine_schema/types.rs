@@ -2,9 +2,83 @@ use std::fmt::{self, Display, Formatter};
 use indexmap::IndexMap;
 use unic_langid::LanguageIdentifier;
 
+pub mod quantity {
+    // generated module needs this
+    use super::*;
+
+    // includes mod generated { ... }
+    include!(concat!(env!("OUT_DIR"), "/quantity.rs"));
+
+    pub use generated::Quantity;
+    pub use generated::AccelerationUnit;
+    pub use generated::AmountOfSubstanceUnit;
+    pub use generated::AngleUnit;
+    pub use generated::AngularAccelerationUnit;
+    pub use generated::AngularJerkUnit;
+    pub use generated::AngularVelocityUnit;
+    pub use generated::ElectricCurrentUnit;
+    pub use generated::ElectricPotentialUnit;
+    pub use generated::FrequencyUnit;
+    pub use generated::JerkUnit;
+    pub use generated::LengthUnit;
+    pub use generated::LuminousIntensityUnit;
+    pub use generated::MassUnit;
+    pub use generated::PressureUnit;
+    pub use generated::RatioUnit;
+    pub use generated::ThermodynamicTemperatureUnit;
+    pub use generated::TimeUnit;
+    pub use generated::VelocityUnit;
+    pub use generated::VolumeRateUnit;
+}
+
+pub use quantity::Quantity;
 pub type Map<K, V> = IndexMap<K, V>;
 pub type StringMap<T> = Map<String, T>;
 pub type LocalizedText = Map<LanguageIdentifier, String>;
+
+#[derive(Debug, Clone, Copy)]
+pub enum Type {
+    Object,
+    Array,
+    Enum,
+    String,
+    Boolean,
+    Integer,
+    Float(FloatSemantic),
+    Command,
+    Event,
+}
+
+impl Type {
+    pub fn parse(tag: &str) -> Result<Self, String> {
+        if let Some(v) = Quantity::parse(tag) {
+            return Ok(Self::Float(FloatSemantic::Quantity(v)));
+        }
+
+        Ok(match tag {
+            "command" => Self::Command,
+            "event" => Self::Event,
+            "object" => Self::Object,
+            "array" => Self::Array,
+            "enum" => Self::Enum,
+            "string" => Self::String,
+            "boolean" => Self::Boolean,
+            "integer" => Self::Integer,
+            "float" => Self::Float(FloatSemantic::Plain),
+            "fraction" => Self::Float(FloatSemantic::Fraction),
+            "percentage" => Self::Float(FloatSemantic::Percentage),
+            other => return Err(format!("invalid type {other}")),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum FloatSemantic {
+    Plain,
+    Fraction,
+    Percentage,
+    Quantity(Quantity),
+}
 
 #[derive(Debug, Clone)]
 pub struct Node<V> {
@@ -37,13 +111,44 @@ pub enum Range<T> {
     Between { min: T, max: T },
 }
 
-impl<T: Copy + PartialOrd> Range<T> {
+impl<T> Range<T> 
+where 
+    T: Copy + PartialOrd
+{
     pub fn in_range(self, value: T) -> bool {
         match self {
             Range::Unbounded => true,
             Range::Min(min) => value >= min,
             Range::Max(max) => value <= max,
             Range::Between { min, max } => min <= value && value <= max,
+        }
+    }
+}
+
+// --- display implementations ---
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Object => write!(f, "!object"),
+            Type::Array => write!(f, "!array"),
+            Type::Enum => write!(f, "!enum"),
+            Type::String => write!(f, "!string"),
+            Type::Boolean => write!(f, "!boolean"),
+            Type::Integer => write!(f, "!integer"),
+            Type::Float(semantic) => write!(f, "{semantic}"),
+            Type::Command => write!(f, "!command"),
+            Type::Event => write!(f, "!event"),
+        }
+    }
+}
+
+impl Display for FloatSemantic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            FloatSemantic::Plain => write!(f, "!float"),
+            FloatSemantic::Fraction => write!(f, "!fraction"),
+            FloatSemantic::Percentage => write!(f, "!percentage"),
+            FloatSemantic::Quantity(quantity) => write!(f, "!{quantity}"),
         }
     }
 }

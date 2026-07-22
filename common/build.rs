@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, env, fs::File, io::{self, BufWriter, Write}, path::Path};
+use std::io::{self, BufWriter, Write};
+use std::collections::BTreeMap;
+use std::path::Path;
+use std::fs::File;
+use std::env;
 use serde::Deserialize;
 
 const ENV_VAR_OUT_DIR: &str = "OUT_DIR";
@@ -9,29 +13,33 @@ const VENDORS_EXPORT_FILE_NAME: &str = "vendors.rs";
 
 const QUANTITIES_PATH: &str = "quantities.toml";
 const QUANTITIES_DATA: &str = include_str!("quantities.toml");
+const QUANTITY_EXPORT_FILE_NAME: &str = "quantity.rs";
 const WITH_UOM_EXPORT_FILE_NAME: &str = "with_uom.rs";
-const PARSE_TYPE_EXPORT_FILE_NAME: &str = "parse_type.rs";
 
-/// Generates code related to vendors
 fn main() -> io::Result<()> {
+    println!("cargo:rerun-if-changed={VENDORS_PATH}");
+    println!("cargo:rerun-if-changed={QUANTITIES_PATH}");
+
     let out_dir = env::var(ENV_VAR_OUT_DIR).unwrap();
     create_vendors(&out_dir)?;
+    create_quantity(&out_dir)?;
     create_with_uom(&out_dir)?;
-    create_parse_value_type(&out_dir)?;
     Ok(())
 }
 
+/// generates the vendors constants and lookups from the vendors.toml
 fn create_vendors(out_dir: &String) -> io::Result<()> {
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Entry { id: u16, name: String }
 
-    println!("cargo:rerun-if-changed={VENDORS_PATH}");
-
     let out_path = Path::new(&out_dir).join(VENDORS_EXPORT_FILE_NAME);   
     let mut file = BufWriter::new(File::create(&out_path)?);
 
     let entries = toml::from_str::<BTreeMap<String, Entry>>(VENDORS_DATA).unwrap();
+
+    // encapsulate inside private module
+    writeln!(file, "mod generated {{")?;
 
     // constants
     writeln!(file, "pub struct Entry {{ pub id: u16, pub name: &'static str }}\n")?;
@@ -40,8 +48,6 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
         writeln!(file, "pub const {abbr}: Entry = Entry {{ id: {id}, name: \"{name}\" }};",)?;
     }
     writeln!(file)?;
-
-    writeln!(file, "mod private {{")?;
 
     // get_by_id
     writeln!(file, "pub const fn get_name(id: u16) -> Option<&'static str> {{")?;
@@ -79,10 +85,99 @@ struct UomEntry {
     units: Vec<String>,
 }
 
+/// generates quantity.rs from quantities.rs
+fn create_quantity(out_dir: &String) -> io::Result<()> {
+    let out_path = Path::new(&out_dir).join(QUANTITY_EXPORT_FILE_NAME);   
+    let mut file = BufWriter::new(File::create(&out_path)?);
 
+    // enclose in generated module to make it obvious in place
+    writeln!(file, "mod generated {{")?;
+    writeln!(file, "use super::*;")?;
+
+    let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)
+        .unwrap_or_else(|e| panic!("failed to parse {QUANTITIES_PATH}: {e}"));
+
+    // --- pass one: Quantity definition ---
+    writeln!(file, "#[derive(Debug, Clone, Copy)]")?;
+    writeln!(file, "pub enum Quantity {{")?;
+
+    for UomEntry { name, .. } in &quantity {
+        writeln!(file, "{name}({name}Unit),")?;
+    }
+
+    writeln!(file, "}}")?;
+
+    // --- pass two: emit Quantit Unit types ---
+    for UomEntry { name, units } in &quantity {
+        writeln!(file, "#[derive(Debug, Clone, Copy)]")?;
+        writeln!(file, "pub enum {name}Unit {{")?;
+
+        for unit in units {
+            writeln!(file, "{unit},")?;
+        }
+
+        writeln!(file, "}}")?;
+    }
+
+    // --- pass three: emit Display for Quantity ---
+    writeln!(file, "impl Display for Quantity {{")?;
+    writeln!(file, "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{")?;
+    writeln!(file, "        match self {{")?;
+
+    for UomEntry { name, .. } in &quantity {
+        writeln!(file, "        Self::{name}(u) => write!(f, \"{{u}}\"),")?;
+    }
+
+    writeln!(file, "        }}")?;
+    writeln!(file, "    }}")?;
+    writeln!(file, "}}")?;
+
+    // --- pass four: emit Display for Quantity Unit Types ---
+    for UomEntry { name, units } in &quantity {
+        writeln!(file, "impl Display for {name}Unit {{")?;
+        writeln!(file, "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{")?;
+        writeln!(file, "        match self {{")?;
+
+        for unit in units {
+            let unit_snake = pascal_to_snake(unit);
+            writeln!(file, "        Self::{unit} => write!(f, \"{unit_snake}\"),")?;
+        }
+
+        writeln!(file, "        }}")?;
+        writeln!(file, "    }}")?;
+        writeln!(file, "}}")?;
+    }
+
+    // --- pass four: emit Quantity::parse(tag: &str) ---
+    writeln!(file, "impl Quantity {{")?;
+    writeln!(file, "    pub fn parse(tag: &str) -> Option<Self> {{")?;
+    writeln!(file, "        Some(match tag {{")?;
+
+    for UomEntry { name, units } in &quantity {
+        for unit in units {
+            let unit_snake = pascal_to_snake(unit);
+
+            writeln!(
+                file,
+                "            \"{unit_snake}\" => Self::{name}({name}Unit::{unit}),"
+            )?;
+        }
+    }
+
+    writeln!(file, "            _ => return None,")?;
+    writeln!(file, "        }})")?;
+    writeln!(file, "    }}")?;
+    writeln!(file, "}}")?;
+
+    // --- finish mod generated ---
+    writeln!(file, "}}")?;
+
+    Ok(())
+}
+
+/// generates with_uom!() from quantities.rs.
+/// a macro that accepts a macro to iterate all uom units
 fn create_with_uom(out_dir: &String) -> io::Result<()>  {
-    println!("cargo:rerun-if-changed={QUANTITIES_PATH}");
-
     let out_path = Path::new(&out_dir).join(WITH_UOM_EXPORT_FILE_NAME);   
     let mut file = BufWriter::new(File::create(&out_path)?);
 
@@ -109,50 +204,10 @@ fn create_with_uom(out_dir: &String) -> io::Result<()>  {
     }
 
     file.write_all(b"};\n}\n")?;
-
     Ok(())
 }
 
-fn create_parse_value_type(out_dir: &String) -> io::Result<()> {
-    const BASE: &str = r#"
-    pub fn parse(tag: &str) -> Result<ValueType, String> {
-        Ok(match tag {
-            "command" => ValueType::Command,
-            "event" => ValueType::Event,
-            "object" => ValueType::Object,
-            "array" => ValueType::Array,
-            "enum" => ValueType::Enum,
-            "string" => ValueType::String,
-            "integer" => ValueType::Integer,
-            "float" => ValueType::Float(FloatSemantic::Plain),
-            "fraction" => ValueType::Float(FloatSemantic::Fraction),
-            "percentage" => ValueType::Float(FloatSemantic::Percentage),
-    "#;
-
-    let out_path = Path::new(&out_dir).join(PARSE_TYPE_EXPORT_FILE_NAME);   
-    let mut file = BufWriter::new(File::create(&out_path)?);
-
-    let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)
-        .unwrap_or_else(|e| panic!("failed to parse {QUANTITIES_PATH}: {e}"));
-
-    write!(file, "{BASE}")?;
-
-    for UomEntry { name, units } in &quantity {
-        for unit in units {
-            let unit_snake = pascal_to_snake(unit);
-
-            writeln!(file, "\"{unit_snake}\" => ValueType::Float(FloatSemantic::Quantity(")?;
-            writeln!(file, "    Quantity::{name}({name}Unit::{unit})")?;
-            writeln!(file, ")),")?;
-        }
-    }
-    writeln!(file, "other => return Err(format!(\"Unknown value type {{other}}\"))")?;
-    writeln!(file, "}})")?;
-    writeln!(file, "}}")?;
-
-    Ok(())
-}
-
+// --- utils ---
 fn pascal_to_snake(input: &str) -> String {
     let mut out = String::with_capacity(input.len() + 8);
     for (i, ch) in input.chars().enumerate() {

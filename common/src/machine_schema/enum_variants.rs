@@ -1,4 +1,4 @@
-use crate::machine_schema::{StringMap, Map};
+use super::{StringMap, Map};
 
 #[derive(Debug, Clone)]
 pub struct EnumVariants {

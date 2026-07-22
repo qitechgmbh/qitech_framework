@@ -33,9 +33,7 @@ pub struct MeasurementStatistics {
 
 // --- deserialize implemenations ---
 use serde::de::{Error, Deserializer};
-use crate::machine_schema::{FloatSemantic, r#type};
-
-use super::Type;
+use super::{Type, FloatSemantic};
 
 impl<'de> Deserialize<'de> for MeasurementValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -52,7 +50,7 @@ impl<'de> Deserialize<'de> for MeasurementValue {
         let tag = &tagged.tag.to_string()[1..];
 
         // read the value type / tag
-        let value_t = r#type::parse(tag)
+        let value_t = Type::parse(tag)
             .map_err(Error::custom)?;
         
         let value = tagged.value;

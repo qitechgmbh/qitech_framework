@@ -1,5 +1,4 @@
-use crate::machine_schema::{FieldMetadata, Type, r#type};
-use crate::machine_schema::{EnumVariants, FloatSemantic, types::StringMap};
+use super::{StringMap, Type, FloatSemantic, EnumVariants, FieldMetadata};
 
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -52,10 +51,10 @@ impl<'de> Deserialize<'de> for Event {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = r#type::parse(&tag)
+                let ty = Type::parse(&tag)
                     .map_err(A::Error::custom)?;
 
-                if !matches!(value_type, Type::Event) {
+                if !matches!(ty, Type::Event) {
                     return Err(Error::custom(format!("expected !event, received: !{tag}.")))
                 }
 
@@ -89,10 +88,10 @@ impl<'de> Deserialize<'de> for EventField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = r#type::parse(&tag)
+                let ty = Type::parse(&tag)
                     .map_err(A::Error::custom)?;
 
-                match value_type {
+                match ty {
                     Type::Object => {
                         let ObjectHelper { fields, nullable } = variant.newtype_variant()?;
 

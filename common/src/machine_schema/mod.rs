@@ -3,16 +3,14 @@ use crate::{MachineIdentification, Version};
 
 mod types;
 use types::{Map, StringMap};
+pub use types::{Type, FloatSemantic};
+pub use types::quantity::{self, Quantity};
 pub use types::LocalizedText;
 pub use types::Node;
 pub use types::NodeKind;
 pub use types::NodeMetadata;
 pub use types::FieldMetadata;
 pub use types::Range;
-
-mod r#type;
-pub use r#type::Type;
-pub use r#type::FloatSemantic;
 
 mod enum_variants;
 pub use enum_variants::EnumVariants;

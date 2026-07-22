@@ -1,6 +1,4 @@
-use crate::machine_schema::r#type::{self, Type};
-
-use super::{EnumVariants, FloatSemantic, Range};
+use super::{Type, EnumVariants, FloatSemantic, Range};
 
 #[derive(Debug, Clone)]
 pub struct ConfigPropertyValue {
@@ -80,7 +78,7 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
                     .strip_prefix('!')
                     .ok_or_else(|| A::Error::custom("expected yaml tag"))?;
 
-                match r#type::parse(tag).map_err(A::Error::custom)? {
+                match Type::parse(tag).map_err(A::Error::custom)? {
                     Type::Enum => {
                         let helper = variant.newtype_variant()?;
                         process_enum(helper)

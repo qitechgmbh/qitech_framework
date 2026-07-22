@@ -1,6 +1,4 @@
-use crate::machine_schema::r#type;
-
-use super::{EnumVariants, FloatSemantic};
+use super::{FloatSemantic, EnumVariants};
 
 #[derive(Debug, Clone)]
 pub struct StatePropertyValue {
@@ -42,7 +40,7 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
         let tag = &tagged.tag.to_string()[1..];
 
         // read the value type / tag
-        let value_t = r#type::parse(tag)
+        let value_t = Type::parse(tag)
             .map_err(Error::custom)?;
         
         let value = tagged.value;
