@@ -1,4 +1,4 @@
-use super::{Type, EnumVariants, FloatSemantic, Range};
+use super::{EnumVariants, FloatSemantic, Range};
 
 #[derive(Debug, Clone)]
 pub struct ConfigPropertyValue {
@@ -47,12 +47,11 @@ pub enum ConfigPropertyValueKind {
 }
 
 // --- deserialize implemenations ---
-use serde::{
-    Deserialize,
-    de::{DeserializeOwned, Deserializer, EnumAccess, Error, VariantAccess, Visitor},
-};
 use std::fmt::{self, Display};
 use std::str::FromStr;
+use serde::Deserialize;
+use serde::de::{DeserializeOwned, Deserializer, EnumAccess, Error, VariantAccess, Visitor};
+use super::Type;
 
 impl<'de> Deserialize<'de> for ConfigPropertyValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

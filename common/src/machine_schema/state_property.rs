@@ -22,7 +22,9 @@ pub enum StatePropertyValueKind {
 }
 
 // --- deserialize implemenations ---
-use serde::{Deserialize, de::{Error, Deserializer}};
+use std::fmt;
+use serde::Deserialize;
+use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
 use super::Type;
 
 impl<'de> Deserialize<'de> for StatePropertyValue {
@@ -30,54 +32,90 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
     where
         D: Deserializer<'de>,
     {
-        let value = yaml_serde::Value::deserialize(deserializer)?;
+        struct StatePropertyVisitor;
 
-        let yaml_serde::Value::Tagged(tagged) = value else {
-            return Err(Error::custom("expected tagged value"));
-        };
+        impl<'de> Visitor<'de> for StatePropertyVisitor {
+            type Value = StatePropertyValue;
 
-        // skip te '!'
-        let tag = &tagged.tag.to_string()[1..];
-
-        // read the value type / tag
-        let value_t = Type::parse(tag)
-            .map_err(Error::custom)?;
-        
-        let value = tagged.value;
-
-        match value_t {
-            Type::Enum => {
-                let EnumValueHelper { nullable, variants } = EnumValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                Ok(StatePropertyValue { kind: StatePropertyValueKind::Enum { variants }, nullable })
-            },
-            Type::String => {
-                let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                Ok(StatePropertyValue { kind: StatePropertyValueKind::String, nullable })
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a tagged state property value")
             }
-            Type::Boolean => {
-                let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
 
-                Ok(StatePropertyValue { kind: StatePropertyValueKind::Boolean, nullable })
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            where
+                A: EnumAccess<'de>,
+            {
+                let (tag, variant) = data.variant::<String>()?;
+
+                match Type::parse(&tag).map_err(A::Error::custom)? {
+                    Type::Enum => {
+                        let EnumValueHelper {
+                            nullable,
+                            variants,
+                        } = variant.newtype_variant()?;
+
+                        Ok(StatePropertyValue {
+                            kind: StatePropertyValueKind::Enum {
+                                variants,
+                            },
+                            nullable,
+                        })
+                    }
+
+                    Type::String => {
+                        let OtherValueHelper {
+                            nullable,
+                        } = variant.newtype_variant()?;
+
+                        Ok(StatePropertyValue {
+                            kind: StatePropertyValueKind::String,
+                            nullable,
+                        })
+                    }
+
+                    Type::Boolean => {
+                        let OtherValueHelper {
+                            nullable,
+                        } = variant.newtype_variant()?;
+
+                        Ok(StatePropertyValue {
+                            kind: StatePropertyValueKind::Boolean,
+                            nullable,
+                        })
+                    }
+
+                    Type::Integer => {
+                        let OtherValueHelper {
+                            nullable,
+                        } = variant.newtype_variant()?;
+
+                        Ok(StatePropertyValue {
+                            kind: StatePropertyValueKind::Integer,
+                            nullable,
+                        })
+                    }
+
+                    Type::Float(semantic) => {
+                        let OtherValueHelper {
+                            nullable,
+                        } = variant.newtype_variant()?;
+
+                        Ok(StatePropertyValue {
+                            kind: StatePropertyValueKind::Float {
+                                semantic,
+                            },
+                            nullable,
+                        })
+                    }
+
+                    other => Err(A::Error::custom(format!(
+                        "unsupported state property type: {other:?}"
+                    ))),
+                }
             }
-            Type::Integer => {
-                let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                Ok(StatePropertyValue { kind: StatePropertyValueKind::String, nullable })
-            }
-            Type::Float(semantic) => {
-                let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                Ok(StatePropertyValue { kind: StatePropertyValueKind::Float { semantic }, nullable })
-            },
-            other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
+
+        deserializer.deserialize_any(StatePropertyVisitor)
     }
 }
 

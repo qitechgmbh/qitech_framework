@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use crate::{MachineIdentification, Version};
 
 mod types;
@@ -56,11 +55,9 @@ pub struct MachineSchema {
     pub events: StringMap<Node<Event>>,
 }
 
-impl FromStr for MachineSchema {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, String> {
-        yaml_serde::from_str(s).map_err(|e| e.to_string())
+impl MachineSchema {
+    pub fn from_yaml_str(value: &str) -> yaml_serde::Result<Self> {
+        yaml_serde::from_str(value)
     }
 }
 

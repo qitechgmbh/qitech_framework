@@ -1,3 +1,4 @@
+use super::FloatSemantic;
 use serde::Deserialize ;
 
 #[derive(Debug, Clone)]
@@ -32,56 +33,92 @@ pub struct MeasurementStatistics {
 }
 
 // --- deserialize implemenations ---
-use serde::de::{Error, Deserializer};
-use super::{Type, FloatSemantic};
+use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
+use std::fmt;
+use super::Type;
 
 impl<'de> Deserialize<'de> for MeasurementValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let value = yaml_serde::Value::deserialize(deserializer)?;
+        struct MeasurementValueVisitor;
 
-        let yaml_serde::Value::Tagged(tagged) = value else {
-            return Err(Error::custom("expected tagged value"));
-        };
+        impl<'de> Visitor<'de> for MeasurementValueVisitor {
+            type Value = MeasurementValue;
 
-        // skip te '!'
-        let tag = &tagged.tag.to_string()[1..];
-
-        // read the value type / tag
-        let value_t = Type::parse(tag)
-            .map_err(Error::custom)?;
-        
-        let value = tagged.value;
-
-        match value_t {
-            Type::Enum => {
-                Err(Error::custom("enums are not supported for measurements"))
-            },
-            Type::String => {
-                Err(Error::custom("strings are not supported for measurements"))
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a tagged measurement value")
             }
-            Type::Boolean => {
-                let BooleanHelper { nullable } = BooleanHelper::deserialize(value)
-                    .map_err(Error::custom)?;
 
-                 Ok(MeasurementValue { kind: MeasurementValueKind::Boolean, nullable })
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            where
+                A: EnumAccess<'de>,
+            {
+                let (tag, variant) = data.variant::<String>()?;
+
+                match Type::parse(&tag).map_err(A::Error::custom)? {
+                    Type::Boolean => {
+                        let BooleanHelper { nullable } =
+                            variant.newtype_variant()?;
+
+                        Ok(MeasurementValue {
+                            kind: MeasurementValueKind::Boolean,
+                            nullable,
+                        })
+                    }
+
+                    Type::Integer => {
+                        let NumericHelper {
+                            nullable,
+                            statistics,
+                        } = variant.newtype_variant()?;
+
+                        Ok(MeasurementValue {
+                            kind: MeasurementValueKind::Integer {
+                                statistics,
+                            },
+                            nullable,
+                        })
+                    }
+
+                    Type::Float(semantic) => {
+                        let NumericHelper {
+                            nullable,
+                            statistics,
+                        } = variant.newtype_variant()?;
+
+                        Ok(MeasurementValue {
+                            kind: MeasurementValueKind::Float {
+                                semantic,
+                                statistics,
+                            },
+                            nullable,
+                        })
+                    }
+
+                    Type::Enum => {
+                        Err(A::Error::custom(
+                            "enums are not supported for measurements"
+                        ))
+                    }
+
+                    Type::String => {
+                        Err(A::Error::custom(
+                            "strings are not supported for measurements"
+                        ))
+                    }
+
+                    other => {
+                        Err(A::Error::custom(format!(
+                            "unsupported measurement type: {other:?}"
+                        )))
+                    }
+                }
             }
-            Type::Integer => {
-                let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                Ok(MeasurementValue { kind: MeasurementValueKind::Integer { statistics }, nullable })
-            }
-            Type::Float(semantic) => {
-                let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                Ok(MeasurementValue { kind: MeasurementValueKind::Float { semantic, statistics }, nullable })
-            },
-            other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
+
+        deserializer.deserialize_any(MeasurementValueVisitor)
     }
 }
 
