@@ -9,7 +9,9 @@ pub struct Version {
 
 impl Version {
     /// Versions that are fully supported and safe to use.
-    pub const SUPPORTED_VERSIONS: &[Version] = &[v1_0::VERSION];
+    pub const SUPPORTED_VERSIONS: &[Version] = &[
+        Version { major: 1, minor: 0 }
+    ];
 
     /// Versions that still parse and work, but should trigger a warning
     /// since they're on their way to becoming unsupported.

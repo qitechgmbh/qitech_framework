@@ -69,16 +69,16 @@ impl ScalarValue {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Origin {
-    Request { transaction_id: u64 },
+pub enum OperationOrigin {
+    Request { request_id: u64 },
     Machine,
 }
 
-impl From<Origin> for u64 {
-    fn from(value: Origin) -> Self {
+impl From<OperationOrigin> for u64 {
+    fn from(value: OperationOrigin) -> Self {
         match value {
-            Origin::Request { transaction_id } => transaction_id,
-            Origin::Machine => 0,
+            OperationOrigin::Request { request_id } => request_id,
+            OperationOrigin::Machine => 0,
         }
     }
 }

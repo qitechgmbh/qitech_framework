@@ -1,5 +1,5 @@
 [package]
-name = "qtmf_lang"
+name = "qmf_common"
 version = "0.1.0"
 edition = "2024"
 
@@ -22,5 +22,6 @@ serde = { workspace = true }
 toml = "1.1.2"
 
 [features]
-default = []
+default = ["latest"]
+latest = ["v1_0"]
 v1_0 = []
