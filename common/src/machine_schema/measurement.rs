@@ -1,26 +1,26 @@
 use serde::Deserialize ;
 
 #[derive(Debug, Clone)]
-pub struct Value {
-    pub kind: ValueKind,
+pub struct MeasurementValue {
+    pub kind: MeasurementValueKind,
     pub nullable: bool,
 }
 
 #[derive(Debug, Clone)]
-pub enum ValueKind {
+pub enum MeasurementValueKind {
     Boolean,
     Integer{
-        statistics: Statistics,
+        statistics: MeasurementStatistics,
     },
     Float {
         semantic: FloatSemantic,
-        statistics: Statistics,
+        statistics: MeasurementStatistics,
     },
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Statistics {
+pub struct MeasurementStatistics {
     /// Track the minimum observed value each sampling cycle. Optional.
     /// Default is `false`.
     #[serde(default)]
@@ -37,7 +37,7 @@ use crate::machine_schema::{FloatSemantic, r#type};
 
 use super::Type;
 
-impl<'de> Deserialize<'de> for Value {
+impl<'de> Deserialize<'de> for MeasurementValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -68,19 +68,19 @@ impl<'de> Deserialize<'de> for Value {
                 let BooleanHelper { nullable } = BooleanHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                 Ok(Value { kind: ValueKind::Boolean, nullable })
+                 Ok(MeasurementValue { kind: MeasurementValueKind::Boolean, nullable })
             }
             Type::Integer => {
                 let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Integer { statistics }, nullable })
+                Ok(MeasurementValue { kind: MeasurementValueKind::Integer { statistics }, nullable })
             }
             Type::Float(semantic) => {
                 let NumericHelper { nullable, statistics } = NumericHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Float { semantic, statistics }, nullable })
+                Ok(MeasurementValue { kind: MeasurementValueKind::Float { semantic, statistics }, nullable })
             },
             other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
@@ -102,5 +102,5 @@ pub struct NumericHelper {
     #[serde(default)]
     pub nullable: bool,
     #[serde(default)]
-    pub statistics: Statistics,
+    pub statistics: MeasurementStatistics,
 }

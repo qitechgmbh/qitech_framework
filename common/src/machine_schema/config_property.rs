@@ -50,62 +50,93 @@ pub enum ConfigPropertyValueKind {
 
 // --- deserialize implemenations ---
 use std::str::FromStr;
-use std::fmt::Display;
-use serde::{Deserialize, de::{Error, Deserializer, DeserializeOwned}};
+use std::fmt::{self, Display};
+use serde::{Deserialize, de::{Error, Deserializer, DeserializeOwned, Visitor, EnumAccess}};
+use serde::de::value::{EnumAccessDeserializer};
 
 impl<'de> Deserialize<'de> for ConfigPropertyValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let value = yaml_serde::Value::deserialize(deserializer)?;
+        struct ConfigPropertyVisitor;
 
-        let yaml_serde::Value::Tagged(tagged) = value else {
-            return Err(Error::custom("expected tagged value"));
-        };
+        impl<'de> Visitor<'de> for ConfigPropertyVisitor {
+            type Value = ConfigPropertyValue;
 
-        // skip te '!'
-        let tag = &tagged.tag.to_string()[1..];
-
-        // read the value type / tag
-        let value_type = r#type::parse(tag)
-            .map_err(Error::custom)?;
-        
-        let value = tagged.value;
-
-        match value_type {
-            Type::Enum => {
-                let helper = EnumValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                process_enum(helper)
-            },
-            Type::String => {
-                let helper = StringValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                process_string(helper)
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a tagged config property value")
             }
-            Type::Boolean => {
-                let helper = BooleanValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
 
-                process_bool(helper)
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+            where
+                A: EnumAccess<'de>,
+            {
+                let (tag, variant) = data.variant::<String>()?;
+
+                let tag = tag
+                    .strip_prefix('!')
+                    .ok_or_else(|| A::Error::custom("expected yaml tag"))?;
+
+                let ty = r#type::parse(tag)
+                    .map_err(A::Error::custom)?;
+
+                match ty {
+                    Type::Enum => {
+                        let helper =
+                            EnumValueHelper::deserialize(
+                                EnumAccessDeserializer::new(data)
+                            )?;
+
+                        process_enum(helper)
+                    }
+
+                    Type::String => {
+                        let helper =
+                            StringValueHelper::deserialize(
+                                EnumAccessDeserializer::new(data)
+                            )?;
+
+                        process_string(helper)
+                    }
+
+                    Type::Boolean => {
+                        let helper =
+                            BooleanValueHelper::deserialize(
+                                EnumAccessDeserializer::new(data)
+                            )?;
+
+                        process_bool(helper)
+                    }
+
+                    Type::Integer => {
+                        let helper =
+                            NumericValueHelper::deserialize(
+                                EnumAccessDeserializer::new(data)
+                            )?;
+
+                        process_integer(helper)
+                    }
+
+                    Type::Float(semantic) => {
+                        let helper =
+                            NumericValueHelper::deserialize(
+                                EnumAccessDeserializer::new(data)
+                            )?;
+
+                        process_float(helper, semantic)
+                    }
+
+                    other => {
+                        Err(A::Error::custom(format!(
+                            "unsupported config property type: {other:?}"
+                        )))
+                    }
+                }
             }
-            Type::Integer => {
-                let helper = NumericValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                process_integer(helper)
-            }
-            Type::Float(semantic) => {
-                let helper = NumericValueHelper::deserialize(value)
-                    .map_err(Error::custom)?;
-
-                process_float(helper, semantic)
-            },
-            other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
+
+        deserializer.deserialize_any(ConfigPropertyVisitor)
     }
 }
 

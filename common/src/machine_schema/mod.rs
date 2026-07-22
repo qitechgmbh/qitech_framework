@@ -2,8 +2,7 @@ use std::str::FromStr;
 use crate::{MachineIdentification, Version};
 
 mod types;
-use types::Map;
-use types::StringMap;
+use types::{Map, StringMap};
 pub use types::LocalizedText;
 pub use types::Node;
 pub use types::NodeKind;
@@ -11,23 +10,25 @@ pub use types::NodeMetadata;
 pub use types::FieldMetadata;
 pub use types::Range;
 
-mod enum_variants;
-pub use enum_variants::EnumVariants;
-
 mod r#type;
 pub use r#type::Type;
 pub use r#type::FloatSemantic;
 
+mod enum_variants;
+pub use enum_variants::EnumVariants;
+
 mod config_property;
 pub use config_property::ConfigPropertyValue;
 pub use config_property::ConfigPropertyValueKind;
-pub type ConfigProperty = Node<ConfigPropertyValue>;
 
 mod state_property;
-pub type StateProperty = Node<state_property::Value>;
+pub use state_property::StatePropertyValue;
+pub use state_property::StatePropertyValueKind;
 
 mod measurement;
-pub type MeasurementProperty = Node<measurement::Value>;
+pub use measurement::MeasurementValue;
+pub use measurement::MeasurementValueKind;
+pub use measurement::MeasurementStatistics;
 
 mod command;
 pub use command::Command;
@@ -51,8 +52,8 @@ pub struct MachineSchema {
     pub name: String,
     pub identification: MachineIdentification,
     pub config_properties: StringMap<Node<ConfigPropertyValue>>,
-    pub state_properties: StringMap<Node<state_property::Value>>,
-    pub measurements: StringMap<Node<measurement::Value>>,
+    pub state_properties: StringMap<Node<state_property::StatePropertyValue>>,
+    pub measurements: StringMap<Node<measurement::MeasurementValue>>,
     pub commands: StringMap<Node<Command>>,
     pub events: StringMap<Node<Event>>,
 }
@@ -73,11 +74,32 @@ impl MachineSchema {
         Self::walk_node(property, parts)
     }
 
-    pub fn find_state_property<'a>(&'a self, name: &str) -> Option<&'a state_property::Value> {
+    pub fn find_state_property<'a>(&'a self, name: &str) -> Option<&'a state_property::StatePropertyValue> {
         let mut parts = name.split('.');
         let first = parts.next()?;
         let property = self.state_properties.get(first)?;
         Self::walk_node(property, parts)
+    }
+
+    pub fn find_measurement<'a>(&'a self, name: &str) -> Option<&'a MeasurementValue> {
+        let mut parts = name.split('.');
+        let first = parts.next()?;
+        let measurement = self.measurements.get(first)?;
+        Self::walk_node(measurement, parts)
+    }
+
+    pub fn find_command<'a>(&'a self, name: &str) -> Option<&'a Command> {
+        let mut parts = name.split('.');
+        let first = parts.next()?;
+        let command = self.commands.get(first)?;
+        Self::walk_node(command, parts)
+    }
+
+    pub fn find_event<'a>(&'a self, name: &str) -> Option<&'a Event> {
+        let mut parts = name.split('.');
+        let first = parts.next()?;
+        let event = self.events.get(first)?;
+        Self::walk_node(event, parts)
     }
 
     fn walk_node<'a, 'b, T, I>(

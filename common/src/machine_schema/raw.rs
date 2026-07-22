@@ -29,10 +29,10 @@ pub struct MachineSchemaRaw {
     pub config: StringMap<Node<config_property::ConfigPropertyValue>>,
 
     #[serde(default)]
-    pub state: StringMap<Node<state_property::Value>>,
+    pub state: StringMap<Node<state_property::StatePropertyValue>>,
 
     #[serde(default)]
-    pub measurements: StringMap<Node<measurement::Value>>,
+    pub measurements: StringMap<Node<measurement::MeasurementValue>>,
 
     #[serde(default)]
     pub commands: StringMap<Node<Command>>,

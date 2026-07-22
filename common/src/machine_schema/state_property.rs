@@ -3,13 +3,13 @@ use crate::machine_schema::r#type;
 use super::{EnumVariants, FloatSemantic};
 
 #[derive(Debug, Clone)]
-pub struct Value {
-    pub kind: ValueKind,
+pub struct StatePropertyValue {
+    pub kind: StatePropertyValueKind,
     pub nullable: bool,
 }
 
 #[derive(Debug, Clone)]
-pub enum ValueKind {
+pub enum StatePropertyValueKind {
     Enum {
         /// The set of allowed variants for this value. Required.
         variants: EnumVariants,
@@ -27,7 +27,7 @@ pub enum ValueKind {
 use serde::{Deserialize, de::{Error, Deserializer}};
 use super::Type;
 
-impl<'de> Deserialize<'de> for Value {
+impl<'de> Deserialize<'de> for StatePropertyValue {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -52,31 +52,31 @@ impl<'de> Deserialize<'de> for Value {
                 let EnumValueHelper { nullable, variants } = EnumValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Enum { variants }, nullable })
+                Ok(StatePropertyValue { kind: StatePropertyValueKind::Enum { variants }, nullable })
             },
             Type::String => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::String, nullable })
+                Ok(StatePropertyValue { kind: StatePropertyValueKind::String, nullable })
             }
             Type::Boolean => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Boolean, nullable })
+                Ok(StatePropertyValue { kind: StatePropertyValueKind::Boolean, nullable })
             }
             Type::Integer => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::String, nullable })
+                Ok(StatePropertyValue { kind: StatePropertyValueKind::String, nullable })
             }
             Type::Float(semantic) => {
                 let OtherValueHelper { nullable } = OtherValueHelper::deserialize(value)
                     .map_err(Error::custom)?;
 
-                Ok(Value { kind: ValueKind::Float { semantic }, nullable })
+                Ok(StatePropertyValue { kind: StatePropertyValueKind::Float { semantic }, nullable })
             },
             other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
         }
