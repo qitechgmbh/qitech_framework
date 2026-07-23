@@ -71,17 +71,11 @@ impl From<ResolveError> for SubscribeError {
 // --- hardware ---
 #[derive(Clone)]
 pub enum Hardware {
-    Ethercat(IdentifiedEthercat),
-    Modbus(IdentifiedModbus),
-}
-
-#[derive(Clone)]
-pub struct IdentifiedEthercat {
-    pub device: Rc<RefCell<dyn EthercatDevice>>,
-    pub ident: MachineDeviceInfo,
-}
-
-#[derive(Clone)]
-pub struct IdentifiedModbus {
-    pub device: Rc<RefCell<dyn ModbusDevice>>,
+    Ethercat {
+        device: Rc<RefCell<dyn EthercatDevice>>,
+        ident: MachineDeviceInfo,
+    },
+    Modbus {
+        device: Rc<RefCell<dyn ModbusDevice>>,
+    },
 }

@@ -1,6 +1,6 @@
 use uom::Kind;
 
-uom::system! {
+system! {
     quantities: ISQ {
         /// Length, one of the base quantities in the ISQ, denoted by the symbol L. The base unit
         /// for length is meter in the SI.

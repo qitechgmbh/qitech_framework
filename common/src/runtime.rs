@@ -30,16 +30,7 @@ pub enum RuntimeRequestKind {
         subscriber: MachineIdentificationUnique,
     },
 
-    SetMachineConfiguration {
-        /// target machine
-        target: MachineIdentificationUnique,
-
-        /// configuration resource path
-        resource_path: String,
-
-        /// assigned value
-        value: ScalarValue,
-    },
+    SetMachineConfiguration(SetMachineConfigurationRequest),
 
     InvokeMachineCommand {
         /// target machine
@@ -51,6 +42,18 @@ pub enum RuntimeRequestKind {
         /// command arguments
         arguments: serde_json::Value,
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetMachineConfigurationRequest {
+    /// target machine
+    target: MachineIdentificationUnique,
+
+    /// configuration resource path
+    resource_path: String,
+
+    /// assigned value
+    value: ScalarValue,
 }
 
 // --- report ---

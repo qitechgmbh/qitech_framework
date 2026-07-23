@@ -112,7 +112,7 @@ pub struct MachineEvent {
     pub resource_path: Cow<'static, str>,
 
     /// event payload
-    pub data: serde_json::Value,
+    pub data: String,
 
     /// event timestamp
     pub timestamp: DateTime<Utc>,
