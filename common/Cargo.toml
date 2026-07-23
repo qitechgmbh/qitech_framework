@@ -1,5 +1,5 @@
 [package]
-name = "qf_common"
+name = "qitech_framework_common"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,7 +7,6 @@ edition = "2024"
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
-qitech_lib = { workspace = true }
 
 # --- report ---
 soa_derive = "0.14.0"
@@ -24,4 +23,3 @@ toml = "1.1.2"
 [features]
 default = ["schema"]
 schema = ["dep:yaml_serde", "dep:indexmap", "dep:unic-langid"]
-with_uom = []

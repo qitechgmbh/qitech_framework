@@ -1,6 +1,4 @@
-use std::fmt::Display;
-use std::str::FromStr;
-use super::{StringMap, Type, FloatSemantic, EnumVariants, Range, FieldMetadata};
+use super::{StringMap, FloatSemantic, EnumVariants, Range, FieldMetadata};
 
 #[derive(Debug, Clone)]
 pub struct Command {
@@ -47,8 +45,11 @@ pub enum CommandFieldKind {
 }
 
 // --- deserialize implemenations ---
+use std::fmt::Display;
+use std::str::FromStr;
 use serde::Deserialize;
 use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
+use super::Type;
 
 impl<'de> Deserialize<'de> for Command {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -66,7 +67,7 @@ impl<'de> Deserialize<'de> for Command {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = Type::parse(&tag)
+                let value_type = Type::from_str(&tag)
                     .map_err(A::Error::custom)?;
 
                 if !matches!(value_type, Type::Command) {
@@ -103,7 +104,7 @@ impl<'de> Deserialize<'de> for CommandField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = Type::parse(&tag)
+                let value_type = Type::from_str(&tag)
                     .map_err(A::Error::custom)?;
 
                 match value_type {

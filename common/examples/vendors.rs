@@ -1,4 +1,4 @@
-use qf_common::vendors;
+use qitech_framework_common::vendors;
 
 pub fn main() {
     let vendor_name = vendors::get_name(1).unwrap();

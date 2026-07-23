@@ -1,12 +1,19 @@
 use std::{env, fs};
 
-use control_core::schema;
 use proc_macro2::Span;
+use qitech_framework_common::{
+    MachineSchema, schema::{
+        ConfigPropertyValue, ConfigPropertyValueKind, FloatSemantic, StatePropertyValue, StatePropertyValueKind,
+    },
+};
 use syn::{
-    Error, Expr, Ident, Lit, Meta, MetaNameValue, ExprLit, Result, Token, parse::{Parse, ParseStream}, punctuated::Punctuated, token::Comma,
+    Error, Expr, ExprLit, Ident, Lit, Meta, MetaNameValue, Result, Token,
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+    token::Comma,
 };
 
-pub struct Schema(pub control_core::schema::latest::Schema);
+pub struct Schema(pub MachineSchema);
 
 macro_rules! fail_callsite {
     ($($arg:tt)*) => {
@@ -34,12 +41,11 @@ impl Parse for Schema {
         let schema_path = format!("{schema_dir}/{machine}.yaml");
 
         // --- read the file ---
-        let yaml = fs::read_to_string(&schema_path).map_err(|e| {
-            fail_callsite!("failed reading {}: {}", schema_path, e)
-        })?;
+        let yaml = fs::read_to_string(&schema_path)
+            .map_err(|e| fail_callsite!("failed reading {}: {}", schema_path, e))?;
 
         // --- parse the schema ---
-        let schema = control_core::schema::parse_latest(&yaml)
+        let schema = MachineSchema::from_yaml_str(&yaml)
             .map_err(|e| fail_callsite!("invalid schema: {}", e))?;
 
         // --- ok ---
@@ -65,8 +71,7 @@ fn process_metas(metas: Punctuated<Meta, Comma>, schema_dir: &mut Option<String>
 
 fn process_schema_dir(nv: MetaNameValue) -> Result<Option<String>> {
     let Expr::Lit(ExprLit {
-        lit: Lit::Str(s),
-        ..
+        lit: Lit::Str(s), ..
     }) = nv.value
     else {
         return Err(Error::new_spanned(
@@ -79,105 +84,56 @@ fn process_schema_dir(nv: MetaNameValue) -> Result<Option<String>> {
 }
 
 fn manifest_dir() -> Result<String> {
-    env::var("CARGO_MANIFEST_DIR")
-        .map_err(|_| fail_callsite!("missing CARGO_MANIFEST_DIR"))
+    env::var("CARGO_MANIFEST_DIR").map_err(|_| fail_callsite!("missing CARGO_MANIFEST_DIR"))
 }
 
 // --- utils ---
-pub fn config_value_to_type(
-    value: &schema::latest::config::Value,
-) -> syn::Result<syn::Type> {
-    use schema::latest::config::*;
+pub fn config_property_value_to_type(value: &ConfigPropertyValue) -> syn::Result<syn::Type> {
+    use ConfigPropertyValueKind::*;
 
-    match value {
-        Value::Boolean(BooleanValue { nullable, default, persistent }) => {
-            if *nullable {
-                Ok(syn::parse_quote! { Option<bool> })
-            } else {
-                Ok(syn::parse_quote! { bool })
-            }
+    let ty: syn::Type = match value.kind {
+        Boolean { .. } => syn::parse_quote!(bool),
+        Float { semantic, .. } => match semantic {
+            FloatSemantic::Quantity(quantity) => syn::parse_str(quantity.as_str())?,
+            _ => syn::parse_quote!(f64),
+        },
+        Integer { .. } => syn::parse_quote!(i64),
+        _ => {
+            return Err(Error::new(
+                Span::call_site(),
+                "unsupported config property type",
+            ));
         }
+    };
 
-        Value::Float(FloatValue { nullable, default, range, persistent }) => {
-            if *nullable {
-                Ok(syn::parse_quote! { Option<f64> })
-            } else {
-                Ok(syn::parse_quote! { f64 })
-            }
-        }
-
-        Value::Integer(IntegerValue { nullable, default, range, persistent }) => {
-            if *nullable {
-                Ok(syn::parse_quote! { Option<i64> })
-            } else {
-                Ok(syn::parse_quote! { i64 })
-            }
-        }
-
-        Value::Quantity { value, unit } => {
-            let ty: syn::Type = syn::parse_quote! {
-                qitech_lib::units::length::millimeter
-            };
-
-            if value.nullable {
-                Ok(syn::parse_quote! { Option<i64> })
-            } else {
-                Ok(syn::parse_quote! { i64 })
-            }
-        }
-
-        _ => Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "unsupported state property type",
-        )),
-    }
+    Ok(if value.nullable {
+        syn::parse_quote!(Option<#ty>)
+    } else {
+        ty
+    })
 }
 
-pub fn state_value_to_type(
-    value: &schema::latest::state::Value,
-) -> syn::Result<syn::Type> {
-    use schema::latest::state::{ScalarValue, Value};
+pub fn state_property_value_to_type(value: &StatePropertyValue) -> syn::Result<syn::Type> {
+    use StatePropertyValueKind::*;
 
-    match value {
-        Value::Boolean(ScalarValue { nullable }) => {
-            if *nullable {
-                Ok(syn::parse_quote! { Option<bool> })
-            } else {
-                Ok(syn::parse_quote! { bool })
-            }
+    let ty: syn::Type = match value.kind {
+        Boolean { .. } => syn::parse_quote!(bool),
+        Float { semantic, .. } => match semantic {
+            FloatSemantic::Quantity(quantity) => syn::parse_str(quantity.as_str())?,
+            _ => syn::parse_quote!(f64),
+        },
+        Integer { .. } => syn::parse_quote!(i64),
+        _ => {
+            return Err(Error::new(
+                Span::call_site(),
+                "unsupported config property type",
+            ));
         }
+    };
 
-        Value::Float(ScalarValue { nullable }) => {
-            if *nullable {
-                Ok(syn::parse_quote! { Option<f64> })
-            } else {
-                Ok(syn::parse_quote! { f64 })
-            }
-        }
-
-        Value::Integer(ScalarValue { nullable }) => {
-            if *nullable {
-                Ok(syn::parse_quote! { Option<i64> })
-            } else {
-                Ok(syn::parse_quote! { i64 })
-            }
-        }
-
-        Value::Quantity { value, unit } => {
-            let ty: syn::Type = syn::parse_quote! {
-                qitech_lib::units::length::millimeter
-            };
-
-            if value.nullable {
-                Ok(syn::parse_quote! { Option<i64> })
-            } else {
-                Ok(syn::parse_quote! { i64 })
-            }
-        }
-
-        _ => Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "unsupported state property type",
-        )),
-    }
+    Ok(if value.nullable {
+        syn::parse_quote!(Option<#ty>)
+    } else {
+        ty
+    })
 }

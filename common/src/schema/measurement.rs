@@ -33,8 +33,9 @@ pub struct MeasurementStatistics {
 }
 
 // --- deserialize implemenations ---
-use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
 use std::fmt;
+use std::str::FromStr;
+use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
 use super::Type;
 
 impl<'de> Deserialize<'de> for MeasurementValue {
@@ -57,7 +58,7 @@ impl<'de> Deserialize<'de> for MeasurementValue {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                match Type::parse(&tag).map_err(A::Error::custom)? {
+                match Type::from_str(&tag).map_err(A::Error::custom)? {
                     Type::Boolean => {
                         let BooleanHelper { nullable } =
                             variant.newtype_variant()?;

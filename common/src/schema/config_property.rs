@@ -73,7 +73,7 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                match Type::parse(&tag).map_err(A::Error::custom)? {
+                match Type::from_str(&tag).map_err(A::Error::custom)? {
                     Type::Enum => {
                         let helper = variant.newtype_variant()?;
                         process_enum(helper)

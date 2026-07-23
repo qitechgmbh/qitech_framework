@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "common",
+    # "macros",
     # "machine",
     # "control-core",
     # "control-machine",

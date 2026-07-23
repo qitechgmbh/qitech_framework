@@ -138,10 +138,11 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
         writeln!(file, "}}")?;
     }
 
-    // --- pass five: emit Quantity::parse(tag: &str) ---
-    writeln!(file, "impl Quantity {{")?;
-    writeln!(file, "    pub fn parse(tag: &str) -> Option<Self> {{")?;
-    writeln!(file, "        Some(match tag {{")?;
+    // --- pass five: emit Quantity::from_str(tag: &str) ---
+    writeln!(file, "impl std::str::FromStr for Quantity {{")?;
+    writeln!(file, "    type Err = String;")?;
+    writeln!(file, "    fn from_str(s: &str) -> Result<Self, Self::Err> {{")?;
+    writeln!(file, "        Ok(match s {{")?;
 
     for UomEntry { name, units } in &quantity {
         for unit in units {
@@ -154,8 +155,28 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
         }
     }
 
-    writeln!(file, "            _ => return None,")?;
+    writeln!(file, "            other => return Err(format!(\"undefined quantity unit {{other}}\")),")?;
     writeln!(file, "        }})")?;
+    writeln!(file, "    }}")?;
+    writeln!(file, "}}")?;
+
+    // --- pass six: emit Quantity::as_str(&self) -> &'static str ---
+    writeln!(file, "impl Quantity {{")?;
+    writeln!(file, "    pub fn as_str(&self) -> &'static str {{")?;
+    writeln!(file, "        match self {{")?;
+
+    for UomEntry { name, units } in &quantity {
+        for unit in units {
+            let unit_snake = pascal_to_snake(unit);
+
+            writeln!(
+                file,
+                "            Self::{name}({name}Unit::{unit}) => \"{unit_snake}\","
+            )?;
+        }
+    }
+
+    writeln!(file, "        }}")?;
     writeln!(file, "    }}")?;
     writeln!(file, "}}")?;
 
@@ -183,8 +204,8 @@ fn create_with_uom(out_dir: &String) -> io::Result<()>  {
         for unit in units {
             let unit_snake = pascal_to_snake(unit);
 
-            let module_path = format!("qitech_lib::units::{module}");
-            let quantity = format!("qitech_lib::units::{name}");
+            let module_path = format!("units::{module}");
+            let quantity = format!("units::{name}");
             let unit = format!("{module_path}::{unit_snake}");
             let unit_trait = format!("{module_path}::Unit");
             let conversion_trait = format!("{module_path}::Conversion<f64>");

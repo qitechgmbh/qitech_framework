@@ -1,5 +1,5 @@
 [package]
-name = "control_macros"
+name = "qitech_framework_macros"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,7 +8,7 @@ proc-macro = true
 
 [dependencies]
 # --- internal deps ---
-control_core = { path = "../control-core" }
+qitech_framework_common = { path = "../common" }
 syn = { version = "3.0.2" , features = ["full", "visit-mut"]}
 quote = "1"
 proc-macro2 = "1"

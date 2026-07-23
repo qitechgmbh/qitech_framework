@@ -49,13 +49,15 @@ pub enum Type {
     Event,
 }
 
-impl Type {
-    pub fn parse(tag: &str) -> Result<Self, String> {
-        if let Some(v) = Quantity::parse(tag) {
-            return Ok(Self::Float(FloatSemantic::Quantity(v)));
+impl FromStr for Type {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(v) = FloatSemantic::from_str(s) {
+            return Ok(Self::Float(v));
         }
 
-        Ok(match tag {
+        Ok(match s {
             "command" => Self::Command,
             "event" => Self::Event,
             "object" => Self::Object,
@@ -64,11 +66,29 @@ impl Type {
             "string" => Self::String,
             "boolean" => Self::Boolean,
             "integer" => Self::Integer,
-            "float" => Self::Float(FloatSemantic::Plain),
-            "fraction" => Self::Float(FloatSemantic::Fraction),
-            "percentage" => Self::Float(FloatSemantic::Percentage),
             other => return Err(format!("invalid type {other}")),
         })
+    }
+}
+
+impl Type {
+    pub fn as_str(&self) -> &'static str { 
+        match self {
+            Type::Object => "object",
+            Type::Array => "array",
+            Type::Enum => "enum",
+            Type::String => "string",
+            Type::Boolean => "boolean",
+            Type::Integer => "integer",
+            Type::Float(semantic) => match semantic {
+                FloatSemantic::Plain => "float",
+                FloatSemantic::Fraction => "fraction",
+                FloatSemantic::Percentage => "percentage",
+                FloatSemantic::Quantity(quantity) => quantity.as_str(),
+            },
+            Type::Command => "command",
+            Type::Event => "event",
+        }
     }
 }
 
@@ -78,6 +98,34 @@ pub enum FloatSemantic {
     Fraction,
     Percentage,
     Quantity(Quantity),
+}
+
+impl FromStr for FloatSemantic {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(v) = Quantity::from_str(s) {
+            return Ok(Self::Quantity(v));
+        }
+
+        Ok(match s {
+            "float" => Self::Plain,
+            "fraction" => Self::Fraction,
+            "percentage" => Self::Percentage,
+            other => return Err(format!("invalid type {other}")),
+        })
+    }
+}
+
+impl FloatSemantic {
+    pub fn as_str(&self) -> &'static str { 
+        match self {
+            FloatSemantic::Plain => "float",
+            FloatSemantic::Fraction => "fraction",
+            FloatSemantic::Percentage => "percentage",
+            FloatSemantic::Quantity(quantity) => quantity.as_str(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

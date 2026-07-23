@@ -32,6 +32,7 @@ pub enum EventFieldKind {
 }
 
 // --- deserialize implemenations ---
+use std::str::FromStr;
 use serde::Deserialize;
 use serde::de::{Error, Deserializer, Visitor, EnumAccess, VariantAccess};
 
@@ -51,7 +52,7 @@ impl<'de> Deserialize<'de> for Event {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let ty = Type::parse(&tag)
+                let ty = Type::from_str(&tag)
                     .map_err(A::Error::custom)?;
 
                 if !matches!(ty, Type::Event) {
@@ -88,7 +89,7 @@ impl<'de> Deserialize<'de> for EventField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let ty = Type::parse(&tag)
+                let ty = Type::from_str(&tag)
                     .map_err(A::Error::custom)?;
 
                 match ty {

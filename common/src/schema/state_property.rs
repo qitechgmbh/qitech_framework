@@ -23,6 +23,7 @@ pub enum StatePropertyValueKind {
 
 // --- deserialize implemenations ---
 use std::fmt;
+use std::str::FromStr;
 use serde::Deserialize;
 use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
 use super::Type;
@@ -47,7 +48,7 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                match Type::parse(&tag).map_err(A::Error::custom)? {
+                match Type::from_str(&tag).map_err(A::Error::custom)? {
                     Type::Enum => {
                         let EnumValueHelper {
                             nullable,

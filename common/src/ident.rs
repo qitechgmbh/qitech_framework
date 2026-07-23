@@ -1,5 +1,4 @@
 use std::fmt;
-use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 use serde::{Deserialize, Serialize};
 use crate::vendors;
 
@@ -106,21 +105,6 @@ pub struct DeviceIdentification {
 pub struct DeviceMachineIdentification {
     pub machine_ident: MachineIdentificationUnique,
     pub role: u16,
-}
-
-impl From<MachineDeviceInfo> for DeviceMachineIdentification {
-    fn from(value: MachineDeviceInfo) -> Self {
-        DeviceMachineIdentification {
-            machine_ident: MachineIdentificationUnique {
-                identification: MachineIdentification {
-                    vendor_id: value.machine_vendor,
-                    machine_id: value.machine_id,
-                },
-                serial: value.machine_serial,
-            },
-            role: value.role,
-        }
-    }
 }
 
 impl DeviceMachineIdentification {
