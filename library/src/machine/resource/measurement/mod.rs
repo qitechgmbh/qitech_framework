@@ -3,7 +3,7 @@ use super::PropertyHandle;
 mod manager;
 pub use manager::Manager;
 pub use manager::Resolver;
-pub use manager::MeasurementReader;
+pub use manager::Reader;
 pub use manager::MeasurementAccessHandle;
 
 #[derive(Debug)]

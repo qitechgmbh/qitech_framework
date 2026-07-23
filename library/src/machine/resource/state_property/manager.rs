@@ -2,11 +2,11 @@ use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 use qitech_framework_common::{MachineIdentificationUnique, MachineStateMutation, ScalarValue};
 
-use crate::machine::resource::property::Extract;
+use crate::machine::resource::property::ExtractFn;
 use crate::machine::resource::{
     Journal, 
     JournalHandle, 
-    PropertyAccessHandle, 
+    PropertyReadHandle, 
     PropertyReader,
     PropertyRegistry, 
     PropertyResolver, 
@@ -14,7 +14,7 @@ use crate::machine::resource::{
     kind,
 };
 
-use super::{StateProperty, StatePropertyOptions};
+use super::StateProperty;
 
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
@@ -26,7 +26,7 @@ pub type Registry = PropertyRegistry<
     ScalarValue
 >;
 
-pub type StatePropertyResolver<'a> = PropertyResolver<
+pub type Resolver<'a> = PropertyResolver<
     'a, 
     SLOT_SIZE, 
     MAX_ITEMS, 
@@ -34,7 +34,7 @@ pub type StatePropertyResolver<'a> = PropertyResolver<
     ScalarValue
 >;
 
-pub type StatePropertyReader<'a> = PropertyReader<
+pub type Reader<'a> = PropertyReader<
     'a, 
     SLOT_SIZE, 
     MAX_ITEMS, 
@@ -42,7 +42,7 @@ pub type StatePropertyReader<'a> = PropertyReader<
     ScalarValue
 >;
 
-pub type StatePropertyAccessHandle<T> = PropertyAccessHandle<kind::StateProperty, T>;
+pub type ReadHandle<T> = PropertyReadHandle<kind::StateProperty, T>;
 
 pub struct Manager {
     registry: Registry,
@@ -54,11 +54,11 @@ impl Manager {
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-        options: StatePropertyOptions<T>,
-        extract: Extract<ScalarValue>,
+        initial_value: T,
+        extract: ExtractFn<ScalarValue>,
     ) -> RegisterResult<StateProperty<T>> {
-        let handle = self.registry.register::<T>(ident, path, "", extract)?;
-        handle.write(options.initial_value);
+        let handle = self.registry.register::<T>(ident, path, "", extract, ())?;
+        handle.write(initial_value);
 
         let journal = JournalHandle::new(self.journal.clone());
 

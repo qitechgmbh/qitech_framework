@@ -1,12 +1,17 @@
+use crate::machine::{
+    context::{ReactContext, SubscribeContext},
+    error::{ActResult, ReactResult, SubscribeError, SubscribeResult},
+};
+use qitech_framework_common::MachineIdentificationUnique;
 use std::any::Any;
 
-
-
-pub mod error;
 pub mod bounds;
-pub mod context;
-pub mod resource;
 pub mod build;
+pub use build::MachineBuild;
+
+pub mod context;
+pub mod error;
+pub mod resource;
 
 // mod types;
 // pub use types::Hardware;
@@ -24,7 +29,7 @@ pub mod build;
 
 // mod conversion;
 // pub mod resource;
-// 
+//
 // mod build;
 // pub use build::BuildContext;
 // pub use build::BuildResult;
@@ -34,8 +39,8 @@ pub mod build;
 pub trait Machine: Any {
     fn act(&mut self) -> ActResult;
 
-    fn react(&mut self, ctx: &ReactContext) -> ReactResult { 
-        _ = ctx; 
+    fn react(&mut self, ctx: &ReactContext) -> ReactResult {
+        _ = ctx;
         Ok(())
     }
 
@@ -44,5 +49,7 @@ pub trait Machine: Any {
         Err(SubscribeError::OperationNotSupported)
     }
 
-    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) { _ = ident }
+    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
+        _ = ident
+    }
 }

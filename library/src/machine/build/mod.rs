@@ -11,44 +11,22 @@ use hardware::Hardware;
 
 pub mod resource;
 
-pub trait Build: Sized {
+pub trait MachineBuild: Sized {
     fn build(ctx: BuildContext<'_>) -> error::BuildResult<Self>;
 }
 
 pub struct BuildContext<'a> {
-    ident: MachineIdentificationUnique,
-    ethercat_interface: Option<EtherCATThreadChannel>,
-    hardware: Vec<Hardware>,
-    config_properties: &'a mut config_property::Manager,
-    state_properties: &'a mut state_property::Manager,
-    measurements: &'a mut measurement::Manager,
-    commands: &'a mut command::Manager,
-    events: &'a mut event::Manager,
+    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) ethercat_interface: Option<EtherCATThreadChannel>,
+    pub(crate) hardware: Vec<Hardware>,
+    pub(crate) config_properties: &'a mut config_property::Manager,
+    pub(crate) state_properties: &'a mut state_property::Manager,
+    pub(crate) measurements: &'a mut measurement::Manager,
+    pub(crate) commands: &'a mut command::Manager,
+    pub(crate) events: &'a mut event::Manager,
 }
 
 impl<'a> BuildContext<'a> {
-    pub(crate) fn new(
-        ident: MachineIdentificationUnique,
-        ethercat_interface: Option<EtherCATThreadChannel>,
-        hardware: Vec<Hardware>,
-        config_properties: &'a mut config_property::Manager,
-        state_properties: &'a mut state_property::Manager,
-        measurements: &'a mut measurement::Manager,
-        commands: &'a mut command::Manager,
-        events: &'a mut event::Manager,
-    ) -> Self {
-        Self {
-            ident,
-            ethercat_interface,
-            hardware,
-            config_properties,
-            state_properties,
-            measurements,
-            commands,
-            events,
-        }
-    }
-
     pub fn identification(&self) -> MachineIdentificationUnique {
         self.ident
     }

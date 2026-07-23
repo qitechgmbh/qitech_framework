@@ -1,8 +1,9 @@
-use std::{cell::RefCell, collections::HashMap, rc::{Rc, Weak}};
-use qitech_framework_common::{MachineCommandCall, MachineIdentificationUnique};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::{Rc, Weak}};
+use chrono::Utc;
+use qitech_framework_common::{MachineCommandCall, MachineIdentificationUnique, OperationResult};
 use crate::machine::{Machine, resource::{Journal, Key, error::{RegisterError, RegisterErrorKind, RegisterResult}, kind::Kind}};
 
-type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), CommandError>>;
+type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), CommandExecuteError>>;
 
 pub struct Manager {
     registry: HashMap<Key<'static>, Entry>,
@@ -30,19 +31,53 @@ impl Manager {
         todo!()
     }
 
-    pub(crate) fn invoke(
+    pub(crate) fn execute(
         &mut self,
         target: MachineIdentificationUnique, 
         path: &str, 
         machine: &mut dyn Machine,
         args: &str,
-    ) -> Result<(), String> {
+    ) -> Result<(), CommandExecuteError> {
         let key = Key { ident: target, path, postfix: "" };
-        let Some(entry) = self.registry.get(&key) else {
-            return Err("No such entry".to_string());
+
+        let mut entry = MachineCommandCall {
+            target,
+            resource_path: Cow::Owned(path.to_owned()),
+            arguments: args.to_string(),
+            timestamp: Utc::now(),
+            result: OperationResult::Success,
         };
 
-        (entry.execute)(machine, args);
+        let Some(Entry { enabled, execute }) = self.registry.get(&key) else {
+            entry.result = OperationResult::Failure;
+            
+            if self.journal.borrow_mut().push(entry).is_err() {
+                return Err(CommandExecuteError::JournalFull);
+            }
+
+            return Err(CommandExecuteError::NotFound);
+        };
+
+        if !*enabled.borrow() {
+            entry.result = OperationResult::Failure;
+
+            if self.journal.borrow_mut().push(entry).is_err() {
+                return Err(CommandExecuteError::JournalFull);
+            }
+
+            return Err(CommandExecuteError::Disabled);
+        }
+
+        if let Err(e) = (execute)(machine, args) {
+            entry.result = OperationResult::Failure;
+
+            if self.journal.borrow_mut().push(entry).is_err() {
+                return Err(CommandExecuteError::JournalFull);
+            }
+
+            return Err(e);
+        }
+
         Ok(())
     }
 }
@@ -67,11 +102,14 @@ impl CommandHandle {
     }
 }
 
-pub enum CommandError {
+pub enum CommandExecuteError {
     UnexpectedMachineType {
         expected: &'static str,
         received: &'static str,
     },
+    JournalFull,
+    Disabled,
+    NotFound,
     ParsingError(serde_json::Error),
     ExecutionError(String)
 }

@@ -1,25 +1,12 @@
-use std::borrow::Cow;
-
-use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::MachineStateMutation;
-
-use super::{
-    JournalHandle, 
-    PropertyHandle,
-    conversion::ScalarPropertyMeta,
-};
+use super::{JournalHandle, PropertyHandle};
 
 mod manager;
 pub use manager::Manager;
-pub use manager::StatePropertyResolver;
-pub use manager::StatePropertyReader;
-pub use manager::StatePropertyAccessHandle;
-
-#[derive(Debug, Default)]
-pub struct StatePropertyOptions<T: Default> {
-    pub initial_value: T,
-}
+pub use manager::Resolver;
+pub use manager::Reader;
+pub use manager::ReadHandle;
 
 #[derive(Debug)]
 pub struct StateProperty<T> {
@@ -32,16 +19,16 @@ pub struct StateProperty<T> {
 impl<T> StateProperty<T> {
     pub fn get(&self) -> &T { self.handle.read() }
 
-    pub fn set(&mut self, value: T) {
-        self.handle.write(value.clone());
-
-        self.journal.append(MachineStateMutation { 
-            source: self.ident, 
-            resource_path: Cow::Borrowed(self.name), 
-            value: T::into_scalar(value),
-            timestamp: Utc::now(), 
-        });
-    }
+    // pub fn set(&mut self, value: T) {
+    //     self.handle.write(value.clone());
+    // 
+    //     self.journal.append(MachineStateMutation { 
+    //         source: self.ident, 
+    //         resource_path: Cow::Borrowed(self.name), 
+    //         value: T::into_scalar(value),
+    //         timestamp: Utc::now(), 
+    //     });
+    // }
 }
 
 /*

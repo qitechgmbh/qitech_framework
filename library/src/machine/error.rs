@@ -112,8 +112,8 @@ impl<T> std::error::Error for BoundsErrorAny<T> where T: Display + Debug + Copy 
 impl Display for BoundsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::I64(err) => err.fmt(f),
-            Self::F64(err) => err.fmt(f),
+            Self::I64(err) => Display::fmt(err, f),
+            Self::F64(err) => Display::fmt(err, f),
         }
     }
 }

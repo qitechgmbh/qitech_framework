@@ -9,7 +9,7 @@ pub struct BoundsError<T> {
 
 impl<T> Display for BoundsError<T>
 where
-    T: Debug + Display,
+    T: Copy + Debug + Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match (self.min, self.max) {
@@ -39,5 +39,5 @@ where
 
 impl<T> std::error::Error for BoundsError<T>
 where
-    T: Debug + Display,
+    T: Copy + Debug + Display,
 {}

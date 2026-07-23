@@ -1,18 +1,11 @@
-use std::borrow::Cow;
-use chrono::Utc;
-
 use qitech_framework_common::{
     MachineIdentificationUnique, 
     MachineConfigMutation, 
-    OperationResult, 
-    OperationOrigin
 };
 
-use super::{
-    JournalHandle, 
-    PropertyHandle,
-    BoundedMeta,
-};
+use crate::machine::error::BoundsError;
+
+use super::{JournalHandle, PropertyHandle};
 
 mod manager;
 pub use manager::Manager;
@@ -20,20 +13,25 @@ pub use manager::Resolver;
 pub use manager::Reader;
 pub use manager::AccessHandle;
 
-pub struct ConfigPropertyOptions<T: BoundedMeta> {
-    default_value: T,
-    min: T::Bound,
-    max: T::Bound,
-    pred: fn(&T) -> bool,
+pub enum ApiWriteConfigError {
+    JournalFull,
+    ParseError(serde_json::Error),
+    ValueOutOfBounds(BoundsError),
+    ValidateError(String),
+}
+
+pub enum WriteConfigError {
+    JournalFull,
+    ValueOutOfBounds(BoundsError),
+    ValidateError(String),
 }
 
 pub struct ConfigProperty<T: Clone> {
-    ident: MachineIdentificationUnique,
-    resource_path: &'static str,
     handle: PropertyHandle<T>,
     journal: JournalHandle<MachineConfigMutation>,
+    validate: manager::ValidateAndRecord<T>,
     default: T,
-    pred: Option<fn(&T) -> bool>,
+
 }
 
 impl<T: Clone> ConfigProperty<T> {
@@ -44,18 +42,9 @@ impl<T: Clone> ConfigProperty<T> {
 }
 
 impl<T: Clone> ConfigProperty<T> {
-    pub fn set(&mut self, value: T) -> Result<(), String> {
-        self.handle.write(value.clone());
-
-        self.journal.append(MachineConfigMutation { 
-            target: self.ident, 
-            resource_path: Cow::Borrowed(self.resource_path), 
-            value: T::into_scalar(value),
-            origin: OperationOrigin::Machine,
-            result: OperationResult::Success,
-            timestamp: Utc::now(), 
-        });
-
+    pub fn set(&mut self, value: T) -> Result<(), WriteConfigError> {
+        (self.validate)(&mut self.journal, &value)?;
+        self.handle.write(value);
         Ok(())
     }
 }

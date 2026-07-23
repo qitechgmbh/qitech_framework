@@ -1,5 +1,5 @@
-use std::any::type_name;
 use std::{cell::RefCell, rc::Rc};
+use std::any::type_name;
 
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
@@ -7,10 +7,6 @@ use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 use qitech_lib::modbus::ModbusDevice;
 
 use super::{BuildContext, error::{BuildResult, BuildError}};
-
-// use crate::Hardware;
-// use crate::build::{BuildContext, BuildError, BuildResult};
-// use crate::types::{IdentifiedEthercat, IdentifiedModbus};
 
 #[derive(Clone)]
 pub enum Hardware {

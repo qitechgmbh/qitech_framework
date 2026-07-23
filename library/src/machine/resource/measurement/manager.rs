@@ -1,8 +1,8 @@
 use qitech_framework_common::MachineIdentificationUnique;
 
 use crate::machine::resource::{
-    PropertyAccessHandle, PropertyReader, PropertyRegistry, 
-    PropertyResolver, error::RegisterResult, kind, property::Extract,
+    PropertyReadHandle, PropertyReader, PropertyRegistry, 
+    PropertyResolver, error::RegisterResult, kind, property::ExtractFn,
 };
 use super::Measurement;
 
@@ -24,7 +24,7 @@ pub type Resolver<'a> = PropertyResolver<
     Option<f64>,
 >;
 
-pub type MeasurementReader<'a> = PropertyReader<
+pub type Reader<'a> = PropertyReader<
     'a, 
     SLOT_SIZE, 
     MAX_ITEMS, 
@@ -32,7 +32,7 @@ pub type MeasurementReader<'a> = PropertyReader<
     Option<f64>
 >;
 
-pub type MeasurementAccessHandle<T> = PropertyAccessHandle<kind::StateProperty, T>;
+pub type MeasurementAccessHandle<T> = PropertyReadHandle<kind::StateProperty, T>;
 
 #[derive(Debug)]
 pub struct Manager {
@@ -47,7 +47,7 @@ impl Manager {
         initial_value: Option<T>,
         record_min: bool,
         record_max: bool,
-        extract: Extract<Option<f64>>,
+        extract: ExtractFn<Option<f64>>,
     ) -> RegisterResult<Measurement<T>> {
         let handle = self.registry.register::<T>(ident, name, "", extract, ())?;
         handle.write(initial_value.unwrap_or_default());

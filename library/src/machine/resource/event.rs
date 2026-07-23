@@ -17,7 +17,7 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub(crate) fn create<T>(
+    pub(crate) fn create<T: Serialize>(
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
@@ -40,7 +40,7 @@ impl Manager {
 
         Ok(EventEmitter {
             source: ident,
-            resource_path: Cow::Borrowed(path),
+            resource_path: path,
             journal,
             _marker: PhantomData,
         })
@@ -51,9 +51,9 @@ impl Manager {
     }
 }
 
-pub struct EventEmitter<T> {
+pub struct EventEmitter<T: Serialize> {
     source: MachineIdentificationUnique,
-    resource_path: Cow<'static, str>,
+    resource_path: &'static str,
     journal: JournalHandle<MachineEvent>,
     _marker: PhantomData<T>,
 }
@@ -64,7 +64,7 @@ impl<T: Serialize> EventEmitter<T> {
 
         self.journal.append(MachineEvent {
             source: self.source,
-            resource_path: self.resource_path,
+            resource_path: Cow::Borrowed(self.resource_path),
             data,
             timestamp: Utc::now(),
         });

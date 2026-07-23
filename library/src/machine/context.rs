@@ -1,14 +1,17 @@
+use qitech_framework_common::MachineIdentificationUnique;
+use crate::machine::resource::state_property;
+use crate::machine::resource::config_property;
+use crate::machine::resource::measurement;
+
 pub struct ReactContext<'a> {
-    pub config: ConfigPropertyReader<'a>,
-    pub state: StatePropertyReader<'a>,
-    pub measurements: MeasurementReader<'a>,
+    pub config: config_property::Reader<'a>,
+    pub state: state_property::Reader<'a>,
+    pub measurements: measurement::Reader<'a>,
 }
 
 pub struct SubscribeContext<'a> {
     pub ident: MachineIdentificationUnique,
-    pub config: ConfigPropertyResolver<'a>,
-    pub state: StatePropertyResolver<'a>,
-    pub measurements: MeasurementResolver<'a>,
+    pub config: config_property::Resolver<'a>,
+    pub state: state_property::Resolver<'a>,
+    pub measurements: measurement::Resolver<'a>,
 }
-
-// command validation: builder creates list of path to variable + the validation to apply to it

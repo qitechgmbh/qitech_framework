@@ -8,7 +8,7 @@ use super::error::{
     ReadResult, ReadError,
 };
 
-pub type Extract<T> = unsafe fn(*const u8) -> T;
+pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
 
 #[derive(Debug)]
 pub struct PropertyRegistry<
@@ -51,7 +51,7 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata
         ident: MachineIdentificationUnique,
         path: &'static str,
         postfix: &'static str,
-        convert: Extract<Format>,
+        convert: ExtractFn<Format>,
         metadata: Metadata,
     ) -> RegisterResult<PropertyHandle<T>> {
         const {
@@ -135,7 +135,7 @@ struct Key {
 struct Entry<ExportFormat, Metadata> {
     index: usize,
     type_id: TypeId,
-    extract: Extract<ExportFormat>,
+    extract: ExtractFn<ExportFormat>,
     metadata: Metadata,
 }
 
@@ -182,7 +182,7 @@ impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Meta
 
     pub fn read<T>(
         &self,
-        handle: &PropertyAccessHandle<K, T>,
+        handle: &PropertyReadHandle<K, T>,
     ) -> ReadResult<&T> {
         let generation = &self.registry.buf_generations[handle.index];
 
@@ -201,11 +201,10 @@ impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Meta
     }
 }
 
-pub struct PropertyAccessHandle<K: kind_t, T> {
+pub struct PropertyReadHandle<K: kind_t, T> {
     generation: u64,
     index: usize,
-    _kind: PhantomData<K>,
-    _type: PhantomData<T>,
+    _marker: PhantomData<(K, T)>,
 }
 
 pub struct PropertyResolver<
@@ -226,7 +225,7 @@ impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Meta
     pub fn resolve<T>(
         &self,
         path: &'static str,
-    ) -> ResolveResult<PropertyAccessHandle<K, T>>
+    ) -> ResolveResult<PropertyReadHandle<K, T>>
     where
         T: 'static,
     {
@@ -255,11 +254,10 @@ impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Meta
 
         let generation = unsafe { self.registry.buf_generations[*index].assume_init() };
 
-        Ok(PropertyAccessHandle {
+        Ok(PropertyReadHandle {
             index: *index,
             generation,
-            _type: PhantomData,
-            _kind: PhantomData,
+            _marker: PhantomData,
         })
     }
 }

@@ -34,7 +34,7 @@ pub struct MachineConfigMutation {
     pub resource_path: Cow<'static, str>,
 
     /// assigned value
-    pub value: ScalarValue,
+    pub value: String,
 
     /// operation origin
     pub origin: OperationOrigin,
@@ -92,14 +92,11 @@ pub struct MachineCommandCall {
     /// command arguments
     pub arguments: String,
 
-    /// operation origin
-    pub origin: OperationOrigin,
-
     /// command timestamp
     pub timestamp: DateTime<Utc>,
 
     /// execution result
-    pub result: Result<(), String>,
+    pub result: OperationResult,
 }
 
 // --- event ---

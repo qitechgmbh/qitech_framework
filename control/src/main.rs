@@ -25,7 +25,8 @@ pub fn main() -> anyhow::Result<()> {
     registry.register::<WinderV1>()?;
 
     // --- create runtime ---
-    let runtime = Runtime::init(init_config(), registry)?;
+    let runtime = Runtime::new().with_ethercat_mock().with_modbus()
+    ::init(init_config(), registry)?;
 
     // --- start runtime ---
     runtime.run()

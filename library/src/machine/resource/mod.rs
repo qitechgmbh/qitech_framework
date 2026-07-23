@@ -9,16 +9,14 @@ use kind::kind_t;
 pub mod error;
 
 mod conversion;
-use conversion::Convertible;
 use conversion::BoundedMeta;
-use conversion::PropertyMeta;
 
 mod property;
 pub use property::PropertyRegistry;
 pub use property::PropertyHandle;
 pub use property::PropertyResolver;
 pub use property::PropertyReader;
-pub use property::PropertyAccessHandle;
+pub use property::PropertyReadHandle;
 use qitech_framework_common::MachineIdentificationUnique;
 
 pub mod config_property;
@@ -39,9 +37,8 @@ impl<T: Debug> JournalHandle<T> {
         Self { journal }
     }
 
-    pub fn append(&self, entry: T) {
-        self.journal.borrow_mut().push(entry)
-            .expect("Should never reach this capacity");
+    pub fn append(&self, entry: T) -> Result<(), ()> {
+        self.journal.borrow_mut().push(entry).map_err(|_| ())
     }
 }
 
