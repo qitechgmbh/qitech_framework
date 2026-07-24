@@ -1,28 +1,32 @@
 use std::any::Any;
 
 pub use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::MachineSchema;
 
 use crate::machine::error::ActResult;
 use crate::machine::error::GrantError;
 use crate::machine::error::GrantResult;
 use crate::machine::error::ReactResult;
+pub use crate::machine::resource::CommandHandle;
+use crate::machine::resource::CommandRegistrar;
 pub use crate::machine::resource::ConfigPropertyReader;
 pub use crate::machine::resource::ConfigPropertyReaderHandle;
+use crate::machine::resource::ConfigPropertyRegistrar;
 pub use crate::machine::resource::ConfigPropertyResolver;
+pub use crate::machine::resource::EventEmitter;
+pub use crate::machine::resource::Measurement;
 pub use crate::machine::resource::MeasurementReader;
+pub use crate::machine::resource::MeasurementRegisterOptions;
 pub use crate::machine::resource::MeasurementRegistrar;
 pub use crate::machine::resource::MeasurementResolver;
+pub use crate::machine::resource::StateProperty;
 pub use crate::machine::resource::StatePropertyReader;
 pub use crate::machine::resource::StatePropertyReaderHandle;
+pub use crate::machine::resource::StatePropertyRegistrar;
 pub use crate::machine::resource::StatePropertyResolver;
 
 pub mod bounds;
-
 pub mod error;
-pub mod resource;
-
-mod registry;
+pub(crate) mod resource;
 
 pub trait Machine: Any {
     fn act(&mut self) -> ActResult;
@@ -52,9 +56,11 @@ pub trait MachineInterface {
 
 pub struct BuildContext<'a> {
     // pub hardware: HardwareSet,
-    // pub config: ConfigPropertyReader<'a>,
-    // pub state: StatePropertyReader<'a>,
+    pub config: ConfigPropertyRegistrar<'a>,
+    pub state: StatePropertyRegistrar<'a>,
     pub measurements: MeasurementRegistrar<'a>,
+    pub commands: CommandRegistrar<'a>,
+    pub events: MeasurementRegistrar<'a>,
 }
 
 pub struct ReactContext<'a> {

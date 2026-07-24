@@ -209,7 +209,7 @@ pub struct RegisterOptions<T> {
 
 // --- errors ---
 #[derive(Debug)]
-pub(crate) enum ExecuteError {
+pub enum ExecuteError {
     JournalFull,
     UnexpectedMachineType {
         expected: &'static str,

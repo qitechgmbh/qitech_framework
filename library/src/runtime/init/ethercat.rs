@@ -1,0 +1,280 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
+
+use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::MachineIdentificationUnique;
+use qitech_lib::ethercat_hal;
+use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
+use qitech_lib::ethercat_hal::EtherCATState;
+use qitech_lib::ethercat_hal::MetaSubdevice;
+use qitech_lib::ethercat_hal::devices::EthercatDevice;
+use qitech_lib::ethercat_hal::devices::device_from_subdevice_identity_rc;
+use qitech_lib::ethercat_hal::interface_discovery::LinkType;
+use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
+use qitech_lib::ethercat_hal::interface_discovery::test_interface;
+use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
+
+use super::EtherCATConfig;
+use super::error::EtherCATInitializeError;
+use super::error::EtherCATInitializeResult;
+use super::error::RuntimeInitializeError;
+use super::error::RuntimeInitializeResult;
+use crate::hardware::EtherCATDeviceIdentified;
+use crate::hardware::Hardware;
+use crate::hardware::HardwareRegistry;
+use crate::runtime::EtherCATController;
+use crate::runtime::EtherCATSubDevice;
+
+pub fn init(
+    config: EtherCATConfig,
+    hardware_registry: &mut HardwareRegistry,
+) -> RuntimeInitializeResult<(EtherCATController, Vec<EtherCATSubDevice>)> {
+    println!("Discovering EtherCAT Interface...");
+    let interface = find_interface(config.interface_discovery_retry_interval);
+    println!("ok");
+
+    println!("Intializing EtherCAT Controller with interface {interface}");
+    let controller = ethercat_hal::init_ethercat(&interface, config.master);
+    println!("ok");
+
+    println!("Setting up EtherCAT Devices");
+    let sub_devices = setup(&controller, hardware_registry)?;
+    println!("ok");
+
+    Ok((controller, sub_devices))
+}
+
+fn find_interface(retry_delay: Duration) -> String {
+    loop {
+        let interfaces = match list_ethernet_interfaces() {
+            Ok(interfaces) => interfaces,
+            Err(err) => {
+                println!(
+                    "Could not list ethernet interfaces ({err:?}), retrying in {retry_delay:?}..."
+                );
+                thread::sleep(retry_delay);
+                continue;
+            }
+        };
+
+        let names = interfaces
+            .iter()
+            .map(|interface| interface.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        println!("testing interfaces: [{}]", names);
+
+        for interface in interfaces {
+            if !matches!(interface.link_type, LinkType::Link) {
+                continue;
+            }
+
+            if test_interface(&interface.name).is_ok() {
+                return interface.name;
+            }
+        }
+
+        println!("no interface found, retrying in {retry_delay:?}...");
+        thread::sleep(retry_delay);
+    }
+}
+
+fn setup(
+    controller: &EtherCATController,
+    hardware_registry: &mut HardwareRegistry,
+) -> RuntimeInitializeResult<Vec<EtherCATSubDevice>> {
+    // switch into pre op mode
+    controller
+        .channel
+        .request_state_change(EtherCATState::PreOp)
+        .map_err(EtherCATInitializeError::FailedToRequestStateChange)?;
+
+    // Require 2 consecutive stable polls (~100 ms) in PreOp before proceeding.
+    // One poll is not enough: the state machine may still be mid-iteration on first observation,
+    // causing EEPROM reads to contend with its ongoing preop_group tick.
+    let deadline = Instant::now() + Duration::from_secs(10);
+
+    let mut stable_ticks: u32 = 0;
+    while stable_ticks < 2 {
+        if is_controller_finished(controller) || Instant::now() >= deadline {
+            return Err(EtherCATInitializeError::NoResponseFromStateMachineOrTimeout.into());
+        }
+
+        thread::sleep(Duration::from_millis(50));
+
+        let preop_ready = controller.app_handle.get_state() == EtherCATState::PreOp
+            && controller.app_handle.get_subdevice_count() > 0;
+
+        if preop_ready {
+            stable_ticks += 1
+        } else {
+            stable_ticks = 0
+        }
+    }
+
+    let mut idents = vec![];
+
+    println!(
+        "Initialized {} subdevices",
+        controller.app_handle.get_subdevice_count()
+    );
+
+    let meta_subdevices = controller
+        .app_handle
+        .try_get_subdevices_vec_sync()
+        .map_err(EtherCATInitializeError::FailedToGetSubDevices)?;
+
+    let mut subdevices = Vec::new();
+    for meta in meta_subdevices {
+        let dev = match device_from_subdevice_identity_rc(&meta) {
+            Ok(d) => d,
+            Err(_) => {
+                println!(
+                    "No EtherCAT device implementation for {:?}",
+                    meta.get_name()
+                );
+                continue;
+            }
+        };
+
+        println!("pushing: {meta:?}");
+
+        subdevices.push((meta, dev.clone()));
+        if meta.vendor == BECKHOFF_VENDOR_ID {
+            controller
+                .channel
+                .set_mut_beckhoff_eeprom_lock_active(meta.device_address)
+                .map_err(EtherCATInitializeError::FailedToSetBeckhoffEepromLockActive)?;
+        }
+    }
+
+    match controller.channel.read_device_identifications() {
+        Ok(mut eeprom_idents) => {
+            append_ethercat(hardware_registry, &eeprom_idents, &subdevices);
+            idents.append(&mut eeprom_idents);
+        }
+        Err(e) => {
+            println!("Could not read device identifications from eeprom: {:?}", e);
+        }
+    };
+
+    // TODO: find way to emit this later
+    // let _res = state.fill_ethercat_metadata(eth_control, idents);
+
+    Ok(subdevices)
+}
+
+pub fn finalize(
+    controller: &EtherCATController,
+    sub_devices: &mut Vec<EtherCATSubDevice>,
+) -> RuntimeInitializeResult<()> {
+    // go into op mode
+    controller
+        .channel
+        .request_state_change(EtherCATState::Op)
+        .map_err(EtherCATInitializeError::FailedToRequestStateChange)?;
+
+    wait_for_op_state(controller)?;
+
+    // update offsets in sub devices
+    let src = controller
+        .app_handle
+        .try_get_subdevices_vec_sync()
+        .map_err(EtherCATInitializeError::FailedToGetSubDevices)?;
+
+    for (meta, _) in sub_devices {
+        let Some(src) = find_subdevice(&src, meta.device_address) else {
+            return Err(RuntimeInitializeError::AssertionFailed(
+                "EtherCAT device suddenly missing in finalize_ethercat",
+            ));
+        };
+
+        update_sub_device_offsets(meta, src);
+    }
+
+    Ok(())
+}
+
+// --- utils ---
+pub fn is_controller_finished(controller: &EtherCATController) -> bool {
+    match &controller.join_handle {
+        Some(handle) => handle.is_finished(),
+        None => false,
+    }
+}
+
+fn wait_for_op_state(controller: &EtherCATController) -> EtherCATInitializeResult<()> {
+    while !controller.app_handle.check_all_op() {
+        if is_controller_finished(controller) {
+            return Err(EtherCATInitializeError::FailedToReachOpState);
+        }
+
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    Ok(())
+}
+
+fn find_subdevice(sub_devices: &[MetaSubdevice], device_address: u16) -> Option<&MetaSubdevice> {
+    sub_devices
+        .iter()
+        .find(|&device| device.device_address == device_address)
+        .map(|v| v as _)
+}
+
+fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
+    dest.start_tx = src.start_tx;
+    dest.end_tx = src.end_tx;
+
+    dest.start_rx = src.start_rx;
+    dest.end_rx = src.end_rx;
+}
+
+fn append_ethercat(
+    hardware_registry: &mut HardwareRegistry,
+    device_infos: &[MachineDeviceInfo],
+    mapped_ecat_devices: &Vec<(MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>)>,
+) {
+    let combined_list = create_mapped_ethercat_devices(device_infos, mapped_ecat_devices);
+
+    for (info, device) in combined_list {
+        let identification = MachineIdentificationUnique {
+            serial: info.machine_serial,
+            identification: MachineIdentification {
+                vendor_id: info.machine_vendor,
+                machine_id: info.machine_id,
+            },
+        };
+
+        hardware_registry
+            .entry(identification)
+            .or_default()
+            .push(Hardware::Ethercat(EtherCATDeviceIdentified {
+                device,
+                info,
+            }));
+    }
+}
+
+fn create_mapped_ethercat_devices(
+    device_infos: &[MachineDeviceInfo],
+    mapped_ecat_devices: &[(MetaSubdevice, Rc<RefCell<dyn EthercatDevice>>)],
+) -> Vec<(MachineDeviceInfo, Rc<RefCell<dyn EthercatDevice>>)> {
+    let mut result = Vec::new();
+
+    for info in device_infos {
+        for (meta, device) in mapped_ecat_devices {
+            if meta.device_address == info.device_address {
+                result.push((*info, device.clone()));
+                break;
+            }
+        }
+    }
+
+    result.sort_by_key(|(info, _)| (info.machine_id, info.machine_serial));
+    result
+}

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
-use qitech_framework_common::{ScalarValue, with_uom_units};
+use qitech_framework_common::ScalarValue;
+use qitech_framework_common::with_uom_units;
 
 use crate::machine::error::BoundsError;
 use crate::uom;
@@ -11,6 +12,21 @@ pub trait Extract<T> {
 
 pub trait TypeWrapper {
     type Type: Clone + 'static;
+}
+
+pub trait ScalarTypeWrapper: TypeWrapper + Clone + Extract<ScalarValue> + 'static {
+    fn into_string(value: &Self::Type) -> String;
+    fn into_scalar(value: &Self::Type) -> ScalarValue;
+}
+
+pub trait BoundedMeta {
+    type Bound: Copy + PartialOrd + Debug;
+
+    fn validate(
+        &self,
+        min: Option<Self::Bound>,
+        max: Option<Self::Bound>,
+    ) -> Result<Self::Bound, BoundsError>;
 }
 
 // --- float ---
@@ -42,30 +58,218 @@ impl Extract<ScalarValue> for f64 {
     }
 }
 
-// ---
-impl Extract<Option<f64>> for Option<f64> {
-    unsafe fn extract(bytes: *const u8) -> Option<f64> {
-        let value = unsafe { *(bytes as *const Option<f64>) };
-        value
+// --- optional float ---
+impl TypeWrapper for Option<f64> {
+    type Type = Option<f64>;
+}
+
+impl ScalarTypeWrapper for Option<f64> {
+    fn into_string(value: &Self::Type) -> String {
+        match value {
+            Some(v) => v.to_string(),
+            None => "null".to_string(),
+        }
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Float(*value)
     }
 }
 
-pub trait BoundedMeta {
-    type Bound: Copy + PartialOrd + Debug;
-
-    fn validate(
-        &self,
-        min: Option<Self::Bound>,
-        max: Option<Self::Bound>,
-    ) -> Result<Self::Bound, BoundsError>;
+impl Extract<Option<f64>> for Option<f64> {
+    unsafe fn extract(bytes: *const u8) -> Option<f64> {
+        unsafe { *(bytes as *const Option<f64>) }
+    }
 }
 
-pub trait ScalarTypeWrapper: TypeWrapper + Clone + Extract<ScalarValue> + 'static {
-    fn into_string(value: &Self::Type) -> String;
-    fn into_scalar(value: &Self::Type) -> ScalarValue;
+impl Extract<ScalarValue> for Option<f64> {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const Option<f64>) };
+        ScalarValue::Float(value)
+    }
 }
 
+// --- integer ---
+impl TypeWrapper for i64 {
+    type Type = i64;
+}
 
+impl ScalarTypeWrapper for i64 {
+    fn into_string(value: &Self::Type) -> String {
+        value.to_string()
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Integer(Some(*value))
+    }
+}
+
+impl Extract<Option<i64>> for i64 {
+    unsafe fn extract(bytes: *const u8) -> Option<i64> {
+        let value = unsafe { *(bytes as *const i64) };
+        Some(value)
+    }
+}
+
+impl Extract<ScalarValue> for i64 {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const i64) };
+        ScalarValue::Integer(Some(value))
+    }
+}
+
+// --- optional int ---
+impl TypeWrapper for Option<i64> {
+    type Type = Option<i64>;
+}
+
+impl ScalarTypeWrapper for Option<i64> {
+    fn into_string(value: &Self::Type) -> String {
+        match value {
+            Some(v) => v.to_string(),
+            None => "null".to_string(),
+        }
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Integer(*value)
+    }
+}
+
+impl Extract<Option<i64>> for Option<i64> {
+    unsafe fn extract(bytes: *const u8) -> Option<i64> {
+        unsafe { *(bytes as *const Option<i64>) }
+    }
+}
+
+impl Extract<ScalarValue> for Option<i64> {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const Option<i64>) };
+        ScalarValue::Integer(value)
+    }
+}
+
+// --- bool ---
+impl TypeWrapper for bool {
+    type Type = bool;
+}
+
+impl ScalarTypeWrapper for bool {
+    fn into_string(value: &Self::Type) -> String {
+        value.to_string()
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Boolean(Some(*value))
+    }
+}
+
+impl Extract<Option<bool>> for bool {
+    unsafe fn extract(bytes: *const u8) -> Option<bool> {
+        let value = unsafe { *(bytes as *const bool) };
+        Some(value)
+    }
+}
+
+impl Extract<ScalarValue> for bool {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const bool) };
+        ScalarValue::Boolean(Some(value))
+    }
+}
+
+// --- optional bool ---
+impl TypeWrapper for Option<bool> {
+    type Type = Option<bool>;
+}
+
+impl ScalarTypeWrapper for Option<bool> {
+    fn into_string(value: &Self::Type) -> String {
+        match value {
+            Some(v) => v.to_string(),
+            None => "null".to_string(),
+        }
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Boolean(*value)
+    }
+}
+
+impl Extract<Option<bool>> for Option<bool> {
+    unsafe fn extract(bytes: *const u8) -> Option<bool> {
+        unsafe { *(bytes as *const Option<bool>) }
+    }
+}
+
+impl Extract<ScalarValue> for Option<bool> {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { *(bytes as *const Option<bool>) };
+        ScalarValue::Boolean(value)
+    }
+}
+
+// --- string ---
+impl TypeWrapper for String {
+    type Type = String;
+}
+
+impl ScalarTypeWrapper for String {
+    fn into_string(value: &Self::Type) -> String {
+        value.clone()
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::String(Some(value.clone()))
+    }
+}
+
+impl Extract<Option<String>> for String {
+    unsafe fn extract(bytes: *const u8) -> Option<String> {
+        let value = unsafe { (*(bytes as *const String)).clone() };
+        Some(value)
+    }
+}
+
+impl Extract<ScalarValue> for String {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { (*(bytes as *const String)).clone() };
+        ScalarValue::String(Some(value))
+    }
+}
+
+// --- optional string ---
+impl TypeWrapper for Option<String> {
+    type Type = Option<String>;
+}
+
+impl ScalarTypeWrapper for Option<String> {
+    fn into_string(value: &Self::Type) -> String {
+        match value {
+            Some(v) => v.clone(),
+            None => "null".to_string(),
+        }
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::String(value.clone())
+    }
+}
+
+impl Extract<Option<String>> for Option<String> {
+    unsafe fn extract(bytes: *const u8) -> Option<String> {
+        unsafe { (*(bytes as *const Option<String>)).clone() }
+    }
+}
+
+impl Extract<ScalarValue> for Option<String> {
+    unsafe fn extract(bytes: *const u8) -> ScalarValue {
+        let value = unsafe { (*(bytes as *const Option<String>)).clone() };
+        ScalarValue::String(value)
+    }
+}
+
+// --- uom quantities ---
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
         impl TypeWrapper for $unit {
@@ -103,7 +307,8 @@ macro_rules! impl_uom {
 
         impl ScalarTypeWrapper for Option<$unit> {
             fn into_string(value: &Self::Type) -> String {
-                todo!()
+                _ = value;
+                "TODO".to_string()
             }
 
             fn into_scalar(value: &Self::Type) -> ScalarValue {
@@ -124,7 +329,7 @@ macro_rules! impl_uom {
                 ScalarValue::Float(value.map(|x| x.get::<$unit>()))
             }
         }
-    }
+    };
 }
 
 with_uom_units!(uom, impl_uom);

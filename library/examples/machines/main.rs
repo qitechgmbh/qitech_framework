@@ -1,16 +1,16 @@
+use qitech_framework::machine::BuildContext;
+use qitech_framework::machine::CommandHandle;
+use qitech_framework::machine::EventEmitter;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
-use qitech_framework::machine::build::BuildContext;
-use qitech_framework::machine::build::error::BuildResult;
-use qitech_framework::machine::build::resource::MeasurementOptions;
-use qitech_framework::machine::build::resource::StatePropertyOptions;
+use qitech_framework::machine::Measurement;
+use qitech_framework::machine::StateProperty;
 use qitech_framework::machine::error::ActResult;
-use qitech_framework::machine::resource::command::CommandExecuteError;
-use qitech_framework::machine::resource::command::CommandHandle;
-use qitech_framework::machine::resource::event::EventEmitter;
-use qitech_framework::machine::resource::measurement::Measurement;
-use qitech_framework::machine::resource::state_property::StateProperty;
+use qitech_framework::machine::error::BuildResult;
+use qitech_framework::machine::error::CommandExecuteError;
 use serde::Serialize;
+
+mod mock_machine;
 
 pub fn main() {}
 
@@ -53,7 +53,7 @@ impl Machine for MyMachine {
 }
 
 impl MachineBuild for MyMachine {
-    #[machine_build(laser_v1)]
+    // #[machine_build(laser_v1)]
     fn build(mut ctx: BuildContext<'_>) -> BuildResult<Self> {
         // let command = command!("just.some.command", Self::start_winding);
 

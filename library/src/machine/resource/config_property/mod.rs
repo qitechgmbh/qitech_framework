@@ -276,9 +276,8 @@ pub struct RegisterOptions<T: BoundedMeta> {
 }
 
 // --- types ---
-pub type ValidateAndRecord<T> = Box<
-    dyn Fn(&mut JournalHandle<MachineConfigMutation>, &T) -> Result<(), WriteError>
->;
+pub type ValidateAndRecord<T> =
+    Box<dyn Fn(&mut JournalHandle<MachineConfigMutation>, &T) -> Result<(), WriteError>>;
 
 pub type WriteApiFn = Box<
     dyn Fn(u64, &mut Journal<MachineConfigMutation>, *mut u8, &str) -> Result<(), ApiWriteError>,

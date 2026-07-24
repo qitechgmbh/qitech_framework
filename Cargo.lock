@@ -1299,6 +1299,7 @@ dependencies = [
 name = "qitech_framework"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitvec",
  "chrono",
  "heapless 0.9.3",

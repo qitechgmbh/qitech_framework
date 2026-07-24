@@ -2,38 +2,45 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Duration;
+
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::MetaSubdevice;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 
-use crate::machine::{Machine, resource::{CommandManager, ConfigPropertyManager}};
+use crate::hardware::HardwareRegistry;
+use crate::machine::BuildContext;
+use crate::machine::Machine;
+use crate::machine::resource::CommandManager;
+use crate::machine::resource::ConfigPropertyManager;
+use crate::machine::resource::EventManager;
+use crate::machine::resource::MeasurementManager;
+use crate::machine::resource::StatePropertyManager;
 
-mod ethercat;
+mod types;
+pub use types::EtherCATController;
+pub use types::EtherCATSubDevice;
+pub use types::MachineRegistry;
+pub use types::MachineRegistryEntry;
 
-mod hardware;
-use hardware::MachineHardwareRegistry;
-
-mod machine_registry;
-use machine_registry::MachineRegistry;
-
+mod init;
 
 pub struct Runtime {
     // --- registries ---
     machine_registry: MachineRegistry,
-    hardware_registry: MachineHardwareRegistry,
+    hardware_registry: HardwareRegistry,
 
-    // --- resources ---
+    // --- resource managers ---
     config_properties: ConfigPropertyManager,
     state_properties: StatePropertyManager,
     measurements: MeasurementManager,
     commands: CommandManager,
     events: EventManager,
 
-    // --- connections
+    // --- connections ---
     // session: Session with hub
-    controller: Option<ethercat::Controller>,
+    ecat_controller: Option<EtherCATController>,
 
     // --- instances ---
     machines: Vec<(MachineIdentificationUnique, Box<dyn Machine>)>,
@@ -41,52 +48,17 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn init(
-        config: Config, 
-        registry: MachineRegistry
-    ) -> anyhow::Result<Self>  {
-        let interface = ethercat::find_interface(config.interface_discovery_retry_interval);
-        println!("using ethercat interface: {interface}");
-
-        let controller = ethercat::init_controller(&interface, config.ethercat);
-        println!("initialized ethercat control");
-
-        let mut hardware = MachineHardwareRegistry::new();
-
-        println!("Initializing ethercat");
-        let sub_devices = ethercat::setup(&controller, &mut hardware)?;
-
-        let mut runtime = Self {
-            machine_registry: registry,
-            hardware_registry: hardware,
-            resource_registry: MachineResourceRegistry::new(),
-            resource_journals: ResourceJournals::new(),
-            controller: Some(controller),
-            machines: vec![],
-            sub_devices
-        };
-
-        println!("Building machines");
-        runtime.build_machines()?;
-
-        println!("Finalizing ethercat");
-        let controller = runtime.controller.as_ref().expect("must exist");
-        ethercat::finalize(controller, &mut runtime.sub_devices)?;
-
-        Ok(runtime)
-    }
-
-    pub fn run(mut self) -> anyhow::Result<()> {
+    pub fn run(mut self) {
         loop {
-            // TODO: receive data from hub
-
             // TODO: exit if controller is finished
-            self.write_ecat_inputs()?;
+            self.write_ecat_inputs();
 
+            // TODO: receive data from hub
+            // TODO: process connection requests
             // TODO: run config mutations
             // TODO: run commands
-            self.execute_machines()?;
 
+            self.execute_machines();
             self.write_ecat_outputs();
 
             // TODO: export data to hub
@@ -95,55 +67,65 @@ impl Runtime {
         }
     }
 
-    pub fn build_machines(&mut self) {
-        
+    fn build_machines(&mut self) {
         for (ident_unique, hardware) in &self.hardware_registry {
-            let ident = MachineIdentification::from(*ident_unique);
+            let ident = ident_unique.identification;
 
-            let Some(MachineRegistryEntry { build, schema }) = self.machine_registry.find(ident) else {
-                bail!("Failed to find registry entry for machine {{{ident}}}");
+            let Some(MachineRegistryEntry { build, schema }) = self.machine_registry.get(&ident)
+            else {
+                todo!()
+                // bail!("Failed to find registry entry for machine {{{ident}}}");
             };
 
-            let ethercat_interface = self.controller.as_ref().map(|v| v.channel.clone());
+            let ethercat_interface = self.ecat_controller.as_ref().map(|v| v.channel.clone());
 
-            let builder = MachineBuildContext::new(
-                *ident_unique, 
-                &mut self.resource_registry,
-                &mut self.resource_journals,
-                ethercat_interface,
-                hardware.clone(), 
+            let ctx = BuildContext {
+                measurements: todo!(),
+                config: todo!(),
+                state: todo!(),
+                commands: todo!(),
+                events: todo!(),
+            };
+
+            // BuildContext::new(
+            //     *ident_unique,
+            //     &mut self.resource_registry,
+            //     &mut self.resource_journals,
+            //     ethercat_interface,
+            //     hardware.clone(),
+            // );
+
+            println!(
+                "Building '{}' with identification '{ident_unique}'",
+                &schema.name
             );
 
-            println!("Building '{}' with identification '{ident_unique}'", &schema.name);
-            let machine = match (build)(builder) {
+            let machine = match (build)(ctx) {
                 Ok(v) => v,
                 Err(e) => {
                     println!("Failed to build machine: {e}");
                     continue;
-                },
+                }
             };
 
             self.machines.push((*ident_unique, machine));
         }
-
-        Ok(())
     }
 
-    pub fn execute_machines(&mut self) -> anyhow::Result<()> {
+    fn execute_machines(&mut self) {
         for (_, machine) in &mut self.machines {
             let res = machine.act();
             _ = res; // TODO: use error
         }
-
-        Ok(())
     }
 
-    pub fn write_ecat_inputs(&mut self) -> anyhow::Result<()> {
-        let Some(controller) = &mut self.controller else {
-            return Ok(());
+    fn write_ecat_inputs(&mut self) {
+        let Some(controller) = &mut self.ecat_controller else {
+            return;
         };
 
-        let inputs = controller.app_handle
+        let inputs = controller
+            .app_handle
             .get_inputs()
             .expect("There should always be an input (latest state)");
 
@@ -153,17 +135,15 @@ impl Runtime {
             let input_slice = &inputs[meta_dev.start_tx..meta_dev.end_tx];
             let input_bits_slice = BitSlice::<u8, Lsb0>::from_slice(input_slice);
 
-            // why are we ignoring the errors ?
+            // why are we ignoring these errors ?
             let mut dev = dev.borrow_mut();
             _ = dev.input(input_bits_slice);
             _ = dev.input_post_process();
         }
-
-        Ok(())
     }
 
-    pub fn write_ecat_outputs(&mut self) {
-        let Some(controller) = &mut self.controller else {
+    fn write_ecat_outputs(&mut self) {
+        let Some(controller) = &mut self.ecat_controller else {
             return;
         };
 
@@ -177,7 +157,7 @@ impl Runtime {
             let output_slice = &mut outputs[meta_dev.start_rx..meta_dev.end_rx];
             let output_bits = BitSlice::<u8, Lsb0>::from_slice_mut(output_slice);
 
-            // why are we ignoring the errors ?
+            // why are we ignoring these errors ?
             let mut dev = dev.borrow_mut();
             _ = dev.output_pre_process();
             _ = dev.output(output_bits);

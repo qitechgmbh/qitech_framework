@@ -35,19 +35,50 @@ pub type ReadResult<T> = Result<T, ReadError>;
 #[derive(Debug)]
 pub struct ReadError;
 
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("expired handle")
-    }
-}
-
-impl std::error::Error for ReadError {}
 
 #[derive(Debug, Clone, Copy)]
 pub struct HandleError {
     pub resource_kind: Kind,
     pub resource_path: &'static str,
     pub machine_ident: MachineIdentificationUnique,
+}
+
+// --- impl display ---
+impl fmt::Display for RegisterErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RegisterErrorKind::Duplicate => write!(f, "duplicate property"),
+            RegisterErrorKind::RegistryFull => write!(f, "registry full"),
+            RegisterErrorKind::NameTooLarge => write!(f, "name too large"),
+        }
+    }
+}
+
+impl fmt::Display for ResolveErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ResolveErrorKind::NoSuchProperty => write!(f, "no such property"),
+            ResolveErrorKind::InvalidType => write!(f, "invalid type"),
+        }
+    }
+}
+
+impl<K: fmt::Display> fmt::Display for Error<K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} error for {:?} at '{}'",
+            self.kind,
+            self.resource_kind,
+            self.resource_path
+        )
+    }
+}
+
+impl fmt::Display for ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("expired handle")
+    }
 }
 
 impl fmt::Display for HandleError {
@@ -60,4 +91,7 @@ impl fmt::Display for HandleError {
     }
 }
 
+// --- impl error ---
+impl<K: fmt::Display + fmt::Debug> std::error::Error for Error<K> {}
+impl std::error::Error for ReadError {}
 impl std::error::Error for HandleError {}

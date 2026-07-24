@@ -3,6 +3,7 @@ use core::fmt::Formatter;
 use std::fmt::Debug;
 use std::fmt::Display;
 
+pub use crate::machine::resource::CommandExecuteError;
 use crate::machine::resource::error::RegisterError;
 
 // --- build ---

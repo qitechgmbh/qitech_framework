@@ -23,9 +23,10 @@ impl<T: Copy> Measurement<T> {
     }
 }
 
-impl<T> Measurement<T> {
+impl<T: Copy + PartialOrd> Measurement<T> {
     pub fn set(&mut self, value: T) {
         self.handle.write(value);
+        self.stats.update(value);
     }
 }
 
@@ -119,7 +120,7 @@ pub struct Registrar<'a> {
 }
 
 impl Registrar<'_> {
-    pub(crate) fn register<T>(
+    pub fn register<T>(
         &mut self,
         path: &'static str,
         options: RegisterOptions<T::Type>,
