@@ -104,10 +104,10 @@ impl ScalarTypeWrapper for i64 {
     }
 }
 
-impl Extract<Option<i64>> for i64 {
-    unsafe fn extract(bytes: *const u8) -> Option<i64> {
+impl Extract<Option<f64>> for i64 {
+    unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const i64) };
-        Some(value)
+        Some(value as f64)
     }
 }
 
@@ -136,9 +136,10 @@ impl ScalarTypeWrapper for Option<i64> {
     }
 }
 
-impl Extract<Option<i64>> for Option<i64> {
-    unsafe fn extract(bytes: *const u8) -> Option<i64> {
-        unsafe { *(bytes as *const Option<i64>) }
+impl Extract<Option<f64>> for Option<i64> {
+    unsafe fn extract(bytes: *const u8) -> Option<f64> {
+        let value = unsafe { *(bytes as *const Option<i64>) };
+        value.map(|v| v as f64)
     }
 }
 
@@ -164,10 +165,10 @@ impl ScalarTypeWrapper for bool {
     }
 }
 
-impl Extract<Option<bool>> for bool {
-    unsafe fn extract(bytes: *const u8) -> Option<bool> {
+impl Extract<Option<f64>> for bool {
+    unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const bool) };
-        Some(value)
+        Some(if value { 1.0 } else { 0.0 })
     }
 }
 
@@ -196,9 +197,10 @@ impl ScalarTypeWrapper for Option<bool> {
     }
 }
 
-impl Extract<Option<bool>> for Option<bool> {
-    unsafe fn extract(bytes: *const u8) -> Option<bool> {
-        unsafe { *(bytes as *const Option<bool>) }
+impl Extract<Option<f64>> for Option<bool> {
+    unsafe fn extract(bytes: *const u8) -> Option<f64> {
+        let value = unsafe { *(bytes as *const Option<bool>) };
+        value.map(|b| if b { 1.0 } else { 0.0 })
     }
 }
 
@@ -224,13 +226,6 @@ impl ScalarTypeWrapper for String {
     }
 }
 
-impl Extract<Option<String>> for String {
-    unsafe fn extract(bytes: *const u8) -> Option<String> {
-        let value = unsafe { (*(bytes as *const String)).clone() };
-        Some(value)
-    }
-}
-
 impl Extract<ScalarValue> for String {
     unsafe fn extract(bytes: *const u8) -> ScalarValue {
         let value = unsafe { (*(bytes as *const String)).clone() };
@@ -253,12 +248,6 @@ impl ScalarTypeWrapper for Option<String> {
 
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::String(value.clone())
-    }
-}
-
-impl Extract<Option<String>> for Option<String> {
-    unsafe fn extract(bytes: *const u8) -> Option<String> {
-        unsafe { (*(bytes as *const Option<String>)).clone() }
     }
 }
 
