@@ -78,19 +78,10 @@ mod kind {
         }
     }
 
-    #[derive(Debug)]
     pub struct StateProperty;
-
-    #[derive(Debug)]
     pub struct ConfigProperty;
-
-    #[derive(Debug)]
     pub struct Measurement;
-
-    #[derive(Debug)]
     pub struct Command;
-
-    #[derive(Debug)]
     pub struct Event;
 
     macro_rules! impl_kind {

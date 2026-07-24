@@ -35,7 +35,6 @@ pub type ReadResult<T> = Result<T, ReadError>;
 #[derive(Debug)]
 pub struct ReadError;
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct HandleError {
     pub resource_kind: Kind,
@@ -68,9 +67,7 @@ impl<K: fmt::Display> fmt::Display for Error<K> {
         write!(
             f,
             "{} error for {:?} at '{}'",
-            self.kind,
-            self.resource_kind,
-            self.resource_path
+            self.kind, self.resource_kind, self.resource_path
         )
     }
 }

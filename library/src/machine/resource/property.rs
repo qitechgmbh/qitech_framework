@@ -19,7 +19,6 @@ use crate::machine::resource::Key;
 
 pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
 
-#[derive(Debug)]
 pub struct PropertyRegistry<
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
@@ -120,15 +119,20 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Met
         to_remove.len()
     }
 
-    fn find_free_slot(&self, resource_path: &'static str) -> RegisterResult<usize> {
-        self.occupied
-            .iter()
-            .position(|slot| !slot)
-            .ok_or(RegisterError {
+    fn find_free_slot(&mut self, resource_path: &'static str) -> RegisterResult<usize> {
+        if let Some(index) = self.occupied.iter().position(|slot| !slot) {
+            return Ok(index);
+        }
+
+        if self.occupied.push(true).is_err() {
+            return Err(RegisterError {
                 resource_kind: K::KIND,
                 resource_path,
                 kind: RegisterErrorKind::RegistryFull,
-            })
+            });
+        }
+
+        return Ok(self.occupied.len() - 1);
     }
 }
 

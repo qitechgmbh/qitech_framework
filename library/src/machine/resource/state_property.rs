@@ -29,11 +29,29 @@ pub struct StateProperty<T: ScalarTypeWrapper> {
 impl<T> StateProperty<T>
 where
     T: ScalarTypeWrapper,
+    T::Type: Copy,
 {
-    pub fn get(&self) -> &T::Type {
+    pub fn get(&self) -> T::Type {
+        *self.handle.read()
+    }
+}
+
+impl StateProperty<String> {
+    pub fn get_ref(&self) -> &String {
         self.handle.read()
     }
+}
 
+impl StateProperty<Option<String>> {
+    pub fn get_ref(&self) -> &Option<String> {
+        self.handle.read()
+    }
+}
+
+impl<T> StateProperty<T>
+where
+    T: ScalarTypeWrapper,
+{
     pub fn set(&mut self, value: T::Type) -> Result<(), WriteError> {
         self.journal
             .append(MachineStateMutation {
@@ -98,7 +116,6 @@ pub type Resolver<'a> = PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, Kind, Format>
 pub type Reader<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, Kind, Format>;
 pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
 
-#[derive(Debug)]
 pub(crate) struct Manager {
     registry: Registry,
     journal: Journal<MachineStateMutation>,
@@ -118,7 +135,6 @@ impl Manager {
 }
 
 /// --- registering ---
-#[derive(Debug)]
 pub struct Registrar<'a> {
     manager: &'a mut Manager,
     machine: MachineIdentificationUnique,
@@ -174,10 +190,13 @@ impl std::error::Error for WriteError {}
 #[cfg(test)]
 mod test {
     use qitech_framework_common::MachineIdentification;
-use uom_crate::ConstZero;
+    use uom_crate::ConstZero;
 
     use super::*;
-    use crate::uom::{Length, length::{centimeter, meter, millimeter}};
+    use crate::uom::Length;
+    use crate::uom::length::centimeter;
+    use crate::uom::length::meter;
+    use crate::uom::length::millimeter;
 
     #[test]
     pub fn register_and_use() -> anyhow::Result<()> {
@@ -193,78 +212,100 @@ use uom_crate::ConstZero;
         let mut r = Registrar::new(&mut mgr, ident);
 
         let mut sp: StateProperty<f64> = r.register("just.some.float", 1.0)?;
-        sp.set(1.0)?;
+        assert_eq!(sp.get(), 1.0);
         sp.set(2.0)?;
-        sp.get();
+        assert_eq!(sp.get(), 2.0);
 
         let mut sp: StateProperty<Option<f64>> = r.register("just.some.float.optional", None)?;
+        assert_eq!(sp.get(), None);
         sp.set(Some(1.0))?;
+        assert_eq!(sp.get(), Some(1.0));
         sp.set(None)?;
-        sp.get();
+        assert_eq!(sp.get(), None);
 
         let mut sp: StateProperty<i64> = r.register("just.some.int", 1)?;
-        sp.set(1)?;
+        assert_eq!(sp.get(), 1);
         sp.set(2)?;
-        sp.get();
+        assert_eq!(sp.get(), 2);
 
         let mut sp: StateProperty<Option<i64>> = r.register("just.some.optional.int", None)?;
+        assert_eq!(sp.get(), None);
         sp.set(Some(1))?;
+        assert_eq!(sp.get(), Some(1));
         sp.set(None)?;
-        sp.get();
+        assert_eq!(sp.get(), None);
 
         let mut sp: StateProperty<bool> = r.register("just.some.bool", false)?;
+        assert!(!sp.get());
         sp.set(true)?;
+        assert!(sp.get());
         sp.set(false)?;
-        sp.get();
+        assert!(!sp.get());
 
         let mut sp: StateProperty<Option<bool>> = r.register("just.some.optional.bool", None)?;
+        assert_eq!(sp.get(), None);
         sp.set(Some(true))?;
+        assert_eq!(sp.get(), Some(true));
         sp.set(None)?;
-        sp.get();
+        assert_eq!(sp.get(), None);
 
         let mut sp: StateProperty<String> =
             r.register("just.some.string", String::from("hello"))?;
+        assert_eq!(sp.get_ref(), "hello");
         sp.set(String::from("world"))?;
+        assert_eq!(sp.get_ref(), "world");
         sp.set(String::from("rust"))?;
-        sp.get();
+        assert_eq!(sp.get_ref(), "rust");
 
         let mut sp: StateProperty<Option<String>> =
             r.register("just.some.optional.string", None)?;
+        assert_eq!(*sp.get_ref(), None);
         sp.set(Some(String::from("hello")))?;
+        assert_eq!(*sp.get_ref(), Some(String::from("hello")));
         sp.set(None)?;
-        sp.get();
+        assert_eq!(*sp.get_ref(), None);
 
         // --- uom ---
         let mut sp: StateProperty<millimeter> =
             r.register("just.some.millimeter", Length::new::<millimeter>(1.0))?;
 
+        assert_eq!(sp.get_as::<millimeter>(), 1.0);
+
         sp.set(Length::new::<meter>(99.0))?;
+        assert_eq!(sp.get_as::<meter>(), 99.0);
+
         sp.set(Length::ZERO)?;
-        sp.get();
+        assert_eq!(sp.get_as::<millimeter>(), 0.0);
 
         sp.set_as::<millimeter>(1.0)?;
-        sp.set_as::<centimeter>(1.0)?;
-        sp.set_as::<meter>(1.0)?;
+        assert_eq!(sp.get_as::<millimeter>(), 1.0);
 
-        sp.get_as::<millimeter>();
-        sp.get_as::<centimeter>();
-        sp.get_as::<meter>();
+        sp.set_as::<centimeter>(1.0)?;
+        assert_eq!(sp.get_as::<centimeter>(), 1.0);
+
+        sp.set_as::<meter>(1.0)?;
+        assert_eq!(sp.get_as::<meter>(), 1.0);
 
         // --- uom optional ---
-        let mut sp: StateProperty<Option<millimeter>> = 
+        let mut sp: StateProperty<Option<millimeter>> =
             r.register("just.some.optional.millimeter", None)?;
 
+        assert_eq!(sp.get(), None);
+
         sp.set(Some(Length::new::<centimeter>(99.0)))?;
+        assert_eq!(sp.get_as::<centimeter>(), Some(99.0));
+
         sp.set(Some(Length::ZERO))?;
-        sp.get();
+        assert_eq!(sp.get_as::<millimeter>(), Some(0.0));
 
         sp.set_as::<millimeter>(Some(1.0))?;
-        sp.set_as::<centimeter>(Some(1.0))?;
-        sp.set_as::<meter>(Some(1.0))?;
+        assert_eq!(sp.get_as::<millimeter>(), Some(1.0));
 
-        sp.get_as::<millimeter>();
-        sp.get_as::<centimeter>();
-        sp.get_as::<meter>();
+        sp.set_as::<centimeter>(Some(1.0))?;
+        assert_eq!(sp.get_as::<centimeter>(), Some(1.0));
+
+        sp.set_as::<meter>(Some(1.0))?;
+        assert_eq!(sp.get_as::<meter>(), Some(1.0));
 
         Ok(())
     }

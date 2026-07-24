@@ -101,7 +101,6 @@ pub type Resolver<'a> = PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, Kind, Option<
 pub type Reader<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, Kind, Option<f64>>;
 pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
 
-#[derive(Debug)]
 pub(crate) struct Manager {
     registry: Registry,
 }
@@ -113,7 +112,6 @@ impl Manager {
 }
 
 /// --- registering ---
-#[derive(Debug)]
 pub struct Registrar<'a> {
     manager: &'a mut Manager,
     machine: MachineIdentificationUnique,
