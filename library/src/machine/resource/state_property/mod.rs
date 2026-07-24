@@ -6,8 +6,8 @@ use super::PropertyHandle;
 
 mod manager;
 pub use manager::Manager;
-pub use manager::ReadHandle;
 pub use manager::Reader;
+pub use manager::ReaderHandle;
 pub use manager::Resolver;
 
 #[derive(Debug)]

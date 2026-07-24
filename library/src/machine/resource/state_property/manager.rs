@@ -4,8 +4,8 @@ use qitech_framework_common::ScalarValue;
 
 use super::StateProperty;
 use crate::machine::resource::Journal;
+use crate::machine::resource::PropertyAccessor;
 use crate::machine::resource::PropertyReadHandle;
-use crate::machine::resource::PropertyReader;
 use crate::machine::resource::PropertyRegistry;
 use crate::machine::resource::PropertyResolver;
 use crate::machine::resource::error::RegisterResult;
@@ -20,9 +20,9 @@ pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, kind::StateProperty, 
 pub type Resolver<'a> =
     PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
-pub type Reader<'a> = PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
+pub type Reader<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
-pub type ReadHandle<T> = PropertyReadHandle<kind::StateProperty, T>;
+pub type ReaderHandle<T> = PropertyReadHandle<kind::StateProperty, T>;
 
 pub struct Manager {
     registry: Registry,

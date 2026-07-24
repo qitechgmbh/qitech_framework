@@ -222,26 +222,22 @@ fn create_with_uom(out_dir: &String) -> io::Result<()> {
     let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)
         .unwrap_or_else(|e| panic!("failed to parse {QUANTITIES_PATH}: {e}"));
 
+    // --- pass one: quantities  ---
     file.write_all(b"#[macro_export]")?;
-    file.write_all(b"macro_rules! with_uom { ($callback:ident) => { ")?;
+    file.write_all(b"macro_rules! with_uom_quantities { ($prefix:tt, $callback:ident) => { ")?;
 
-    for UomEntry { name, units } in &quantity {
+    for UomEntry { name, .. } in &quantity {
         let module = pascal_to_snake(name);
 
-        for unit in units {
-            let unit_snake = pascal_to_snake(unit);
+        let module_path = format!("$prefix::{module}");
+        let quantity = format!("$prefix::{name}");
+        let unit_trait = format!("{module_path}::Unit");
+        let conversion_trait = format!("{module_path}::Conversion<f64>");
 
-            let module_path = format!("units::{module}");
-            let quantity = format!("units::{name}");
-            let unit = format!("{module_path}::{unit_snake}");
-            let unit_trait = format!("{module_path}::Unit");
-            let conversion_trait = format!("{module_path}::Conversion<f64>");
-
-            writeln!(
-                file,
-                "$callback!({quantity}, {unit}, {unit_trait}, {conversion_trait});"
-            )?;
-        }
+        writeln!(
+            file,
+            "$callback!({quantity}, {unit_trait}, {conversion_trait});"
+        )?;
     }
 
     file.write_all(b"};\n}\n")?;

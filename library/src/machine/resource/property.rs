@@ -15,6 +15,7 @@ use super::error::RegisterResult;
 use super::error::ResolveError;
 use super::error::ResolveErrorKind;
 use super::error::ResolveResult;
+use crate::machine::resource::Key;
 
 pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
 
@@ -26,7 +27,7 @@ pub struct PropertyRegistry<
     Format,
     Metadata = (),
 > {
-    lookup: HashMap<Key, Entry<Format, Metadata>>,
+    lookup: HashMap<Key<'static>, Entry<Format, Metadata>>,
     occupied: heapless::Vec<bool, MAX_ITEMS>,
     buf_generations: [MaybeUninit<u64>; MAX_ITEMS],
     buf_storage: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
@@ -131,13 +132,6 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Met
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Key {
-    ident: MachineIdentificationUnique,
-    path: &'static str,
-    postfix: &'static str,
-}
-
 #[derive(Debug)]
 struct Entry<ExportFormat, Metadata> {
     index: usize,
@@ -167,7 +161,7 @@ struct Storage<const SLOT_SIZE: usize> {
     bytes: [u8; SLOT_SIZE],
 }
 
-pub struct PropertyReader<
+pub struct PropertyAccessor<
     'a,
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
@@ -179,7 +173,7 @@ pub struct PropertyReader<
 }
 
 impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
-    PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
+    PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
 {
     pub fn new(registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>) -> Self {
         Self { registry }

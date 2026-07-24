@@ -43,7 +43,7 @@ impl fmt::Display for ReadError {
 
 impl std::error::Error for ReadError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct HandleError {
     pub resource_kind: Kind,
     pub resource_path: &'static str,

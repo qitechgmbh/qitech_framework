@@ -8,26 +8,37 @@ use qitech_framework_common::MachineIdentificationUnique;
 pub mod error;
 
 mod property;
+pub use property::PropertyAccessor;
 pub use property::PropertyHandle;
 pub use property::PropertyReadHandle;
-pub use property::PropertyReader;
 pub use property::PropertyRegistry;
 pub use property::PropertyResolver;
 
 mod config_property;
-pub use config_property::AccessHandle;
-pub use config_property::Manager;
-pub use config_property::Reader;
-pub use config_property::Resolver;
+pub use config_property::Accessor as ConfigPropertyReader;
+pub use config_property::Manager as ConfigPropertyManager;
+pub use config_property::RemoteHandle as ConfigPropertyReaderHandle;
+pub use config_property::Resolver as ConfigPropertyResolver;
 
 mod measurement;
+pub use measurement::Reader as MeasurementReader;
+pub use measurement::ReaderHandle as MeasurementAccessHandle;
+pub use measurement::Registrar as MeasurementRegistrar;
+pub use measurement::Resolver as MeasurementResolver;
+
 mod state_property;
+pub use state_property::Manager as StatePropertyManager;
+pub use state_property::Reader as StatePropertyReader;
+pub use state_property::ReaderHandle as StatePropertyReaderHandle;
+pub use state_property::Resolver as StatePropertyResolver;
 
 mod command;
 pub use command::Handle as CommandHandle;
 pub use command::Manager as CommandManager;
 
 mod event;
+
+mod conversion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Key<'a> {
@@ -138,6 +149,15 @@ impl<T: Debug> JournalHandle<T> {
     }
 }
 
+// --- access ---
+#[derive(Debug)]
+pub struct GrantLevel {
+    pub read: bool,
+    pub write: bool,
+    pub execute: bool,
+}
+
+// --- errors ---
 #[derive(Debug)]
 pub struct JournalAppendError;
 

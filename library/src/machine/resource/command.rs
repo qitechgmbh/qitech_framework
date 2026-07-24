@@ -1,3 +1,5 @@
+use std::any;
+use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,19 +24,14 @@ use crate::machine::resource::error::RegisterResult;
 type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), ExecuteError>>;
 
 pub struct Handle {
-    resource_path: &'static str,
-    machine_ident: MachineIdentificationUnique,
+    error: HandleError,
     enabled: Weak<RefCell<bool>>,
 }
 
 impl Handle {
     pub fn set_enabled(&mut self, value: bool) -> Result<(), HandleError> {
         let Some(handle) = self.enabled.upgrade() else {
-            return Err(HandleError {
-                resource_kind: Kind::Command,
-                resource_path: self.resource_path,
-                machine_ident: self.machine_ident,
-            });
+            return Err(self.error);
         };
 
         *handle.borrow_mut() = value;
@@ -42,6 +39,7 @@ impl Handle {
     }
 }
 
+// --- resource managment ---
 pub struct Manager {
     registry: HashMap<Key<'static>, Entry>,
     journal: Journal<MachineCommandCall>,
@@ -134,6 +132,82 @@ struct Entry {
     execute: ExecuteFn,
 }
 
+/// --- registering ---
+pub struct Registrar<'a> {
+    manager: &'a mut Manager,
+    machine: MachineIdentificationUnique,
+}
+
+impl Registrar<'_> {
+    pub(crate) fn register<M, A>(
+        &mut self,
+        path: &'static str,
+        execute: fn(&mut M, A) -> Result<(), ExecuteError>,
+    ) -> RegisterResult<Handle>
+    where
+        M: Machine + 'static,
+        A: serde::de::DeserializeOwned + 'static,
+    {
+        let reg = &mut self.manager.registry;
+
+        let key = Key {
+            ident: self.machine,
+            path,
+            postfix: "",
+        };
+
+        if reg.contains_key(&key) {
+            return Err(RegisterError {
+                resource_kind: Kind::Command,
+                resource_path: path,
+                kind: RegisterErrorKind::Duplicate,
+            });
+        }
+
+        let execute = Box::new(move |machine: &mut dyn Machine, bytes: &str| {
+            let machine_type_name = any::type_name_of_val(machine);
+            let any: &mut dyn Any = machine;
+
+            let machine = any
+                .downcast_mut::<M>()
+                .ok_or(ExecuteError::UnexpectedMachineType {
+                    expected: any::type_name::<M>(),
+                    received: machine_type_name,
+                })?;
+
+            let args: A = match serde_json::from_str(bytes) {
+                Ok(v) => v,
+                Err(e) => return Err(ExecuteError::ParsingError(e)),
+            };
+
+            execute(machine, args)
+        });
+
+        let enabled = Rc::default();
+
+        let handle = Handle {
+            enabled: Rc::downgrade(&enabled),
+            error: HandleError {
+                resource_kind: Kind::Command,
+                resource_path: path,
+                machine_ident: self.machine,
+            },
+        };
+
+        reg.insert(key, Entry { enabled, execute });
+
+        Ok(handle)
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct RegisterOptions<T> {
+    pub initial_value: Option<T>,
+    pub record_min: bool,
+    pub record_max: bool,
+}
+
+// --- errors ---
 #[derive(Debug)]
 pub(crate) enum ExecuteError {
     JournalFull,

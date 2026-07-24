@@ -1,6 +1,4 @@
 use std::cell::Ref;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use qitech_framework_common::MachineConfigMutation;
 use qitech_framework_common::MachineIdentificationUnique;
@@ -30,7 +28,7 @@ pub type Resolver<'a> =
 
 pub type Reader<'a> = PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, Kind, ScalarValue, RegistryMetadata>;
 
-pub type AccessHandle<T> = PropertyReadHandle<Kind, T>;
+pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
 
 pub type WriteApiFn = Box<
     dyn Fn(
