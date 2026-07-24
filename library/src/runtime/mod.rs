@@ -12,9 +12,13 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use crate::hardware::HardwareRegistry;
 use crate::machine::BuildContext;
 use crate::machine::Machine;
+use crate::machine::MeasurementRegistrar;
+use crate::machine::StatePropertyRegistrar;
 use crate::machine::resource::CommandManager;
 use crate::machine::resource::ConfigPropertyManager;
+use crate::machine::resource::ConfigPropertyRegistrar;
 use crate::machine::resource::EventManager;
+use crate::machine::resource::EventRegistrar;
 use crate::machine::resource::MeasurementManager;
 use crate::machine::resource::StatePropertyManager;
 
@@ -80,11 +84,11 @@ impl Runtime {
             let ethercat_interface = self.ecat_controller.as_ref().map(|v| v.channel.clone());
 
             let ctx = BuildContext {
-                measurements: todo!(),
+                measurements: MeasurementRegistrar::new(&mut self.measurements, *ident_unique),
                 config: todo!(),
-                state: todo!(),
+                state: StatePropertyRegistrar::new(&mut self.state_properties, *ident_unique),
                 commands: todo!(),
-                events: todo!(),
+                events: EventRegistrar::new(&mut self.events, *ident_unique),
             };
 
             // BuildContext::new(

@@ -108,7 +108,7 @@ with_uom_units!(uom, impl_uom);
 // --- manager ---
 const SLOT_SIZE: usize = size_of::<String>();
 const MAX_ITEMS: usize = 512;
-type Kind = super::kind::Measurement;
+type Kind = super::kind::StateProperty;
 type Format = ScalarValue;
 
 pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind, Format>;

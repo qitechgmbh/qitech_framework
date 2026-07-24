@@ -13,6 +13,7 @@ pub use crate::machine::resource::ConfigPropertyReaderHandle;
 use crate::machine::resource::ConfigPropertyRegistrar;
 pub use crate::machine::resource::ConfigPropertyResolver;
 pub use crate::machine::resource::EventEmitter;
+use crate::machine::resource::EventRegistrar;
 pub use crate::machine::resource::Measurement;
 pub use crate::machine::resource::MeasurementReader;
 pub use crate::machine::resource::MeasurementRegisterOptions;
@@ -60,7 +61,7 @@ pub struct BuildContext<'a> {
     pub state: StatePropertyRegistrar<'a>,
     pub measurements: MeasurementRegistrar<'a>,
     pub commands: CommandRegistrar<'a>,
-    pub events: MeasurementRegistrar<'a>,
+    pub events: EventRegistrar<'a>,
 }
 
 pub struct ReactContext<'a> {

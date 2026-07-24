@@ -1,5 +1,4 @@
 use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::with_uom_quantities;
 use qitech_framework_common::with_uom_units;
 
 use super::PropertyHandle;
@@ -39,6 +38,7 @@ where
     }
 }
 
+// --- uom impl ---
 macro_rules! impl_uom {
     ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
         impl Measurement<$unit> {

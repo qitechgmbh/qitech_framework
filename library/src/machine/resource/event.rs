@@ -1,5 +1,7 @@
+use core::fmt;
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::error::Error;
 use std::marker::PhantomData;
 
 use chrono::Utc;
@@ -45,6 +47,10 @@ pub struct Manager {
 }
 
 impl Manager {
+    pub(crate) fn new() -> Self {
+        Self { registry: Default::default(), journal: Journal::new() }
+    }
+
     pub(crate) fn unregister_machine(&mut self, ident: &MachineIdentificationUnique) {
         self.registry.retain(|key| &key.ident != ident);
     }
@@ -56,7 +62,11 @@ pub struct Registrar<'a> {
     machine: MachineIdentificationUnique,
 }
 
-impl Registrar<'_> {
+impl<'a> Registrar<'a> {
+    pub(crate) fn new(manager: &'a mut Manager, machine: MachineIdentificationUnique) -> Self {
+        Self { manager, machine }
+    }
+
     pub(crate) fn register<T>(&mut self, path: &'static str) -> RegisterResult<Emitter<T>>
     where
         T: Serialize,
@@ -97,7 +107,131 @@ pub struct RemoteHandle {}
 pub type EventEmitResult = Result<(), EmitError>;
 
 #[derive(Debug)]
-pub(crate) enum EmitError {
+pub enum EmitError {
     JournalFull,
     SerializeError(serde_json::Error),
+}
+
+impl fmt::Display for EmitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EmitError::JournalFull => write!(f, "journal is full"),
+            EmitError::SerializeError(err) => {
+                write!(f, "failed to serialize value: {err}")
+            }
+        }
+    }
+}
+
+impl Error for EmitError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            EmitError::JournalFull => None,
+            EmitError::SerializeError(err) => Some(err),
+        }
+    }
+}
+
+// --- testing ---
+#[cfg(test)]
+mod test {
+    use qitech_framework_common::MachineIdentification;
+    use super::*;
+
+    #[test]
+    pub fn register_and_use() -> anyhow::Result<()> {
+        let ident = MachineIdentificationUnique {
+            identification: MachineIdentification {
+                vendor_id: 0,
+                machine_id: 0,
+            },
+            serial: 0,
+        };
+
+        let mut mgr = Manager::new();
+        let mut r = Registrar::new(&mut mgr, ident);
+
+        // --- simple ---
+        #[derive(Serialize)]
+        struct SimpleEvent {
+            a: i64,
+            b: f64,
+            c: i32,
+        }
+
+        let mut emitter = r.register::<SimpleEvent>("simple")?;
+        emitter.emit(SimpleEvent {
+            a: 0,
+            b: 1.0,
+            c: 100,
+        })?;
+
+        // --- complex ---
+        #[derive(Serialize)]
+        #[allow(unused)]
+        enum SensorStatus {
+            Ok,
+            Warning,
+            Error,
+        }
+
+        #[derive(Serialize)]
+        struct Position {
+            x: f64,
+            y: f64,
+            z: f64,
+        }
+
+        #[derive(Serialize)]
+        struct Motor {
+            id: u8,
+            enabled: bool,
+            temperature: Option<f32>,
+        }
+
+        #[derive(Serialize)]
+        struct MediumEvent {
+            machine_name: String,
+            status: SensorStatus,
+            position: Position,
+            motors: Vec<Motor>,
+            tags: std::collections::BTreeMap<String, String>,
+        }
+
+        let mut emitter = r.register::<MediumEvent>("medium")?;
+
+        let mut tags = std::collections::BTreeMap::new();
+        tags.insert("recipe".into(), "part_a".into());
+        tags.insert("operator".into(), "alice".into());
+
+        emitter.emit(MediumEvent {
+            machine_name: "Assembly Cell 1".into(),
+            status: SensorStatus::Warning,
+            position: Position {
+                x: 1.2,
+                y: -3.4,
+                z: 5.6,
+            },
+            motors: vec![
+                Motor {
+                    id: 1,
+                    enabled: true,
+                    temperature: Some(42.5),
+                },
+                Motor {
+                    id: 2,
+                    enabled: false,
+                    temperature: None,
+                },
+            ],
+            tags,
+        })?;
+
+        // TODO: assert correct data
+        mgr.journal.drain_with(|event| {
+            println!("data: {:?}", event);
+        });
+
+        Ok(())
+    }
 }
