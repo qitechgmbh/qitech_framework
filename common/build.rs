@@ -241,6 +241,31 @@ fn create_with_uom(out_dir: &String) -> io::Result<()> {
     }
 
     file.write_all(b"};\n}\n")?;
+
+    // --- pass two: units  ---
+    file.write_all(b"#[macro_export]")?;
+    file.write_all(b"macro_rules! with_uom_units { ($prefix:tt, $callback:ident) => { ")?;
+
+    for UomEntry { name, units } in &quantity {
+        let module = pascal_to_snake(name);
+
+        for unit in units {
+            let module_path = format!("$prefix::{module}");
+
+            let quantity = format!("$prefix::{name}");
+            let unit = format!("{module_path}::{}", pascal_to_snake(unit));
+            let unit_trait = format!("{module_path}::Unit");
+            let conversion_trait = format!("{module_path}::Conversion<f64>");
+
+            writeln!(
+                file,
+                "$callback!({quantity}, {unit}, {unit_trait}, {conversion_trait});"
+            )?;
+        }
+    }
+
+    file.write_all(b"};\n}\n")?;
+
     Ok(())
 }
 

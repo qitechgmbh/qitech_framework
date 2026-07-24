@@ -1,6 +1,7 @@
 use std::any::Any;
 
 pub use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_common::MachineSchema;
 
 use crate::machine::error::ActResult;
 use crate::machine::error::GrantError;
@@ -20,6 +21,8 @@ pub mod bounds;
 
 pub mod error;
 pub mod resource;
+
+mod registry;
 
 pub trait Machine: Any {
     fn act(&mut self) -> ActResult;
@@ -41,6 +44,10 @@ pub trait Machine: Any {
 
 pub trait MachineBuild: Sized {
     fn build(ctx: BuildContext<'_>) -> error::BuildResult<Self>;
+}
+
+pub trait MachineInterface {
+    const SCHEMA: &'static str;
 }
 
 pub struct BuildContext<'a> {

@@ -65,7 +65,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_quantities!(uom, impl_uom);
+// with_uom_quantities!(uom, impl_uom);
 
 // --- statistics ---
 #[derive(Debug)]

@@ -16,7 +16,7 @@ pub use property::PropertyResolver;
 
 mod config_property;
 pub use config_property::Accessor as ConfigPropertyReader;
-pub use config_property::Manager as ConfigPropertyManager;
+pub(crate) use config_property::Manager as ConfigPropertyManager;
 pub use config_property::RemoteHandle as ConfigPropertyReaderHandle;
 pub use config_property::Resolver as ConfigPropertyResolver;
 
@@ -27,7 +27,6 @@ pub use measurement::Registrar as MeasurementRegistrar;
 pub use measurement::Resolver as MeasurementResolver;
 
 mod state_property;
-pub use state_property::Manager as StatePropertyManager;
 pub use state_property::Reader as StatePropertyReader;
 pub use state_property::ReaderHandle as StatePropertyReaderHandle;
 pub use state_property::Resolver as StatePropertyResolver;

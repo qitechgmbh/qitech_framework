@@ -6,13 +6,11 @@ edition = "2024"
 [dependencies]
 # --- internal deps ---
 qitech_framework_common = { path = "../common" }
-# qitech_framework_hub = { path = "../control-macros" }
 
 # --- workspace deps ---
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-anyhow = { workspace = true }
 chrono = { workspace = true }
 qitech_lib = { workspace = true }
 

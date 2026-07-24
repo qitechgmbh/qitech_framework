@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 
 use chrono::Utc;
 use qitech_framework_common::MachineConfigMutation;
@@ -14,7 +13,6 @@ use super::JournalHandle;
 use super::PropertyHandle;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
-use crate::machine::resource::Key;
 use crate::machine::resource::PropertyAccessor;
 use crate::machine::resource::PropertyReadHandle;
 use crate::machine::resource::PropertyRegistry;
@@ -26,7 +24,7 @@ use crate::machine::resource::error::RegisterError;
 pub struct ConfigProperty<T: Clone> {
     handle: PropertyHandle<T>,
     journal: JournalHandle<MachineConfigMutation>,
-    validate: manager::ValidateAndRecord<T>,
+    validate: ValidateAndRecord<T>,
     default: T,
 }
 
@@ -169,101 +167,78 @@ impl Registrar<'_> {
         ident: MachineIdentificationUnique,
         path: &'static str,
         options: RegisterOptions<T::Type>,
-    ) -> Result<ConfigProperty<T::Type>, RegisterError> 
-    where 
+    ) -> Result<ConfigProperty<T::Type>, RegisterError>
+    where
         T: ScalarTypeWrapper + 'static,
         T::Type: Clone + Serialize + DeserializeOwned + BoundedMeta,
     {
+        /*
+        // Validates `value` against `options`, returning the failure reason
+        // (if any) without touching the journal.
+        fn check<T>(value: &T, options: &RegisterOptions<T>) -> Result<(), CheckError> {
+            value.validate(options.min, options.max).map_err(CheckError::OutOfBounds)?;
+            if let Some(func) = options.validate {
+                (func)(value).map_err(CheckError::Validate)?;
+            }
+            Ok(())
+        }
+
         // used by the property itself
         let validate_and_record = Box::new(
             move |journal: &mut JournalHandle<MachineConfigMutation>,
                   value: &T::Type|
                   -> Result<(), WriteError> {
-                let mut entry = MachineConfigMutation {
-                    target: ident,
-                    resource_path: Cow::Borrowed(path),
-                    value: T::into_string(value),
-                    origin: OperationOrigin::Machine,
-                    result: OperationResult::Success,
-                    timestamp: Utc::now(),
-                };
-
-                if let Err(e) = value.validate(options.min, options.max) {
-                    entry.result = OperationResult::Failure;
-                    journal
-                        .append(entry)
-                        .map_err(|_| WriteError::JournalFull)?;
-                    return Err(WriteError::ValueOutOfBounds(e));
-                };
-
-                if let Some(func) = options.validate
-                    && let Err(e) = (func)(value)
-                {
-                    entry.result = OperationResult::Failure;
-                    journal
-                        .append(entry)
-                        .map_err(|_| WriteError::JournalFull)?;
-
-                    return Err(WriteError::ValidateError(e));
+                if let Err(e) = check(value, &options) {
+                    let entry = MachineConfigMutation {
+                        target: ident,
+                        resource_path: Cow::Borrowed(path),
+                        value: T::into_string(value),
+                        origin: OperationOrigin::Machine,
+                        result: OperationResult::Failure,
+                        timestamp: Utc::now(),
+                    };
+                    journal.append(entry).map_err(|_| WriteError::JournalFull)?;
+                    return Err(e.into());
                 }
-
                 Ok(())
             },
         );
 
         let write_api = Box::new(
             move |request_id: u64,
-                  journal: Journal<MachineConfigMutation>,
+                  journal: &mut Journal<MachineConfigMutation>,
                   bytes: *mut u8,
-                  value: &str|
+                  raw: &str|
                   -> Result<(), ApiWriteError> {
                 let mut entry = MachineConfigMutation {
                     target: ident,
                     resource_path: Cow::Borrowed(path),
-                    value: value.to_string(),
+                    value: raw.to_string(),
                     origin: OperationOrigin::Request { request_id },
                     result: OperationResult::Success,
                     timestamp: Utc::now(),
                 };
 
-                let value: T::Type = match serde_json::from_str(value) {
+                let record_failure = |journal: &mut Journal<MachineConfigMutation>, entry: MachineConfigMutation| {
+                    journal.init_handle().append(entry).map_err(|_| ApiWriteError::JournalFull)
+                };
+
+                let value: T::Type = match serde_json::from_str(raw) {
                     Ok(v) => v,
                     Err(e) => {
                         entry.result = OperationResult::Failure;
-
-                        journal.init_handle().append(entry)
-                            .map_err(|_| ApiWriteError::JournalFull)?;
-
+                        record_failure(journal, entry)?;
                         return Err(ApiWriteError::ParseError(e));
                     }
                 };
 
-                if let Err(e) = value.validate(options.min, options.max) {
+                if let Err(e) = check(&value, &options) {
                     entry.result = OperationResult::Failure;
-
-                    journal
-                        .init_handle()
-                        .append(entry)
-                        .map_err(|_| ApiWriteError::JournalFull)?;
-
-                    return Err(ApiWriteError::ValueOutOfBounds(e));
-                };
-
-                if let Some(func) = options.validate && let Err(e) = (func)(&value) {
-                    entry.result = OperationResult::Failure;
-
-                    journal
-                        .init_handle()
-                        .append(entry)
-                        .map_err(|_| ApiWriteError::JournalFull)?;
-
-                    return Err(ApiWriteError::ValidateError(e));
+                    record_failure(journal, entry)?;
+                    return Err(e.into());
                 }
 
-                journal
-                    .init_handle()
-                    .append(entry)
-                    .map_err(|_| ApiWriteError::JournalFull)?;
+                record_failure(journal, entry)?;
 
                 unsafe {
                     *(bytes as *mut T::Type) = value.clone();
@@ -274,8 +249,9 @@ impl Registrar<'_> {
         );
 
         let metadata = Metadata { write_api };
-
-        let handle = self.manager.registry
+        let handle = self
+            .manager
+            .registry
             .register::<T::Type>(ident, path, "", T::extract, metadata)?;
 
         handle.write(options.default.clone());
@@ -286,6 +262,8 @@ impl Registrar<'_> {
             validate: validate_and_record,
             default: options.default,
         })
+        */
+        todo!()
     }
 }
 

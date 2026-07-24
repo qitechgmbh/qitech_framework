@@ -14,8 +14,8 @@ pub use types::NodeMetadata;
 pub use types::Range;
 use types::StringMap;
 pub use types::Type;
+pub use types::quantity;
 pub use types::quantity::Quantity;
-pub use types::quantity::{self};
 
 mod enum_variants;
 pub use enum_variants::EnumVariants;
@@ -55,8 +55,8 @@ pub struct MachineSchema {
     pub name: String,
     pub identification: MachineIdentification,
     pub config_properties: StringMap<Node<ConfigPropertyValue>>,
-    pub state_properties: StringMap<Node<state_property::StatePropertyValue>>,
-    pub measurements: StringMap<Node<measurement::MeasurementValue>>,
+    pub state_properties: StringMap<Node<StatePropertyValue>>,
+    pub measurements: StringMap<Node<MeasurementValue>>,
     pub commands: StringMap<Node<Command>>,
     pub events: StringMap<Node<Event>>,
 }
@@ -68,20 +68,14 @@ impl MachineSchema {
 }
 
 impl MachineSchema {
-    pub fn find_config_property<'a>(
-        &'a self,
-        name: &str,
-    ) -> Option<&'a config_property::ConfigPropertyValue> {
+    pub fn find_config_property<'a>(&'a self, name: &str) -> Option<&'a ConfigPropertyValue> {
         let mut parts = name.split('.');
         let first = parts.next()?;
         let property = self.config_properties.get(first)?;
         Self::walk_node(property, parts)
     }
 
-    pub fn find_state_property<'a>(
-        &'a self,
-        name: &str,
-    ) -> Option<&'a state_property::StatePropertyValue> {
+    pub fn find_state_property<'a>(&'a self, name: &str) -> Option<&'a StatePropertyValue> {
         let mut parts = name.split('.');
         let first = parts.next()?;
         let property = self.state_properties.get(first)?;
