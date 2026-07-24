@@ -53,7 +53,8 @@ pub enum SubscribeError {
 //     }
 // }
 
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum BoundsError {
@@ -78,30 +79,22 @@ where
             (Some(min), Some(max)) => write!(
                 f,
                 "{}: value {} is outside bounds [{}, {}]",
-                self.resource_path,
-                self.received,
-                min,
-                max
+                self.resource_path, self.received, min, max
             ),
             (Some(min), None) => write!(
                 f,
                 "{}: value {} is below minimum {}",
-                self.resource_path,
-                self.received,
-                min
+                self.resource_path, self.received, min
             ),
             (None, Some(max)) => write!(
                 f,
                 "{}: value {} exceeds maximum {}",
-                self.resource_path,
-                self.received,
-                max
+                self.resource_path, self.received, max
             ),
             (None, None) => write!(
                 f,
                 "{}: value {} failed bounds validation",
-                self.resource_path,
-                self.received
+                self.resource_path, self.received
             ),
         }
     }

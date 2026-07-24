@@ -1,3 +1,4 @@
+use std::fmt;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -8,11 +9,24 @@ pub enum Kind {
     Event,
 }
 
+impl fmt::Display for Kind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::ConfigProperty => "config property",
+            Self::StateProperty => "state property",
+            Self::Measurement => "measurement",
+            Self::Command => "command",
+            Self::Event => "event",
+        };
+        f.write_str(s)
+    }
+}
+
 #[allow(non_camel_case_types)]
-pub trait kind_t: private::Kind {}
+pub trait KindVariant: private::Sealed {}
 
 mod private {
-    pub trait Kind: { const KIND: super::Kind; }
+    pub trait Sealed: { const KIND: super::Kind; }
 }
 
 #[derive(Debug)]
@@ -32,11 +46,11 @@ pub struct Event;
 
 macro_rules! impl_kind {
     ($kind:tt) => {
-        impl private::Kind for $kind {
+        impl private::Sealed for $kind {
             const KIND: Kind = Kind::$kind;
         }
         
-        impl kind_t for $kind {}
+        impl KindVariant for $kind {}
     };
 }
 

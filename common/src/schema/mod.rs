@@ -4,15 +4,18 @@ mod version;
 pub use version::Version;
 
 mod types;
-use types::{Map, StringMap};
-pub use types::{Type, FloatSemantic};
-pub use types::quantity::{self, Quantity};
+pub use types::FieldMetadata;
+pub use types::FloatSemantic;
 pub use types::LocalizedText;
+use types::Map;
 pub use types::Node;
 pub use types::NodeKind;
 pub use types::NodeMetadata;
-pub use types::FieldMetadata;
 pub use types::Range;
+use types::StringMap;
+pub use types::Type;
+pub use types::quantity::Quantity;
+pub use types::quantity::{self};
 
 mod enum_variants;
 pub use enum_variants::EnumVariants;
@@ -26,9 +29,9 @@ pub use state_property::StatePropertyValue;
 pub use state_property::StatePropertyValueKind;
 
 mod measurement;
+pub use measurement::MeasurementStatistics;
 pub use measurement::MeasurementValue;
 pub use measurement::MeasurementValueKind;
-pub use measurement::MeasurementStatistics;
 
 mod command;
 pub use command::Command;
@@ -65,14 +68,20 @@ impl MachineSchema {
 }
 
 impl MachineSchema {
-    pub fn find_config_property<'a>(&'a self, name: &str) -> Option<&'a config_property::ConfigPropertyValue> {
+    pub fn find_config_property<'a>(
+        &'a self,
+        name: &str,
+    ) -> Option<&'a config_property::ConfigPropertyValue> {
         let mut parts = name.split('.');
         let first = parts.next()?;
         let property = self.config_properties.get(first)?;
         Self::walk_node(property, parts)
     }
 
-    pub fn find_state_property<'a>(&'a self, name: &str) -> Option<&'a state_property::StatePropertyValue> {
+    pub fn find_state_property<'a>(
+        &'a self,
+        name: &str,
+    ) -> Option<&'a state_property::StatePropertyValue> {
         let mut parts = name.split('.');
         let first = parts.next()?;
         let property = self.state_properties.get(first)?;
@@ -100,10 +109,7 @@ impl MachineSchema {
         Self::walk_node(event, parts)
     }
 
-    fn walk_node<'a, 'b, T, I>(
-        property: &'a Node<T>,
-        mut parts: I,
-    ) -> Option<&'a T>
+    fn walk_node<'a, 'b, T, I>(property: &'a Node<T>, mut parts: I) -> Option<&'a T>
     where
         I: Iterator<Item = &'b str>,
     {
@@ -127,7 +133,9 @@ impl MachineSchema {
 }
 
 // --- deserialize implemenations ---
-use serde::de::{Deserializer, Deserialize, Error};
+use serde::de::Deserialize;
+use serde::de::Deserializer;
+use serde::de::Error;
 
 impl<'de> Deserialize<'de> for MachineSchema {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -137,7 +145,10 @@ impl<'de> Deserialize<'de> for MachineSchema {
         let raw = raw::MachineSchemaRaw::deserialize(deserializer)?;
 
         if !Version::is_supported(raw.qms_version) {
-            return Err(D::Error::custom(format!("Unsupported version: {}", raw.qms_version)));
+            return Err(D::Error::custom(format!(
+                "Unsupported version: {}",
+                raw.qms_version
+            )));
         }
 
         MachineSchema::try_from(raw).map_err(D::Error::custom)

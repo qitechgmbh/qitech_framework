@@ -1,30 +1,33 @@
-mod kind;
+use core::fmt;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use kind::Kind;
-use kind::kind_t;
+use qitech_framework_common::MachineIdentificationUnique;
 
 pub mod error;
 
-mod conversion;
-
 mod property;
-pub use property::PropertyRegistry;
 pub use property::PropertyHandle;
-pub use property::PropertyResolver;
-pub use property::PropertyReader;
 pub use property::PropertyReadHandle;
-use qitech_framework_common::MachineIdentificationUnique;
+pub use property::PropertyReader;
+pub use property::PropertyRegistry;
+pub use property::PropertyResolver;
 
-pub mod config_property;
-pub mod state_property;
-pub mod measurement;
-pub mod event;
-pub mod command;
+mod config_property;
+pub use config_property::AccessHandle;
+pub use config_property::Manager;
+pub use config_property::Reader;
+pub use config_property::Resolver;
 
-pub type JournalBuffer<T> = heapless::Vec<T, 1024>;
+mod measurement;
+mod state_property;
+
+mod command;
+pub use command::Handle as CommandHandle;
+pub use command::Manager as CommandManager;
+
+mod event;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Key<'a> {
@@ -33,34 +36,115 @@ pub struct Key<'a> {
     postfix: &'a str,
 }
 
-#[derive(Debug, Default)]
-pub struct Journal<E> {
-    buffer: Rc<RefCell<JournalBuffer<E>>>,
+// --- kind ---
+#[derive(Debug, Clone, Copy)]
+pub enum Kind {
+    ConfigProperty,
+    StateProperty,
+    Measurement,
+    Command,
+    Event,
 }
 
-impl<E> Journal<E> {
-    pub fn append(&mut self, entry: E) -> Result<(), JournalAppendError> {
-        self.buffer.borrow_mut().push(entry).map_err(|_| JournalAppendError)
+trait KindVariant: kind::private::Sealed {}
+
+mod kind {
+    use super::*;
+
+    pub mod private {
+        pub trait Sealed {
+            const KIND: super::Kind;
+        }
     }
 
-    pub fn iter(&mut self) {
-        self.buffer
+    #[derive(Debug)]
+    pub struct StateProperty;
+
+    #[derive(Debug)]
+    pub struct ConfigProperty;
+
+    #[derive(Debug)]
+    pub struct Measurement;
+
+    #[derive(Debug)]
+    pub struct Command;
+
+    #[derive(Debug)]
+    pub struct Event;
+
+    macro_rules! impl_kind {
+        ($kind:tt) => {
+            impl private::Sealed for $kind {
+                const KIND: Kind = Kind::$kind;
+            }
+
+            impl KindVariant for $kind {}
+        };
+    }
+
+    impl_kind!(ConfigProperty);
+    impl_kind!(StateProperty);
+    impl_kind!(Measurement);
+    impl_kind!(Command);
+    impl_kind!(Event);
+}
+
+impl fmt::Display for Kind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::ConfigProperty => "config property",
+            Self::StateProperty => "state property",
+            Self::Measurement => "measurement",
+            Self::Command => "command",
+            Self::Event => "event",
+        };
+        f.write_str(s)
+    }
+}
+
+// --- journal ---
+pub type JournalBuffer<T> = heapless::Vec<T, 1024>;
+
+#[derive(Debug, Default)]
+pub struct Journal<T> {
+    buffer: Rc<RefCell<JournalBuffer<T>>>,
+}
+
+impl<T> Journal<T> {
+    fn init_handle(&self) -> JournalHandle<T> {
+        JournalHandle {
+            buffer: self.buffer.clone(),
+        }
+    }
+
+    fn drain_with(&mut self, mut f: impl FnMut(&T)) {
+        for entry in self.buffer.borrow_mut().drain(..) {
+            f(&entry);
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct JournalHandle<T> {
-    journal: Rc<RefCell<Journal<T>>>,
+    buffer: Rc<RefCell<JournalBuffer<T>>>,
 }
 
 impl<T: Debug> JournalHandle<T> {
-    pub(crate) fn new(journal: Rc<RefCell<Journal<T>>>) -> Self {
-        Self { journal }
-    }
-
-    pub fn append(&self, entry: T) -> Result<(), JournalAppendError> {
-        self.journal.borrow_mut().push(entry).map_err(|_| JournalAppendError)
+    fn append(&self, entry: T) -> Result<(), JournalAppendError> {
+        self.buffer
+            .borrow_mut()
+            .push(entry)
+            .map_err(|_| JournalAppendError)
     }
 }
 
+#[derive(Debug)]
 pub struct JournalAppendError;
+
+impl core::fmt::Display for JournalAppendError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("journal buffer is full")
+    }
+}
+
+impl core::error::Error for JournalAppendError {}

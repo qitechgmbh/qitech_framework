@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
+
 use indexmap::IndexMap;
 use unic_langid::LanguageIdentifier;
 
@@ -9,7 +12,6 @@ pub mod quantity {
     // includes mod generated { ... }
     include!(concat!(env!("OUT_DIR"), "/quantity.rs"));
 
-    pub use generated::Quantity;
     pub use generated::AccelerationUnit;
     pub use generated::AmountOfSubstanceUnit;
     pub use generated::AngleUnit;
@@ -24,6 +26,7 @@ pub mod quantity {
     pub use generated::LuminousIntensityUnit;
     pub use generated::MassUnit;
     pub use generated::PressureUnit;
+    pub use generated::Quantity;
     pub use generated::RatioUnit;
     pub use generated::ThermodynamicTemperatureUnit;
     pub use generated::TimeUnit;
@@ -72,7 +75,7 @@ impl FromStr for Type {
 }
 
 impl Type {
-    pub fn as_str(&self) -> &'static str { 
+    pub fn as_str(&self) -> &'static str {
         match self {
             Type::Object => "object",
             Type::Array => "array",
@@ -118,7 +121,7 @@ impl FromStr for FloatSemantic {
 }
 
 impl FloatSemantic {
-    pub fn as_str(&self) -> &'static str { 
+    pub fn as_str(&self) -> &'static str {
         match self {
             FloatSemantic::Plain => "float",
             FloatSemantic::Fraction => "fraction",
@@ -156,12 +159,15 @@ pub enum Range<T> {
     Unbounded,
     Min(T),
     Max(T),
-    Between { min: T, max: T },
+    Between {
+        min: T,
+        max: T,
+    },
 }
 
-impl<T> Range<T> 
-where 
-    T: Copy + PartialOrd
+impl<T> Range<T>
+where
+    T: Copy + PartialOrd,
 {
     pub fn in_range(self, value: T) -> bool {
         match self {
@@ -213,11 +219,18 @@ impl<T: Display> Display for Range<T> {
 }
 
 // --- deserialize implemenations ---
-use std::str::FromStr;
 use std::marker::PhantomData;
-use serde::{Deserialize, Serialize};
-use serde::de::{Error, Deserializer, Visitor, EnumAccess, MapAccess};
-use serde::de::value::{EnumAccessDeserializer, MapAccessDeserializer};
+use std::str::FromStr;
+
+use serde::Deserialize;
+use serde::Serialize;
+use serde::de::Deserializer;
+use serde::de::EnumAccess;
+use serde::de::Error;
+use serde::de::MapAccess;
+use serde::de::Visitor;
+use serde::de::value::EnumAccessDeserializer;
+use serde::de::value::MapAccessDeserializer;
 
 impl<'de, V> Deserialize<'de> for Node<V>
 where

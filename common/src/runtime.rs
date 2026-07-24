@@ -1,6 +1,13 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use crate::{LogRecord, MachineIdentificationUnique, OperationResult, ScalarValue, MachinesReport};
+use chrono::DateTime;
+use chrono::Utc;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::LogRecord;
+use crate::MachineIdentificationUnique;
+use crate::MachinesReport;
+use crate::OperationResult;
+use crate::ScalarValue;
 
 // --- request ---
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,7 +48,7 @@ pub enum RuntimeRequestKind {
 
         /// command arguments
         arguments: serde_json::Value,
-    }
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,26 +105,40 @@ pub struct RuntimeEvent {
 pub enum RuntimeEventKind {
     Started,
     Stopped,
-    Terminated { error: String },
+    Terminated {
+        error: String,
+    },
 
     // --- ether cat discovery state ---
     EtherCATDiscoveryStarted,
-    EtherCATDiscoveryCompleted { interface_name: String },
+    EtherCATDiscoveryCompleted {
+        interface_name: String,
+    },
 
     // --- ether cat initialization ---
     EtherCATDeviceInitializationStarted,
-    EtherCATDeviceInitializationUpdate { state: String },
-    EtherCATDeviceInitializationFailed { error: String },
+    EtherCATDeviceInitializationUpdate {
+        state: String,
+    },
+    EtherCATDeviceInitializationFailed {
+        error: String,
+    },
     EtherCATDeviceInitializationCompleted {
         // devices: Vec<EtherCatDeviceMetaData>
     },
 
     // --- modbus ---
-    ModbusDeviceDiscovered { path: String },
+    ModbusDeviceDiscovered {
+        path: String,
+    },
 
     // --- machines ---
-    MachineConnected { ident: MachineIdentificationUnique },
-    MachineDisconnected { ident: MachineIdentificationUnique },
+    MachineConnected {
+        ident: MachineIdentificationUnique,
+    },
+    MachineDisconnected {
+        ident: MachineIdentificationUnique,
+    },
 }
 
 // --- state ---

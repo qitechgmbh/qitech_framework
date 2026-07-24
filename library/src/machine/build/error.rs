@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
+
 use crate::machine::resource::error::RegisterError;
 
 pub type BuildResult<T> = Result<T, BuildError>;
@@ -7,11 +10,22 @@ pub type BuildResult<T> = Result<T, BuildError>;
 pub enum BuildError {
     // --- hardware errors ---
     ExpectedEtherCATInterface,
-    ExpectedHardwareAtIndex { index: usize },
-    ExpectedEtherCATDeviceWithRole { role: u16 },
-    ExpectedEtherCATDeviceAtIndex { index: usize },
-    ExpectedSerialDeviceAtIndex { index: usize },
-    DeviceTypeMismatch { index: usize, expected: &'static str },
+    ExpectedHardwareAtIndex {
+        index: usize,
+    },
+    ExpectedEtherCATDeviceWithRole {
+        role: u16,
+    },
+    ExpectedEtherCATDeviceAtIndex {
+        index: usize,
+    },
+    ExpectedSerialDeviceAtIndex {
+        index: usize,
+    },
+    DeviceTypeMismatch {
+        index: usize,
+        expected: &'static str,
+    },
     // --- resource errors ---
     RegisterError(RegisterError),
 }
@@ -41,9 +55,12 @@ impl Display for BuildError {
                 write!(f, "expected a serial device at index {index}")
             }
             Self::DeviceTypeMismatch { index, expected } => {
-                write!(f, "device type mismatch at index {index}. Expected: {expected}")
+                write!(
+                    f,
+                    "device type mismatch at index {index}. Expected: {expected}"
+                )
             }
-            _ => todo!()
+            _ => todo!(),
         }
     }
 }

@@ -1,12 +1,14 @@
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::MachineStateMutation;
-use super::{JournalHandle, PropertyHandle};
+
+use super::JournalHandle;
+use super::PropertyHandle;
 
 mod manager;
 pub use manager::Manager;
-pub use manager::Resolver;
-pub use manager::Reader;
 pub use manager::ReadHandle;
+pub use manager::Reader;
+pub use manager::Resolver;
 
 #[derive(Debug)]
 pub struct StateProperty<T> {
@@ -17,16 +19,18 @@ pub struct StateProperty<T> {
 }
 
 impl<T> StateProperty<T> {
-    pub fn get(&self) -> &T { self.handle.read() }
+    pub fn get(&self) -> &T {
+        self.handle.read()
+    }
 
     // pub fn set(&mut self, value: T) {
     //     self.handle.write(value.clone());
-    // 
-    //     self.journal.append(MachineStateMutation { 
-    //         source: self.ident, 
-    //         resource_path: Cow::Borrowed(self.name), 
+    //
+    //     self.journal.append(MachineStateMutation {
+    //         source: self.ident,
+    //         resource_path: Cow::Borrowed(self.name),
     //         value: T::into_scalar(value),
-    //         timestamp: Utc::now(), 
+    //         timestamp: Utc::now(),
     //     });
     // }
 }

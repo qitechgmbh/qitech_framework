@@ -1,4 +1,5 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub struct BoundsError<T> {
@@ -18,26 +19,11 @@ where
                 "value {:?} is outside bounds [{:?}, {:?}]",
                 self.received, min, max
             ),
-            (Some(min), None) => write!(
-                f,
-                "value {:?} is below minimum {:?}",
-                self.received, min
-            ),
-            (None, Some(max)) => write!(
-                f,
-                "value {:?} exceeds maximum {:?}",
-                self.received, max
-            ),
-            (None, None) => write!(
-                f,
-                "value {:?} failed bounds validation",
-                self.received
-            ),
+            (Some(min), None) => write!(f, "value {:?} is below minimum {:?}", self.received, min),
+            (None, Some(max)) => write!(f, "value {:?} exceeds maximum {:?}", self.received, max),
+            (None, None) => write!(f, "value {:?} failed bounds validation", self.received),
         }
     }
 }
 
-impl<T> std::error::Error for BoundsError<T>
-where
-    T: Copy + Debug + Display,
-{}
+impl<T> std::error::Error for BoundsError<T> where T: Copy + Debug + Display {}

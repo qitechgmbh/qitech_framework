@@ -1,17 +1,15 @@
-use qitech_framework_common::{
-    MachineIdentificationUnique, 
-    MachineConfigMutation, 
-};
+use qitech_framework_common::MachineConfigMutation;
+use qitech_framework_common::MachineIdentificationUnique;
 
+use super::JournalHandle;
+use super::PropertyHandle;
 use crate::machine::error::BoundsError;
 
-use super::{JournalHandle, PropertyHandle};
-
 mod manager;
-pub use manager::Manager;
-pub use manager::Resolver;
-pub use manager::Reader;
 pub use manager::AccessHandle;
+pub use manager::Manager;
+pub use manager::Reader;
+pub use manager::Resolver;
 
 pub enum ApiWriteConfigError {
     JournalFull,
@@ -31,7 +29,6 @@ pub struct ConfigProperty<T: Clone> {
     journal: JournalHandle<MachineConfigMutation>,
     validate: manager::ValidateAndRecord<T>,
     default: T,
-
 }
 
 impl<T: Clone> ConfigProperty<T> {
@@ -50,13 +47,15 @@ impl<T: Clone> ConfigProperty<T> {
 }
 
 impl<T: Clone + Copy> ConfigProperty<T> {
-    pub fn get(&self) -> T { *self.handle.read() }
+    pub fn get(&self) -> T {
+        *self.handle.read()
+    }
 }
 
 // impl ConfigProperty<String> {
 //     pub fn get(&self) -> &str { self.handle.read() }
 // }
-// 
+//
 // impl ConfigProperty<String> {
 //     pub fn get(&self) -> &str { self.handle.read() }
 // }

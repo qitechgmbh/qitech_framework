@@ -1,36 +1,23 @@
 use qitech_framework_common::MachineIdentificationUnique;
 
-use crate::machine::resource::{
-    PropertyReadHandle, PropertyReader, PropertyRegistry, 
-    PropertyResolver, error::RegisterResult, kind, property::ExtractFn,
-};
 use super::Measurement;
+use crate::machine::resource::PropertyReadHandle;
+use crate::machine::resource::PropertyReader;
+use crate::machine::resource::PropertyRegistry;
+use crate::machine::resource::PropertyResolver;
+use crate::machine::resource::error::RegisterResult;
+use crate::machine::resource::kind;
+use crate::machine::resource::property::ExtractFn;
 
 const SLOT_SIZE: usize = size_of::<f64>();
 const MAX_ITEMS: usize = 512;
 
-pub type Registry = PropertyRegistry<
-    SLOT_SIZE, 
-    MAX_ITEMS, 
-    kind::StateProperty,
-    Option<f64>,
->;
+pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, kind::StateProperty, Option<f64>>;
 
-pub type Resolver<'a> = PropertyResolver<
-    'a, 
-    SLOT_SIZE, 
-    MAX_ITEMS, 
-    kind::StateProperty, 
-    Option<f64>,
->;
+pub type Resolver<'a> =
+    PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, Option<f64>>;
 
-pub type Reader<'a> = PropertyReader<
-    'a, 
-    SLOT_SIZE, 
-    MAX_ITEMS, 
-    kind::StateProperty, 
-    Option<f64>
->;
+pub type Reader<'a> = PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, Option<f64>>;
 
 pub type MeasurementAccessHandle<T> = PropertyReadHandle<kind::StateProperty, T>;
 

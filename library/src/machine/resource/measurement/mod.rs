@@ -2,9 +2,9 @@ use super::PropertyHandle;
 
 mod manager;
 pub use manager::Manager;
-pub use manager::Resolver;
-pub use manager::Reader;
 pub use manager::MeasurementAccessHandle;
+pub use manager::Reader;
+pub use manager::Resolver;
 
 #[derive(Debug)]
 pub struct Measurement<T> {

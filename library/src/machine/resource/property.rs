@@ -1,12 +1,20 @@
-use std::{any::TypeId, collections::HashMap, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use std::any::TypeId;
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::mem::MaybeUninit;
+use std::ptr::NonNull;
+
 use qitech_framework_common::MachineIdentificationUnique;
 
-use super::kind_t;
-use super::error::{
-    RegisterResult, RegisterError, RegisterErrorKind, 
-    ResolveResult, ResolveError, ResolveErrorKind, 
-    ReadResult, ReadError,
-};
+use super::KindVariant;
+use super::error::ReadError;
+use super::error::ReadResult;
+use super::error::RegisterError;
+use super::error::RegisterErrorKind;
+use super::error::RegisterResult;
+use super::error::ResolveError;
+use super::error::ResolveErrorKind;
+use super::error::ResolveResult;
 
 pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
 
@@ -14,7 +22,7 @@ pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
 pub struct PropertyRegistry<
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
-    K: kind_t,
+    K: KindVariant,
     Format,
     Metadata = (),
 > {
@@ -25,8 +33,8 @@ pub struct PropertyRegistry<
     _marker: PhantomData<K>,
 }
 
-impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata>
-    Default for PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
+impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata> Default
+    for PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
 {
     fn default() -> Self {
         Self {
@@ -39,7 +47,7 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata
     }
 }
 
-impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata>
+impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
     PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
 {
     pub fn new() -> Self {
@@ -66,7 +74,11 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata
             bytes: [0u8; SLOT_SIZE],
         });
 
-        let key = Key { ident, path, postfix };
+        let key = Key {
+            ident,
+            path,
+            postfix,
+        };
 
         let entry = Entry {
             index,
@@ -77,13 +89,8 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata
 
         self.lookup.insert(key, entry);
 
-        let p_value = unsafe {
-            NonNull::new_unchecked(
-                self.buf_storage[index]
-                    .as_mut_ptr()
-                    .cast::<T>(),
-            )
-        };
+        let p_value =
+            unsafe { NonNull::new_unchecked(self.buf_storage[index].as_mut_ptr().cast::<T>()) };
 
         Ok(PropertyHandle { p_value })
     }
@@ -164,26 +171,21 @@ pub struct PropertyReader<
     'a,
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
-    K: kind_t,
+    K: KindVariant,
     Format,
     Metadata = (),
 > {
     registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>,
 }
 
-impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata>
+impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
     PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
 {
-    pub fn new(
-        registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>,
-    ) -> Self {
+    pub fn new(registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>) -> Self {
         Self { registry }
     }
 
-    pub fn read<T>(
-        &self,
-        handle: &PropertyReadHandle<K, T>,
-    ) -> ReadResult<&T> {
+    pub fn read<T>(&self, handle: &PropertyReadHandle<K, T>) -> ReadResult<&T> {
         let generation = &self.registry.buf_generations[handle.index];
 
         // Safety:
@@ -201,7 +203,7 @@ impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Meta
     }
 }
 
-pub struct PropertyReadHandle<K: kind_t, T> {
+pub struct PropertyReadHandle<K: KindVariant, T> {
     generation: u64,
     index: usize,
     _marker: PhantomData<(K, T)>,
@@ -211,7 +213,7 @@ pub struct PropertyResolver<
     'a,
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
-    K: kind_t,
+    K: KindVariant,
     Format,
     Metadata = (),
 > {
@@ -219,17 +221,18 @@ pub struct PropertyResolver<
     ident: MachineIdentificationUnique,
 }
 
-impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: kind_t, Format, Metadata>
+impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
     PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
 {
-    pub fn resolve<T>(
-        &self,
-        path: &'static str,
-    ) -> ResolveResult<PropertyReadHandle<K, T>>
+    pub fn resolve<T>(&self, path: &'static str) -> ResolveResult<PropertyReadHandle<K, T>>
     where
         T: 'static,
     {
-        let key = Key { ident: self.ident, path, postfix: "" };
+        let key = Key {
+            ident: self.ident,
+            path,
+            postfix: "",
+        };
 
         let Some(Entry {
             index,

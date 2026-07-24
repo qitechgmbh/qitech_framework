@@ -1,8 +1,11 @@
-use std::io::{self, BufWriter, Write};
 use std::collections::BTreeMap;
-use std::path::Path;
-use std::fs::File;
 use std::env;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::Write;
+use std::io::{self};
+use std::path::Path;
+
 use serde::Deserialize;
 
 const ENV_VAR_OUT_DIR: &str = "OUT_DIR";
@@ -31,9 +34,12 @@ fn main() -> io::Result<()> {
 fn create_vendors(out_dir: &String) -> io::Result<()> {
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct Entry { id: u16, name: String }
+    struct Entry {
+        id: u16,
+        name: String,
+    }
 
-    let out_path = Path::new(&out_dir).join(VENDORS_EXPORT_FILE_NAME);   
+    let out_path = Path::new(&out_dir).join(VENDORS_EXPORT_FILE_NAME);
     let mut file = BufWriter::new(File::create(&out_path)?);
 
     let entries = toml::from_str::<BTreeMap<String, Entry>>(VENDORS_DATA).unwrap();
@@ -42,15 +48,24 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
     writeln!(file, "mod generated {{")?;
 
     // --- emit constants ---
-    writeln!(file, "pub struct Entry {{ pub id: u16, pub name: &'static str }}\n")?;
+    writeln!(
+        file,
+        "pub struct Entry {{ pub id: u16, pub name: &'static str }}\n"
+    )?;
     for (abbr, Entry { id, name }) in &entries {
         let abbr = abbr.to_uppercase();
-        writeln!(file, "pub const {abbr}: Entry = Entry {{ id: {id}, name: \"{name}\" }};",)?;
+        writeln!(
+            file,
+            "pub const {abbr}: Entry = Entry {{ id: {id}, name: \"{name}\" }};",
+        )?;
     }
     writeln!(file)?;
 
     // --- emit get_by_id(...) ---
-    writeln!(file, "pub const fn get_name(id: u16) -> Option<&'static str> {{")?;
+    writeln!(
+        file,
+        "pub const fn get_name(id: u16) -> Option<&'static str> {{"
+    )?;
     writeln!(file, "    match id {{")?;
     for Entry { id, name } in entries.values() {
         writeln!(file, "        {id} => Some(\"{name}\"),")?;
@@ -77,7 +92,7 @@ fn create_vendors(out_dir: &String) -> io::Result<()> {
 
 /// generates quantity.rs from quantities.rs
 fn create_quantity(out_dir: &String) -> io::Result<()> {
-    let out_path = Path::new(&out_dir).join(QUANTITY_EXPORT_FILE_NAME);   
+    let out_path = Path::new(&out_dir).join(QUANTITY_EXPORT_FILE_NAME);
     let mut file = BufWriter::new(File::create(&out_path)?);
 
     // encapsulate inside private module
@@ -111,7 +126,10 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     // --- pass three: emit Display for Quantity ---
     writeln!(file, "impl Display for Quantity {{")?;
-    writeln!(file, "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{")?;
+    writeln!(
+        file,
+        "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{"
+    )?;
     writeln!(file, "        match self {{")?;
 
     for UomEntry { name, .. } in &quantity {
@@ -125,7 +143,10 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     // --- pass four: emit Display for quantity unit types ---
     for UomEntry { name, units } in &quantity {
         writeln!(file, "impl Display for {name}Unit {{")?;
-        writeln!(file, "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{")?;
+        writeln!(
+            file,
+            "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{"
+        )?;
         writeln!(file, "        match self {{")?;
 
         for unit in units {
@@ -141,7 +162,10 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     // --- pass five: emit Quantity::from_str(tag: &str) ---
     writeln!(file, "impl std::str::FromStr for Quantity {{")?;
     writeln!(file, "    type Err = String;")?;
-    writeln!(file, "    fn from_str(s: &str) -> Result<Self, Self::Err> {{")?;
+    writeln!(
+        file,
+        "    fn from_str(s: &str) -> Result<Self, Self::Err> {{"
+    )?;
     writeln!(file, "        Ok(match s {{")?;
 
     for UomEntry { name, units } in &quantity {
@@ -155,7 +179,10 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
         }
     }
 
-    writeln!(file, "            other => return Err(format!(\"undefined quantity unit {{other}}\")),")?;
+    writeln!(
+        file,
+        "            other => return Err(format!(\"undefined quantity unit {{other}}\")),"
+    )?;
     writeln!(file, "        }})")?;
     writeln!(file, "    }}")?;
     writeln!(file, "}}")?;
@@ -188,8 +215,8 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
 /// generates with_uom!() from quantities.rs.
 /// a macro that accepts a macro to iterate all uom units
-fn create_with_uom(out_dir: &String) -> io::Result<()>  {
-    let out_path = Path::new(&out_dir).join(WITH_UOM_EXPORT_FILE_NAME);   
+fn create_with_uom(out_dir: &String) -> io::Result<()> {
+    let out_path = Path::new(&out_dir).join(WITH_UOM_EXPORT_FILE_NAME);
     let mut file = BufWriter::new(File::create(&out_path)?);
 
     let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)
@@ -210,7 +237,10 @@ fn create_with_uom(out_dir: &String) -> io::Result<()>  {
             let unit_trait = format!("{module_path}::Unit");
             let conversion_trait = format!("{module_path}::Conversion<f64>");
 
-            writeln!(file, "$callback!({quantity}, {unit}, {unit_trait}, {conversion_trait});")?;
+            writeln!(
+                file,
+                "$callback!({quantity}, {unit}, {unit_trait}, {conversion_trait});"
+            )?;
         }
     }
 

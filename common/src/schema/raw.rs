@@ -1,11 +1,17 @@
 use serde::Deserialize;
 
+use super::Command;
+use super::Event;
+use super::MachineSchema;
+use super::Node;
+use super::NodeKind;
+use super::NodeMetadata;
+use super::StringMap;
+use super::Version;
+use super::config_property;
+use super::measurement;
+use super::state_property;
 use crate::MachineIdentification;
-use super::{
-    Version,
-    MachineSchema, StringMap, Node, NodeKind, NodeMetadata, Command, Event,
-    config_property, state_property, measurement
-};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -78,13 +84,13 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
     fn try_from(raw: MachineSchemaRaw) -> Result<Self, Self::Error> {
         let config = merge_with_metadata(
             "config", "config", 
-            raw.metadata.config, 
+            raw.metadata.config,
             raw.config,
         )?;
 
         let state = merge_with_metadata(
             "state", "state", 
-            raw.metadata.state, 
+            raw.metadata.state,
             raw.state,
         )?;
 
@@ -99,7 +105,7 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
             raw.metadata.commands,
             raw.commands,
         )?;
-        
+
         let events = merge_with_metadata(
             "events", "events",
             raw.metadata.events,
@@ -112,9 +118,9 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
             qms_version: raw.qms_version,
             name,
             revision: raw.revision,
-            identification: MachineIdentification { 
-                vendor_id, 
-                machine_id, 
+            identification: MachineIdentification {
+                vendor_id,
+                machine_id,
             },
             config_properties: config,
             state_properties: state,
@@ -133,7 +139,9 @@ fn merge_with_metadata<V>(
 ) -> Result<StringMap<Node<V>>, String> {
     for (name, node) in metadata {
         let Some(prop) = props.get_mut(&name) else {
-            return Err(format!("description for unknown {section} property: {key}.{name}"));
+            return Err(format!(
+                "description for unknown {section} property: {key}.{name}"
+            ));
         };
 
         match (&mut prop.kind, node) {

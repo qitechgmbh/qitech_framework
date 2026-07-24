@@ -1,5 +1,6 @@
+use serde::Deserialize;
+
 use super::FloatSemantic;
-use serde::Deserialize ;
 
 #[derive(Debug, Clone)]
 pub struct MeasurementValue {
@@ -10,7 +11,7 @@ pub struct MeasurementValue {
 #[derive(Debug, Clone)]
 pub enum MeasurementValueKind {
     Boolean,
-    Integer{
+    Integer {
         statistics: MeasurementStatistics,
     },
     Float {
@@ -35,7 +36,13 @@ pub struct MeasurementStatistics {
 // --- deserialize implemenations ---
 use std::fmt;
 use std::str::FromStr;
-use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
+
+use serde::de::Deserializer;
+use serde::de::EnumAccess;
+use serde::de::Error;
+use serde::de::VariantAccess;
+use serde::de::Visitor;
+
 use super::Type;
 
 impl<'de> Deserialize<'de> for MeasurementValue {
@@ -60,8 +67,7 @@ impl<'de> Deserialize<'de> for MeasurementValue {
 
                 match Type::from_str(&tag).map_err(A::Error::custom)? {
                     Type::Boolean => {
-                        let BooleanHelper { nullable } =
-                            variant.newtype_variant()?;
+                        let BooleanHelper { nullable } = variant.newtype_variant()?;
 
                         Ok(MeasurementValue {
                             kind: MeasurementValueKind::Boolean,
@@ -76,9 +82,7 @@ impl<'de> Deserialize<'de> for MeasurementValue {
                         } = variant.newtype_variant()?;
 
                         Ok(MeasurementValue {
-                            kind: MeasurementValueKind::Integer {
-                                statistics,
-                            },
+                            kind: MeasurementValueKind::Integer { statistics },
                             nullable,
                         })
                     }
@@ -98,23 +102,15 @@ impl<'de> Deserialize<'de> for MeasurementValue {
                         })
                     }
 
-                    Type::Enum => {
-                        Err(A::Error::custom(
-                            "enums are not supported for measurements"
-                        ))
-                    }
+                    Type::Enum => Err(A::Error::custom("enums are not supported for measurements")),
 
-                    Type::String => {
-                        Err(A::Error::custom(
-                            "strings are not supported for measurements"
-                        ))
-                    }
+                    Type::String => Err(A::Error::custom(
+                        "strings are not supported for measurements",
+                    )),
 
-                    other => {
-                        Err(A::Error::custom(format!(
-                            "unsupported measurement type: {other:?}"
-                        )))
-                    }
+                    other => Err(A::Error::custom(format!(
+                        "unsupported measurement type: {other:?}"
+                    ))),
                 }
             }
         }

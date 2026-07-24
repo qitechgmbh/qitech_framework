@@ -1,7 +1,11 @@
-use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_framework_common::MachineIdentificationUnique;
+use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
-use crate::machine::resource::{command, config_property, event, measurement, state_property};
+use crate::machine::resource::command;
+use crate::machine::resource::config_property;
+use crate::machine::resource::event;
+use crate::machine::resource::measurement;
+use crate::machine::resource::state_property;
 
 mod conversion;
 pub mod error;

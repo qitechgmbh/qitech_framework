@@ -1,32 +1,35 @@
+use std::any::Any;
+use std::any::{self};
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::rc::Rc;
+
 use chrono::Utc;
-use serde::{Serialize, de::DeserializeOwned};
-use std::{
-    any::{self, Any},
-    borrow::Cow,
-    cell::RefCell,
-    fmt::Debug,
-    rc::Rc,
-};
+use qitech_framework_common::MachineConfigMutation;
+use qitech_framework_common::OperationOrigin;
+use qitech_framework_common::OperationResult;
+use qitech_framework_common::ScalarValue;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-use qitech_framework_common::{
-    MachineConfigMutation, OperationOrigin, OperationResult, ScalarValue,
-};
-
-use crate::machine::{
-    Machine,
-    build::conversion::{Extract, ScalarTypeWrapper, TypeWrapper},
-    error::BoundsError,
-    resource::{
-        Journal, JournalHandle,
-        command::{CommandExecuteError, CommandHandle},
-        config_property::{ApiWriteConfigError, ConfigProperty, WriteConfigError},
-        event::EventEmitter,
-        measurement::Measurement,
-        state_property::StateProperty,
-    },
-};
-
-use super::{BuildContext, error::BuildError};
+use super::BuildContext;
+use super::error::BuildError;
+use crate::machine::Machine;
+use crate::machine::build::conversion::Extract;
+use crate::machine::build::conversion::ScalarTypeWrapper;
+use crate::machine::build::conversion::TypeWrapper;
+use crate::machine::error::BoundsError;
+use crate::machine::resource::Journal;
+use crate::machine::resource::JournalHandle;
+use crate::machine::resource::command::CommandExecuteError;
+use crate::machine::resource::command::CommandHandle;
+use crate::machine::resource::config_property::ApiWriteConfigError;
+use crate::machine::resource::config_property::ConfigProperty;
+use crate::machine::resource::config_property::WriteConfigError;
+use crate::machine::resource::event::EventEmitter;
+use crate::machine::resource::measurement::Measurement;
+use crate::machine::resource::state_property::StateProperty;
 
 // --- config property ---
 type ValidateConfigInputFn<T> = fn(&T) -> Result<(), String>;

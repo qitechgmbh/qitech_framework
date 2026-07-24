@@ -1,4 +1,5 @@
-use super::{StringMap, Map};
+use super::Map;
+use super::StringMap;
 
 #[derive(Debug, Clone)]
 pub struct EnumVariants {
@@ -44,7 +45,10 @@ impl EnumVariants {
     }
 
     fn new() -> Self {
-        Self { values: Default::default(), reverse: Default::default() }
+        Self {
+            values: Default::default(),
+            reverse: Default::default(),
+        }
     }
 
     /// can only be invoked here, only intended for building
@@ -82,8 +86,15 @@ impl IntoIterator for EnumVariants {
 }
 
 // --- deserialize impl --
-use std::fmt::{self, Formatter};
-use serde::{Deserialize, de::{Error, SeqAccess, Visitor, Deserializer, MapAccess}};
+use std::fmt::Formatter;
+use std::fmt::{self};
+
+use serde::Deserialize;
+use serde::de::Deserializer;
+use serde::de::Error;
+use serde::de::MapAccess;
+use serde::de::SeqAccess;
+use serde::de::Visitor;
 
 impl<'de> Deserialize<'de> for EnumVariants {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

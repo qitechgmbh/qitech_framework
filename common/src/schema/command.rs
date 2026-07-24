@@ -1,4 +1,8 @@
-use super::{StringMap, FloatSemantic, EnumVariants, Range, FieldMetadata};
+use super::EnumVariants;
+use super::FieldMetadata;
+use super::FloatSemantic;
+use super::Range;
+use super::StringMap;
 
 #[derive(Debug, Clone)]
 pub struct Command {
@@ -47,8 +51,14 @@ pub enum CommandFieldKind {
 // --- deserialize implemenations ---
 use std::fmt::Display;
 use std::str::FromStr;
+
 use serde::Deserialize;
-use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
+use serde::de::Deserializer;
+use serde::de::EnumAccess;
+use serde::de::Error;
+use serde::de::VariantAccess;
+use serde::de::Visitor;
+
 use super::Type;
 
 impl<'de> Deserialize<'de> for Command {
@@ -67,18 +77,19 @@ impl<'de> Deserialize<'de> for Command {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = Type::from_str(&tag)
-                    .map_err(A::Error::custom)?;
+                let value_type = Type::from_str(&tag).map_err(A::Error::custom)?;
 
                 if !matches!(value_type, Type::Command) {
-                    return Err(Error::custom(format!("expected !command, received: !{tag}.")))
+                    return Err(Error::custom(format!(
+                        "expected !command, received: !{tag}."
+                    )));
                 }
 
                 let fields = variant.newtype_variant::<StringMap<CommandField>>()?;
 
                 Ok(Command { fields })
             }
-            
+
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("!event or object")
             }
@@ -104,8 +115,7 @@ impl<'de> Deserialize<'de> for CommandField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = Type::from_str(&tag)
-                    .map_err(A::Error::custom)?;
+                let value_type = Type::from_str(&tag).map_err(A::Error::custom)?;
 
                 match value_type {
                     Type::Object => {
@@ -116,17 +126,21 @@ impl<'de> Deserialize<'de> for CommandField {
                             kind: CommandFieldKind::Object { fields },
                             metadata: Default::default(),
                         })
-                    },
+                    }
 
                     Type::Array => {
-                        let ArrayHelper { item, nullable, bounds } = variant.newtype_variant()?;
+                        let ArrayHelper {
+                            item,
+                            nullable,
+                            bounds,
+                        } = variant.newtype_variant()?;
 
                         Ok(CommandField {
                             nullable,
                             kind: CommandFieldKind::Array { item, bounds },
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Enum => {
                         let EnumHelper { variants, nullable } = variant.newtype_variant()?;
 
@@ -135,16 +149,20 @@ impl<'de> Deserialize<'de> for CommandField {
                             kind: CommandFieldKind::Enum { variants },
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::String => {
-                        let StringHelper { nullable, bounds, pattern } = variant.newtype_variant()?;
+                        let StringHelper {
+                            nullable,
+                            bounds,
+                            pattern,
+                        } = variant.newtype_variant()?;
 
                         Ok(CommandField {
                             nullable,
                             kind: CommandFieldKind::String { pattern, bounds },
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Boolean => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
@@ -153,7 +171,7 @@ impl<'de> Deserialize<'de> for CommandField {
                             kind: CommandFieldKind::Boolean,
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Integer => {
                         let NumericHelper { nullable, bounds } = variant.newtype_variant()?;
 
@@ -162,7 +180,7 @@ impl<'de> Deserialize<'de> for CommandField {
                             kind: CommandFieldKind::Integer { bounds },
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Float(semantic) => {
                         let NumericHelper { nullable, bounds } = variant.newtype_variant()?;
 
@@ -171,12 +189,12 @@ impl<'de> Deserialize<'de> for CommandField {
                             kind: CommandFieldKind::Float { semantic, bounds },
                             metadata: Default::default(),
                         })
-                    },
+                    }
 
                     other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
                 }
             }
-            
+
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("regular value")
             }
@@ -234,9 +252,9 @@ struct StringHelper {
 #[serde(deny_unknown_fields)]
 #[serde(bound(deserialize = "T: Deserialize<'de>"))]
 struct NumericHelper<T>
-where 
+where
     T: FromStr,
-    T::Err: Display
+    T::Err: Display,
 {
     #[serde(default)]
     nullable: bool,

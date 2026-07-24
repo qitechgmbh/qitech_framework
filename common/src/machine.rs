@@ -1,9 +1,15 @@
 use std::borrow::Cow;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
+
+use chrono::DateTime;
+use chrono::Utc;
+use serde::Deserialize;
+use serde::Serialize;
 use soa_derive::StructOfArray;
+
 use crate::MachineIdentificationUnique;
-use crate::types::{OperationOrigin, OperationResult, ScalarValue};
+use crate::types::OperationOrigin;
+use crate::types::OperationResult;
+use crate::types::ScalarValue;
 
 // --- report ---
 #[derive(Debug, Default, Serialize, Deserialize)]

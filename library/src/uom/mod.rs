@@ -58,5 +58,5 @@ pub mod f64 {
     ISQ!(self::mks, f64);
 }
 
-pub use uom::ConstZero;
 pub use f64::*;
+pub use uom::ConstZero;

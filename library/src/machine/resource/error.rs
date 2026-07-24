@@ -1,4 +1,7 @@
 use std::fmt;
+
+use qitech_framework_common::MachineIdentificationUnique;
+
 use super::Kind;
 
 pub type RegisterResult<T> = Result<T, RegisterError>;
@@ -6,7 +9,7 @@ pub type RegisterError = Error<RegisterErrorKind>;
 
 #[derive(Debug)]
 pub enum RegisterErrorKind {
-    AlreadyRegistered,
+    Duplicate,
     RegistryFull,
     NameTooLarge,
 }
@@ -39,3 +42,22 @@ impl fmt::Display for ReadError {
 }
 
 impl std::error::Error for ReadError {}
+
+#[derive(Debug)]
+pub struct HandleError {
+    pub resource_kind: Kind,
+    pub resource_path: &'static str,
+    pub machine_ident: MachineIdentificationUnique,
+}
+
+impl fmt::Display for HandleError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} `{}` handle is no longer valid: it was unregistered",
+            self.resource_kind, self.resource_path,
+        )
+    }
+}
+
+impl std::error::Error for HandleError {}

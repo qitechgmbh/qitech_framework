@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+
 use qitech_framework_common::ScalarValue;
 
 pub trait Extract<T> {
@@ -10,7 +11,7 @@ pub trait TypeWrapper {
 }
 
 // --- float ---
-impl TypeWrapper  for f64 {
+impl TypeWrapper for f64 {
     type Type = f64;
 }
 
@@ -28,7 +29,7 @@ impl Extract<ScalarValue> for f64 {
     }
 }
 
-// --- 
+// ---
 impl Extract<Option<f64>> for Option<f64> {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const Option<f64>) };
@@ -36,7 +37,7 @@ impl Extract<Option<f64>> for Option<f64> {
     }
 }
 
-pub trait BoundedMeta { 
+pub trait BoundedMeta {
     type Bound: Copy + PartialOrd + Debug;
     fn as_bound(&self) -> Self::Bound;
 }

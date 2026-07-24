@@ -1,5 +1,11 @@
-use std::{fmt, str::FromStr};
-use serde::{Deserialize, Deserializer, Serialize, de::{self, Visitor}};
+use std::fmt;
+use std::str::FromStr;
+
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::de::Visitor;
+use serde::de::{self};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Version {
@@ -9,9 +15,7 @@ pub struct Version {
 
 impl Version {
     /// Versions that are fully supported and safe to use.
-    pub const SUPPORTED_VERSIONS: &[Version] = &[
-        Version { major: 1, minor: 0 }
-    ];
+    pub const SUPPORTED_VERSIONS: &[Version] = &[Version { major: 1, minor: 0 }];
 
     /// Versions that still parse and work, but should trigger a warning
     /// since they're on their way to becoming unsupported.

@@ -1,19 +1,47 @@
-use std::{borrow::Cow, cell::RefCell, collections::HashSet, marker::PhantomData, rc::Rc};
+use std::borrow::Cow;
+use std::collections::HashSet;
+use std::marker::PhantomData;
+
 use chrono::Utc;
+use qitech_framework_common::MachineEvent;
+use qitech_framework_common::MachineIdentificationUnique;
 use serde::Serialize;
-use qitech_framework_common::{MachineEvent, MachineIdentificationUnique};
 
-use crate::machine::resource::{
-    Journal, JournalHandle, Key,
-    error::{RegisterError, RegisterErrorKind, RegisterResult},
-    kind::Kind,
-};
+use super::Journal;
+use super::JournalHandle;
+use super::Key;
+use super::Kind;
+use super::error::RegisterError;
+use super::error::RegisterErrorKind;
+use super::error::RegisterResult;
 
-pub type EventEmitResult = serde_json::Result<()>;
+pub type EventEmitResult = Result<(), EmitError>;
+
+pub struct Emitter<T: Serialize> {
+    source: MachineIdentificationUnique,
+    path: &'static str,
+    journal: JournalHandle<MachineEvent>,
+    _marker: PhantomData<T>,
+}
+
+impl<T: Serialize> Emitter<T> {
+    pub fn emit(&mut self, data: T) -> EventEmitResult {
+        self.journal
+            .append(MachineEvent {
+                timestamp: Utc::now(),
+                source: self.source,
+                resource_path: Cow::Borrowed(self.path),
+                data: serde_json::to_string(&data).map_err(EmitError::SerializeError)?,
+            })
+            .map_err(|_| EmitError::JournalFull);
+
+        Ok(())
+    }
+}
 
 pub struct Manager {
     registry: HashSet<Key<'static>>,
-    journal: Rc<RefCell<Journal<MachineEvent>>>,
+    journal: Journal<MachineEvent>,
 }
 
 impl Manager {
@@ -21,7 +49,7 @@ impl Manager {
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-    ) -> RegisterResult<EventEmitter<T>> {
+    ) -> RegisterResult<Emitter<T>> {
         let key = Key {
             ident,
             path,
@@ -32,43 +60,25 @@ impl Manager {
             return Err(RegisterError {
                 resource_kind: Kind::Event,
                 resource_path: path,
-                kind: RegisterErrorKind::AlreadyRegistered,
+                kind: RegisterErrorKind::Duplicate,
             });
         }
 
-        let journal = JournalHandle::new(self.journal.clone());
-
-        Ok(EventEmitter {
+        Ok(Emitter {
             source: ident,
-            resource_path: path,
-            journal,
+            path,
+            journal: self.journal.init_handle(),
             _marker: PhantomData,
         })
     }
 
-    pub(crate) fn unregister_machine(&mut self) {
-        // TODO: remove entries from registry
+    pub(crate) fn unregister_machine(&mut self, ident: &MachineIdentificationUnique) {
+        self.registry.retain(|key| &key.ident != ident);
     }
 }
 
-pub struct EventEmitter<T: Serialize> {
-    source: MachineIdentificationUnique,
-    resource_path: &'static str,
-    journal: JournalHandle<MachineEvent>,
-    _marker: PhantomData<T>,
-}
-
-impl<T: Serialize> EventEmitter<T> {
-    pub fn emit(&mut self, data: T) -> EventEmitResult {
-        let data = serde_json::to_string(&data)?;
-
-        self.journal.append(MachineEvent {
-            source: self.source,
-            resource_path: Cow::Borrowed(self.resource_path),
-            data,
-            timestamp: Utc::now(),
-        });
-
-        Ok(())
-    }
+#[derive(Debug)]
+pub(crate) enum EmitError {
+    JournalFull,
+    SerializeError(serde_json::Error),
 }

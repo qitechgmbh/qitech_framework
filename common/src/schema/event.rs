@@ -1,4 +1,8 @@
-use super::{StringMap, Type, FloatSemantic, EnumVariants, FieldMetadata};
+use super::EnumVariants;
+use super::FieldMetadata;
+use super::FloatSemantic;
+use super::StringMap;
+use super::Type;
 
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -14,27 +18,24 @@ pub struct EventField {
 
 #[derive(Debug, Clone)]
 pub enum EventFieldKind {
-    Object {
-        fields: StringMap<EventField>,
-    },
-    Array {
-        item: Box<EventField>,
-    },
-    Enum {
-        variants: EnumVariants,
-    },
+    Object { fields: StringMap<EventField> },
+    Array { item: Box<EventField> },
+    Enum { variants: EnumVariants },
     String,
     Boolean,
     Integer,
-    Float {
-        semantic: FloatSemantic,
-    },
+    Float { semantic: FloatSemantic },
 }
 
 // --- deserialize implemenations ---
 use std::str::FromStr;
+
 use serde::Deserialize;
-use serde::de::{Error, Deserializer, Visitor, EnumAccess, VariantAccess};
+use serde::de::Deserializer;
+use serde::de::EnumAccess;
+use serde::de::Error;
+use serde::de::VariantAccess;
+use serde::de::Visitor;
 
 impl<'de> Deserialize<'de> for Event {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -52,18 +53,17 @@ impl<'de> Deserialize<'de> for Event {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let ty = Type::from_str(&tag)
-                    .map_err(A::Error::custom)?;
+                let ty = Type::from_str(&tag).map_err(A::Error::custom)?;
 
                 if !matches!(ty, Type::Event) {
-                    return Err(Error::custom(format!("expected !event, received: !{tag}.")))
+                    return Err(Error::custom(format!("expected !event, received: !{tag}.")));
                 }
 
                 let fields = variant.newtype_variant::<StringMap<EventField>>()?;
 
                 Ok(Event { fields })
             }
-            
+
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("!event or object")
             }
@@ -89,8 +89,7 @@ impl<'de> Deserialize<'de> for EventField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let ty = Type::from_str(&tag)
-                    .map_err(A::Error::custom)?;
+                let ty = Type::from_str(&tag).map_err(A::Error::custom)?;
 
                 match ty {
                     Type::Object => {
@@ -101,7 +100,7 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::Object { fields },
                             metadata: Default::default(),
                         })
-                    },
+                    }
 
                     Type::Array => {
                         let ArrayHelper { item, nullable } = variant.newtype_variant()?;
@@ -111,7 +110,7 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::Array { item },
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Enum => {
                         let EnumHelper { variants, nullable } = variant.newtype_variant()?;
 
@@ -120,7 +119,7 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::Enum { variants },
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::String => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
@@ -129,7 +128,7 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::String,
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Boolean => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
@@ -138,7 +137,7 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::Boolean,
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Integer => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
@@ -147,7 +146,7 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::Integer,
                             metadata: Default::default(),
                         })
-                    },
+                    }
                     Type::Float(semantic) => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
@@ -156,12 +155,12 @@ impl<'de> Deserialize<'de> for EventField {
                             kind: EventFieldKind::Float { semantic },
                             metadata: Default::default(),
                         })
-                    },
+                    }
 
                     other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
                 }
             }
-            
+
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("regular value")
             }

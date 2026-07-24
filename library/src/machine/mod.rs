@@ -1,11 +1,17 @@
-use crate::machine::{
-    context::{ReactContext, SubscribeContext},
-    error::{ActResult, ReactResult, SubscribeError, SubscribeResult},
-};
-use qitech_framework_common::MachineIdentificationUnique;
 use std::any::Any;
 
+use qitech_framework_common::MachineIdentificationUnique;
+
+use crate::machine::error::ActResult;
+use crate::machine::error::ReactResult;
+use crate::machine::error::SubscribeError;
+use crate::machine::error::SubscribeResult;
+use crate::machine::resource::config_property;
+use crate::machine::resource::measurement;
+use crate::machine::resource::state_property;
+
 pub mod bounds;
+
 pub mod build;
 pub use build::MachineBuild;
 
@@ -52,4 +58,17 @@ pub trait Machine: Any {
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
         _ = ident
     }
+}
+
+pub struct ReactContext<'a> {
+    pub config: config_property::Reader<'a>,
+    pub state: state_property::Reader<'a>,
+    pub measurements: measurement::Reader<'a>,
+}
+
+pub struct SubscribeContext<'a> {
+    pub ident: MachineIdentificationUnique,
+    pub config: config_property::Resolver<'a>,
+    pub state: state_property::Resolver<'a>,
+    pub measurements: measurement::Resolver<'a>,
 }

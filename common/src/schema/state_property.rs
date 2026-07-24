@@ -1,4 +1,5 @@
-use super::{FloatSemantic, EnumVariants};
+use super::EnumVariants;
+use super::FloatSemantic;
 
 #[derive(Debug, Clone)]
 pub struct StatePropertyValue {
@@ -24,8 +25,14 @@ pub enum StatePropertyValueKind {
 // --- deserialize implemenations ---
 use std::fmt;
 use std::str::FromStr;
+
 use serde::Deserialize;
-use serde::de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor};
+use serde::de::Deserializer;
+use serde::de::EnumAccess;
+use serde::de::Error;
+use serde::de::VariantAccess;
+use serde::de::Visitor;
+
 use super::Type;
 
 impl<'de> Deserialize<'de> for StatePropertyValue {
@@ -50,23 +57,16 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
 
                 match Type::from_str(&tag).map_err(A::Error::custom)? {
                     Type::Enum => {
-                        let EnumValueHelper {
-                            nullable,
-                            variants,
-                        } = variant.newtype_variant()?;
+                        let EnumValueHelper { nullable, variants } = variant.newtype_variant()?;
 
                         Ok(StatePropertyValue {
-                            kind: StatePropertyValueKind::Enum {
-                                variants,
-                            },
+                            kind: StatePropertyValueKind::Enum { variants },
                             nullable,
                         })
                     }
 
                     Type::String => {
-                        let OtherValueHelper {
-                            nullable,
-                        } = variant.newtype_variant()?;
+                        let OtherValueHelper { nullable } = variant.newtype_variant()?;
 
                         Ok(StatePropertyValue {
                             kind: StatePropertyValueKind::String,
@@ -75,9 +75,7 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
                     }
 
                     Type::Boolean => {
-                        let OtherValueHelper {
-                            nullable,
-                        } = variant.newtype_variant()?;
+                        let OtherValueHelper { nullable } = variant.newtype_variant()?;
 
                         Ok(StatePropertyValue {
                             kind: StatePropertyValueKind::Boolean,
@@ -86,9 +84,7 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
                     }
 
                     Type::Integer => {
-                        let OtherValueHelper {
-                            nullable,
-                        } = variant.newtype_variant()?;
+                        let OtherValueHelper { nullable } = variant.newtype_variant()?;
 
                         Ok(StatePropertyValue {
                             kind: StatePropertyValueKind::Integer,
@@ -97,14 +93,10 @@ impl<'de> Deserialize<'de> for StatePropertyValue {
                     }
 
                     Type::Float(semantic) => {
-                        let OtherValueHelper {
-                            nullable,
-                        } = variant.newtype_variant()?;
+                        let OtherValueHelper { nullable } = variant.newtype_variant()?;
 
                         Ok(StatePropertyValue {
-                            kind: StatePropertyValueKind::Float {
-                                semantic,
-                            },
+                            kind: StatePropertyValueKind::Float { semantic },
                             nullable,
                         })
                     }

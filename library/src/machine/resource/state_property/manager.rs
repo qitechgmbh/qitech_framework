@@ -1,56 +1,36 @@
-use std::cell::{Ref, RefCell};
-use std::rc::Rc;
-use qitech_framework_common::{MachineIdentificationUnique, MachineStateMutation, ScalarValue};
-
-use crate::machine::resource::property::ExtractFn;
-use crate::machine::resource::{
-    Journal, 
-    JournalHandle, 
-    PropertyReadHandle, 
-    PropertyReader,
-    PropertyRegistry, 
-    PropertyResolver, 
-    error::RegisterResult,
-    kind,
-};
+use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_common::MachineStateMutation;
+use qitech_framework_common::ScalarValue;
 
 use super::StateProperty;
+use crate::machine::resource::Journal;
+use crate::machine::resource::PropertyReadHandle;
+use crate::machine::resource::PropertyReader;
+use crate::machine::resource::PropertyRegistry;
+use crate::machine::resource::PropertyResolver;
+use crate::machine::resource::error::RegisterResult;
+use crate::machine::resource::kind;
+use crate::machine::resource::property::ExtractFn;
 
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
 
-pub type Registry = PropertyRegistry<
-    SLOT_SIZE, 
-    MAX_ITEMS, 
-    kind::StateProperty, 
-    ScalarValue
->;
+pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
-pub type Resolver<'a> = PropertyResolver<
-    'a, 
-    SLOT_SIZE, 
-    MAX_ITEMS, 
-    kind::StateProperty, 
-    ScalarValue
->;
+pub type Resolver<'a> =
+    PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
-pub type Reader<'a> = PropertyReader<
-    'a, 
-    SLOT_SIZE, 
-    MAX_ITEMS, 
-    kind::StateProperty, 
-    ScalarValue
->;
+pub type Reader<'a> = PropertyReader<'a, SLOT_SIZE, MAX_ITEMS, kind::StateProperty, ScalarValue>;
 
 pub type ReadHandle<T> = PropertyReadHandle<kind::StateProperty, T>;
 
 pub struct Manager {
     registry: Registry,
-    journal: Rc<RefCell<Journal<MachineStateMutation>>>,
+    journal: Journal<MachineStateMutation>,
 }
 
 impl Manager {
-    pub fn register<T: Default + 'static>(
+    pub(crate) fn register<T: Default + 'static>(
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
@@ -60,25 +40,19 @@ impl Manager {
         let handle = self.registry.register::<T>(ident, path, "", extract, ())?;
         handle.write(initial_value);
 
-        let journal = JournalHandle::new(self.journal.clone());
-
         Ok(StateProperty {
             handle,
-            journal,
+            journal: self.journal.init_handle(),
             ident,
             name: path,
         })
     }
 
-    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
+    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
         self.registry.unregister_machine(ident)
     }
 
-    pub fn journal(&self) -> Ref<'_, Journal<MachineStateMutation>> {
-        self.journal.borrow()
-    }
-
-    pub fn clear_journal(&self) {
-        self.journal.borrow_mut().clear();
+    pub(crate) fn drain_journal_with(&mut self, f: impl FnMut(&MachineStateMutation)) {
+        self.journal.drain_with(f);
     }
 }
