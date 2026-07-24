@@ -48,7 +48,10 @@ pub struct Manager {
 
 impl Manager {
     pub(crate) fn new() -> Self {
-        Self { registry: Default::default(), journal: Journal::new() }
+        Self {
+            registry: Default::default(),
+            journal: Journal::new(),
+        }
     }
 
     pub(crate) fn unregister_machine(&mut self, ident: &MachineIdentificationUnique) {
@@ -136,6 +139,7 @@ impl Error for EmitError {
 #[cfg(test)]
 mod test {
     use qitech_framework_common::MachineIdentification;
+
     use super::*;
 
     #[test]

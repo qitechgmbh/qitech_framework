@@ -46,34 +46,11 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub(crate) fn register(
-        &mut self,
-        ident: MachineIdentificationUnique,
-        path: &'static str,
-        execute: ExecuteFn,
-    ) -> RegisterResult<Handle> {
-        let key = Key {
-            ident,
-            path,
-            postfix: "",
-        };
-
-        if self.registry.contains_key(&key) {
-            return Err(RegisterError {
-                resource_kind: Kind::Command,
-                resource_path: path,
-                kind: RegisterErrorKind::Duplicate,
-            });
+    pub(crate) fn new() -> Self {
+        Self {
+            registry: Default::default(),
+            journal: Journal::new(),
         }
-
-        self.registry.insert(
-            key,
-            Entry {
-                enabled: Default::default(),
-                execute,
-            },
-        );
-        todo!()
     }
 
     pub(crate) fn execute(
@@ -138,7 +115,11 @@ pub struct Registrar<'a> {
     machine: MachineIdentificationUnique,
 }
 
-impl Registrar<'_> {
+impl<'a> Registrar<'a> {
+    pub(crate) fn new(manager: &'a mut Manager, machine: MachineIdentificationUnique) -> Self {
+        Self { manager, machine }
+    }
+
     pub(crate) fn register<M, A>(
         &mut self,
         path: &'static str,
@@ -200,13 +181,6 @@ impl Registrar<'_> {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct RegisterOptions<T> {
-    pub initial_value: Option<T>,
-    pub record_min: bool,
-    pub record_max: bool,
-}
-
 // --- errors ---
 #[derive(Debug)]
 pub enum ExecuteError {
@@ -245,5 +219,85 @@ impl std::error::Error for ExecuteError {
             Self::ParsingError(err) => Some(err),
             _ => None,
         }
+    }
+}
+
+// --- testing ---
+#[cfg(test)]
+mod test {
+    use qitech_framework_common::MachineIdentification;
+    use serde::{Deserialize, Serialize};
+
+    use super::*;
+    use crate::machine::error::ActResult;
+
+    #[test]
+    pub fn register_and_use() -> anyhow::Result<()> {
+        let ident = MachineIdentificationUnique {
+            identification: MachineIdentification {
+                vendor_id: 0,
+                machine_id: 0,
+            },
+            serial: 0,
+        };
+
+        let mut mgr = Manager::new();
+        let mut r = Registrar::new(&mut mgr, ident);
+
+        struct TestMachine;
+
+        impl Machine for TestMachine {
+            fn act(&mut self) -> ActResult {
+                Ok(())
+            }
+        }
+
+        impl TestMachine {
+            fn simple_command(&mut self, _args: ()) -> Result<(), ExecuteError> {
+                println!("Hello World!");
+                Ok(())
+            }
+
+            fn complex_command(&mut self, args: ComplexCommandArgs) -> Result<(), ExecuteError> {
+                assert_eq!(args.a, 2.0);
+                assert_eq!(args.b, 5);
+                assert!(!args.c);
+                assert_eq!(&args.d, "Hello World");
+                Ok(())
+            }
+        }
+
+        #[derive(Serialize, Deserialize)]
+        struct ComplexCommandArgs {
+            a: f64,
+            b: i64,
+            c: bool,
+            d: String,
+        }
+
+        // --- simple ---
+        let mut handle = r.register("simple", TestMachine::simple_command)?;
+        handle.set_enabled(false)?;
+        handle.set_enabled(true)?;
+
+        // --- complex ---
+        let mut handle = r.register("not.simple", TestMachine::complex_command)?;
+        handle.set_enabled(false)?;
+        handle.set_enabled(true)?;
+
+        // --- execute simple ---
+        mgr.execute(ident, &mut TestMachine, "simple", "null")?;
+
+        // --- execute complex ---
+        let args = ComplexCommandArgs {
+            a: 2.0,
+            b: 5,
+            c: false,
+            d: "Hello World".to_string(),
+        };
+        let args = &serde_json::to_string(&args)?;
+        mgr.execute(ident, &mut TestMachine, "not.simple", args)?;
+
+        Ok(())
     }
 }

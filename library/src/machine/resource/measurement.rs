@@ -18,9 +18,9 @@ pub struct Measurement<T: TypeWrapper> {
 }
 
 impl<T> Measurement<T>
-where 
+where
     T: TypeWrapper,
-    T::Type: Copy
+    T::Type: Copy,
 {
     pub fn get(&self) -> T::Type {
         *self.handle.read()
@@ -28,7 +28,7 @@ where
 }
 
 impl<T> Measurement<T>
-where 
+where
     T: TypeWrapper,
     T::Type: Copy + PartialOrd,
 {

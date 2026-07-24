@@ -46,8 +46,8 @@ pub use command::Registrar as CommandRegistrar;
 
 mod event;
 pub use event::Emitter as EventEmitter;
-pub use event::Registrar as EventRegistrar;
 pub(crate) use event::Manager as EventManager;
+pub use event::Registrar as EventRegistrar;
 
 mod conversion;
 
