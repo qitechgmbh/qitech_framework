@@ -9,7 +9,6 @@ use kind::kind_t;
 pub mod error;
 
 mod conversion;
-use conversion::BoundedMeta;
 
 mod property;
 pub use property::PropertyRegistry;
@@ -25,7 +24,29 @@ pub mod measurement;
 pub mod event;
 pub mod command;
 
-pub type Journal<T> = heapless::Vec<T, 1024>;
+pub type JournalBuffer<T> = heapless::Vec<T, 1024>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Key<'a> {
+    ident: MachineIdentificationUnique,
+    path: &'a str,
+    postfix: &'a str,
+}
+
+#[derive(Debug, Default)]
+pub struct Journal<E> {
+    buffer: Rc<RefCell<JournalBuffer<E>>>,
+}
+
+impl<E> Journal<E> {
+    pub fn append(&mut self, entry: E) -> Result<(), JournalAppendError> {
+        self.buffer.borrow_mut().push(entry).map_err(|_| JournalAppendError)
+    }
+
+    pub fn iter(&mut self) {
+        self.buffer
+    }
+}
 
 #[derive(Debug)]
 pub struct JournalHandle<T> {
@@ -37,14 +58,9 @@ impl<T: Debug> JournalHandle<T> {
         Self { journal }
     }
 
-    pub fn append(&self, entry: T) -> Result<(), ()> {
-        self.journal.borrow_mut().push(entry).map_err(|_| ())
+    pub fn append(&self, entry: T) -> Result<(), JournalAppendError> {
+        self.journal.borrow_mut().push(entry).map_err(|_| JournalAppendError)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Key<'a> {
-    ident: MachineIdentificationUnique,
-    path: &'a str,
-    postfix: &'a str,
-}
+pub struct JournalAppendError;
