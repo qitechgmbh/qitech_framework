@@ -1,12 +1,15 @@
-use qitech_lib::units::{
-    acceleration::meter_per_second_squared,
-    angle::radian,
-    angular_acceleration::radian_per_second_squared,
-    angular_velocity::radian_per_second,
-    f64::{Acceleration, Angle, AngularAcceleration, AngularVelocity, Length, Velocity},
-    length::meter,
-    velocity::meter_per_second,
-};
+use qitech_lib::units::acceleration::meter_per_second_squared;
+use qitech_lib::units::angle::radian;
+use qitech_lib::units::angular_acceleration::radian_per_second_squared;
+use qitech_lib::units::angular_velocity::radian_per_second;
+use qitech_lib::units::f64::Acceleration;
+use qitech_lib::units::f64::Angle;
+use qitech_lib::units::f64::AngularAcceleration;
+use qitech_lib::units::f64::AngularVelocity;
+use qitech_lib::units::f64::Length;
+use qitech_lib::units::f64::Velocity;
+use qitech_lib::units::length::meter;
+use qitech_lib::units::velocity::meter_per_second;
 
 /// A converter that handles transformations between linear and angular measurements
 /// for circular motion. This includes conversions for position, velocity, acceleration,

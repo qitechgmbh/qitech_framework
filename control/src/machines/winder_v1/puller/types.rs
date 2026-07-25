@@ -16,9 +16,9 @@ impl GearRatio {
     /// Get the speed multiplier for this gear ratio
     pub fn multiplier(&self) -> f64 {
         match self {
-            Self::OneToOne  => 1.0,
+            Self::OneToOne => 1.0,
             Self::OneToFive => 5.0,
-            Self::OneToTen  => 10.0,
+            Self::OneToTen => 10.0,
         }
     }
 }

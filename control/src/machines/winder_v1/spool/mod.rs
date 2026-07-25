@@ -1,9 +1,14 @@
-use std::{cell::RefCell, rc::Rc, time::Instant};
-use qitech_lib::{ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device, units::AngularVelocity};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Instant;
 
-use crate::types::RotationDirection;
+use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
+use qitech_lib::units::AngularVelocity;
+
 use crate::converters::AngularStepConverter;
-use crate::machines::winder_v1::{Puller, TensionArm};
+use crate::machines::winder_v1::Puller;
+use crate::machines::winder_v1::TensionArm;
+use crate::types::RotationDirection;
 
 mod speed_controller_min_max;
 use speed_controller_min_max::SpeedControllerMinMax;
@@ -54,10 +59,11 @@ impl Spool {
 impl Spool {
     fn update_speed(&mut self, t: Instant, tension_arm: &TensionArm, puller: &Puller) {
         match self.speed_control_mode {
-            SpeedControlMode::MinMax => 
-                self.speed_controller_min_max.update(t, tension_arm),
-            SpeedControlMode::Adaptive => 
-                self.speed_controller_adaptive.update(t, tension_arm, puller),
+            SpeedControlMode::MinMax => self.speed_controller_min_max.update(t, tension_arm),
+            SpeedControlMode::Adaptive => {
+                self.speed_controller_adaptive
+                    .update(t, tension_arm, puller)
+            }
         }
     }
 
@@ -78,8 +84,8 @@ impl Spool {
         let steps_per_second = self
             .step_converter
             .angular_velocity_to_steps(angular_velocity);
-        
-        // write 
+
+        // write
         let mut device = self.device.borrow_mut();
         _ = device.set_speed(self.device_port, steps_per_second);
     }

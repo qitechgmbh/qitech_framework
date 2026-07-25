@@ -6,7 +6,6 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
 use qitech_framework_common::with_uom_quantities;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use super::PropertyHandle;
@@ -109,7 +108,7 @@ impl Manager {
     ) -> Result<ConfigProperty<T::Type>, RegisterError>
     where
         T: ScalarTypeWrapper + 'static,
-        T::Type: Clone + Serialize + DeserializeOwned + BoundedMeta,
+        T::Type: Clone + DeserializeOwned + BoundedMeta,
     {
         let opts = options.clone();
         let journal = self.journal.new_handle();
@@ -193,18 +192,23 @@ impl Manager {
 
 #[derive(Debug, Clone, Default)]
 pub struct RegisterOptions<T: BoundedMeta> {
-    default: T,
-    min: Option<T::Bound>,
-    max: Option<T::Bound>,
+    pub default: T,
+    pub min: Option<T::Bound>,
+    pub max: Option<T::Bound>,
 
     #[allow(clippy::type_complexity)]
-    validate: Option<fn(&T) -> Result<(), String>>,
+    pub validate: Option<fn(&T) -> Result<(), String>>,
 }
 
 fn check<T: BoundedMeta>(value: &T, options: &RegisterOptions<T>) -> Result<(), WriteError> {
-    value
-        .validate(options.min, options.max)
-        .map_err(WriteError::OutOfBounds)?;
+    // value
+    //     .validate(options.min, options.max)
+    //     .map_err(WriteError::OutOfBounds)?;
+// 
+    // if let Some(min) = options.min && value < min {
+    //     return WriteError::OutOfBounds(Bound);
+    // }
+    // TODO: IMPLEMENT
 
     if let Some(func) = options.validate {
         (func)(value).map_err(WriteError::Validate)?;

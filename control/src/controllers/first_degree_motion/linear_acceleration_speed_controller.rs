@@ -1,10 +1,9 @@
 use std::time::Instant;
 
-use qitech_lib::units::{
-    acceleration::meter_per_second_squared,
-    f64::{Acceleration, Velocity},
-    velocity::meter_per_second,
-};
+use qitech_lib::units::acceleration::meter_per_second_squared;
+use qitech_lib::units::f64::Acceleration;
+use qitech_lib::units::f64::Velocity;
+use qitech_lib::units::velocity::meter_per_second;
 
 use super::acceleration_speed_controller::AccelerationSpeedController;
 

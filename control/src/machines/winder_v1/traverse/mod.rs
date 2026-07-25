@@ -1,13 +1,17 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
+use std::time::Instant;
+
 use control_runtime::machine::Measurement;
-use qitech_lib::ethercat_hal::io::{
-    digital_output::DigitalOutputDevice, stepper_velocity_el70x1::StepperVelocityEL70x1Device,
-};
+use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
+use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::Velocity;
 use qitech_lib::units::angular_velocity::revolution_per_second;
 use qitech_lib::units::length::millimeter;
 use qitech_lib::units::velocity::millimeter_per_second;
-use qitech_lib::units::{ConstZero, Length, Velocity};
-use std::time::{Duration, Instant};
-use std::{cell::RefCell, rc::Rc};
 
 use crate::converters::LinearStepConverter;
 use crate::machines::winder_v1::spool::Spool;

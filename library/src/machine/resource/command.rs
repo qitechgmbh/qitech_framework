@@ -54,7 +54,7 @@ impl Manager {
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-        execute: fn(&mut M, A) -> Result<(), ExecuteError>,
+        options: RegisterOptions<M, A>,
     ) -> RegisterResult<Handle>
     where
         M: Machine + 'static,
@@ -65,6 +65,15 @@ impl Manager {
             path,
             postfix: "",
         };
+
+        let Some(execute) = options.execute else {
+            return Err(RegisterError {
+                resource_kind: ResourceKind::Command,
+                resource_path: path,
+                error_kind: RegisterErrorKind::MissingRequiredField("execute"),
+            });
+        };
+
         if self.registry.contains_key(&key) {
             return Err(RegisterError {
                 resource_kind: ResourceKind::Command,
@@ -178,6 +187,20 @@ struct Entry {
     execute: ExecuteFn,
 }
 
+pub struct RegisterOptions<M, A> {
+    pub disabled: bool,
+    
+    #[allow(clippy::type_complexity)]
+    pub execute: Option<fn(&mut M, A) -> Result<(), ExecuteError>>,
+}
+
+// you piece of shit compiler too retarded to use the derive properly... FUCK. YOU.
+impl<M, A> Default for RegisterOptions<M, A> {
+    fn default() -> Self {
+        Self { disabled: Default::default(), execute: Default::default() }
+    }
+}
+
 // --- errors ---
 #[derive(Debug)]
 pub enum ExecuteError {
@@ -271,12 +294,18 @@ mod test {
         }
 
         // --- simple ---
-        let mut handle = r.register(ident, "simple", TestMachine::simple_command)?;
+        let mut handle = r.register(ident, "simple", RegisterOptions { 
+            disabled: false, 
+            execute: Some(TestMachine::simple_command),
+        })?;
         handle.set_enabled(false)?;
         handle.set_enabled(true)?;
 
         // --- complex ---
-        let mut handle = r.register(ident, "not.simple", TestMachine::complex_command)?;
+        let mut handle = r.register(ident, "not.simple", RegisterOptions { 
+            disabled: false,
+            execute: Some(TestMachine::complex_command),
+        })?;
         handle.set_enabled(false)?;
         handle.set_enabled(true)?;
 

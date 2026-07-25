@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -14,8 +16,8 @@ pub enum ScalarValueKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScalarValue {
-    Enum(Option<String>),
-    String(Option<String>),
+    Enum(Option<Cow<'static, str>>),
+    String(Option<Cow<'static, str>>),
     Boolean(Option<bool>),
     Integer(Option<i64>),
     Float(Option<f64>),
@@ -34,14 +36,14 @@ impl ScalarValue {
         }
     }
 
-    pub fn r#enum(self) -> Option<String> {
+    pub fn r#enum(self) -> Option<Cow<'static, str>> {
         match self {
             ScalarValue::Enum(value) => value,
             other => panic!("expected Enum, got {:?}", other),
         }
     }
 
-    pub fn string(self) -> Option<String> {
+    pub fn string(self) -> Option<Cow<'static, str>> {
         match self {
             ScalarValue::String(value) => value,
             other => panic!("expected String, got {:?}", other),

@@ -37,7 +37,7 @@ pub fn init(
     println!("ok");
 
     println!("Intializing EtherCAT Controller with interface {interface}");
-    let controller = ethercat_hal::init_ethercat(&interface, config.master);
+    let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
     println!("ok");
 
     println!("Setting up EtherCAT Devices");

@@ -1,20 +1,24 @@
 use core::f64;
+use std::time::Instant;
+
 use qitech_lib::units::ConstZero;
 use qitech_lib::units::angle::degree;
 use qitech_lib::units::angular_acceleration::radian_per_second_squared;
-use qitech_lib::units::angular_velocity::{radian_per_second, revolution_per_minute};
+use qitech_lib::units::angular_velocity::radian_per_second;
+use qitech_lib::units::angular_velocity::revolution_per_minute;
 use qitech_lib::units::f64::*;
-use qitech_lib::units::length::{centimeter, meter};
+use qitech_lib::units::length::centimeter;
+use qitech_lib::units::length::meter;
 use qitech_lib::units::velocity::meter_per_second;
-use std::time::Instant;
 
+use super::super::utils::FilamentTensionCalculator;
 use crate::controllers::first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController;
 use crate::machines::winder_v1::puller::Puller;
 use crate::machines::winder_v1::tension_arm::TensionArm;
-use crate::machines::winder_v1::utils::clamp_revolution::{Clamping, clamp_revolution_uom};
-use crate::utils::{interpolation::scale, moving_time_window::MovingTimeWindow};
-
-use super::super::utils::FilamentTensionCalculator;
+use crate::machines::winder_v1::utils::clamp_revolution::Clamping;
+use crate::machines::winder_v1::utils::clamp_revolution::clamp_revolution_uom;
+use crate::utils::interpolation::scale;
+use crate::utils::moving_time_window::MovingTimeWindow;
 
 /// Adaptive spool speed controller that automatically adjusts to maintain optimal filament tension.
 ///
@@ -155,8 +159,7 @@ impl SpeedControllerAdaptive {
     /// Current maximum angular velocity for the spool in radians per second
     fn get_max_speed(&self, puller: &Puller) -> AngularVelocity {
         AngularVelocity::new::<radian_per_second>(
-            (puller.speed().get::<meter_per_second>()
-                / self.speed_factor.get::<meter>())
+            (puller.speed().get::<meter_per_second>() / self.speed_factor.get::<meter>())
                 * self.max_speed_multiplier,
         )
     }
@@ -317,12 +320,7 @@ impl SpeedControllerAdaptive {
     /// - `t`: Current timestamp for time-based calculations
     /// - `tension_arm`: Reference to tension arm for feedback
     /// - `puller_speed_controller`: Reference for adaptive speed scaling
-    pub fn update(
-        &mut self,
-        t: Instant,
-        tension_arm: &TensionArm,
-        puller: &Puller,
-    ) {
+    pub fn update(&mut self, t: Instant, tension_arm: &TensionArm, puller: &Puller) {
         let target_speed = self.calculate_speed(t, tension_arm, puller);
 
         let enabled_speed = if self.enabled {

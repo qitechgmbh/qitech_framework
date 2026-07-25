@@ -1,70 +1,71 @@
-use std::rc::Rc;
 use std::cell::RefCell;
-use std::time::{Duration, Instant};
-use anyhow::anyhow;
+use std::rc::Rc;
+use std::time::Duration;
+use std::time::Instant;
 
-use qitech_lib::units::ConstZero;
-use qitech_lib::units::{Length, length::millimeter};
+use qitech_framework::machine::BuildContext;
+use qitech_framework::machine::Machine;
+use qitech_framework::machine::MachineBuild;
+use qitech_framework::machine::MachineInterface;
+use qitech_framework::machine::error::ActError;
+use qitech_framework::machine::error::ActErrorKind;
+use qitech_framework::machine::error::ActResult;
+use qitech_framework::machine::error::BuildError;
+use qitech_framework::machine::resource::ConfigProperty;
+use qitech_framework::machine::resource::Measurement;
+use qitech_framework::machine::resource::StateProperty;
+use qitech_framework::uom::Length;
+use qitech_framework::uom::length::millimeter;
 use qitech_lib::modbus::ModbusDevice;
-use qitech_lib::modbus::devices::qitech_laser::{LaserDevice, LaserError};
+use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
+use qitech_lib::modbus::devices::qitech_laser::LaserError;
 
-use control_runtime::{
-    Machine, MachineActError, MachineActResult, MachineBuild, MachineBuildError, MachineBuildContext, MachineIdentification,
-};
-
-use control_runtime::machine::{ConstrainedConfigProperty, Measurement, StateProperty};
-
-#[machine("laser_v1")]
 pub struct LaserV1 {
     // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,
 
     // -- config ---
-    diameter_target: ConstrainedConfigProperty<millimeter>,
-    diameter_tolerance_upper: ConstrainedConfigProperty<millimeter>,
-    diameter_tolerance_lower: ConstrainedConfigProperty<millimeter>,
+    diameter_target: ConfigProperty<Length>,
+    diameter_tolerance_upper: ConfigProperty<Length>,
+    diameter_tolerance_lower: ConfigProperty<Length>,
 
     // --- state ---
     in_tolerance: StateProperty<bool>,
 
     // --- measurements ---
-    diameter:   Measurement<millimeter>,
-    diameter_x: Measurement<Option<millimeter>>,
-    diameter_y: Measurement<Option<millimeter>>,
-    roundness:  Measurement<Option<f64>>,
+    diameter: Measurement<Length>,
+    diameter_x: Measurement<Option<Length>>,
+    diameter_y: Measurement<Option<Length>>,
+    roundness: Measurement<Option<f64>>,
 
     // -- misc ---
     last_request: Instant,
 }
 
-// laser_v1.config
+impl MachineInterface for LaserV1 {
+    const SCHEMA: &'static str = include_str!("../../schemas/laser_v1.yaml");
+}
 
 impl MachineBuild for LaserV1 {
-    fn build(mut ctx: MachineBuildContext<'_>) -> Result<Self, MachineBuildError> {
-        // --- hardware
-        let device = ctx.get_serial_device::<LaserDevice>(0)?;
-
-        // TODO: define schema parse into resolve config
-        // let diameter_target = ctx.config(schemas::laser_v1::config::diameter.target);
-        // let DiameterCondif = ConfigPropertyCOnfig {
-        //     name: "diameter.target",
-        //     default: Length::new::<millimeter>(1.74),
-        //     lower_bound: Length::ZERO,
-        // }; schemas::laser_v1::config.diameter.target
+    fn build(mut ctx: BuildContext<'_>) -> Result<Self, BuildError> {
+        let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
 
         let diameter_target = ctx
-            .config("diameter.target", Length::new::<millimeter>(1.75))
-            .with_lower_bound(Length::ZERO)
-            .register()?;
-
-        let diameter_tolerance_upper = ctx
-            .config("diameter.tolerance.lower", Length::new::<millimeter>(0.05))
-            .with_lower_bound(Length::ZERO)
+            .config::<millimeter>("diameter.target")
+            .default(1.75)
+            .minimum(0.0)
             .register()?;
 
         let diameter_tolerance_lower = ctx
-            .config("diameter.tolerance.upper", Length::new::<millimeter>(0.05))
-            .with_lower_bound(Length::ZERO)
+            .config::<millimeter>("diameter.tolerance.lower")
+            .default(0.05)
+            .minimum(0.0)
+            .register()?;
+
+        let diameter_tolerance_upper = ctx
+            .config::<millimeter>("diameter.tolerance.upper")
+            .default(0.05)
+            .minimum(0.0)
             .register()?;
 
         Ok(Self {
@@ -72,18 +73,18 @@ impl MachineBuild for LaserV1 {
             diameter_target,
             diameter_tolerance_upper,
             diameter_tolerance_lower,
-            in_tolerance: ctx.state("in_tolerance").register()?,
-            diameter: ctx.measurement("diameter").register()?,
-            diameter_x: ctx.measurement("diameter_x").register()?,
-            diameter_y: ctx.measurement("diameter_y").register()?,
-            roundness: ctx.measurement("roundness").register()?,
+            in_tolerance: ctx.state::<bool>("in_tolerance").register()?,
+            diameter: ctx.measurement::<millimeter>("diameter").register()?,
+            diameter_x: ctx.measurement::<Option<millimeter>>("diameter_x").register()?,
+            diameter_y: ctx.measurement::<Option<millimeter>>("diameter_y").register()?,
+            roundness: ctx.measurement::<Option<f64>>("roundness").register()?,
             last_request: Instant::now(),
         })
     }
 }
 
 impl Machine for LaserV1 {
-    fn act(&mut self) -> MachineActResult {
+    fn act(&mut self) -> ActResult {
         self.update_device()?;
 
         if let Some(m) = self.device.borrow().measurement.clone() {
@@ -107,20 +108,21 @@ impl Machine for LaserV1 {
 }
 
 impl LaserV1 {
-    pub const IDENTIFICATION: MachineIdentification = MachineIdentification {
-        vendor: 1,
-        machine: 6,
-    };
-
-    fn update_device(&mut self) -> MachineActResult {
+    fn update_device(&mut self) -> ActResult {
         let mut laser = self.device.borrow_mut();
+
+        self.in_tolerance.set(true);
+        self.in_tolerance.get();
+        self.diameter.get();
+
 
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()
-            && let LaserError::IoErr() = laser_error {
-            return Err(MachineActError {
+            && let LaserError::IoErr() = laser_error
+        {
+            return Err(ActError {
                 recoverable: false,
-                error: anyhow!("Physical hardware I/O broke."),
+                kind: ActErrorKind::HardwareFault("Physical hardware I/O broke.".into()),
             });
         }
 

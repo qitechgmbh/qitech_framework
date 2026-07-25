@@ -1,17 +1,22 @@
 use std::time::Instant;
 
-use control_runtime::{MachineIdentification, MachineIdentificationUnique};
-use control_runtime::{Machine, MachineActResult};
-use control_runtime::machine::{ConfigReaderHandle, MeasurementReaderHandle, ReactContext, StateProperty, SubscribeContext, SubscribeError, SubscribeResult};
-
 mod types;
+use qitech_framework::MachineIdentificationUnique;
+use qitech_framework::machine::Machine;
+use qitech_framework::machine::MachineInterface;
+use qitech_framework::machine::ReactContext;
+use qitech_framework::machine::SubscribeContext;
+use qitech_framework::machine::error::ActResult;
+use qitech_framework::machine::error::SubscribeError;
+use qitech_framework::machine::error::SubscribeResult;
+use qitech_framework::machine::resource::StateProperty;
 use qitech_lib::units::length::millimeter;
 use serde::de::DeserializeOwned;
-use types::Mode;
 use types::Commands;
+use types::Mode;
 
-mod utils;
 mod build;
+mod utils;
 
 mod tension_arm;
 use tension_arm::TensionArm;
@@ -32,11 +37,11 @@ use spool_target::SpoolTargetReachedAction;
 use crate::machines::LaserV1;
 
 struct LaserSubscription {
-    ident: MachineIdentificationUnique,
-    current: MeasurementReaderHandle<millimeter>,
-    target: ConfigReaderHandle<millimeter>,
-    lower: ConfigReaderHandle<millimeter>,
-    upper: ConfigReaderHandle<millimeter>,
+    // ident: MachineIdentificationUnique,
+    // current: MeasurementReaderHandle<millimeter>,
+    // target: ConfigReaderHandle<millimeter>,
+    // lower: ConfigReaderHandle<millimeter>,
+    // upper: ConfigReaderHandle<millimeter>,
 }
 
 pub struct WinderV1 {
@@ -56,47 +61,56 @@ pub struct WinderV1 {
     spool_target: SpoolTarget,
 
     // --- connection ---
-    laser_subscription: Option<LaserSubscription>
+    laser_subscription: Option<LaserSubscription>,
+}
+
+// load_schema!("winder_v1.yaml");
+impl MachineInterface for WinderV1 {
+    const SCHEMA: &'static str = include_str!("../../../schemas/winder_v1.yaml");
 }
 
 impl Machine for WinderV1 {
-    fn act(&mut self) -> MachineActResult {
+    fn act(&mut self) -> ActResult {
         let now = Instant::now();
         self.spool.update(now, &self.tension_arm, &self.puller);
         self.puller.update(now);
         self.travserse.update(&self.spool);
 
         match self.spool_target.evaluate(now, &self.puller) {
-            SpoolTargetReachedAction::None => {},
+            SpoolTargetReachedAction::None => {}
             SpoolTargetReachedAction::Pull => {
 
                 // TODO: invoke state change
-            },
+            }
             SpoolTargetReachedAction::Hold => {
                 // TODO: invoke state change
-            },
+            }
         }
 
         Ok(())
     }
 
-    fn react(&mut self, ctx: &ReactContext) -> MachineActResult {
+    fn react(&mut self, ctx: &ReactContext) -> ActResult {
         let Some(handles) = &self.laser_subscription else {
             return Ok(());
         };
-        
-        self.puller.update_with_laser_data(
-            Instant::now(), 
-            ctx.measurements.read(&handles.current)?, 
-            *ctx.config.read(&handles.target)?, 
-            *ctx.config.read(&handles.upper)?, 
-            *ctx.config.read(&handles.lower)?
-        );
-    
+
+        // self.puller.update_with_laser_data(
+        //     Instant::now(),
+        //     ctx.measurements.read(&handles.current)?,
+        //     *ctx.config.read(&handles.target)?,
+        //     *ctx.config.read(&handles.upper)?,
+        //     *ctx.config.read(&handles.lower)?
+        // );
+
         Ok(())
     }
 
     fn subscribe(&mut self, ctx: &SubscribeContext) -> SubscribeResult {
+        _ = ctx;
+        Err(SubscribeError::Rejected)
+
+        /*
         if MachineIdentification::from(ctx.ident) != LaserV1::IDENTIFICATION {
             // not a laser_v1
             return Err(SubscribeError::UnsupportedMachine);
@@ -108,9 +122,9 @@ impl Machine for WinderV1 {
         }
 
         // resolve!(machine = "laser_v1", "diameter")
-        
-        self.laser_subscription = Some(LaserSubscription { 
-            ident: ctx.ident, 
+
+        self.laser_subscription = Some(LaserSubscription {
+            ident: ctx.ident,
             current: ctx.measurements.resolve("diameter")?,
             target: ctx.config.resolve("diameter.target")?,
             upper: ctx.config.resolve("diameter.tolerance.upper")?,
@@ -118,48 +132,35 @@ impl Machine for WinderV1 {
         });
 
         Ok(())
+        */
     }
 
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
-        if let Some(sub) = &mut self.laser_subscription && sub.ident == ident {
-            self.laser_subscription = None;
-        }
+        _ = ident;
+        // if let Some(sub) = &mut self.laser_subscription && sub.ident == ident {
+        //     self.laser_subscription = None;
+        // }
     }
 }
 
 // --- traverse utilities ---
-impl WinderV1 {
+impl WinderV1 {}
 
-}
-
-pub struct EnterStandyCommand {
-
-}
+pub struct EnterStandyCommand {}
 
 impl EnterStandyCommand {
-    pub fn execute(machine: &mut WinderV1) {
-
-    }
+    pub fn execute(machine: &mut WinderV1) {}
 }
-
 
 // --- commands ---
 impl WinderV1 {
-    pub fn enter_standby(&mut self) {
+    pub fn enter_standby(&mut self) {}
 
-    }
+    pub fn enter_hold(&mut self) {}
 
-    pub fn enter_hold(&mut self) {
-        
-    }
+    pub fn start_pulling(&mut self) {}
 
-    pub fn start_pulling(&mut self) {
-        
-    }
-
-    pub fn start_winding(&mut self) {
-        
-    }
+    pub fn start_winding(&mut self) {}
 
     pub fn enable_laser(&mut self) {
         // self.travserse.enable_laser();
@@ -191,7 +192,6 @@ impl MachineCommand<WinderV1> for EnterStandbyCommand {
         Ok(())
     }
 }
-
 
 trait MachineCommand<M> {
     type Args: DeserializeOwned;

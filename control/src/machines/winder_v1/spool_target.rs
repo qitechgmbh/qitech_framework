@@ -1,6 +1,9 @@
 use std::time::Instant;
 
-use qitech_lib::units::{ConstZero, Length, length::meter, velocity::meter_per_second};
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::length::meter;
+use qitech_lib::units::velocity::meter_per_second;
 
 use crate::machines::winder_v1::puller::Puller;
 
@@ -22,13 +25,10 @@ pub struct SpoolTarget {
 
 impl SpoolTarget {
     pub fn evaluate(&mut self, now: Instant, puller: &Puller) -> SpoolTargetReachedAction {
-        let dt = now
-            .duration_since(self.last_check)
-            .as_secs_f64();
+        let dt = now.duration_since(self.last_check).as_secs_f64();
 
-        let meters_pulled_this_interval = Length::new::<meter>(
-            puller.speed().get::<meter_per_second>() * dt,
-        );
+        let meters_pulled_this_interval =
+            Length::new::<meter>(puller.speed().get::<meter_per_second>() * dt);
 
         self.progress += meters_pulled_this_interval;
 

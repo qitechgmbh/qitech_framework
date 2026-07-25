@@ -1,23 +1,24 @@
 use std::time::Instant;
 
-use qitech_lib::units::{Angle, AngularAcceleration, AngularVelocity, ConstZero};
+use qitech_lib::units::Angle;
+use qitech_lib::units::AngularAcceleration;
+use qitech_lib::units::AngularVelocity;
+use qitech_lib::units::ConstZero;
 use qitech_lib::units::angle::degree;
-use qitech_lib::units::angular_velocity::{radian_per_second, revolution_per_minute};
-use qitech_lib::units::angular_acceleration::{radian_per_second_squared, revolution_per_minute_per_second };
-
-use crate::controllers::{
-    first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController,
-    second_degree_motion::acceleration_position_controller::MotionControllerError,
-};
-
-use crate::machines::winder_v1::tension_arm::TensionArm;
-use crate::machines::winder_v1::utils::clamp_revolution::{Clamping, clamp_revolution_uom};
-use crate::utils::{
-    interpolation::{interpolate_exponential, scale},
-    moving_time_window::MovingTimeWindow,
-};
+use qitech_lib::units::angular_acceleration::radian_per_second_squared;
+use qitech_lib::units::angular_acceleration::revolution_per_minute_per_second;
+use qitech_lib::units::angular_velocity::radian_per_second;
+use qitech_lib::units::angular_velocity::revolution_per_minute;
 
 use super::super::utils::FilamentTensionCalculator;
+use crate::controllers::first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController;
+use crate::controllers::second_degree_motion::acceleration_position_controller::MotionControllerError;
+use crate::machines::winder_v1::tension_arm::TensionArm;
+use crate::machines::winder_v1::utils::clamp_revolution::Clamping;
+use crate::machines::winder_v1::utils::clamp_revolution::clamp_revolution_uom;
+use crate::utils::interpolation::interpolate_exponential;
+use crate::utils::interpolation::scale;
+use crate::utils::moving_time_window::MovingTimeWindow;
 
 #[derive(Debug)]
 pub struct SpeedControllerMinMax {

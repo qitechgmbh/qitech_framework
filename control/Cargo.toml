@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# --- internal deps ---
-control_hub = { path = "../control-hub" }
-control_runtime = { path = "../control-runtime" }
+qitech_framework = { path = "../library" }
 
 # --- workspace deps ---
 serde = { workspace = true }

@@ -1,4 +1,5 @@
-use std::{fs, os::unix::io::AsRawFd};
+use std::fs;
+use std::os::unix::io::AsRawFd;
 
 const SIOCSIFFLAGS: libc::c_ulong = 0x8914;
 const IFF_UP: libc::c_short = 0x1;
@@ -46,7 +47,10 @@ fn bring_up_interface(iface: &str) -> std::io::Result<()> {
         ifr_flags: libc::c_short,
     }
 
-    let ifr = IfReq { ifr_name, ifr_flags: IFF_UP };
+    let ifr = IfReq {
+        ifr_name,
+        ifr_flags: IFF_UP,
+    };
 
     unsafe {
         let res = libc::ioctl(fd, SIOCSIFFLAGS, &ifr);
@@ -54,7 +58,7 @@ fn bring_up_interface(iface: &str) -> std::io::Result<()> {
             return Err(std::io::Error::last_os_error());
         }
     }
-    
+
     println!("Successfully activated: {}", iface);
     Ok(())
 }

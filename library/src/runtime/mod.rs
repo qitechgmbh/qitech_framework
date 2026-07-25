@@ -12,15 +12,16 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use crate::machine::BuildContext;
 use crate::machine::Machine;
 use crate::machine::Resources;
+use crate::runtime::init::RuntimeInitializer;
 use crate::runtime::types::HardwareRegistry;
 
 mod types;
 pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
-pub use types::MachineRegistryEntry;
 
 mod init;
+pub use init::EtherCATConfig;
 
 pub struct Runtime {
     // --- registries ---
@@ -40,7 +41,12 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn run(mut self) {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> RuntimeInitializer {
+        RuntimeInitializer::new()
+    }
+
+    pub fn run(mut self) -> Result<(), &'static str> {
         loop {
             // TODO: exit if controller is finished
             self.write_ecat_inputs();
@@ -63,8 +69,7 @@ impl Runtime {
         for (ident_unique, hardware) in &self.hardware_registry {
             let ident = ident_unique.identification;
 
-            let Some(MachineRegistryEntry { build, schema }) = self.machine_registry.get(&ident)
-            else {
+            let Some(build) = self.machine_registry.get(&ident) else {
                 todo!()
                 // bail!("Failed to find registry entry for machine {{{ident}}}");
             };
@@ -78,10 +83,7 @@ impl Runtime {
                 hardware.clone(),
             );
 
-            println!(
-                "Building '{}' with identification '{ident_unique}'",
-                &schema.name
-            );
+            println!("Building machine `{ident_unique}`");
 
             let machine = match (build)(ctx) {
                 Ok(v) => v,

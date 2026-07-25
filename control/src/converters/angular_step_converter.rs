@@ -1,9 +1,9 @@
-use qitech_lib::units::{
-    angle::revolution,
-    angular_acceleration::radian_per_second_squared,
-    angular_velocity::revolution_per_second,
-    f64::{Angle, AngularAcceleration, AngularVelocity},
-};
+use qitech_lib::units::angle::revolution;
+use qitech_lib::units::angular_acceleration::radian_per_second_squared;
+use qitech_lib::units::angular_velocity::revolution_per_second;
+use qitech_lib::units::f64::Angle;
+use qitech_lib::units::f64::AngularAcceleration;
+use qitech_lib::units::f64::AngularVelocity;
 
 /// Converts between motor steps and angular measurements
 ///

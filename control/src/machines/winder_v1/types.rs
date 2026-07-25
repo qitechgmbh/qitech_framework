@@ -1,4 +1,4 @@
-use control_runtime::machine::Command;
+use qitech_framework::machine::resource::CommandHandle;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Mode {
@@ -10,17 +10,17 @@ pub enum Mode {
 }
 
 pub struct Commands {
-    enter_standby: Command,
-    enter_hold:    Command,
-    start_pulling: Command,
-    start_winding: Command,
+    enter_standby: CommandHandle,
+    enter_hold: CommandHandle,
+    start_pulling: CommandHandle,
+    start_winding: CommandHandle,
 
-    traverse_go_home: Command,
-    goto_limit_outer: Command,
-    goto_limit_inner: Command,
+    traverse_go_home: CommandHandle,
+    goto_limit_outer: CommandHandle,
+    goto_limit_inner: CommandHandle,
 
-    spool_auto_stop_reset_progress: Command,
+    spool_auto_stop_reset_progress: CommandHandle,
 
-    laser_enable: Command,
-    laser_disable: Command,
+    laser_enable: CommandHandle,
+    laser_disable: CommandHandle,
 }

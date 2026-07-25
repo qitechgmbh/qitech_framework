@@ -1,6 +1,5 @@
-use super::acceleration_position_controller::{
-    AccelerationPositionController, MotionControllerError,
-};
+use super::acceleration_position_controller::AccelerationPositionController;
+use super::acceleration_position_controller::MotionControllerError;
 
 /// Controller for speed-based motion with jerk limits.
 ///

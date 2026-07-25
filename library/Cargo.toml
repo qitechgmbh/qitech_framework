@@ -6,11 +6,12 @@ edition = "2024"
 [dependencies]
 # --- internal deps ---
 qitech_framework_common = { path = "../common" }
-# qitech_framework_hub = { path = "../control-macros" }
+qitech_framework_macros = { path = "../macros" }
 
 # --- workspace deps ---
 serde = { workspace = true }
 serde_json = { workspace = true }
+yaml_serde = { workspace = true }
 
 anyhow = { workspace = true }
 chrono = { workspace = true }
@@ -25,7 +26,7 @@ tokio-serial = "5.5.0"
 bitvec = "1"
 
 # --- uom ---
-uom = { version = "0.38.0", default-features = false, features = [ "f64" ] }
+uom = { version = "0.38.0", default-features = false, features = [ "f64", "serde" ] }
 
 [build-dependencies]
 toml = "0.8"

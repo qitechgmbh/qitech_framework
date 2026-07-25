@@ -33,6 +33,7 @@ mod command;
 pub use command::ExecuteError as CommandExecuteError;
 pub use command::Handle as CommandHandle;
 pub use command::Manager as CommandManager;
+pub use command::RegisterOptions as CommandRegisterOptions;
 
 mod event;
 pub use event::Emitter as EventEmitter;

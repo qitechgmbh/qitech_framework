@@ -1,8 +1,7 @@
-use std::{
-    collections::VecDeque,
-    iter::Sum,
-    time::{Duration, Instant},
-};
+use std::collections::VecDeque;
+use std::iter::Sum;
+use std::time::Duration;
+use std::time::Instant;
 
 /// A helper trait to handle division for averaging
 pub trait DivideByCount {

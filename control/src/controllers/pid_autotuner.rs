@@ -15,7 +15,8 @@
 //! bar, temperature in °C, etc.).  The caller is responsible for mapping the
 //! returned duty-cycle (0.0 … max_power) to the actual actuator output.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
 const REQUIRED_PEAK_COUNT: usize = 20;
 const MIN_PEAKS_FOR_PID: usize = 4;
@@ -348,8 +349,9 @@ impl PidAutoTuner {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::Duration;
+
+    use super::*;
 
     #[test]
     fn test_autotuner_creation() {

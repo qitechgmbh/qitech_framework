@@ -227,14 +227,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::cell::RefCell;
     use std::rc::Rc;
+
+    use super::*;
 
     // Simple blocking executor for async functions in tests
     fn block_on<F: std::future::Future>(future: F) -> F::Output {
         use std::sync::Arc;
-        use std::task::{Context, Poll, Waker};
+        use std::task::Context;
+        use std::task::Poll;
+        use std::task::Waker;
         use std::thread;
 
         struct DummyWaker;

@@ -1,11 +1,11 @@
 use std::time::Instant;
 
-use qitech_lib::units::{
-    angular_acceleration::radian_per_second_squared,
-    angular_jerk::radian_per_second_cubed,
-    angular_velocity::radian_per_second,
-    f64::{AngularAcceleration, AngularJerk, AngularVelocity},
-};
+use qitech_lib::units::angular_acceleration::radian_per_second_squared;
+use qitech_lib::units::angular_jerk::radian_per_second_cubed;
+use qitech_lib::units::angular_velocity::radian_per_second;
+use qitech_lib::units::f64::AngularAcceleration;
+use qitech_lib::units::f64::AngularJerk;
+use qitech_lib::units::f64::AngularVelocity;
 
 use super::acceleration_position_controller::MotionControllerError;
 use super::jerk_speed_controller::JerkSpeedController;

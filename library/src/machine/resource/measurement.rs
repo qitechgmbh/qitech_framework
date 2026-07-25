@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::MachineMeasurement;
-use qitech_framework_common::with_uom_units;
+use qitech_framework_common::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::resource::PropertyManager;
@@ -14,27 +14,25 @@ use crate::machine::resource::property_kind;
 use crate::uom;
 
 #[derive(Debug)]
-pub struct Measurement<T: TypeWrapper> {
-    handle: PropertyHandle<T::Type>,
-    stats: Statistics<T::Type>,
+pub struct Measurement<T> {
+    handle: PropertyHandle<T>,
+    stats: Statistics<T>,
 }
 
 impl<T> Measurement<T>
 where
-    T: TypeWrapper,
-    T::Type: Copy,
+    T: Copy,
 {
-    pub fn get(&self) -> T::Type {
+    pub fn get(&self) -> T {
         *self.handle.read()
     }
 }
 
 impl<T> Measurement<T>
 where
-    T: TypeWrapper,
-    T::Type: Copy + PartialOrd,
+    T: Copy + PartialOrd,
 {
-    pub fn set(&mut self, value: T::Type) {
+    pub fn set(&mut self, value: T) {
         self.handle.write(value);
         self.stats.update(value);
     }
@@ -42,8 +40,8 @@ where
 
 // --- uom impl ---
 macro_rules! impl_uom {
-    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
-        impl Measurement<$unit> {
+    ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
+        impl Measurement<$quantity> {
             pub fn get_as<N>(&self) -> f64
             where
                 N: $unit_trait + $conversion_trait,
@@ -59,7 +57,7 @@ macro_rules! impl_uom {
             }
         }
 
-        impl Measurement<Option<$unit>> {
+        impl Measurement<Option<$quantity>> {
             pub fn get_as<N>(&self) -> Option<f64>
             where
                 N: $unit_trait + $conversion_trait,
@@ -77,7 +75,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_units!(uom, impl_uom);
+with_uom_quantities!(uom, impl_uom);
 
 // --- statistics ---
 #[derive(Debug)]
@@ -134,7 +132,7 @@ impl Manager {
         ident: MachineIdentificationUnique,
         path: &'static str,
         options: RegisterOptions<T::Type>,
-    ) -> RegisterResult<Measurement<T>>
+    ) -> RegisterResult<Measurement<T::Type>>
     where
         T: TypeWrapper + Extract<Option<f64>> + 'static,
         T::Type: Copy + PartialOrd + Default,
@@ -153,7 +151,7 @@ impl Manager {
         };
 
         let handle = (init_handle)("")?;
-        handle.write(options.initial_value.unwrap_or_default());
+        handle.write(options.initial);
 
         let stat_min_handle = if options.record_min {
             Some(init_handle("min")?)
@@ -199,8 +197,8 @@ impl Manager {
 }
 
 #[derive(Debug, Default)]
-pub struct RegisterOptions<T> {
-    pub initial_value: Option<T>,
+pub struct RegisterOptions<T: Default> {
+    pub initial: T,
     pub record_min: bool,
     pub record_max: bool,
 }
@@ -229,11 +227,11 @@ mod test {
 
         let mut r = Manager::new();
 
-        let mut sp: Measurement<Option<f64>> = r.register(
+        let mut sp: Measurement<Option<f64>> = r.register::<Option<f64>>(
             ident,
             "just.some.float.optional",
             RegisterOptions {
-                initial_value: None,
+                initial: None,
                 record_min: true,
                 record_max: true,
             },
@@ -244,11 +242,11 @@ mod test {
         sp.set(None);
         assert_eq!(sp.get(), None);
 
-        let mut sp: Measurement<i64> = r.register(
+        let mut sp: Measurement<i64> = r.register::<i64>(
             ident,
             "just.some.int",
             RegisterOptions {
-                initial_value: Some(1),
+                initial: 1,
                 record_min: true,
                 record_max: true,
             },
@@ -257,11 +255,11 @@ mod test {
         sp.set(2);
         assert_eq!(sp.get(), 2);
 
-        let mut sp: Measurement<Option<i64>> = r.register(
+        let mut sp: Measurement<Option<i64>> = r.register::<Option<i64>>(
             ident,
             "just.some.optional.int",
             RegisterOptions {
-                initial_value: None,
+                initial: None,
                 record_min: true,
                 record_max: true,
             },
@@ -272,11 +270,11 @@ mod test {
         sp.set(None);
         assert_eq!(sp.get(), None);
 
-        let mut sp: Measurement<bool> = r.register(
+        let mut sp: Measurement<bool> = r.register::<bool>(
             ident,
             "just.some.bool",
             RegisterOptions {
-                initial_value: Some(false),
+                initial: false,
                 record_min: true,
                 record_max: true,
             },
@@ -287,11 +285,11 @@ mod test {
         sp.set(false);
         assert!(!sp.get());
 
-        let mut sp: Measurement<Option<bool>> = r.register(
+        let mut sp: Measurement<Option<bool>> = r.register::<Option<bool>>(
             ident,
             "just.some.optional.bool",
             RegisterOptions {
-                initial_value: None,
+                initial: None,
                 record_min: true,
                 record_max: true,
             },
@@ -303,11 +301,11 @@ mod test {
         assert_eq!(sp.get(), None);
 
         // --- uom ---
-        let mut sp: Measurement<millimeter> = r.register(
+        let mut sp: Measurement<Length> = r.register::<millimeter>(
             ident,
             "just.some.millimeter",
             RegisterOptions {
-                initial_value: Some(Length::new::<millimeter>(1.0)),
+                initial: Length::new::<millimeter>(1.0),
                 record_min: true,
                 record_max: true,
             },
@@ -331,11 +329,11 @@ mod test {
         assert_eq!(sp.get_as::<meter>(), 1.0);
 
         // --- uom optional ---
-        let mut sp: Measurement<Option<millimeter>> = r.register(
+        let mut sp: Measurement<Option<Length>> = r.register::<Option<millimeter>>(
             ident,
             "just.some.optional.millimeter",
             RegisterOptions {
-                initial_value: None,
+                initial: None,
                 record_min: true,
                 record_max: true,
             },

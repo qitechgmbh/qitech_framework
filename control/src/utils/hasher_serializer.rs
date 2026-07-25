@@ -1,11 +1,17 @@
-use serde::Serialize;
-use serde::ser::{
-    SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple,
-    SerializeTupleStruct, SerializeTupleVariant, Serializer,
-};
 use std::error::Error;
 use std::fmt::Display;
-use std::hash::{DefaultHasher, Hasher};
+use std::hash::DefaultHasher;
+use std::hash::Hasher;
+
+use serde::Serialize;
+use serde::ser::SerializeMap;
+use serde::ser::SerializeSeq;
+use serde::ser::SerializeStruct;
+use serde::ser::SerializeStructVariant;
+use serde::ser::SerializeTuple;
+use serde::ser::SerializeTupleStruct;
+use serde::ser::SerializeTupleVariant;
+use serde::ser::Serializer;
 
 #[derive(Debug)]
 pub struct HashSerializerError {}

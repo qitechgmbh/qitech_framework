@@ -1,11 +1,14 @@
-use std::rc::Rc;
 use std::cell::RefCell;
-use qitech_lib::units::ConstZero;
-use qitech_lib::{ethercat_hal::io::analog_input::physical::AnalogInputValue, units::Angle};
+use std::rc::Rc;
+
+use qitech_framework::machine::resource::Measurement;
+use qitech_framework::machine::resource::StateProperty;
+use qitech_lib::ethercat_hal::io::analog_input::physical::AnalogInputValue;
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
+use qitech_lib::units::Angle;
+use qitech_lib::units::ConstZero;
 use qitech_lib::units::angle::revolution;
 use qitech_lib::units::electric_potential::volt;
-use control_runtime::{Measurement, StateProperty};
 
 const ANALOG_INPUT_PORT: usize = 0;
 
@@ -14,19 +17,23 @@ pub struct TensionArm {
     device: Rc<RefCell<dyn StepperVelocityEL70x1Device>>,
 
     // --- state ---
-    zero: StateProperty<Option<Angle>, revolution>,
-    
+    zero: StateProperty<Option<Angle>>,
+
     // --- measurements ---
-    angle: Measurement<Angle, revolution>,
+    angle: Measurement<Angle>,
 }
 
 impl TensionArm {
     pub fn new(
         device: Rc<RefCell<dyn StepperVelocityEL70x1Device>>,
-        zero:   StateProperty<Option<Angle>, revolution>,
-        angle:  Measurement<Angle, revolution>,
+        zero: StateProperty<Option<Angle>>,
+        angle: Measurement<Angle>,
     ) -> Self {
-        Self { device, zero, angle }
+        Self {
+            device,
+            zero,
+            angle,
+        }
     }
 
     pub fn angle(&self) -> anyhow::Result<Angle> {
@@ -58,7 +65,7 @@ impl TensionArm {
 impl TensionArm {
     fn raw_angle(&self) -> anyhow::Result<Angle> {
         let volts = self.get_volts()?;
-        
+
         // 0V = 0deg 5V = 3600deg
         Ok(self.volts_to_angle(volts))
     }
@@ -70,8 +77,11 @@ impl TensionArm {
         let Some(range) = device.analog_input_range() else {
             return Err(anyhow::anyhow!("No input range supplied"));
         };
-        
-        match device.get_analog_input(ANALOG_INPUT_PORT)?.get_physical(&range) {
+
+        match device
+            .get_analog_input(ANALOG_INPUT_PORT)?
+            .get_physical(&range)
+        {
             AnalogInputValue::Potential(v) => Ok(v.get::<volt>()),
             _ => panic!("Expected a potential value"),
         }

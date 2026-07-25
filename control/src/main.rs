@@ -1,12 +1,15 @@
 use std::time::Duration;
-use qitech_lib::ethercat_hal::{
-    DcConfiguration, MasterConfiguration, 
-    MasterTxRxConfig, RtOptimizationConfig
-};
-use control_runtime::{Config, MachineRegistry, Runtime};
 
-mod utils;
+use anyhow::anyhow;
+use qitech_framework::Runtime;
+use qitech_framework::runtime::EtherCATConfig;
+use qitech_lib::ethercat_hal::DcConfiguration;
+use qitech_lib::ethercat_hal::MasterConfiguration;
+use qitech_lib::ethercat_hal::MasterTxRxConfig;
+use qitech_lib::ethercat_hal::RtOptimizationConfig;
+
 mod types;
+mod utils;
 
 mod controllers;
 mod converters;
@@ -14,27 +17,23 @@ mod interface;
 
 mod machines;
 use machines::LaserV1;
-use machines::WinderV1;
+// use machines::WinderV1;
 
 pub fn main() -> anyhow::Result<()> {
     interface::bring_up_all_ethernet();
 
-    // --- register machines --- 
-    let mut registry = MachineRegistry::default();
-    registry.register::<LaserV1>()?;
-    registry.register::<WinderV1>()?;
+    let rt = Runtime::new()
+        .with_ethercat(ecat_config())
+        .with_machine::<LaserV1>()
+        // .with_machine::<WinderV1>()
+        .build()?;
 
-    // --- create runtime ---
-    let runtime = Runtime::new().with_ethercat_mock().with_modbus()
-    ::init(init_config(), registry)?;
-
-    // --- start runtime ---
-    runtime.run()
+    rt.run().map_err(|_| anyhow!("idk"))
 }
 
-pub fn init_config() -> Config {
+pub fn ecat_config() -> EtherCATConfig {
     let target_cycle_time_us: u64 = 1000;
-    
+
     let dc_config = DcConfiguration {
         start_delay: Duration::from_millis(100),
         sync0_period: Duration::from_micros(target_cycle_time_us),
@@ -60,8 +59,8 @@ pub fn init_config() -> Config {
         op_ramp_grace_cycles: 10000,
     };
 
-    Config {
+    EtherCATConfig {
         interface_discovery_retry_interval: Duration::from_secs(2),
-        ethercat: Some(master_config),
+        master_config: Some(master_config),
     }
 }

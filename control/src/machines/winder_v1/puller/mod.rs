@@ -1,13 +1,15 @@
-use std::time::Instant;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Instant;
 
-use qitech_lib::units::{ConstZero, Length, Velocity};
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::Velocity;
 
-use crate::types::RotationDirection;
-use crate::converters::LinearStepConverter;
 use crate::controllers::LinearJerkSpeedController;
+use crate::converters::LinearStepConverter;
+use crate::types::RotationDirection;
 
 mod types;
 use types::GearRatio;
@@ -66,14 +68,14 @@ impl Puller {
             enabled: false,
             device,
             device_port,
-            direction, 
-            gear_ratio, 
-            speed_target, 
-            speed_regulation_mode, 
-            speed, 
-            step_converter, 
-            acceleration_controller, 
-            speed_algorithm_adaptive 
+            direction,
+            gear_ratio,
+            speed_target,
+            speed_regulation_mode,
+            speed,
+            step_converter,
+            acceleration_controller,
+            speed_algorithm_adaptive,
         }
     }
 
@@ -98,9 +100,9 @@ impl Puller {
             now,
             self.speed(),
             current,
-            target, 
-            lower, 
-            upper, 
+            target,
+            lower,
+            upper,
         );
     }
 }
@@ -114,16 +116,16 @@ impl Puller {
                 Speed => self.speed_target,
                 AdaptiveDiameter => self.speed_algorithm_adaptive.compute(self.speed_target),
             }
-        } else { Velocity::ZERO };
+        } else {
+            Velocity::ZERO
+        };
 
         let speed = base_speed * self.gear_ratio.multiplier() * self.direction.modifier();
         self.speed = self.acceleration_controller.update(speed, t);
     }
 
     fn sync_hardware(&mut self) {
-        let angular_velocity = self
-            .step_converter
-            .velocity_to_angular_velocity(self.speed);
+        let angular_velocity = self.step_converter.velocity_to_angular_velocity(self.speed);
 
         let steps_per_second = self
             .step_converter
