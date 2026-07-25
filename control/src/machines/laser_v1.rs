@@ -75,8 +75,12 @@ impl MachineBuild for LaserV1 {
             diameter_tolerance_lower,
             in_tolerance: ctx.state::<bool>("in_tolerance").register()?,
             diameter: ctx.measurement::<millimeter>("diameter").register()?,
-            diameter_x: ctx.measurement::<Option<millimeter>>("diameter_x").register()?,
-            diameter_y: ctx.measurement::<Option<millimeter>>("diameter_y").register()?,
+            diameter_x: ctx
+                .measurement::<Option<millimeter>>("diameter_x")
+                .register()?,
+            diameter_y: ctx
+                .measurement::<Option<millimeter>>("diameter_y")
+                .register()?,
             roundness: ctx.measurement::<Option<f64>>("roundness").register()?,
             last_request: Instant::now(),
         })
@@ -114,7 +118,6 @@ impl LaserV1 {
         self.in_tolerance.set(true);
         self.in_tolerance.get();
         self.diameter.get();
-
 
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()

@@ -47,7 +47,9 @@ pub struct HandleError {
 impl fmt::Display for RegisterErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RegisterErrorKind::MissingRequiredField(field) => write!(f, "missing required field `{field}`"),
+            RegisterErrorKind::MissingRequiredField(field) => {
+                write!(f, "missing required field `{field}`")
+            }
             RegisterErrorKind::Duplicate => write!(f, "duplicate property"),
             RegisterErrorKind::RegistryFull => write!(f, "registry full"),
             RegisterErrorKind::NameTooLarge => write!(f, "name too large"),

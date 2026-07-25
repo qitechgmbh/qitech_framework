@@ -1,19 +1,17 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Duration;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
+use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
-use qitech_lib::ethercat_hal::MetaSubdevice;
-use qitech_lib::ethercat_hal::devices::EthercatDevice;
+use qitech_framework_common::RuntimeReport;
 
 use crate::machine::BuildContext;
-use crate::machine::Machine;
 use crate::machine::Resources;
-use crate::runtime::init::RuntimeInitializer;
+use crate::runtime::init::RuntimeBuilder;
 use crate::runtime::types::HardwareRegistry;
+use crate::runtime::types::MachineInstance;
 
 mod types;
 pub use types::EtherCATController;
@@ -23,6 +21,11 @@ pub use types::MachineRegistry;
 mod init;
 pub use init::EtherCATConfig;
 
+mod request;
+
+// mod utils;
+// use utils::build_machines;
+
 pub struct Runtime {
     // --- registries ---
     machine_registry: MachineRegistry,
@@ -30,20 +33,21 @@ pub struct Runtime {
 
     // --- resource managers ---
     resources: Resources,
+    report: RuntimeReport,
 
     // --- connections ---
     // session: Session with hub
     ecat_controller: Option<EtherCATController>,
 
     // --- instances ---
-    machines: Vec<(MachineIdentificationUnique, Box<dyn Machine>)>,
-    sub_devices: Vec<(MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>)>,
+    machines: Vec<MachineInstance>,
+    sub_devices: Vec<EtherCATSubDevice>,
 }
 
 impl Runtime {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> RuntimeInitializer {
-        RuntimeInitializer::new()
+    pub fn new() -> RuntimeBuilder {
+        RuntimeBuilder::new()
     }
 
     pub fn run(mut self) -> Result<(), &'static str> {
@@ -55,6 +59,7 @@ impl Runtime {
             // TODO: process connection requests
             // TODO: run config mutations
             // TODO: run commands
+            // TODO: laser hotplug
 
             self.execute_machines();
             self.write_ecat_outputs();
@@ -180,5 +185,15 @@ impl Runtime {
         }
 
         controller.app_handle.send_outputs();
+    }
+
+    fn export_report(&mut self) {
+        self.report.timestamp = Utc::now();
+        self.resources.init_report(&mut self.report.machines);
+
+
+        // TODO: send data to hub
+        self.report.logs.clear();
+        self.report.responses.clear();
     }
 }

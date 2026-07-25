@@ -114,7 +114,6 @@ where
             }
 
             let info = unsafe { self.buf_info[i].assume_init_ref() };
-
             (info.ident == ident && info.path == path).then_some((i, info))
         });
 

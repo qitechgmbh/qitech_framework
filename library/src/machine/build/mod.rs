@@ -4,6 +4,7 @@ use std::fmt;
 
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
+
 use crate::machine::Resources;
 use crate::machine::hardware::Hardware;
 use crate::machine::resource::error::RegisterError;

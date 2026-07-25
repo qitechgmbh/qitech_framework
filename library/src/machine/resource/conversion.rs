@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use qitech_framework_common::ScalarValue;
 use qitech_framework_common::with_uom_quantities;
 use qitech_framework_common::with_uom_units;
+
 use crate::uom;
 
 pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
@@ -70,7 +71,7 @@ impl TypeWrapper for String {
     type Type = String;
     type Input = &'static str;
 
-    fn convert_input(input:  &'static str) -> String {
+    fn convert_input(input: &'static str) -> String {
         input.to_string()
     }
 }
@@ -79,7 +80,7 @@ impl TypeWrapper for Option<String> {
     type Type = Option<String>;
     type Input = Option<&'static str>;
 
-    fn convert_input(input:  Option<&'static str>) -> Option<String> {
+    fn convert_input(input: Option<&'static str>) -> Option<String> {
         input.map(|x| x.to_string())
     }
 }

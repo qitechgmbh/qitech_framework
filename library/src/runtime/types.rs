@@ -18,6 +18,7 @@ use crate::machine::error::BuildResult;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
 pub type MachineRegistry = HashMap<MachineIdentification, BuildMachineFn>;
+pub type MachineInstance = (MachineIdentificationUnique, Box<dyn Machine>);
 pub type BuildMachineFn = fn(BuildContext<'_>) -> BuildResult<Box<dyn Machine>>;
 
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;

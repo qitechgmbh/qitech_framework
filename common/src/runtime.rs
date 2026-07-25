@@ -29,12 +29,14 @@ pub enum RuntimeRequestKind {
         subdevice_index: usize,
     },
 
-    RequestMachineSubscription {
-        /// source machine
-        source: MachineIdentificationUnique,
+    MachineSubscribe {
+        provider: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    },
 
-        /// target subscriber
-        subscriber: MachineIdentificationUnique,
+    MachineUnsubscribe {
+        provider: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
     },
 
     SetMachineConfiguration(SetMachineConfigurationRequest),
@@ -47,7 +49,7 @@ pub enum RuntimeRequestKind {
         resource_path: String,
 
         /// command arguments
-        arguments: serde_json::Value,
+        arguments: String,
     },
 }
 

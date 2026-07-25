@@ -204,7 +204,7 @@ fn check<T: BoundedMeta>(value: &T, options: &RegisterOptions<T>) -> Result<(), 
     // value
     //     .validate(options.min, options.max)
     //     .map_err(WriteError::OutOfBounds)?;
-// 
+    //
     // if let Some(min) = options.min && value < min {
     //     return WriteError::OutOfBounds(Bound);
     // }

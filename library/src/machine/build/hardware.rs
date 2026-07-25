@@ -38,8 +38,13 @@ impl BuildContext<'_> {
     where
         T: EthercatDevice,
     {
-        let (index, EtherCATDeviceIdentified { device, info: ident }) =
-            self.find_ethercat_by_role(role)?;
+        let (
+            index,
+            EtherCATDeviceIdentified {
+                device,
+                info: ident,
+            },
+        ) = self.find_ethercat_by_role(role)?;
         let device = downcast_ecat_dev(index, device.clone())?;
         Ok((device, ident.device_address))
     }

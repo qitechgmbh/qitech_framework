@@ -120,7 +120,7 @@ impl Manager {
         self.registry.retain(|key, _| key.ident != ident);
     }
 
-    pub fn execute(
+    pub fn invoke(
         &mut self,
         target: MachineIdentificationUnique,
         machine: &mut dyn Machine,
@@ -189,7 +189,7 @@ struct Entry {
 
 pub struct RegisterOptions<M, A> {
     pub disabled: bool,
-    
+
     #[allow(clippy::type_complexity)]
     pub execute: Option<fn(&mut M, A) -> Result<(), ExecuteError>>,
 }
@@ -197,7 +197,10 @@ pub struct RegisterOptions<M, A> {
 // you piece of shit compiler too retarded to use the derive properly... FUCK. YOU.
 impl<M, A> Default for RegisterOptions<M, A> {
     fn default() -> Self {
-        Self { disabled: Default::default(), execute: Default::default() }
+        Self {
+            disabled: Default::default(),
+            execute: Default::default(),
+        }
     }
 }
 
@@ -294,23 +297,31 @@ mod test {
         }
 
         // --- simple ---
-        let mut handle = r.register(ident, "simple", RegisterOptions { 
-            disabled: false, 
-            execute: Some(TestMachine::simple_command),
-        })?;
+        let mut handle = r.register(
+            ident,
+            "simple",
+            RegisterOptions {
+                disabled: false,
+                execute: Some(TestMachine::simple_command),
+            },
+        )?;
         handle.set_enabled(false)?;
         handle.set_enabled(true)?;
 
         // --- complex ---
-        let mut handle = r.register(ident, "not.simple", RegisterOptions { 
-            disabled: false,
-            execute: Some(TestMachine::complex_command),
-        })?;
+        let mut handle = r.register(
+            ident,
+            "not.simple",
+            RegisterOptions {
+                disabled: false,
+                execute: Some(TestMachine::complex_command),
+            },
+        )?;
         handle.set_enabled(false)?;
         handle.set_enabled(true)?;
 
         // --- execute simple ---
-        r.execute(ident, &mut TestMachine, "simple", "null")?;
+        r.invoke(ident, &mut TestMachine, "simple", "null")?;
 
         // --- execute complex ---
         let args = ComplexCommandArgs {
@@ -320,7 +331,7 @@ mod test {
             d: "Hello World".to_string(),
         };
         let args = &serde_json::to_string(&args)?;
-        r.execute(ident, &mut TestMachine, "not.simple", args)?;
+        r.invoke(ident, &mut TestMachine, "not.simple", args)?;
 
         Ok(())
     }

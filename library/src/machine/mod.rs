@@ -54,11 +54,11 @@ pub trait MachineInterface {
 
 #[derive(Default)]
 pub(crate) struct Resources {
-    config_properties: ConfigPropertyManager,
-    state_properties: StatePropertyManager,
-    measurements: MeasurementManager,
-    commands: CommandManager,
-    events: EventManager,
+    pub config_properties: ConfigPropertyManager,
+    pub state_properties: StatePropertyManager,
+    pub measurements: MeasurementManager,
+    pub commands: CommandManager,
+    pub events: EventManager,
 }
 
 impl Resources {
