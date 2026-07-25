@@ -97,7 +97,7 @@ impl<'a> BuildContext<'a> {
         Ok(self
             .resources
             .commands
-            .register(path, self.ident, execute)?)
+            .register(self.ident, path, execute)?)
     }
 
     pub fn register_event<T>(&mut self, path: &'static str) -> BuildResult<EventEmitter<T>>

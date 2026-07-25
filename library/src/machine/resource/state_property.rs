@@ -3,15 +3,12 @@ use std::borrow::Cow;
 use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::MachineStateMutation;
-use qitech_framework_common::ScalarValue;
 use qitech_framework_common::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::resource::Journal;
-use crate::machine::resource::PropertyAccessor;
+use crate::machine::resource::PropertyManager;
 use crate::machine::resource::PropertyReadHandle;
-use crate::machine::resource::PropertyRegistry;
-use crate::machine::resource::PropertyResolver;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::uom;
@@ -79,31 +76,17 @@ with_uom_quantities!(uom, impl_uom);
 // --- manager ---
 const SLOT_SIZE: usize = size_of::<String>();
 const MAX_ITEMS: usize = 512;
-type Kind = super::kind::StateProperty;
-type Format = ScalarValue;
+type Kind = super::property_kind::StateProperty;
 
-pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind, Format>;
-pub type Resolver<'a> = PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, Kind, Format>;
-pub type Reader<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, Kind, Format>;
 pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
 
+#[derive(Default)]
 pub struct Manager {
-    registry: Registry,
+    registry: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind>,
     journal: Journal<MachineStateMutation>,
 }
 
 impl Manager {
-    pub fn new() -> Self {
-        Self {
-            registry: Default::default(),
-            journal: Journal::new(),
-        }
-    }
-
-    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        self.registry.unregister_machine(ident)
-    }
-
     pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
@@ -115,13 +98,13 @@ impl Manager {
         T::Type: Default,
     {
         // create boxed function to type erase the wrapper type
-        // to reduce the amount of generated code inside the property
+        // to reduce the amount of expanded generic code inside the property
         let journal = self.journal.new_handle();
         let record = Box::new(move |value: &T::Type| {
             let entry = MachineStateMutation {
                 source: ident,
                 resource_path: Cow::Borrowed(path),
-                value: T::into_scalar(&value),
+                value: T::into_scalar(value),
                 timestamp: Utc::now(),
             };
 
@@ -130,10 +113,16 @@ impl Manager {
 
         let handle = self
             .registry
-            .register::<T::Type>(ident, path, "", T::extract, ())?;
-
-        handle.write(initial_value);
+            .register::<T::Type>(ident, path, "", (), initial_value)?;
         Ok(StateProperty { handle, record })
+    }
+
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.registry.unregister_machine(ident)
+    }
+
+    pub fn drain_journal(&mut self, f: impl FnMut(MachineStateMutation)) {
+        self.journal.drain_with(f);
     }
 }
 
@@ -162,36 +151,35 @@ mod test {
             serial: 0,
         };
 
-        let mut mgr = Manager::new();
-        let mut r = Registrar::new(&mut mgr, ident);
+        let mut r = Manager::default();
 
-        let mut sp: StateProperty<f64> = r.register::<f64>("just.some.float", 1.0)?;
+        let mut sp: StateProperty<f64> = r.register::<f64>(ident, "just.some.float", 1.0)?;
         assert_eq!(sp.get(), 1.0);
         sp.set(2.0);
         assert_eq!(sp.get(), 2.0);
 
         let mut sp: StateProperty<Option<f64>> =
-            r.register::<Option<f64>>("just.some.float.optional", None)?;
+            r.register::<Option<f64>>(ident, "just.some.float.optional", None)?;
         assert_eq!(sp.get(), None);
         sp.set(Some(1.0));
         assert_eq!(sp.get(), Some(1.0));
         sp.set(None);
         assert_eq!(sp.get(), None);
 
-        let mut sp: StateProperty<i64> = r.register::<i64>("just.some.int", 1)?;
+        let mut sp: StateProperty<i64> = r.register::<i64>(ident, "just.some.int", 1)?;
         assert_eq!(sp.get(), 1);
         sp.set(2);
         assert_eq!(sp.get(), 2);
 
         let mut sp: StateProperty<Option<i64>> =
-            r.register::<Option<i64>>("just.some.optional.int", None)?;
+            r.register::<Option<i64>>(ident, "just.some.optional.int", None)?;
         assert_eq!(sp.get(), None);
         sp.set(Some(1));
         assert_eq!(sp.get(), Some(1));
         sp.set(None);
         assert_eq!(sp.get(), None);
 
-        let mut sp: StateProperty<bool> = r.register::<bool>("just.some.bool", false)?;
+        let mut sp: StateProperty<bool> = r.register::<bool>(ident, "just.some.bool", false)?;
         assert!(!sp.get());
         sp.set(true);
         assert!(sp.get());
@@ -199,7 +187,7 @@ mod test {
         assert!(!sp.get());
 
         let mut sp: StateProperty<Option<bool>> =
-            r.register::<Option<bool>>("just.some.optional.bool", None)?;
+            r.register::<Option<bool>>(ident, "just.some.optional.bool", None)?;
         assert_eq!(sp.get(), None);
         sp.set(Some(true));
         assert_eq!(sp.get(), Some(true));
@@ -207,7 +195,7 @@ mod test {
         assert_eq!(sp.get(), None);
 
         let mut sp: StateProperty<String> =
-            r.register::<String>("just.some.string", String::from("hello"))?;
+            r.register::<String>(ident, "just.some.string", String::from("hello"))?;
         assert_eq!(sp.get_ref(), "hello");
         sp.set(String::from("world"));
         assert_eq!(sp.get_ref(), "world");
@@ -215,7 +203,7 @@ mod test {
         assert_eq!(sp.get_ref(), "rust");
 
         let mut sp: StateProperty<Option<String>> =
-            r.register::<Option<String>>("just.some.optional.string", None)?;
+            r.register::<Option<String>>(ident, "just.some.optional.string", None)?;
         assert_eq!(*sp.get_ref(), None);
         sp.set(Some(String::from("hello")));
         assert_eq!(*sp.get_ref(), Some(String::from("hello")));
@@ -224,7 +212,7 @@ mod test {
 
         // --- uom ---
         let mut sp: StateProperty<Length> =
-            r.register::<millimeter>("just.some.length", Length::new::<millimeter>(1.0))?;
+            r.register::<millimeter>(ident, "just.some.length", Length::new::<millimeter>(1.0))?;
 
         assert_eq!(sp.get_as::<millimeter>(), 1.0);
 
@@ -245,7 +233,7 @@ mod test {
 
         // --- uom optional ---
         let mut sp: StateProperty<Option<Length>> =
-            r.register::<Option<centimeter>>("just.some.optional.millimeter", None)?;
+            r.register::<Option<centimeter>>(ident, "just.some.optional.millimeter", None)?;
 
         assert_eq!(sp.get(), None);
 

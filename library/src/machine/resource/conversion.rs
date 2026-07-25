@@ -6,16 +6,28 @@ use qitech_framework_common::with_uom_units;
 use crate::machine::error::BoundsError;
 use crate::uom;
 
+pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
+
 pub trait Extract<T> {
+    /// Extracts a value from a raw byte pointer.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `bytes` is valid for reads of the required
+    /// size and properly aligned for the expected type.
     unsafe fn extract(bytes: *const u8) -> T;
 }
 
+/// Trait to allow defining conversion and extract operations
+/// on wrapped units. The best example here is uom which allows us to export
+/// a uom Length as millimeter instead of meter (the default with serde feature)
 pub trait TypeWrapper {
     type Type: Clone + 'static;
 }
 
+/// Specialized TypeWrapper for dealing with scalar values.
+/// Used by ConfigPropertyManager and StatePropertyManager for registration.
 pub trait ScalarTypeWrapper: TypeWrapper + Clone + Extract<ScalarValue> + 'static {
-    fn into_string(value: &Self::Type) -> String;
     fn into_scalar(value: &Self::Type) -> ScalarValue;
 }
 
@@ -35,10 +47,6 @@ impl TypeWrapper for f64 {
 }
 
 impl ScalarTypeWrapper for f64 {
-    fn into_string(value: &Self::Type) -> String {
-        value.to_string()
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::Float(Some(*value))
     }
@@ -64,13 +72,6 @@ impl TypeWrapper for Option<f64> {
 }
 
 impl ScalarTypeWrapper for Option<f64> {
-    fn into_string(value: &Self::Type) -> String {
-        match value {
-            Some(v) => v.to_string(),
-            None => "null".to_string(),
-        }
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::Float(*value)
     }
@@ -95,10 +96,6 @@ impl TypeWrapper for i64 {
 }
 
 impl ScalarTypeWrapper for i64 {
-    fn into_string(value: &Self::Type) -> String {
-        value.to_string()
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::Integer(Some(*value))
     }
@@ -124,13 +121,6 @@ impl TypeWrapper for Option<i64> {
 }
 
 impl ScalarTypeWrapper for Option<i64> {
-    fn into_string(value: &Self::Type) -> String {
-        match value {
-            Some(v) => v.to_string(),
-            None => "null".to_string(),
-        }
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::Integer(*value)
     }
@@ -156,10 +146,6 @@ impl TypeWrapper for bool {
 }
 
 impl ScalarTypeWrapper for bool {
-    fn into_string(value: &Self::Type) -> String {
-        value.to_string()
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::Boolean(Some(*value))
     }
@@ -185,13 +171,6 @@ impl TypeWrapper for Option<bool> {
 }
 
 impl ScalarTypeWrapper for Option<bool> {
-    fn into_string(value: &Self::Type) -> String {
-        match value {
-            Some(v) => v.to_string(),
-            None => "null".to_string(),
-        }
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::Boolean(*value)
     }
@@ -217,10 +196,6 @@ impl TypeWrapper for String {
 }
 
 impl ScalarTypeWrapper for String {
-    fn into_string(value: &Self::Type) -> String {
-        value.clone()
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::String(Some(value.clone()))
     }
@@ -239,13 +214,6 @@ impl TypeWrapper for Option<String> {
 }
 
 impl ScalarTypeWrapper for Option<String> {
-    fn into_string(value: &Self::Type) -> String {
-        match value {
-            Some(v) => v.clone(),
-            None => "null".to_string(),
-        }
-    }
-
     fn into_scalar(value: &Self::Type) -> ScalarValue {
         ScalarValue::String(value.clone())
     }
@@ -266,10 +234,6 @@ macro_rules! impl_uom {
         }
 
         impl ScalarTypeWrapper for $unit {
-            fn into_string(value: &Self::Type) -> String {
-                value.get::<$unit>().to_string()
-            }
-
             fn into_scalar(value: &Self::Type) -> ScalarValue {
                 ScalarValue::Float(Some(value.get::<$unit>()))
             }
@@ -295,11 +259,6 @@ macro_rules! impl_uom {
         }
 
         impl ScalarTypeWrapper for Option<$unit> {
-            fn into_string(value: &Self::Type) -> String {
-                _ = value;
-                "TODO".to_string()
-            }
-
             fn into_scalar(value: &Self::Type) -> ScalarValue {
                 ScalarValue::Float(value.map(|x| x.get::<$unit>()))
             }

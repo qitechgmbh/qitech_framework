@@ -2,10 +2,10 @@ use std::fmt;
 
 use qitech_framework_common::MachineIdentificationUnique;
 
-use super::Kind;
+use super::ResourceKind;
 
 pub type RegisterResult<T> = Result<T, RegisterError>;
-pub type RegisterError = Error<RegisterErrorKind>;
+pub type RegisterError = ResourceError<RegisterErrorKind>;
 
 #[derive(Debug)]
 pub enum RegisterErrorKind {
@@ -15,7 +15,7 @@ pub enum RegisterErrorKind {
 }
 
 pub type ResolveResult<T> = Result<T, ResolveError>;
-pub type ResolveError = Error<ResolveErrorKind>;
+pub type ResolveError = ResourceError<ResolveErrorKind>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ResolveErrorKind {
@@ -24,10 +24,10 @@ pub enum ResolveErrorKind {
 }
 
 #[derive(Debug)]
-pub struct Error<K> {
-    pub resource_kind: Kind,
+pub struct ResourceError<E> {
+    pub resource_kind: ResourceKind,
     pub resource_path: &'static str,
-    pub kind: K,
+    pub error_kind: E,
 }
 
 pub type ReadResult<T> = Result<T, ReadError>;
@@ -37,7 +37,7 @@ pub struct ReadError;
 
 #[derive(Debug, Clone, Copy)]
 pub struct HandleError {
-    pub resource_kind: Kind,
+    pub resource_kind: ResourceKind,
     pub resource_path: &'static str,
     pub machine_ident: MachineIdentificationUnique,
 }
@@ -62,12 +62,12 @@ impl fmt::Display for ResolveErrorKind {
     }
 }
 
-impl<K: fmt::Display> fmt::Display for Error<K> {
+impl<K: fmt::Display> fmt::Display for ResourceError<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{} error for {:?} at '{}'",
-            self.kind, self.resource_kind, self.resource_path
+            self.error_kind, self.resource_kind, self.resource_path
         )
     }
 }
@@ -89,6 +89,6 @@ impl fmt::Display for HandleError {
 }
 
 // --- impl error ---
-impl<K: fmt::Display + fmt::Debug> std::error::Error for Error<K> {}
+impl<K: fmt::Display + fmt::Debug> std::error::Error for ResourceError<K> {}
 impl std::error::Error for ReadError {}
 impl std::error::Error for HandleError {}

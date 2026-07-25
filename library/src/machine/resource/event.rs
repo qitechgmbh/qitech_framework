@@ -3,29 +3,28 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use chrono::Utc;
-use qitech_framework_common::MachineEvent;
+use qitech_framework_common::MachineEmittedEvent;
 use qitech_framework_common::MachineIdentificationUnique;
 use serde::Serialize;
 
 use super::Journal;
 use super::JournalHandle;
 use super::Key;
-use super::Kind;
+use super::ResourceKind;
 use super::error::RegisterError;
 use super::error::RegisterErrorKind;
 use super::error::RegisterResult;
 
-// -- machine handle ---
 pub struct Emitter<T: Serialize> {
     source: MachineIdentificationUnique,
     path: &'static str,
-    journal: JournalHandle<MachineEvent>,
+    journal: JournalHandle<MachineEmittedEvent>,
     _marker: PhantomData<T>,
 }
 
 impl<T: Serialize> Emitter<T> {
     pub fn emit(&mut self, data: T) -> EventEmitResult {
-        let event = MachineEvent {
+        let event = MachineEmittedEvent {
             timestamp: Utc::now(),
             source: self.source,
             resource_path: Cow::Borrowed(self.path),
@@ -40,11 +39,11 @@ impl<T: Serialize> Emitter<T> {
 // --- manager ---
 pub struct Manager {
     registry: HashSet<Key<'static>>,
-    journal: Journal<MachineEvent>,
+    journal: Journal<MachineEmittedEvent>,
 }
 
 impl Manager {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             registry: Default::default(),
             journal: Journal::new(),
@@ -67,9 +66,9 @@ impl Manager {
 
         if !self.registry.insert(key) {
             return Err(RegisterError {
-                resource_kind: Kind::Event,
+                resource_kind: ResourceKind::Event,
                 resource_path: path,
-                kind: RegisterErrorKind::Duplicate,
+                error_kind: RegisterErrorKind::Duplicate,
             });
         }
 
@@ -81,19 +80,20 @@ impl Manager {
         })
     }
 
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
         self.registry.retain(|key| key.ident != ident);
+    }
+
+    pub fn drain_journal(&mut self, f: impl FnMut(MachineEmittedEvent)) {
+        self.journal.drain_with(f);
     }
 }
 
-// --- resolver ---
-pub struct Resolver<'a> {
-    manager: &'a mut Manager,
-    machine: MachineIdentificationUnique,
+impl Default for Manager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
-
-// --- remote handle ---
-pub struct RemoteHandle {}
 
 // --- errors ---
 pub type EventEmitResult = Result<(), serde_json::Error>;
@@ -115,7 +115,7 @@ mod test {
             serial: 0,
         };
 
-        let mut r = Manager::new();
+        let mut mgr = Manager::new();
 
         // --- simple ---
         #[derive(Serialize)]
@@ -125,7 +125,7 @@ mod test {
             c: i32,
         }
 
-        let mut emitter = r.register::<SimpleEvent>(ident, "simple")?;
+        let mut emitter = mgr.register::<SimpleEvent>(ident, "simple")?;
         emitter.emit(SimpleEvent {
             a: 0,
             b: 1.0,
@@ -164,7 +164,7 @@ mod test {
             tags: std::collections::BTreeMap<String, String>,
         }
 
-        let mut emitter = r.register::<MediumEvent>("medium")?;
+        let mut emitter = mgr.register::<MediumEvent>(ident, "medium")?;
 
         let mut tags = std::collections::BTreeMap::new();
         tags.insert("recipe".into(), "part_a".into());

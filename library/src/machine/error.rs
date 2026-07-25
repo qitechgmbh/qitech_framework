@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use crate::machine::build::BuildError;
-use crate::machine::build::BuildResult;
+pub use crate::machine::build::BuildError;
+pub use crate::machine::build::BuildResult;
 pub use crate::machine::resource::CommandExecuteError;
 
 // --- act ---

@@ -27,7 +27,7 @@ pub struct MachinesReport {
     pub commands: Vec<MachineCommandCall>,
 
     /// machine events emitted during this cycle
-    pub events: Vec<MachineEvent>,
+    pub events: Vec<MachineEmittedEvent>,
 }
 
 // --- config ---
@@ -69,7 +69,6 @@ pub struct MachineStateMutation {
 }
 
 // --- measurements ---
-// --- measurements ---
 #[derive(StructOfArray, Debug, Serialize, Deserialize)]
 #[soa_derive(Debug, Serialize, Deserialize)]
 pub struct MachineMeasurement {
@@ -80,10 +79,7 @@ pub struct MachineMeasurement {
     pub resource_path: Cow<'static, str>,
 
     /// measured value
-    pub value: f64,
-
-    /// whether the measurement has no value
-    pub is_null: bool,
+    pub value: Option<f64>,
 }
 
 // --- command ---
@@ -107,7 +103,7 @@ pub struct MachineCommandCall {
 
 // --- event ---
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MachineEvent {
+pub struct MachineEmittedEvent {
     /// source machine
     pub source: MachineIdentificationUnique,
 

@@ -8,33 +8,18 @@ use error::ReactResult;
 use error::SubscribeError;
 use error::SubscribeResult;
 
-mod hardware;
-use hardware::HardwareAccessor;
-
 mod build;
+pub use build::BuildContext;
 
-pub(crate) mod resource;
-use qitech_lib::ethercat_hal::EtherCATThreadChannel;
-use resource::CommandHandle;
-use resource::CommandRegistrar;
-use resource::ConfigPropertyReader;
-use resource::ConfigPropertyReaderHandle;
-use resource::ConfigPropertyRegistrar;
-use resource::ConfigPropertyResolver;
-use resource::EventEmitter;
-use resource::EventRegistrar;
-use resource::Measurement;
-use resource::MeasurementReader;
-use resource::MeasurementRegisterOptions;
-use resource::MeasurementRegistrar;
-use resource::MeasurementResolver;
-use resource::StateProperty;
-use resource::StatePropertyReader;
-use resource::StatePropertyReaderHandle;
-use resource::StatePropertyRegistrar;
-use resource::StatePropertyResolver;
+mod subscribe;
+use qitech_framework_common::MachinesReport;
+pub use subscribe::ReactContext;
+pub use subscribe::SubscribeContext;
 
-use crate::machine::hardware::Hardware;
+mod hardware;
+pub use hardware::Hardware;
+
+pub mod resource;
 use crate::machine::resource::CommandManager;
 use crate::machine::resource::ConfigPropertyManager;
 use crate::machine::resource::EventManager;
@@ -67,25 +52,6 @@ pub trait MachineInterface {
     const SCHEMA: &'static str;
 }
 
-pub struct ReactContext<'a> {
-    resources: &'a mut Resources,
-}
-
-impl<'a> ReactContext<'a> {
-    pub fn read(&self, handle: ()) {}
-}
-
-pub struct SubscribeContext<'a> {
-    source: MachineIdentificationUnique,
-    resources: &'a mut Resources,
-}
-
-impl<'a> SubscribeContext<'a> {
-    pub fn source(&self) -> MachineIdentificationUnique {
-        self.source
-    }
-}
-
 pub(crate) struct Resources {
     config_properties: ConfigPropertyManager,
     state_properties: StatePropertyManager,
@@ -101,5 +67,27 @@ impl Resources {
         self.measurements.unregister_machine(ident);
         self.commands.unregister_machine(ident);
         self.events.unregister_machine(ident);
+    }
+
+    pub fn init_report(&mut self, report: &mut MachinesReport) {
+        self.config_properties.drain_journal(|entry| {
+            report.config_mutations.push(entry);
+        });
+
+        self.state_properties.drain_journal(|entry| {
+            report.state_mutations.push(entry);
+        });
+
+        self.measurements.drain_measurements(|entry| {
+            report.measurements.push(entry);
+        });
+
+        self.commands.drain_journal(|entry| {
+            report.commands.push(entry);
+        });
+
+        self.events.drain_journal(|entry| {
+            report.events.push(entry);
+        });
     }
 }

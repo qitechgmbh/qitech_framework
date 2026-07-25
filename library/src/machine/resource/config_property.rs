@@ -5,7 +5,6 @@ use qitech_framework_common::MachineConfigMutation;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
-use qitech_framework_common::ScalarValue;
 use qitech_framework_common::with_uom_quantities;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -13,10 +12,8 @@ use serde::de::DeserializeOwned;
 use super::PropertyHandle;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
-use crate::machine::resource::PropertyAccessor;
+use crate::machine::resource::PropertyManager;
 use crate::machine::resource::PropertyReadHandle;
-use crate::machine::resource::PropertyRegistry;
-use crate::machine::resource::PropertyResolver;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterError;
@@ -30,8 +27,7 @@ pub struct ConfigProperty<T: Clone> {
 
 impl<T: Clone> ConfigProperty<T> {
     pub fn set(&mut self, value: T) -> Result<(), WriteError> {
-        (self.write)(&mut self.handle, value);
-        Ok(())
+        (self.write)(&mut self.handle, value)
     }
 
     /// reset property back to default value
@@ -93,15 +89,13 @@ with_uom_quantities!(uom, impl_uom);
 // --- resource managment ---
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
-type Kind = super::kind::ConfigProperty;
+type Kind = super::property_kind::ConfigProperty;
+type Metadata = WriteApiFn;
 
-pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind, ScalarValue, Metadata>;
-pub type Resolver<'a> = PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, Kind, ScalarValue, Metadata>;
-pub type Accessor<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, Kind, ScalarValue, Metadata>;
 pub type RemoteHandle<T> = PropertyReadHandle<Kind, T>;
 
 pub struct Manager {
-    registry: Registry,
+    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
     journal: Journal<MachineConfigMutation>,
 }
 
@@ -175,14 +169,10 @@ impl Manager {
             },
         );
 
-        let metadata = Metadata { write_api };
-
-        let handle = self
-            .registry
-            .register::<T::Type>(ident, path, "", T::extract, metadata)?;
-
         let default = options.default;
-        handle.write(default.clone());
+        let handle = self
+            .inner
+            .register::<T::Type>(ident, path, "", write_api, default.clone())?;
 
         Ok(ConfigProperty {
             handle,
@@ -191,13 +181,13 @@ impl Manager {
         })
     }
 
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        self.registry.unregister_machine(ident)
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.inner.unregister_machine(ident)
     }
-}
 
-pub struct Metadata {
-    write_api: WriteApiFn,
+    pub fn drain_journal(&mut self, f: impl FnMut(MachineConfigMutation)) {
+        self.journal.drain_with(f);
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -205,6 +195,8 @@ pub struct RegisterOptions<T: BoundedMeta> {
     default: T,
     min: Option<T::Bound>,
     max: Option<T::Bound>,
+
+    #[allow(clippy::type_complexity)]
     validate: Option<fn(&T) -> Result<(), String>>,
 }
 

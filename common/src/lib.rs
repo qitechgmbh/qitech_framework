@@ -21,7 +21,7 @@ pub use ident::MachineIdentificationUnique;
 mod machine;
 pub use machine::MachineCommandCall;
 pub use machine::MachineConfigMutation;
-pub use machine::MachineEvent;
+pub use machine::MachineEmittedEvent;
 pub use machine::MachineMeasurement;
 pub use machine::MachineMeasurementVec;
 pub use machine::MachineStateMutation;

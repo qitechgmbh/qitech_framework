@@ -1,14 +1,16 @@
+use std::borrow::Cow;
+
 use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_common::MachineMeasurement;
 use qitech_framework_common::with_uom_units;
 
 use super::PropertyHandle;
-use crate::machine::resource::PropertyAccessor;
+use crate::machine::resource::PropertyManager;
 use crate::machine::resource::PropertyReadHandle;
-use crate::machine::resource::PropertyRegistry;
-use crate::machine::resource::PropertyResolver;
 use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterResult;
+use crate::machine::resource::property_kind;
 use crate::uom;
 
 #[derive(Debug)]
@@ -100,24 +102,30 @@ impl<T: Copy + PartialOrd> Statistics<T> {
     }
 }
 
-// --- resource managment ---
+// --- manager ---
 const SLOT_SIZE: usize = size_of::<f64>();
 const MAX_ITEMS: usize = 512;
-type Kind = super::kind::Measurement;
+type Kind = property_kind::Measurement;
 
-pub type Registry = PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind, Option<f64>>;
-pub type Resolver<'a> = PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, Kind, Option<f64>>;
-pub type Reader<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, Kind, Option<f64>>;
-pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
+#[derive(Clone, Copy)]
+struct Metadata {
+    extract: unsafe fn(*const u8) -> Option<f64>,
 
-pub(crate) struct Manager {
-    registry: Registry,
+    #[allow(unused)]
+    is_stat: bool,
+}
+
+pub type ReadHandle<T> = PropertyReadHandle<Kind, T>;
+
+#[derive(Default)]
+pub struct Manager {
+    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
 }
 
 impl Manager {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            registry: Default::default(),
+            inner: Default::default(),
         }
     }
 
@@ -131,20 +139,30 @@ impl Manager {
         T: TypeWrapper + Extract<Option<f64>> + 'static,
         T::Type: Copy + PartialOrd + Default,
     {
-        let extract = T::extract;
-        let reg = &mut self.registry;
+        let mut init_handle = |postfix: &'static str| -> RegisterResult<PropertyHandle<T::Type>> {
+            self.inner.register::<T::Type>(
+                ident,
+                path,
+                postfix,
+                Metadata {
+                    extract: T::extract,
+                    is_stat: !postfix.is_empty(),
+                },
+                T::Type::default()
+            )
+        };
 
-        let handle = reg.register::<T::Type>(ident, path, "", T::extract, ())?;
+        let handle = (init_handle)("")?;
         handle.write(options.initial_value.unwrap_or_default());
 
         let stat_min_handle = if options.record_min {
-            Some(reg.register::<T::Type>(ident, path, "min", extract, ())?)
+            Some(init_handle("min")?)
         } else {
             None
         };
 
         let stat_max_handle = if options.record_max {
-            Some(reg.register::<T::Type>(ident, path, "max", extract, ())?)
+            Some(init_handle("min")?)
         } else {
             None
         };
@@ -157,8 +175,26 @@ impl Manager {
         Ok(Measurement { handle, stats })
     }
 
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        self.registry.unregister_machine(ident)
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.inner.unregister_machine(ident)
+    }
+
+    pub fn create_read_handle(&mut self) {}
+
+    // TODO: reset measurements somehow
+    pub fn drain_measurements(&mut self, mut f: impl FnMut(MachineMeasurement)) {
+        for (info, bytes) in self.inner.iter_mut() {
+            // we don't know what T is but how to extract it
+            let value = unsafe { (info.metadata.extract)(bytes) };
+
+            let entry = MachineMeasurement {
+                source: info.ident,
+                resource_path: Cow::Borrowed(info.path),
+                value,
+            };
+
+            (f)(entry);
+        }
     }
 }
 
@@ -191,10 +227,10 @@ mod test {
             serial: 0,
         };
 
-        let mut mgr = Manager::new();
-        let mut r = Registrar::new(&mut mgr, ident);
+        let mut r = Manager::new();
 
         let mut sp: Measurement<Option<f64>> = r.register(
+            ident,
             "just.some.float.optional",
             RegisterOptions {
                 initial_value: None,
@@ -209,6 +245,7 @@ mod test {
         assert_eq!(sp.get(), None);
 
         let mut sp: Measurement<i64> = r.register(
+            ident,
             "just.some.int",
             RegisterOptions {
                 initial_value: Some(1),
@@ -221,6 +258,7 @@ mod test {
         assert_eq!(sp.get(), 2);
 
         let mut sp: Measurement<Option<i64>> = r.register(
+            ident,
             "just.some.optional.int",
             RegisterOptions {
                 initial_value: None,
@@ -235,6 +273,7 @@ mod test {
         assert_eq!(sp.get(), None);
 
         let mut sp: Measurement<bool> = r.register(
+            ident,
             "just.some.bool",
             RegisterOptions {
                 initial_value: Some(false),
@@ -249,6 +288,7 @@ mod test {
         assert!(!sp.get());
 
         let mut sp: Measurement<Option<bool>> = r.register(
+            ident,
             "just.some.optional.bool",
             RegisterOptions {
                 initial_value: None,
@@ -264,6 +304,7 @@ mod test {
 
         // --- uom ---
         let mut sp: Measurement<millimeter> = r.register(
+            ident,
             "just.some.millimeter",
             RegisterOptions {
                 initial_value: Some(Length::new::<millimeter>(1.0)),
@@ -291,6 +332,7 @@ mod test {
 
         // --- uom optional ---
         let mut sp: Measurement<Option<millimeter>> = r.register(
+            ident,
             "just.some.optional.millimeter",
             RegisterOptions {
                 initial_value: None,

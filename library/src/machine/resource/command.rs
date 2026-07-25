@@ -15,7 +15,7 @@ use qitech_framework_common::OperationResult;
 use crate::machine::Machine;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
-use crate::machine::resource::Kind;
+use crate::machine::resource::ResourceKind;
 use crate::machine::resource::error::HandleError;
 use crate::machine::resource::error::RegisterError;
 use crate::machine::resource::error::RegisterErrorKind;
@@ -47,16 +47,13 @@ pub struct Manager {
 
 impl Manager {
     pub fn new() -> Self {
-        Self {
-            registry: Default::default(),
-            journal: Journal::new(),
-        }
+        Self::default()
     }
 
-    pub(crate) fn register<M, A>(
+    pub fn register<M, A>(
         &mut self,
-        path: &'static str,
         ident: MachineIdentificationUnique,
+        path: &'static str,
         execute: fn(&mut M, A) -> Result<(), ExecuteError>,
     ) -> RegisterResult<Handle>
     where
@@ -70,9 +67,9 @@ impl Manager {
         };
         if self.registry.contains_key(&key) {
             return Err(RegisterError {
-                resource_kind: Kind::Command,
+                resource_kind: ResourceKind::Command,
                 resource_path: path,
-                kind: RegisterErrorKind::Duplicate,
+                error_kind: RegisterErrorKind::Duplicate,
             });
         }
 
@@ -100,7 +97,7 @@ impl Manager {
         let handle = Handle {
             enabled: Rc::downgrade(&enabled),
             error: HandleError {
-                resource_kind: Kind::Command,
+                resource_kind: ResourceKind::Command,
                 resource_path: path,
                 machine_ident: ident,
             },
@@ -161,83 +158,24 @@ impl Manager {
 
         finish(Ok(()))
     }
+
+    pub fn drain_journal(&mut self, f: impl FnMut(MachineCommandCall)) {
+        self.journal.drain_with(f);
+    }
+}
+
+impl Default for Manager {
+    fn default() -> Self {
+        Self {
+            registry: Default::default(),
+            journal: Journal::new(),
+        }
+    }
 }
 
 struct Entry {
     enabled: Rc<RefCell<bool>>,
     execute: ExecuteFn,
-}
-
-/// --- registering ---
-pub struct Registrar<'a> {
-    manager: &'a mut Manager,
-    machine: MachineIdentificationUnique,
-}
-
-impl<'a> Registrar<'a> {
-    pub(crate) fn new(manager: &'a mut Manager, machine: MachineIdentificationUnique) -> Self {
-        Self { manager, machine }
-    }
-
-    pub(crate) fn register<M, A>(
-        &mut self,
-        path: &'static str,
-        execute: fn(&mut M, A) -> Result<(), ExecuteError>,
-    ) -> RegisterResult<Handle>
-    where
-        M: Machine + 'static,
-        A: serde::de::DeserializeOwned + 'static,
-    {
-        let reg = &mut self.manager.registry;
-
-        let key = Key {
-            ident: self.machine,
-            path,
-            postfix: "",
-        };
-
-        if reg.contains_key(&key) {
-            return Err(RegisterError {
-                resource_kind: Kind::Command,
-                resource_path: path,
-                kind: RegisterErrorKind::Duplicate,
-            });
-        }
-
-        let execute = Box::new(move |machine: &mut dyn Machine, bytes: &str| {
-            let machine_type_name = any::type_name_of_val(machine);
-            let any: &mut dyn Any = machine;
-
-            let machine = any
-                .downcast_mut::<M>()
-                .ok_or(ExecuteError::UnexpectedMachineType {
-                    expected: any::type_name::<M>(),
-                    received: machine_type_name,
-                })?;
-
-            let args: A = match serde_json::from_str(bytes) {
-                Ok(v) => v,
-                Err(e) => return Err(ExecuteError::ParsingError(e)),
-            };
-
-            execute(machine, args)
-        });
-
-        let enabled = Rc::default();
-
-        let handle = Handle {
-            enabled: Rc::downgrade(&enabled),
-            error: HandleError {
-                resource_kind: Kind::Command,
-                resource_path: path,
-                machine_ident: self.machine,
-            },
-        };
-
-        reg.insert(key, Entry { enabled, execute });
-
-        Ok(handle)
-    }
 }
 
 // --- errors ---
@@ -299,8 +237,7 @@ mod test {
             serial: 0,
         };
 
-        let mut mgr = Manager::new();
-        let mut r = Registrar::new(&mut mgr, ident);
+        let mut r = Manager::new();
 
         struct TestMachine;
 
@@ -334,17 +271,17 @@ mod test {
         }
 
         // --- simple ---
-        let mut handle = r.register("simple", TestMachine::simple_command)?;
+        let mut handle = r.register(ident, "simple", TestMachine::simple_command)?;
         handle.set_enabled(false)?;
         handle.set_enabled(true)?;
 
         // --- complex ---
-        let mut handle = r.register("not.simple", TestMachine::complex_command)?;
+        let mut handle = r.register(ident, "not.simple", TestMachine::complex_command)?;
         handle.set_enabled(false)?;
         handle.set_enabled(true)?;
 
         // --- execute simple ---
-        mgr.execute(ident, &mut TestMachine, "simple", "null")?;
+        r.execute(ident, &mut TestMachine, "simple", "null")?;
 
         // --- execute complex ---
         let args = ComplexCommandArgs {
@@ -354,7 +291,7 @@ mod test {
             d: "Hello World".to_string(),
         };
         let args = &serde_json::to_string(&args)?;
-        mgr.execute(ident, &mut TestMachine, "not.simple", args)?;
+        r.execute(ident, &mut TestMachine, "not.simple", args)?;
 
         Ok(())
     }

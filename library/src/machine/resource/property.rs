@@ -1,147 +1,208 @@
 use std::any::TypeId;
-use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use qitech_framework_common::MachineIdentificationUnique;
 
-use super::KindVariant;
-use super::error::ReadError;
-use super::error::ReadResult;
+use super::PropertyKind;
 use super::error::RegisterError;
 use super::error::RegisterErrorKind;
 use super::error::RegisterResult;
 use super::error::ResolveError;
 use super::error::ResolveErrorKind;
 use super::error::ResolveResult;
-use crate::machine::resource::Key;
 
-pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
-
-pub struct PropertyRegistry<
+pub struct PropertyManager<
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
-    K: KindVariant,
-    Format,
+    K: PropertyKind,
     Metadata = (),
 > {
-    lookup: HashMap<Key<'static>, Entry<Format, Metadata>>,
     occupied: heapless::Vec<bool, MAX_ITEMS>,
-    buf_generations: [MaybeUninit<u64>; MAX_ITEMS],
+    buf_generation: [MaybeUninit<u64>; MAX_ITEMS],
     buf_storage: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
+    buf_info: [MaybeUninit<SlotInfo<Metadata>>; MAX_ITEMS],
     _marker: PhantomData<K>,
 }
 
-impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata> Default
-    for PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
+impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M> Default
+    for PropertyManager<SLOT_SIZE, MAX_ITEMS, K, M>
+where
+    K: PropertyKind,
 {
     fn default() -> Self {
         Self {
-            lookup: Default::default(),
             occupied: Default::default(),
-            buf_generations: [MaybeUninit::uninit(); MAX_ITEMS],
+            buf_generation: [MaybeUninit::uninit(); MAX_ITEMS],
             buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
+            buf_info: [const { MaybeUninit::uninit() }; MAX_ITEMS],
             _marker: PhantomData,
         }
     }
 }
 
-impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
-    PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
+impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M>
+    PropertyManager<SLOT_SIZE, MAX_ITEMS, K, M>
+where
+    K: PropertyKind,
 {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub(crate) fn register<T: 'static>(
+    pub fn register<T: 'static>(
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-        postfix: &'static str,
-        convert: ExtractFn<Format>,
-        metadata: Metadata,
+        path_postfix: &'static str,
+        metadata: M,
+        initial_value: T,
     ) -> RegisterResult<PropertyHandle<T>> {
         const {
             assert!(size_of::<T>() <= size_of::<Storage<SLOT_SIZE>>());
             assert!(align_of::<T>() <= align_of::<Storage<SLOT_SIZE>>());
         }
 
-        let index = self.find_free_slot(path)?;
+        let index = self.find_slot(ident, path, path_postfix)?;
 
         self.occupied[index] = true;
-        self.buf_storage[index].write(Storage {
-            bytes: [0u8; SLOT_SIZE],
-        });
 
-        let key = Key {
+        let type_id = TypeId::of::<T>();
+
+        self.buf_info[index].write(SlotInfo {
             ident,
             path,
-            postfix,
-        };
-
-        let entry = Entry {
-            index,
-            extract: convert,
-            type_id: TypeId::of::<T>(),
+            path_postfix,
+            type_id,
             metadata,
+        });
+
+        let p_value = unsafe {
+            let ptr = self.buf_storage[index].as_mut_ptr().cast::<T>();
+
+            // initialize value
+            *ptr = initial_value;
+
+            NonNull::new_unchecked(ptr)
         };
-
-        self.lookup.insert(key, entry);
-
-        let p_value =
-            unsafe { NonNull::new_unchecked(self.buf_storage[index].as_mut_ptr().cast::<T>()) };
 
         Ok(PropertyHandle { p_value })
     }
 
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        // Collect keys to remove
-        let mut to_remove = heapless::Vec::<Key, MAX_ITEMS>::new();
-        for key in self.lookup.keys() {
-            if key.ident == ident {
-                to_remove.push(*key).expect("Cannot overflow");
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        for (i, occupied) in self.occupied.iter_mut().enumerate() {
+            let info = unsafe { self.buf_info[i].assume_init_ref() };
+
+            if info.ident != ident {
+                continue;
             }
+
+            // increment generation so existing handles to this resource fail
+            let generation = unsafe { self.buf_generation[i].assume_init_mut() };
+            *generation += 1;
+
+            // mark slot as unused
+            *occupied = false;
         }
-
-        for key in &to_remove {
-            if let Some(entry) = self.lookup.remove(key) {
-                // mark unoccupied
-                self.occupied[entry.index] = false;
-
-                // ensure old handles don't read anymore
-                unsafe {
-                    *self.buf_generations[entry.index].assume_init_mut() += 1;
-                }
-            }
-        }
-
-        to_remove.len()
     }
 
-    fn find_free_slot(&mut self, resource_path: &'static str) -> RegisterResult<usize> {
+    pub fn resolve_read_handle<T: 'static>(
+        &mut self,
+        ident: MachineIdentificationUnique,
+        path: &'static str,
+    ) -> ResolveResult<PropertyReadHandle<K, T>> {
+        let result = self.occupied.iter().enumerate().find_map(|(i, occupied)| {
+            if !*occupied {
+                return None;
+            }
+
+            let info = unsafe { self.buf_info[i].assume_init_ref() };
+
+            (info.ident == ident && info.path == path).then_some((i, info))
+        });
+
+        let Some((index, info)) = result else {
+            return Err(ResolveError {
+                resource_kind: K::RESOURCE_KIND,
+                resource_path: path,
+                error_kind: ResolveErrorKind::NoSuchProperty,
+            });
+        };
+
+        if info.type_id != TypeId::of::<T>() {
+            return Err(ResolveError {
+                resource_kind: K::RESOURCE_KIND,
+                resource_path: path,
+                error_kind: ResolveErrorKind::InvalidType,
+            });
+        }
+
+        let generation = unsafe { self.buf_generation[index].assume_init() };
+
+        Ok(PropertyReadHandle {
+            index,
+            generation,
+            _marker: PhantomData,
+        })
+    }
+
+    /// attempts to read data of an entry using a read handle
+    pub fn read_value<T>(&self, handle: &PropertyReadHandle<K, T>) -> &T {
+        let generation = &self.buf_generation[handle.index];
+
+        // Safety:
+        // - register() verified T fits in storage
+        // - register() stored TypeId::of::<T>()
+        // - resolve_read_handle() only creates PropertyHandle<T> after type check
+        unsafe {
+            // if generations don't match a machine attempted to read data with handles
+            // after the subscription was terminated. This considered illegal
+            assert_eq!(generation.assume_init(), handle.generation);
+
+            let storage = &self.buf_storage[handle.index].assume_init_read();
+            &*(storage.bytes.as_ptr() as *const T)
+        }
+    }
+
+    pub fn iter_mut<'a>(&'a mut self) -> IterMut<'a, SLOT_SIZE, MAX_ITEMS, K, M> {
+        IterMut {
+            manager: self,
+            index: 0,
+        }
+    }
+
+    // --- utils ---
+    fn find_slot(
+        &mut self, 
+        ident: MachineIdentificationUnique, 
+        path: &'static str,
+        post: &'static str,
+    ) -> RegisterResult<usize> {
+        // --- step one: ensure no duplicates ---
+        for item in &self.occupied {
+
+        }
+
         if let Some(index) = self.occupied.iter().position(|slot| !slot) {
             return Ok(index);
         }
 
         if self.occupied.push(true).is_err() {
             return Err(RegisterError {
-                resource_kind: K::KIND,
-                resource_path,
-                kind: RegisterErrorKind::RegistryFull,
+                resource_kind: K::RESOURCE_KIND,
+                resource_path: path,
+                error_kind: RegisterErrorKind::RegistryFull,
             });
         }
 
-        return Ok(self.occupied.len() - 1);
+        Ok(self.occupied.len() - 1)
     }
 }
 
-#[derive(Debug)]
-struct Entry<ExportFormat, Metadata> {
-    index: usize,
-    type_id: TypeId,
-    extract: ExtractFn<ExportFormat>,
-    metadata: Metadata,
+// insert, write/read
+pub struct SlotInfo<Metadata> {
+    pub ident: MachineIdentificationUnique,
+    pub path: &'static str,
+    pub path_postfix: &'static str,
+    pub type_id: TypeId,
+    pub metadata: Metadata,
 }
 
 #[derive(Debug)]
@@ -160,105 +221,43 @@ impl<T> PropertyHandle<T> {
 }
 
 #[derive(Clone, Copy)]
-#[repr(align(16))]
+#[repr(C, align(16))]
 struct Storage<const SLOT_SIZE: usize> {
     bytes: [u8; SLOT_SIZE],
 }
 
-pub struct PropertyAccessor<
-    'a,
-    const SLOT_SIZE: usize,
-    const MAX_ITEMS: usize,
-    K: KindVariant,
-    Format,
-    Metadata = (),
-> {
-    registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>,
-}
-
-impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
-    PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
-{
-    pub fn new(registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>) -> Self {
-        Self { registry }
-    }
-
-    pub fn read<T>(&self, handle: &PropertyReadHandle<K, T>) -> ReadResult<&T> {
-        let generation = &self.registry.buf_generations[handle.index];
-
-        // Safety:
-        // - register() verified T fits in storage
-        // - register() stored TypeId::of::<T>()
-        // - resolve() only creates PropertyHandle<T> after type check
-        unsafe {
-            if generation.assume_init() != handle.generation {
-                return Err(ReadError);
-            }
-
-            let storage = &self.registry.buf_storage[handle.index].assume_init_read();
-            Ok(&*(storage.bytes.as_ptr() as *const T))
-        }
-    }
-}
-
-pub struct PropertyReadHandle<K: KindVariant, T> {
+pub struct PropertyReadHandle<K: PropertyKind, T> {
     generation: u64,
     index: usize,
     _marker: PhantomData<(K, T)>,
 }
 
-pub struct PropertyResolver<
-    'a,
-    const SLOT_SIZE: usize,
-    const MAX_ITEMS: usize,
-    K: KindVariant,
-    Format,
-    Metadata = (),
-> {
-    registry: &'a PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>,
-    ident: MachineIdentificationUnique,
+// --- iter ---
+pub struct IterMut<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M>
+where
+    K: PropertyKind,
+{
+    manager: &'a mut PropertyManager<SLOT_SIZE, MAX_ITEMS, K, M>,
+    index: usize,
 }
 
-impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K: KindVariant, Format, Metadata>
-    PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, K, Format, Metadata>
+impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M> Iterator
+    for IterMut<'a, SLOT_SIZE, MAX_ITEMS, K, M>
+where
+    K: PropertyKind,
 {
-    pub fn resolve<T>(&self, path: &'static str) -> ResolveResult<PropertyReadHandle<K, T>>
-    where
-        T: 'static,
-    {
-        let key = Key {
-            ident: self.ident,
-            path,
-            postfix: "",
-        };
+    type Item = (SlotInfo<M>, *const u8);
 
-        let Some(Entry {
-            index,
-            type_id: spec_type_id,
-            ..
-        }) = self.registry.lookup.get(&key)
-        else {
-            return Err(ResolveError {
-                resource_kind: K::KIND,
-                resource_path: path,
-                kind: ResolveErrorKind::NoSuchProperty,
-            });
-        };
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < self.manager.occupied.len() {
+            let index = self.index;
+            self.index += 1;
 
-        if *spec_type_id != TypeId::of::<T>() {
-            return Err(ResolveError {
-                resource_kind: K::KIND,
-                resource_path: path,
-                kind: ResolveErrorKind::InvalidType,
-            });
+            if self.manager.occupied[index] {
+                todo!("yield occupied slot {index}");
+            }
         }
 
-        let generation = unsafe { self.registry.buf_generations[*index].assume_init() };
-
-        Ok(PropertyReadHandle {
-            index: *index,
-            generation,
-            _marker: PhantomData,
-        })
+        None
     }
 }

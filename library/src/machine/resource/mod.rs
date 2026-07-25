@@ -8,47 +8,35 @@ use qitech_framework_common::MachineIdentificationUnique;
 pub mod error;
 
 mod property;
-pub use property::PropertyAccessor;
-pub use property::PropertyHandle;
-pub use property::PropertyReadHandle;
-pub use property::PropertyRegistry;
-pub use property::PropertyResolver;
+use property::PropertyHandle;
+use property::PropertyManager;
+use property::PropertyReadHandle;
 
 mod config_property;
-pub use config_property::Accessor as ConfigPropertyReader;
 pub use config_property::ConfigProperty;
 pub use config_property::Manager as ConfigPropertyManager;
 pub use config_property::RegisterOptions as ConfigPropertyRegisterOptions;
 pub use config_property::RemoteHandle as ConfigPropertyReaderHandle;
-pub use config_property::Resolver as ConfigPropertyResolver;
 
 mod measurement;
 pub use measurement::Manager as MeasurementManager;
 pub use measurement::Measurement;
-pub use measurement::Reader as MeasurementReader;
-pub use measurement::ReaderHandle as MeasurementAccessHandle;
+pub use measurement::ReadHandle as MeasurementAccessHandle;
 pub use measurement::RegisterOptions as MeasurementRegisterOptions;
-pub use measurement::Registrar as MeasurementRegistrar;
-pub use measurement::Resolver as MeasurementResolver;
 
 mod state_property;
 pub use state_property::Manager as StatePropertyManager;
-pub use state_property::Reader as StatePropertyReader;
 pub use state_property::ReaderHandle as StatePropertyReaderHandle;
-pub use state_property::Registrar as StatePropertyRegistrar;
-pub use state_property::Resolver as StatePropertyResolver;
 pub use state_property::StateProperty;
 
 mod command;
 pub use command::ExecuteError as CommandExecuteError;
 pub use command::Handle as CommandHandle;
 pub use command::Manager as CommandManager;
-pub use command::Registrar as CommandRegistrar;
 
 mod event;
 pub use event::Emitter as EventEmitter;
-pub(crate) use event::Manager as EventManager;
-pub use event::Registrar as EventRegistrar;
+pub use event::Manager as EventManager;
 
 pub mod conversion;
 
@@ -61,7 +49,7 @@ pub struct Key<'a> {
 
 // --- kind ---
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Kind {
+pub enum ResourceKind {
     ConfigProperty,
     StateProperty,
     Measurement,
@@ -69,41 +57,35 @@ pub(crate) enum Kind {
     Event,
 }
 
-trait KindVariant: kind::private::Sealed {}
+pub trait PropertyKind: property_kind::Sealed {}
 
-mod kind {
+mod property_kind {
     use super::*;
 
-    pub mod private {
-        pub trait Sealed {
-            const KIND: super::Kind;
-        }
+    pub trait Sealed {
+        const RESOURCE_KIND: super::ResourceKind;
     }
 
     pub struct StateProperty;
     pub struct ConfigProperty;
     pub struct Measurement;
-    pub struct Command;
-    pub struct Event;
 
     macro_rules! impl_kind {
         ($kind:tt) => {
-            impl private::Sealed for $kind {
-                const KIND: Kind = Kind::$kind;
+            impl Sealed for $kind {
+                const RESOURCE_KIND: ResourceKind = ResourceKind::$kind;
             }
 
-            impl KindVariant for $kind {}
+            impl PropertyKind for $kind {}
         };
     }
 
     impl_kind!(ConfigProperty);
     impl_kind!(StateProperty);
     impl_kind!(Measurement);
-    impl_kind!(Command);
-    impl_kind!(Event);
 }
 
-impl fmt::Display for Kind {
+impl fmt::Display for ResourceKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::ConfigProperty => "config property",
@@ -121,7 +103,7 @@ const JOURNAL_CAPACITY: usize = 16384;
 
 pub type JournalBuffer<T> = heapless::Vec<T, JOURNAL_CAPACITY>;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Journal<T> {
     buffer: Rc<RefCell<JournalBuffer<T>>>,
 }
@@ -139,9 +121,18 @@ impl<T> Journal<T> {
         }
     }
 
-    fn drain_with(&mut self, mut f: impl FnMut(&T)) {
+    fn drain_with(&mut self, mut f: impl FnMut(T)) {
         for entry in self.buffer.borrow_mut().drain(..) {
-            f(&entry);
+            f(entry);
+        }
+    }
+}
+
+// compiler is too stupid to implement derive for this... sigh
+impl<T> Default for Journal<T> {
+    fn default() -> Self {
+        Self {
+            buffer: Default::default(),
         }
     }
 }
