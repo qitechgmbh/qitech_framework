@@ -4,6 +4,7 @@ use std::time::Duration;
 use qitech_framework_common::MachineIdentification;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 
+use crate::machine::Resources;
 use crate::runtime::MachineRegistryEntry;
 use crate::runtime::Runtime;
 use crate::runtime::init::error::RuntimeInitializeResult;
@@ -41,7 +42,7 @@ impl RuntimeInitializer {
 
         let mut hardware_registry = Default::default();
 
-        let (controller, sub_devices) = if let EtherCATMode::Enabled(config) = self.ethercat_mode {
+        let (ecat_controller, sub_devices) = if let EtherCATMode::Enabled(config) = self.ethercat_mode {
             let (controller, sub_devices) = ethercat::init(config, &mut hardware_registry)?;
             (Some(controller), sub_devices)
         } else {
@@ -51,13 +52,9 @@ impl RuntimeInitializer {
         Ok(Runtime {
             machine_registry: self.machine_registry,
             hardware_registry,
-            config_properties: todo!(),
-            state_properties: todo!(),
-            measurements: todo!(),
-            commands: todo!(),
-            events: todo!(),
-            ecat_controller: todo!(),
-            machines: todo!(),
+            resources: Resources::default(),
+            ecat_controller,
+            machines: Default::default(),
             sub_devices,
         })
     }

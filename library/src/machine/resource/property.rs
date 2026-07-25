@@ -170,15 +170,13 @@ where
 
     // --- utils ---
     fn find_slot(
-        &mut self, 
-        ident: MachineIdentificationUnique, 
+        &mut self,
+        ident: MachineIdentificationUnique,
         path: &'static str,
         post: &'static str,
     ) -> RegisterResult<usize> {
         // --- step one: ensure no duplicates ---
-        for item in &self.occupied {
-
-        }
+        for item in &self.occupied {}
 
         if let Some(index) = self.occupied.iter().position(|slot| !slot) {
             return Ok(index);

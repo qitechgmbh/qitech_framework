@@ -16,7 +16,7 @@ use qitech_framework_common::MachinesReport;
 pub use subscribe::ReactContext;
 pub use subscribe::SubscribeContext;
 
-mod hardware;
+pub(crate) mod hardware;
 pub use hardware::Hardware;
 
 pub mod resource;
@@ -52,6 +52,7 @@ pub trait MachineInterface {
     const SCHEMA: &'static str;
 }
 
+#[derive(Default)]
 pub(crate) struct Resources {
     config_properties: ConfigPropertyManager,
     state_properties: StatePropertyManager,

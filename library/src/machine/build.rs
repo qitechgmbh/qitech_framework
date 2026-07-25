@@ -33,13 +33,27 @@ use crate::machine::resource::error::RegisterError;
 
 pub struct BuildContext<'a> {
     ident: MachineIdentificationUnique,
-    interface: Option<EtherCATThreadChannel>,
+    ethercat_interface: Option<EtherCATThreadChannel>,
     resources: &'a mut Resources,
     hardware: Vec<Hardware>,
 }
 
 // --- resources ---
 impl<'a> BuildContext<'a> {
+    pub(crate) fn new(
+        ident: MachineIdentificationUnique,
+        ethercat_interface: Option<EtherCATThreadChannel>,
+        resources: &'a mut Resources,
+        hardware: Vec<Hardware>,
+    ) -> Self {
+        Self {
+            ident,
+            ethercat_interface,
+            resources,
+            hardware,
+        }
+    }
+
     pub fn register_config<T>(
         &mut self,
         path: &'static str,
@@ -111,7 +125,7 @@ impl<'a> BuildContext<'a> {
 // --- ethercat ---
 impl BuildContext<'_> {
     pub fn get_ethercat_interface(&self) -> BuildResult<EtherCATThreadChannel> {
-        self.interface
+        self.ethercat_interface
             .clone()
             .ok_or(BuildError::ExpectedEtherCATInterface)
     }
@@ -133,7 +147,7 @@ impl BuildContext<'_> {
     where
         T: EthercatDevice,
     {
-        let (index, EtherCATDeviceIdentified { device, ident }) =
+        let (index, EtherCATDeviceIdentified { device, info: ident }) =
             self.find_ethercat_by_role(role)?;
         let device = downcast_ecat_dev(index, device.clone())?;
         Ok((device, ident.device_address))
@@ -149,7 +163,7 @@ impl BuildContext<'_> {
 
     pub fn find_ethercat_device_addr(&self, role: u16) -> BuildResult<u16> {
         self.find_ethercat_by_role(role)
-            .map(|(_, hw)| hw.ident.device_address)
+            .map(|(_, hw)| hw.info.device_address)
     }
 }
 
@@ -184,7 +198,7 @@ impl BuildContext<'_> {
             .iter()
             .enumerate()
             .find_map(|(i, hw)| match hw {
-                Hardware::Ethercat(identified) if identified.ident.role == role => {
+                Hardware::Ethercat(identified) if identified.info.role == role => {
                     Some((i, identified))
                 }
                 _ => None,

@@ -22,11 +22,11 @@ use super::error::EtherCATInitializeError;
 use super::error::EtherCATInitializeResult;
 use super::error::RuntimeInitializeError;
 use super::error::RuntimeInitializeResult;
-use crate::hardware::EtherCATDeviceIdentified;
-use crate::hardware::Hardware;
-use crate::hardware::HardwareRegistry;
+use crate::machine::Hardware;
+use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
+use crate::runtime::types::HardwareRegistry;
 
 pub fn init(
     config: EtherCATConfig,

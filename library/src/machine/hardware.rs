@@ -14,7 +14,7 @@ pub enum Hardware {
 #[derive(Clone)]
 pub struct EtherCATDeviceIdentified {
     pub device: Rc<RefCell<dyn EthercatDevice>>,
-    pub ident: MachineDeviceInfo,
+    pub info: MachineDeviceInfo,
 }
 
 #[derive(Clone)]

@@ -94,6 +94,7 @@ type Metadata = WriteApiFn;
 
 pub type RemoteHandle<T> = PropertyReadHandle<Kind, T>;
 
+#[derive(Default)]
 pub struct Manager {
     inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
     journal: Journal<MachineConfigMutation>,

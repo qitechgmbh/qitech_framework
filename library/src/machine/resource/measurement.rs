@@ -148,7 +148,7 @@ impl Manager {
                     extract: T::extract,
                     is_stat: !postfix.is_empty(),
                 },
-                T::Type::default()
+                T::Type::default(),
             )
         };
 
