@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::Duration;
+use std::time::Instant;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
@@ -8,6 +10,7 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
 
 use crate::machine::BuildContext;
+use crate::machine::ReactContext;
 use crate::machine::Resources;
 use crate::runtime::init::RuntimeBuilder;
 use crate::runtime::types::HardwareRegistry;
@@ -17,6 +20,8 @@ mod types;
 pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
+
+mod utils;
 
 mod init;
 pub use init::EtherCATConfig;
@@ -42,6 +47,10 @@ pub struct Runtime {
     // --- instances ---
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
+    
+    // --- misc ---
+    last_export_ts: Instant,
+    subscriptions: HashMap<MachineIdentificationUnique, Vec<MachineIdentificationUnique>>,
 }
 
 impl Runtime {
@@ -52,6 +61,8 @@ impl Runtime {
 
     pub fn run(mut self) -> Result<(), &'static str> {
         loop {
+            let now = Instant::now();
+
             // TODO: exit if controller is finished
             self.write_ecat_inputs();
 
@@ -61,10 +72,12 @@ impl Runtime {
             // TODO: run commands
             // TODO: laser hotplug
 
-            self.execute_machines();
+            self.run_machines();
             self.write_ecat_outputs();
 
-            // TODO: export data to hub
+            if now.duration_since(self.last_export_ts) >= Duration::from_secs_f64(1.0 / 32.0) {
+                self.export_report();
+            }
 
             sleep(Duration::from_micros(100));
         }
@@ -102,41 +115,58 @@ impl Runtime {
         }
     }
 
-    fn process_subscribe(
-        &mut self,
-        ident_source: MachineIdentificationUnique,
-        ident_subscriber: MachineIdentificationUnique,
-    ) {
-        let Some((_, source)) = self
-            .machines
-            .iter()
-            .find(|(ident, _)| *ident == ident_source)
-        else {
-            return;
-        };
-
-        let Some((_, subscriber)) = self
-            .machines
-            .iter()
-            .find(|(ident, _)| *ident == ident_subscriber)
-        else {
-            return;
-        };
-
-        // subscriber.subscribe(ctx):
-    }
-
-    fn execute_machines(&mut self) {
+    fn run_machines(&mut self) {
         // --- act pass ---
-        for (_, machine) in &mut self.machines {
-            let res = machine.act();
-            _ = res; // TODO: use error
+        let mut i = 0;
+
+        while i < self.machines.len() {
+            let (_, machine) = &mut self.machines[i];
+
+            let remove = match machine.act() {
+                Ok(()) => false,
+                Err(e) => {
+                    if !e.recoverable {
+                        // TODO: handle/log error
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            if remove {
+                self.machines.swap_remove(i);
+                // do not increment i; the swapped element still needs processing
+            } else {
+                i += 1;
+            }
         }
 
         // --- react pass ---
-        for (_, machine) in &mut self.machines {
-            // let res = machine.react();
-            // _ = res; // TODO: use error
+        let ctx = ReactContext::new(&self.resources);
+        let mut i = 0;
+
+        while i < self.machines.len() {
+            let (_, machine) = &mut self.machines[i];
+
+            let remove = match machine.react(&ctx) {
+                Ok(()) => false,
+                Err(e) => {
+                    if !e.recoverable {
+                        // TODO: handle/log error
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            if remove {
+                self.machines.swap_remove(i);
+                // do not increment i; the swapped element still needs processing
+            } else {
+                i += 1;
+            }
         }
     }
 
@@ -190,7 +220,6 @@ impl Runtime {
     fn export_report(&mut self) {
         self.report.timestamp = Utc::now();
         self.resources.init_report(&mut self.report.machines);
-
 
         // TODO: send data to hub
         self.report.logs.clear();

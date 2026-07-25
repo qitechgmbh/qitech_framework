@@ -1,4 +1,5 @@
 use std::time::Duration;
+use std::time::Instant;
 
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeReport;
@@ -109,6 +110,8 @@ impl RuntimeBuilder {
             ecat_controller,
             machines: Default::default(),
             sub_devices,
+            subscriptions: Default::default(),
+            last_export_ts: Instant::now(),
         };
 
         // --- build machines ---

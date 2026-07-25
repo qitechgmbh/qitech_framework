@@ -4,6 +4,8 @@ use qitech_framework_common::RuntimeRequestKind;
 
 use crate::Runtime;
 use crate::machine::Machine;
+use crate::machine::SubscribeContext;
+use crate::runtime::utils::find_machine;
 
 impl Runtime {
     fn handle_request(&mut self, request: RuntimeRequest) {
@@ -19,16 +21,16 @@ impl Runtime {
                 resource_path,
                 arguments,
             } => {
-                let Some((_, machine)) =
-                    self.machines.iter_mut().find(|(ident, _)| *ident == target)
-                else {
+                let Some(machine) = find_machine(&mut self.machines, target) else {
                     self.report
                         .responses
                         .push((request.transaction_id, OperationResult::Failure));
+
                     return;
                 };
 
-                let machine_ref: &mut dyn Machine = &mut **machine;
+                let machine_ref: &mut dyn Machine = &mut *machine;
+
                 let res =
                     self.resources
                         .commands
@@ -44,26 +46,52 @@ impl Runtime {
                     .responses
                     .push((request.transaction_id, response));
             }
-            RuntimeRequestKind::MachineSubscribe {
-                provider: source,
-                consumer: subscriber,
-            } => {
-                let Some((_, machine)) = self
-                    .machines
-                    .iter_mut()
-                    .find(|(ident, _)| *ident == subscriber)
-                else {
+
+            RuntimeRequestKind::MachineSubscribe { provider, consumer } => {
+                // --- ensure provider exists ---
+                if find_machine(&mut self.machines, provider).is_none() {
                     self.report
                         .responses
                         .push((request.transaction_id, OperationResult::Failure));
+                }
+
+                // --- find consumer ---
+                let Some(machine) = find_machine(&mut self.machines, consumer) else {
+                    self.report
+                        .responses
+                        .push((request.transaction_id, OperationResult::Failure));
+
                     return;
                 };
 
-                let ctx = todo!();
-                if let Err(e) = machine.subscribe(ctx) {}
+                let ctx = SubscribeContext::new(provider, &mut self.resources);
+
+                // TODO: do something with this I guess
+                match machine.subscribe(&ctx) {
+                    Ok(_) => {
+                        // self.subscriptions.insert(provider, consumer);
+                    },
+                    Err(_) => todo!(),
+                }
             }
 
-            RuntimeRequestKind::MachineUnsubscribe { .. } => todo!(),
+            RuntimeRequestKind::MachineUnsubscribe { provider, consumer } => {
+                // --- ensure provider exists ---
+                if find_machine(&mut self.machines, provider).is_none() {
+                    self.report
+                        .responses
+                        .push((request.transaction_id, OperationResult::Failure));
+                }
+
+                // --- find consumer ---
+                let Some(machine) = find_machine(&mut self.machines, consumer) else {
+                    self.report
+                        .responses
+                        .push((request.transaction_id, OperationResult::Failure));
+
+                    return;
+                };
+            },
         }
     }
 }
