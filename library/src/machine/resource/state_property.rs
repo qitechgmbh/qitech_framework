@@ -1,4 +1,3 @@
-use core::fmt;
 use std::borrow::Cow;
 
 use chrono::Utc;
@@ -88,37 +87,26 @@ pub type Resolver<'a> = PropertyResolver<'a, SLOT_SIZE, MAX_ITEMS, Kind, Format>
 pub type Reader<'a> = PropertyAccessor<'a, SLOT_SIZE, MAX_ITEMS, Kind, Format>;
 pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
 
-pub(crate) struct Manager {
+pub struct Manager {
     registry: Registry,
     journal: Journal<MachineStateMutation>,
 }
 
 impl Manager {
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        self.registry.unregister_machine(ident)
-    }
-
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             registry: Default::default(),
             journal: Journal::new(),
         }
     }
-}
 
-/// --- registering ---
-pub struct Registrar<'a> {
-    manager: &'a mut Manager,
-    machine: MachineIdentificationUnique,
-}
-
-impl<'a> Registrar<'a> {
-    pub(crate) fn new(manager: &'a mut Manager, machine: MachineIdentificationUnique) -> Self {
-        Self { manager, machine }
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
+        self.registry.unregister_machine(ident)
     }
 
     pub fn register<T>(
         &mut self,
+        ident: MachineIdentificationUnique,
         path: &'static str,
         initial_value: T::Type,
     ) -> RegisterResult<StateProperty<T::Type>>
@@ -128,11 +116,10 @@ impl<'a> Registrar<'a> {
     {
         // create boxed function to type erase the wrapper type
         // to reduce the amount of generated code inside the property
-        let source = self.machine;
-        let journal = self.manager.journal.new_handle();
+        let journal = self.journal.new_handle();
         let record = Box::new(move |value: &T::Type| {
             let entry = MachineStateMutation {
-                source,
+                source: ident,
                 resource_path: Cow::Borrowed(path),
                 value: T::into_scalar(&value),
                 timestamp: Utc::now(),
@@ -141,10 +128,9 @@ impl<'a> Registrar<'a> {
             journal.append(entry);
         });
 
-        let handle =
-            self.manager
-                .registry
-                .register::<T::Type>(self.machine, path, "", T::extract, ())?;
+        let handle = self
+            .registry
+            .register::<T::Type>(ident, path, "", T::extract, ())?;
 
         handle.write(initial_value);
         Ok(StateProperty { handle, record })
@@ -153,22 +139,6 @@ impl<'a> Registrar<'a> {
 
 // --- types ---
 pub type RecordFn<T> = Box<dyn Fn(&T)>;
-
-// --- errors ---
-#[derive(Debug)]
-pub enum WriteError {
-    JournalFull,
-}
-
-impl fmt::Display for WriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WriteError::JournalFull => write!(f, "journal is full"),
-        }
-    }
-}
-
-impl std::error::Error for WriteError {}
 
 // --- testing ---
 #[cfg(test)]

@@ -106,22 +106,6 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        self.registry.unregister_machine(ident)
-    }
-}
-
-pub struct Metadata {
-    write_api: WriteApiFn,
-}
-
-// --- registrar ---
-pub struct Registrar<'a> {
-    manager: &'a mut Manager,
-    machine: MachineIdentificationUnique,
-}
-
-impl Registrar<'_> {
     pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
@@ -133,7 +117,7 @@ impl Registrar<'_> {
         T::Type: Clone + Serialize + DeserializeOwned + BoundedMeta,
     {
         let opts = options.clone();
-        let journal = self.manager.journal.new_handle();
+        let journal = self.journal.new_handle();
 
         let write = Box::new(
             move |handle: &mut PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
@@ -159,7 +143,7 @@ impl Registrar<'_> {
         );
 
         let opts = options.clone();
-        let journal = self.manager.journal.new_handle();
+        let journal = self.journal.new_handle();
 
         let write_api = Box::new(
             move |request_id: u64,
@@ -193,10 +177,9 @@ impl Registrar<'_> {
 
         let metadata = Metadata { write_api };
 
-        let handle =
-            self.manager
-                .registry
-                .register::<T::Type>(ident, path, "", T::extract, metadata)?;
+        let handle = self
+            .registry
+            .register::<T::Type>(ident, path, "", T::extract, metadata)?;
 
         let default = options.default;
         handle.write(default.clone());
@@ -207,6 +190,14 @@ impl Registrar<'_> {
             default,
         })
     }
+
+    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
+        self.registry.unregister_machine(ident)
+    }
+}
+
+pub struct Metadata {
+    write_api: WriteApiFn,
 }
 
 #[derive(Debug, Clone, Default)]

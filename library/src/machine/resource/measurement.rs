@@ -93,7 +93,7 @@ impl<T: Copy + PartialOrd> Statistics<T> {
         }
 
         if let Some(max) = &mut self.max
-            && *max.read() > value
+            && *max.read() < value
         {
             max.write(value);
         }
@@ -121,24 +121,9 @@ impl Manager {
         }
     }
 
-    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
-        self.registry.unregister_machine(ident)
-    }
-}
-
-/// --- registering ---
-pub struct Registrar<'a> {
-    manager: &'a mut Manager,
-    machine: MachineIdentificationUnique,
-}
-
-impl<'a> Registrar<'a> {
-    pub(crate) fn new(manager: &'a mut Manager, machine: MachineIdentificationUnique) -> Self {
-        Self { manager, machine }
-    }
-
     pub fn register<T>(
         &mut self,
+        ident: MachineIdentificationUnique,
         path: &'static str,
         options: RegisterOptions<T::Type>,
     ) -> RegisterResult<Measurement<T>>
@@ -147,19 +132,19 @@ impl<'a> Registrar<'a> {
         T::Type: Copy + PartialOrd + Default,
     {
         let extract = T::extract;
-        let reg = &mut self.manager.registry;
+        let reg = &mut self.registry;
 
-        let handle = reg.register::<T::Type>(self.machine, path, "", T::extract, ())?;
+        let handle = reg.register::<T::Type>(ident, path, "", T::extract, ())?;
         handle.write(options.initial_value.unwrap_or_default());
 
         let stat_min_handle = if options.record_min {
-            Some(reg.register::<T::Type>(self.machine, path, "min", extract, ())?)
+            Some(reg.register::<T::Type>(ident, path, "min", extract, ())?)
         } else {
             None
         };
 
         let stat_max_handle = if options.record_max {
-            Some(reg.register::<T::Type>(self.machine, path, "max", extract, ())?)
+            Some(reg.register::<T::Type>(ident, path, "max", extract, ())?)
         } else {
             None
         };
@@ -170,6 +155,10 @@ impl<'a> Registrar<'a> {
         };
 
         Ok(Measurement { handle, stats })
+    }
+
+    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) -> usize {
+        self.registry.unregister_machine(ident)
     }
 }
 

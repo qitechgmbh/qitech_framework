@@ -116,10 +116,41 @@ impl Runtime {
         }
     }
 
+    fn process_subscribe(
+        &mut self,
+        ident_source: MachineIdentificationUnique,
+        ident_subscriber: MachineIdentificationUnique,
+    ) {
+        let Some((_, source)) = self
+            .machines
+            .iter()
+            .find(|(ident, _)| *ident == ident_source)
+        else {
+            return;
+        };
+
+        let Some((_, subscriber)) = self
+            .machines
+            .iter()
+            .find(|(ident, _)| *ident == ident_subscriber)
+        else {
+            return;
+        };
+
+        // subscriber.subscribe(ctx):
+    }
+
     fn execute_machines(&mut self) {
+        // --- act pass ---
         for (_, machine) in &mut self.machines {
             let res = machine.act();
             _ = res; // TODO: use error
+        }
+
+        // --- react pass ---
+        for (_, machine) in &mut self.machines {
+            // let res = machine.react();
+            // _ = res; // TODO: use error
         }
     }
 

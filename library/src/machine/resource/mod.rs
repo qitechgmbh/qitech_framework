@@ -16,13 +16,14 @@ pub use property::PropertyResolver;
 
 mod config_property;
 pub use config_property::Accessor as ConfigPropertyReader;
-pub(crate) use config_property::Manager as ConfigPropertyManager;
-pub use config_property::Registrar as ConfigPropertyRegistrar;
+pub use config_property::ConfigProperty;
+pub use config_property::Manager as ConfigPropertyManager;
+pub use config_property::RegisterOptions as ConfigPropertyRegisterOptions;
 pub use config_property::RemoteHandle as ConfigPropertyReaderHandle;
 pub use config_property::Resolver as ConfigPropertyResolver;
 
 mod measurement;
-pub(crate) use measurement::Manager as MeasurementManager;
+pub use measurement::Manager as MeasurementManager;
 pub use measurement::Measurement;
 pub use measurement::Reader as MeasurementReader;
 pub use measurement::ReaderHandle as MeasurementAccessHandle;
@@ -31,7 +32,7 @@ pub use measurement::Registrar as MeasurementRegistrar;
 pub use measurement::Resolver as MeasurementResolver;
 
 mod state_property;
-pub(crate) use state_property::Manager as StatePropertyManager;
+pub use state_property::Manager as StatePropertyManager;
 pub use state_property::Reader as StatePropertyReader;
 pub use state_property::ReaderHandle as StatePropertyReaderHandle;
 pub use state_property::Registrar as StatePropertyRegistrar;
@@ -49,7 +50,7 @@ pub use event::Emitter as EventEmitter;
 pub(crate) use event::Manager as EventManager;
 pub use event::Registrar as EventRegistrar;
 
-mod conversion;
+pub mod conversion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Key<'a> {

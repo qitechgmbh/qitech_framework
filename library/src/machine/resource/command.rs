@@ -46,14 +46,75 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             registry: Default::default(),
             journal: Journal::new(),
         }
     }
 
-    pub(crate) fn execute(
+    pub(crate) fn register<M, A>(
+        &mut self,
+        path: &'static str,
+        ident: MachineIdentificationUnique,
+        execute: fn(&mut M, A) -> Result<(), ExecuteError>,
+    ) -> RegisterResult<Handle>
+    where
+        M: Machine + 'static,
+        A: serde::de::DeserializeOwned + 'static,
+    {
+        let key = Key {
+            ident,
+            path,
+            postfix: "",
+        };
+        if self.registry.contains_key(&key) {
+            return Err(RegisterError {
+                resource_kind: Kind::Command,
+                resource_path: path,
+                kind: RegisterErrorKind::Duplicate,
+            });
+        }
+
+        let execute = Box::new(move |machine: &mut dyn Machine, bytes: &str| {
+            let machine_type_name = any::type_name_of_val(machine);
+            let any: &mut dyn Any = machine;
+
+            let machine = any
+                .downcast_mut::<M>()
+                .ok_or(ExecuteError::UnexpectedMachineType {
+                    expected: any::type_name::<M>(),
+                    received: machine_type_name,
+                })?;
+
+            let args: A = match serde_json::from_str(bytes) {
+                Ok(v) => v,
+                Err(e) => return Err(ExecuteError::ParsingError(e)),
+            };
+
+            execute(machine, args)
+        });
+
+        let enabled = Rc::default();
+
+        let handle = Handle {
+            enabled: Rc::downgrade(&enabled),
+            error: HandleError {
+                resource_kind: Kind::Command,
+                resource_path: path,
+                machine_ident: ident,
+            },
+        };
+
+        self.registry.insert(key, Entry { enabled, execute });
+        Ok(handle)
+    }
+
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.registry.retain(|key, _| key.ident != ident);
+    }
+
+    pub fn execute(
         &mut self,
         target: MachineIdentificationUnique,
         machine: &mut dyn Machine,

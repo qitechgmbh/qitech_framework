@@ -51,33 +51,21 @@ impl Manager {
         }
     }
 
-    pub(crate) fn unregister_machine(&mut self, ident: &MachineIdentificationUnique) {
-        self.registry.retain(|key| &key.ident != ident);
-    }
-}
-
-// --- registrar ---
-pub struct Registrar<'a> {
-    manager: &'a mut Manager,
-    machine: MachineIdentificationUnique,
-}
-
-impl<'a> Registrar<'a> {
-    pub(crate) fn new(manager: &'a mut Manager, machine: MachineIdentificationUnique) -> Self {
-        Self { manager, machine }
-    }
-
-    pub(crate) fn register<T>(&mut self, path: &'static str) -> RegisterResult<Emitter<T>>
+    pub fn register<T>(
+        &mut self,
+        ident: MachineIdentificationUnique,
+        path: &'static str,
+    ) -> RegisterResult<Emitter<T>>
     where
         T: Serialize,
     {
         let key = Key {
-            ident: self.machine,
+            ident,
             path,
             postfix: "",
         };
 
-        if !self.manager.registry.insert(key) {
+        if !self.registry.insert(key) {
             return Err(RegisterError {
                 resource_kind: Kind::Event,
                 resource_path: path,
@@ -86,11 +74,15 @@ impl<'a> Registrar<'a> {
         }
 
         Ok(Emitter {
-            source: self.machine,
+            source: ident,
             path,
-            journal: self.manager.journal.new_handle(),
+            journal: self.journal.new_handle(),
             _marker: PhantomData,
         })
+    }
+
+    pub(crate) fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.registry.retain(|key| key.ident != ident);
     }
 }
 
@@ -123,8 +115,7 @@ mod test {
             serial: 0,
         };
 
-        let mut mgr = Manager::new();
-        let mut r = Registrar::new(&mut mgr, ident);
+        let mut r = Manager::new();
 
         // --- simple ---
         #[derive(Serialize)]
@@ -134,7 +125,7 @@ mod test {
             c: i32,
         }
 
-        let mut emitter = r.register::<SimpleEvent>("simple")?;
+        let mut emitter = r.register::<SimpleEvent>(ident, "simple")?;
         emitter.emit(SimpleEvent {
             a: 0,
             b: 1.0,

@@ -2,31 +2,44 @@ use std::any::Any;
 
 pub use qitech_framework_common::MachineIdentificationUnique;
 
-use crate::machine::error::ActResult;
-use crate::machine::error::GrantError;
-use crate::machine::error::GrantResult;
-use crate::machine::error::ReactResult;
-pub use crate::machine::resource::CommandHandle;
-use crate::machine::resource::CommandRegistrar;
-pub use crate::machine::resource::ConfigPropertyReader;
-pub use crate::machine::resource::ConfigPropertyReaderHandle;
-use crate::machine::resource::ConfigPropertyRegistrar;
-pub use crate::machine::resource::ConfigPropertyResolver;
-pub use crate::machine::resource::EventEmitter;
-use crate::machine::resource::EventRegistrar;
-pub use crate::machine::resource::Measurement;
-pub use crate::machine::resource::MeasurementReader;
-pub use crate::machine::resource::MeasurementRegisterOptions;
-pub use crate::machine::resource::MeasurementRegistrar;
-pub use crate::machine::resource::MeasurementResolver;
-pub use crate::machine::resource::StateProperty;
-pub use crate::machine::resource::StatePropertyReader;
-pub use crate::machine::resource::StatePropertyReaderHandle;
-pub use crate::machine::resource::StatePropertyRegistrar;
-pub use crate::machine::resource::StatePropertyResolver;
-
 pub mod error;
+use error::ActResult;
+use error::ReactResult;
+use error::SubscribeError;
+use error::SubscribeResult;
+
+mod hardware;
+use hardware::HardwareAccessor;
+
+mod build;
+
 pub(crate) mod resource;
+use qitech_lib::ethercat_hal::EtherCATThreadChannel;
+use resource::CommandHandle;
+use resource::CommandRegistrar;
+use resource::ConfigPropertyReader;
+use resource::ConfigPropertyReaderHandle;
+use resource::ConfigPropertyRegistrar;
+use resource::ConfigPropertyResolver;
+use resource::EventEmitter;
+use resource::EventRegistrar;
+use resource::Measurement;
+use resource::MeasurementReader;
+use resource::MeasurementRegisterOptions;
+use resource::MeasurementRegistrar;
+use resource::MeasurementResolver;
+use resource::StateProperty;
+use resource::StatePropertyReader;
+use resource::StatePropertyReaderHandle;
+use resource::StatePropertyRegistrar;
+use resource::StatePropertyResolver;
+
+use crate::machine::hardware::Hardware;
+use crate::machine::resource::CommandManager;
+use crate::machine::resource::ConfigPropertyManager;
+use crate::machine::resource::EventManager;
+use crate::machine::resource::MeasurementManager;
+use crate::machine::resource::StatePropertyManager;
 
 pub trait Machine: Any {
     fn act(&mut self) -> ActResult;
@@ -36,12 +49,12 @@ pub trait Machine: Any {
         Ok(())
     }
 
-    fn on_grant_offered(&mut self, ctx: &GrantContext) -> GrantResult {
+    fn subscribe(&mut self, ctx: &SubscribeContext) -> SubscribeResult {
         _ = ctx;
-        Err(GrantError::Rejected)
+        Err(SubscribeError::Rejected)
     }
 
-    fn on_grant_revoked(&mut self, ident: MachineIdentificationUnique) {
+    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
         _ = ident
     }
 }
@@ -54,38 +67,39 @@ pub trait MachineInterface {
     const SCHEMA: &'static str;
 }
 
-pub struct BuildContext<'a> {
-    // pub hardware: HardwareSet,
-    pub config: ConfigPropertyRegistrar<'a>,
-    pub state: StatePropertyRegistrar<'a>,
-    pub measurements: MeasurementRegistrar<'a>,
-    pub commands: CommandRegistrar<'a>,
-    pub events: EventRegistrar<'a>,
-}
-
 pub struct ReactContext<'a> {
-    pub config: ConfigPropertyReader<'a>,
-    pub state: StatePropertyReader<'a>,
-    pub measurements: MeasurementReader<'a>,
+    resources: &'a mut Resources,
 }
 
 impl<'a> ReactContext<'a> {
-    pub fn read_config(&self, handle: ()) {}
-
-    pub fn write_config(&self, handle: ()) {}
-
-    pub fn read_state(&self, handle: ()) {}
+    pub fn read(&self, handle: ()) {}
 }
 
-pub struct GrantContext<'a> {
-    pub source: MachineIdentificationUnique,
-    pub config: ConfigPropertyResolver<'a>,
-    pub state: StatePropertyResolver<'a>,
-    pub measurements: MeasurementResolver<'a>,
+pub struct SubscribeContext<'a> {
+    source: MachineIdentificationUnique,
+    resources: &'a mut Resources,
 }
 
-impl<'a> GrantContext<'a> {
+impl<'a> SubscribeContext<'a> {
     pub fn source(&self) -> MachineIdentificationUnique {
         self.source
+    }
+}
+
+pub(crate) struct Resources {
+    config_properties: ConfigPropertyManager,
+    state_properties: StatePropertyManager,
+    measurements: MeasurementManager,
+    commands: CommandManager,
+    events: EventManager,
+}
+
+impl Resources {
+    pub fn clear_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.config_properties.unregister_machine(ident);
+        self.state_properties.unregister_machine(ident);
+        self.measurements.unregister_machine(ident);
+        self.commands.unregister_machine(ident);
+        self.events.unregister_machine(ident);
     }
 }
