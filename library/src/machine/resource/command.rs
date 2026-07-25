@@ -65,7 +65,7 @@ impl Manager {
             path,
             postfix: "",
         };
-        let handle = self.journal.init_handle();
+        let handle = self.journal.new_handle();
 
         let finish = |err: Result<(), ExecuteError>| -> Result<(), ExecuteError> {
             let result = if err.is_ok() {
@@ -82,10 +82,8 @@ impl Manager {
                 result,
             };
 
-            match handle.append(entry) {
-                Ok(()) => err,
-                Err(_) => Err(ExecuteError::JournalFull),
-            }
+            handle.append(entry);
+            Ok(())
         };
 
         let Some(Entry { enabled, execute }) = self.registry.get(&key) else {
@@ -184,7 +182,6 @@ impl<'a> Registrar<'a> {
 // --- errors ---
 #[derive(Debug)]
 pub enum ExecuteError {
-    JournalFull,
     UnexpectedMachineType {
         expected: &'static str,
         received: &'static str,
@@ -198,7 +195,6 @@ pub enum ExecuteError {
 impl fmt::Display for ExecuteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::JournalFull => write!(f, "command journal is full"),
             Self::UnexpectedMachineType { expected, received } => {
                 write!(
                     f,
@@ -226,7 +222,8 @@ impl std::error::Error for ExecuteError {
 #[cfg(test)]
 mod test {
     use qitech_framework_common::MachineIdentification;
-    use serde::{Deserialize, Serialize};
+    use serde::Deserialize;
+    use serde::Serialize;
 
     use super::*;
     use crate::machine::error::ActResult;

@@ -1,7 +1,5 @@
-use core::fmt;
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::error::Error;
 use std::marker::PhantomData;
 
 use chrono::Utc;
@@ -31,12 +29,11 @@ impl<T: Serialize> Emitter<T> {
             timestamp: Utc::now(),
             source: self.source,
             resource_path: Cow::Borrowed(self.path),
-            data: serde_json::to_string(&data).map_err(EmitError::SerializeError)?,
+            data: serde_json::to_string(&data)?,
         };
 
-        self.journal
-            .append(event)
-            .map_err(|_| EmitError::JournalFull)
+        self.journal.append(event);
+        Ok(())
     }
 }
 
@@ -91,7 +88,7 @@ impl<'a> Registrar<'a> {
         Ok(Emitter {
             source: self.machine,
             path,
-            journal: self.manager.journal.init_handle(),
+            journal: self.manager.journal.new_handle(),
             _marker: PhantomData,
         })
     }
@@ -107,33 +104,7 @@ pub struct Resolver<'a> {
 pub struct RemoteHandle {}
 
 // --- errors ---
-pub type EventEmitResult = Result<(), EmitError>;
-
-#[derive(Debug)]
-pub enum EmitError {
-    JournalFull,
-    SerializeError(serde_json::Error),
-}
-
-impl fmt::Display for EmitError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            EmitError::JournalFull => write!(f, "journal is full"),
-            EmitError::SerializeError(err) => {
-                write!(f, "failed to serialize value: {err}")
-            }
-        }
-    }
-}
-
-impl Error for EmitError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            EmitError::JournalFull => None,
-            EmitError::SerializeError(err) => Some(err),
-        }
-    }
-}
+pub type EventEmitResult = Result<(), serde_json::Error>;
 
 // --- testing ---
 #[cfg(test)]

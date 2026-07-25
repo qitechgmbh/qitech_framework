@@ -60,7 +60,7 @@ pub struct Key<'a> {
 
 // --- kind ---
 #[derive(Debug, Clone, Copy)]
-pub enum Kind {
+pub(crate) enum Kind {
     ConfigProperty,
     StateProperty,
     Measurement,
@@ -116,7 +116,9 @@ impl fmt::Display for Kind {
 }
 
 // --- journal ---
-pub type JournalBuffer<T> = heapless::Vec<T, 1024>;
+const JOURNAL_CAPACITY: usize = 16384;
+
+pub type JournalBuffer<T> = heapless::Vec<T, JOURNAL_CAPACITY>;
 
 #[derive(Debug, Default)]
 pub struct Journal<T> {
@@ -130,7 +132,7 @@ impl<T> Journal<T> {
         }
     }
 
-    fn init_handle(&self) -> JournalHandle<T> {
+    fn new_handle(&self) -> JournalHandle<T> {
         JournalHandle {
             buffer: self.buffer.clone(),
         }
@@ -149,30 +151,11 @@ pub struct JournalHandle<T> {
 }
 
 impl<T: Debug> JournalHandle<T> {
-    fn append(&self, entry: T) -> Result<(), JournalAppendError> {
-        self.buffer
-            .borrow_mut()
-            .push(entry)
-            .map_err(|_| JournalAppendError)
+    fn append(&self, entry: T) {
+        assert!(
+            self.buffer.borrow_mut().push(entry).is_ok(),
+            "Runtime exceeded maximum journal entries ({}) in a report cycle",
+            JOURNAL_CAPACITY,
+        );
     }
 }
-
-// --- access ---
-#[derive(Debug)]
-pub struct GrantLevel {
-    pub read: bool,
-    pub write: bool,
-    pub execute: bool,
-}
-
-// --- errors ---
-#[derive(Debug)]
-pub struct JournalAppendError;
-
-impl core::fmt::Display for JournalAppendError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str("journal buffer is full")
-    }
-}
-
-impl core::error::Error for JournalAppendError {}

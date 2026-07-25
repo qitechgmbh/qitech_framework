@@ -40,7 +40,7 @@ pub struct MachineConfigMutation {
     pub resource_path: Cow<'static, str>,
 
     /// assigned value
-    pub value: String,
+    pub value: ScalarValue,
 
     /// operation origin
     pub origin: OperationOrigin,

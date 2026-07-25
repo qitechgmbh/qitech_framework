@@ -6,10 +6,10 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
 use qitech_framework_common::ScalarValue;
+use qitech_framework_common::with_uom_quantities;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use super::JournalHandle;
 use super::PropertyHandle;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
@@ -20,48 +20,41 @@ use crate::machine::resource::PropertyResolver;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterError;
+use crate::uom;
 
 pub struct ConfigProperty<T: Clone> {
     handle: PropertyHandle<T>,
-    journal: JournalHandle<MachineConfigMutation>,
-    validate: ValidateAndRecord<T>,
+    write: WriteFn<T>,
     default: T,
 }
 
 impl<T: Clone> ConfigProperty<T> {
-    /// reset property back to default value
-    pub fn reset(&mut self) {
-        self.handle.write(self.default.clone());
-    }
-}
-
-impl<T: Clone> ConfigProperty<T> {
     pub fn set(&mut self, value: T) -> Result<(), WriteError> {
-        (self.validate)(&mut self.journal, &value)?;
-        self.handle.write(value);
+        (self.write)(&mut self.handle, value);
         Ok(())
     }
+
+    /// reset property back to default value
+    pub fn reset(&mut self) {
+        self.set(self.default.clone())
+            .expect("Default must pass validation");
+    }
+
+    pub fn get_ref(&self) -> &T {
+        self.handle.read()
+    }
 }
 
-impl<T: Clone + Copy> ConfigProperty<T> {
+impl<T: Copy> ConfigProperty<T> {
     pub fn get(&self) -> T {
         *self.handle.read()
     }
 }
 
-// impl ConfigProperty<String> {
-//     pub fn get(&self) -> &str { self.handle.read() }
-// }
-//
-// impl ConfigProperty<String> {
-//     pub fn get(&self) -> &str { self.handle.read() }
-// }
-
-/*
-// uom impl
+// --- uom impl ---
 macro_rules! impl_uom {
-    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
-        impl ConfigProperty<$unit> {
+    ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
+        impl ConfigProperty<$quantity> {
             pub fn get_as<N>(&self) -> f64
             where
                 N: $unit_trait + $conversion_trait,
@@ -69,39 +62,7 @@ macro_rules! impl_uom {
                 self.get().get::<N>()
             }
 
-            pub fn set_as<N>(&mut self, value: f64)
-            where
-                N: $unit_trait + $conversion_trait,
-            {
-                self.set(<$quantity>::new::<N>(value));
-            }
-        }
-
-        impl ConfigProperty<Option<$unit>> {
-            pub fn get_as<N>(&self) -> Option<f64>
-            where
-                N: $unit_trait + $conversion_trait,
-            {
-                self.get().map(|q| q.get::<N>())
-            }
-
-            pub fn set_as<N>(&mut self, value: Option<f64>)
-            where
-                N: $unit_trait + $conversion_trait,
-            {
-                self.set(value.map(<$quantity>::new::<N>));
-            }
-        }
-
-        impl ConstrainedConfigProperty<$unit> {
-            pub fn get_as<N>(&self) -> f64
-            where
-                N: $unit_trait + $conversion_trait,
-            {
-                self.get().get::<N>()
-            }
-
-            pub fn set_as<N>(&mut self, value: f64) -> Result<(), String>
+            pub fn set_as<N>(&mut self, value: f64) -> Result<(), WriteError>
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -109,7 +70,7 @@ macro_rules! impl_uom {
             }
         }
 
-        impl ConstrainedConfigProperty<Option<$unit>> {
+        impl ConfigProperty<Option<$quantity>> {
             pub fn get_as<N>(&self) -> Option<f64>
             where
                 N: $unit_trait + $conversion_trait,
@@ -117,7 +78,7 @@ macro_rules! impl_uom {
                 self.get().map(|q| q.get::<N>())
             }
 
-            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<(), String>
+            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<(), WriteError>
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -127,8 +88,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom!(impl_uom);
-*/
+with_uom_quantities!(uom, impl_uom);
 
 // --- resource managment ---
 const SLOT_SIZE: usize = 32;
@@ -172,102 +132,84 @@ impl Registrar<'_> {
         T: ScalarTypeWrapper + 'static,
         T::Type: Clone + Serialize + DeserializeOwned + BoundedMeta,
     {
-        /*
-        // Validates `value` against `options`, returning the failure reason
-        // (if any) without touching the journal.
-        fn check<T>(value: &T, options: &RegisterOptions<T>) -> Result<(), CheckError> {
-            value.validate(options.min, options.max).map_err(CheckError::OutOfBounds)?;
-            if let Some(func) = options.validate {
-                (func)(value).map_err(CheckError::Validate)?;
-            }
-            Ok(())
-        }
+        let opts = options.clone();
+        let journal = self.manager.journal.new_handle();
 
-        // used by the property itself
-        let validate_and_record = Box::new(
-            move |journal: &mut JournalHandle<MachineConfigMutation>,
-                  value: &T::Type|
-                  -> Result<(), WriteError> {
-                if let Err(e) = check(value, &options) {
-                    let entry = MachineConfigMutation {
-                        target: ident,
-                        resource_path: Cow::Borrowed(path),
-                        value: T::into_string(value),
-                        origin: OperationOrigin::Machine,
-                        result: OperationResult::Failure,
-                        timestamp: Utc::now(),
-                    };
-                    journal.append(entry).map_err(|_| WriteError::JournalFull)?;
-                    return Err(e.into());
+        let write = Box::new(
+            move |handle: &mut PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
+                let mut entry = MachineConfigMutation {
+                    target: ident,
+                    resource_path: Cow::Borrowed(path),
+                    value: T::into_scalar(&value),
+                    origin: OperationOrigin::Machine,
+                    result: OperationResult::Failure,
+                    timestamp: Utc::now(),
+                };
+
+                if let Err(e) = check(&value, &opts) {
+                    journal.append(entry);
+                    return Err(e);
                 }
+
+                entry.result = OperationResult::Success;
+                journal.append(entry);
+                handle.write(value);
                 Ok(())
             },
         );
 
+        let opts = options.clone();
+        let journal = self.manager.journal.new_handle();
+
         let write_api = Box::new(
             move |request_id: u64,
-                  journal: &mut Journal<MachineConfigMutation>,
                   bytes: *mut u8,
                   raw: &str|
-                  -> Result<(), ApiWriteError> {
+                  -> Result<Result<(), WriteError>, serde_json::Error> {
+                let value: T::Type = serde_json::from_str(raw)?;
+                let out = unsafe { &mut *(bytes as *mut T::Type) };
+
                 let mut entry = MachineConfigMutation {
                     target: ident,
                     resource_path: Cow::Borrowed(path),
-                    value: raw.to_string(),
+                    value: T::into_scalar(&value),
                     origin: OperationOrigin::Request { request_id },
-                    result: OperationResult::Success,
+                    result: OperationResult::Failure,
                     timestamp: Utc::now(),
                 };
 
-                let record_failure = |journal: &mut Journal<MachineConfigMutation>, entry: MachineConfigMutation| {
-                    journal.init_handle().append(entry).map_err(|_| ApiWriteError::JournalFull)
-                };
-
-                let value: T::Type = match serde_json::from_str(raw) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        entry.result = OperationResult::Failure;
-                        record_failure(journal, entry)?;
-                        return Err(ApiWriteError::ParseError(e));
-                    }
-                };
-
-                if let Err(e) = check(&value, &options) {
-                    entry.result = OperationResult::Failure;
-                    record_failure(journal, entry)?;
-                    return Err(e.into());
+                if let Err(e) = check(&value, &opts) {
+                    journal.append(entry);
+                    return Ok(Err(e));
                 }
 
-                record_failure(journal, entry)?;
+                entry.result = OperationResult::Success;
+                journal.append(entry);
 
-                unsafe {
-                    *(bytes as *mut T::Type) = value.clone();
-                }
-
-                Ok(())
+                *out = value;
+                Ok(Ok(()))
             },
         );
 
         let metadata = Metadata { write_api };
-        let handle = self
-            .manager
-            .registry
-            .register::<T::Type>(ident, path, "", T::extract, metadata)?;
 
-        handle.write(options.default.clone());
+        let handle =
+            self.manager
+                .registry
+                .register::<T::Type>(ident, path, "", T::extract, metadata)?;
+
+        let default = options.default;
+        handle.write(default.clone());
 
         Ok(ConfigProperty {
             handle,
-            journal: self.manager.journal.init_handle(),
-            validate: validate_and_record,
-            default: options.default,
+            write,
+            default,
         })
-        */
-        todo!()
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct RegisterOptions<T: BoundedMeta> {
     default: T,
     min: Option<T::Bound>,
@@ -275,24 +217,45 @@ pub struct RegisterOptions<T: BoundedMeta> {
     validate: Option<fn(&T) -> Result<(), String>>,
 }
 
-// --- types ---
-pub type ValidateAndRecord<T> =
-    Box<dyn Fn(&mut JournalHandle<MachineConfigMutation>, &T) -> Result<(), WriteError>>;
+fn check<T: BoundedMeta>(value: &T, options: &RegisterOptions<T>) -> Result<(), WriteError> {
+    value
+        .validate(options.min, options.max)
+        .map_err(WriteError::OutOfBounds)?;
 
-pub type WriteApiFn = Box<
-    dyn Fn(u64, &mut Journal<MachineConfigMutation>, *mut u8, &str) -> Result<(), ApiWriteError>,
->;
+    if let Some(func) = options.validate {
+        (func)(value).map_err(WriteError::Validate)?;
+    }
+
+    Ok(())
+}
+
+// --- types ---
+pub type WriteFn<T> = Box<dyn Fn(&mut PropertyHandle<T>, T) -> Result<(), WriteError>>;
+
+pub type WriteApiFn =
+    Box<dyn Fn(u64, *mut u8, &str) -> Result<Result<(), WriteError>, serde_json::Error>>;
 
 // --- errors ---
-pub enum ApiWriteError {
-    JournalFull,
-    ParseError(serde_json::Error),
-    ValueOutOfBounds(BoundsError),
-    ValidateError(String),
+use core::fmt;
+use std::error::Error;
+
+#[derive(Debug)]
+pub enum WriteError {
+    OutOfBounds(BoundsError),
+    Validate(String),
 }
 
-pub enum WriteError {
-    JournalFull,
-    ValueOutOfBounds(BoundsError),
-    ValidateError(String),
+impl fmt::Display for WriteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WriteError::OutOfBounds(err) => {
+                write!(f, "value out of bounds: {}", err)
+            }
+            WriteError::Validate(msg) => {
+                write!(f, "validation failed: {}", msg)
+            }
+        }
+    }
 }
+
+impl Error for WriteError {}

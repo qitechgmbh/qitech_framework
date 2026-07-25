@@ -25,7 +25,6 @@ pub use crate::machine::resource::StatePropertyReaderHandle;
 pub use crate::machine::resource::StatePropertyRegistrar;
 pub use crate::machine::resource::StatePropertyResolver;
 
-pub mod bounds;
 pub mod error;
 pub(crate) mod resource;
 
@@ -70,9 +69,23 @@ pub struct ReactContext<'a> {
     pub measurements: MeasurementReader<'a>,
 }
 
+impl<'a> ReactContext<'a> {
+    pub fn read_config(&self, handle: ()) {}
+
+    pub fn write_config(&self, handle: ()) {}
+
+    pub fn read_state(&self, handle: ()) {}
+}
+
 pub struct GrantContext<'a> {
     pub source: MachineIdentificationUnique,
     pub config: ConfigPropertyResolver<'a>,
     pub state: StatePropertyResolver<'a>,
     pub measurements: MeasurementResolver<'a>,
+}
+
+impl<'a> GrantContext<'a> {
+    pub fn source(&self) -> MachineIdentificationUnique {
+        self.source
+    }
 }

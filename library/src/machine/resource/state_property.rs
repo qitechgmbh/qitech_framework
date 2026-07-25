@@ -5,9 +5,8 @@ use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::MachineStateMutation;
 use qitech_framework_common::ScalarValue;
-use qitech_framework_common::with_uom_units;
+use qitech_framework_common::with_uom_quantities;
 
-use super::JournalHandle;
 use super::PropertyHandle;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyAccessor;
@@ -18,58 +17,31 @@ use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::uom;
 
-#[derive(Debug)]
-pub struct StateProperty<T: ScalarTypeWrapper> {
-    ident: MachineIdentificationUnique,
-    path: &'static str,
-    handle: PropertyHandle<T::Type>,
-    journal: JournalHandle<MachineStateMutation>,
+pub struct StateProperty<T> {
+    handle: PropertyHandle<T>,
+    record: RecordFn<T>,
 }
 
-impl<T> StateProperty<T>
-where
-    T: ScalarTypeWrapper,
-    T::Type: Copy,
-{
-    pub fn get(&self) -> T::Type {
+impl<T: Clone> StateProperty<T> {
+    pub fn set(&mut self, value: T) {
+        (self.record)(&value);
+        self.handle.write(value);
+    }
+
+    pub fn get_ref(&self) -> &T {
+        self.handle.read()
+    }
+}
+
+impl<T: Copy> StateProperty<T> {
+    pub fn get(&self) -> T {
         *self.handle.read()
     }
 }
 
-impl StateProperty<String> {
-    pub fn get_ref(&self) -> &String {
-        self.handle.read()
-    }
-}
-
-impl StateProperty<Option<String>> {
-    pub fn get_ref(&self) -> &Option<String> {
-        self.handle.read()
-    }
-}
-
-impl<T> StateProperty<T>
-where
-    T: ScalarTypeWrapper,
-{
-    pub fn set(&mut self, value: T::Type) -> Result<(), WriteError> {
-        self.journal
-            .append(MachineStateMutation {
-                source: self.ident,
-                resource_path: Cow::Borrowed(self.path),
-                value: T::into_scalar(&value),
-                timestamp: Utc::now(),
-            })
-            .map_err(|_| WriteError::JournalFull)?;
-
-        self.handle.write(value.clone());
-        Ok(())
-    }
-}
-
 macro_rules! impl_uom {
-    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
-        impl StateProperty<$unit> {
+    ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
+        impl StateProperty<$quantity> {
             pub fn get_as<N>(&self) -> f64
             where
                 N: $unit_trait + $conversion_trait,
@@ -77,7 +49,7 @@ macro_rules! impl_uom {
                 self.get().get::<N>()
             }
 
-            pub fn set_as<N>(&mut self, value: f64) -> Result<(), WriteError>
+            pub fn set_as<N>(&mut self, value: f64)
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -85,7 +57,7 @@ macro_rules! impl_uom {
             }
         }
 
-        impl StateProperty<Option<$unit>> {
+        impl StateProperty<Option<$quantity>> {
             pub fn get_as<N>(&self) -> Option<f64>
             where
                 N: $unit_trait + $conversion_trait,
@@ -93,7 +65,7 @@ macro_rules! impl_uom {
                 self.get().map(|q| q.get::<N>())
             }
 
-            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<(), WriteError>
+            pub fn set_as<N>(&mut self, value: Option<f64>)
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -103,7 +75,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_units!(uom, impl_uom);
+with_uom_quantities!(uom, impl_uom);
 
 // --- manager ---
 const SLOT_SIZE: usize = size_of::<String>();
@@ -149,26 +121,38 @@ impl<'a> Registrar<'a> {
         &mut self,
         path: &'static str,
         initial_value: T::Type,
-    ) -> RegisterResult<StateProperty<T>>
+    ) -> RegisterResult<StateProperty<T::Type>>
     where
         T: ScalarTypeWrapper,
         T::Type: Default,
     {
+        // create boxed function to type erase the wrapper type
+        // to reduce the amount of generated code inside the property
+        let source = self.machine;
+        let journal = self.manager.journal.new_handle();
+        let record = Box::new(move |value: &T::Type| {
+            let entry = MachineStateMutation {
+                source,
+                resource_path: Cow::Borrowed(path),
+                value: T::into_scalar(&value),
+                timestamp: Utc::now(),
+            };
+
+            journal.append(entry);
+        });
+
         let handle =
             self.manager
                 .registry
                 .register::<T::Type>(self.machine, path, "", T::extract, ())?;
 
         handle.write(initial_value);
-
-        Ok(StateProperty {
-            handle,
-            journal: self.manager.journal.init_handle(),
-            ident: self.machine,
-            path,
-        })
+        Ok(StateProperty { handle, record })
     }
 }
+
+// --- types ---
+pub type RecordFn<T> = Box<dyn Fn(&T)>;
 
 // --- errors ---
 #[derive(Debug)]
@@ -211,100 +195,103 @@ mod test {
         let mut mgr = Manager::new();
         let mut r = Registrar::new(&mut mgr, ident);
 
-        let mut sp: StateProperty<f64> = r.register("just.some.float", 1.0)?;
+        let mut sp: StateProperty<f64> = r.register::<f64>("just.some.float", 1.0)?;
         assert_eq!(sp.get(), 1.0);
-        sp.set(2.0)?;
+        sp.set(2.0);
         assert_eq!(sp.get(), 2.0);
 
-        let mut sp: StateProperty<Option<f64>> = r.register("just.some.float.optional", None)?;
+        let mut sp: StateProperty<Option<f64>> =
+            r.register::<Option<f64>>("just.some.float.optional", None)?;
         assert_eq!(sp.get(), None);
-        sp.set(Some(1.0))?;
+        sp.set(Some(1.0));
         assert_eq!(sp.get(), Some(1.0));
-        sp.set(None)?;
+        sp.set(None);
         assert_eq!(sp.get(), None);
 
-        let mut sp: StateProperty<i64> = r.register("just.some.int", 1)?;
+        let mut sp: StateProperty<i64> = r.register::<i64>("just.some.int", 1)?;
         assert_eq!(sp.get(), 1);
-        sp.set(2)?;
+        sp.set(2);
         assert_eq!(sp.get(), 2);
 
-        let mut sp: StateProperty<Option<i64>> = r.register("just.some.optional.int", None)?;
+        let mut sp: StateProperty<Option<i64>> =
+            r.register::<Option<i64>>("just.some.optional.int", None)?;
         assert_eq!(sp.get(), None);
-        sp.set(Some(1))?;
+        sp.set(Some(1));
         assert_eq!(sp.get(), Some(1));
-        sp.set(None)?;
+        sp.set(None);
         assert_eq!(sp.get(), None);
 
-        let mut sp: StateProperty<bool> = r.register("just.some.bool", false)?;
+        let mut sp: StateProperty<bool> = r.register::<bool>("just.some.bool", false)?;
         assert!(!sp.get());
-        sp.set(true)?;
+        sp.set(true);
         assert!(sp.get());
-        sp.set(false)?;
+        sp.set(false);
         assert!(!sp.get());
 
-        let mut sp: StateProperty<Option<bool>> = r.register("just.some.optional.bool", None)?;
+        let mut sp: StateProperty<Option<bool>> =
+            r.register::<Option<bool>>("just.some.optional.bool", None)?;
         assert_eq!(sp.get(), None);
-        sp.set(Some(true))?;
+        sp.set(Some(true));
         assert_eq!(sp.get(), Some(true));
-        sp.set(None)?;
+        sp.set(None);
         assert_eq!(sp.get(), None);
 
         let mut sp: StateProperty<String> =
-            r.register("just.some.string", String::from("hello"))?;
+            r.register::<String>("just.some.string", String::from("hello"))?;
         assert_eq!(sp.get_ref(), "hello");
-        sp.set(String::from("world"))?;
+        sp.set(String::from("world"));
         assert_eq!(sp.get_ref(), "world");
-        sp.set(String::from("rust"))?;
+        sp.set(String::from("rust"));
         assert_eq!(sp.get_ref(), "rust");
 
         let mut sp: StateProperty<Option<String>> =
-            r.register("just.some.optional.string", None)?;
+            r.register::<Option<String>>("just.some.optional.string", None)?;
         assert_eq!(*sp.get_ref(), None);
-        sp.set(Some(String::from("hello")))?;
+        sp.set(Some(String::from("hello")));
         assert_eq!(*sp.get_ref(), Some(String::from("hello")));
-        sp.set(None)?;
+        sp.set(None);
         assert_eq!(*sp.get_ref(), None);
 
         // --- uom ---
-        let mut sp: StateProperty<millimeter> =
-            r.register("just.some.millimeter", Length::new::<millimeter>(1.0))?;
+        let mut sp: StateProperty<Length> =
+            r.register::<millimeter>("just.some.length", Length::new::<millimeter>(1.0))?;
 
         assert_eq!(sp.get_as::<millimeter>(), 1.0);
 
-        sp.set(Length::new::<meter>(99.0))?;
+        sp.set(Length::new::<meter>(99.0));
         assert_eq!(sp.get_as::<meter>(), 99.0);
 
-        sp.set(Length::ZERO)?;
+        sp.set(Length::ZERO);
         assert_eq!(sp.get_as::<millimeter>(), 0.0);
 
-        sp.set_as::<millimeter>(1.0)?;
+        sp.set_as::<millimeter>(1.0);
         assert_eq!(sp.get_as::<millimeter>(), 1.0);
 
-        sp.set_as::<centimeter>(1.0)?;
+        sp.set_as::<centimeter>(1.0);
         assert_eq!(sp.get_as::<centimeter>(), 1.0);
 
-        sp.set_as::<meter>(1.0)?;
+        sp.set_as::<meter>(1.0);
         assert_eq!(sp.get_as::<meter>(), 1.0);
 
         // --- uom optional ---
-        let mut sp: StateProperty<Option<millimeter>> =
-            r.register("just.some.optional.millimeter", None)?;
+        let mut sp: StateProperty<Option<Length>> =
+            r.register::<Option<centimeter>>("just.some.optional.millimeter", None)?;
 
         assert_eq!(sp.get(), None);
 
-        sp.set(Some(Length::new::<centimeter>(99.0)))?;
+        sp.set(Some(Length::new::<centimeter>(99.0)));
         assert_eq!(sp.get_as::<centimeter>(), Some(99.0));
 
-        sp.set(Some(Length::ZERO))?;
+        sp.set(Some(Length::ZERO));
         assert_eq!(sp.get_as::<millimeter>(), Some(0.0));
 
-        sp.set_as::<millimeter>(Some(1.0))?;
+        sp.set_as::<millimeter>(Some(1.0));
         assert_eq!(sp.get_as::<millimeter>(), Some(1.0));
 
-        sp.set_as::<centimeter>(Some(1.0))?;
+        sp.set_as::<centimeter>(Some(1.0));
         assert_eq!(sp.get_as::<centimeter>(), Some(1.0));
 
-        sp.set_as::<meter>(Some(1.0))?;
+        sp.set_as::<meter>(Some(1.0));
         assert_eq!(sp.get_as::<meter>(), Some(1.0));
 
         Ok(())
