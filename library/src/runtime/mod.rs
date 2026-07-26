@@ -9,10 +9,7 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
 
 use crate::machine::BuildContext;
-use crate::machine::Machine;
 use crate::machine::Resources;
-use crate::machine::SyncContext;
-use crate::machine::error::ActResult;
 use crate::runtime::init::RuntimeBuilder;
 use crate::runtime::types::Config;
 use crate::runtime::types::HardwareRegistry;
@@ -28,12 +25,15 @@ mod utils;
 mod init;
 pub use init::EtherCATConfig;
 
+mod bridge;
+pub use bridge::Bridge;
+
 mod request;
 
 // mod utils;
 // use utils::build_machines;
 
-pub struct Runtime {
+pub struct Runtime<B: Bridge> {
     // --- registries ---
     machine_registry: MachineRegistry,
     hardware_registry: HardwareRegistry,
@@ -52,11 +52,12 @@ pub struct Runtime {
 
     // --- misc ---
     config: Config,
+    bridge: B,
     last_export_ts: Instant,
     subscriptions: HashMap<MachineIdentificationUnique, Vec<MachineIdentificationUnique>>,
 }
 
-impl Runtime {
+impl<B: Bridge> Runtime<B> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> RuntimeBuilder {
         RuntimeBuilder::new()
@@ -66,39 +67,59 @@ impl Runtime {
         loop {
             let now = Instant::now();
 
-            // TODO: exit if controller is finished
-            self.write_ecat_inputs();
-
-            // TODO: receive data from hub
-            // TODO: process connection requests
-            // TODO: run config mutations
-            // TODO: run commands
-            // TODO: laser hotplug
-
-            self.run_machines();
-            self.write_ecat_outputs();
-
-            if now.duration_since(self.last_export_ts) >= self.config.export_interval {
-                self.export_report();
+            if self.controller_finished() {
+                return Ok(());
             }
 
-            sleep(self.config.cycle_timeout);
+            self.write_ecat_inputs();
+
+            self.receive_instances();
+
+            self.process_requests();
+
+            self.run_machines();
+
+            self.write_ecat_outputs();
+
+            self.export_report_if_due(now);
+
+            let elapsed = now.elapsed();
+            if let Some(remaining) = self.config.cycle_timeout.checked_sub(elapsed) {
+                sleep(remaining);
+            } else {
+                // cycle overran its budget
+            }
         }
     }
 
-    // --- hub management ---
-    fn export_report(&mut self) {
+    fn controller_finished(&self) -> bool {
+        self.ecat_controller
+            .as_ref()
+            .and_then(|c| c.join_handle.as_ref())
+            .is_some_and(|h| h.is_finished())
+    }
+
+    fn export_report_if_due(&mut self, now: Instant) {
+        // --- check if export is due ---
+        if now.duration_since(self.last_export_ts) < self.config.export_interval {
+            return;
+        }
+
         // --- collect data ---
         self.report.timestamp = Utc::now();
-        self.resources.init_report(&mut self.report.machines);
+        self.resources.extract_report(&mut self.report.machines);
 
-        // TODO: send to hub
+        // --- export report ---
+        self.bridge.export(&self.report);
 
         // --- reset buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
         self.report.runtime.events.clear();
         self.report.runtime.state_mutations.clear();
+
+        // --- reset timer ---
+        self.last_export_ts = now;
     }
 
     // --- machine managment ---
@@ -213,5 +234,10 @@ impl Runtime {
         }
 
         controller.app_handle.send_outputs();
+    }
+
+    // --- misc ---
+    fn receive_instances(&mut self) {
+        // TODO: handle laser hotplug
     }
 }

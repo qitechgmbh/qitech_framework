@@ -77,7 +77,7 @@ async fn my_test() -> anyhow::Result<()> {
     sleep(Duration::from_millis(100)).await;
 
     // --- create hub instance ---
-    let (hub, mut session) = Embedded::init(
+    let (hub, mut session) = Embedded::new(
         config,
         vec![
             include_str!("../schemas/machine_0.yaml").to_string(),

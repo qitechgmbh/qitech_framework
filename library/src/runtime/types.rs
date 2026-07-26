@@ -26,6 +26,7 @@ pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
 
 pub struct Config {
+    pub requests_per_cycle_max: usize,
     pub export_interval: Duration,
     pub cycle_timeout: Duration,
 }
@@ -33,6 +34,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            requests_per_cycle_max: 10,
             export_interval: Duration::from_secs_f64(1.0 / 30.0),
             cycle_timeout: Duration::from_micros(100),
         }

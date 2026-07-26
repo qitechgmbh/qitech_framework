@@ -74,7 +74,7 @@ impl Resources {
         self.events.unregister_machine(ident);
     }
 
-    pub fn init_report(&mut self, report: &mut MachinesReport) {
+    pub fn extract_report(&mut self, report: &mut MachinesReport) {
         self.config_properties.drain_journal(|entry| {
             report.config_mutations.push(entry);
         });

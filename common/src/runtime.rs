@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -76,6 +78,9 @@ pub struct RuntimeReport {
 
     /// runtime activity
     pub runtime: RuntimeReportData,
+
+    /// timings data
+    pub timings: TimingsReport,
 
     /// machine activity
     pub machines: MachinesReport,
@@ -163,4 +168,43 @@ pub enum RuntimeState {
     ScanningSerialPorts,
     BuildingMachines,
     Running { in_pre_op: bool },
+}
+
+// --- timing ---
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct TimingsReport {
+    // total number of cycles
+    cycle_count: u32,
+
+    /// total duration spent executing
+    duration_total: Duration,
+
+    /// duration of the longest cycle
+    duration_peak: Duration,
+
+    // cycles that exceeded cycle_timeout
+    overrun_count: u32,
+}
+
+impl TimingsReport {
+    fn record(&mut self, duration: Duration, budget: Duration) {
+        self.cycle_count += 1;
+        self.duration_total += duration;
+        if duration > self.duration_peak {
+            self.duration_peak = duration;
+        }
+
+        if duration > budget {
+            self.overrun_count += 1;
+        }
+    }
+
+    fn duration_avg(&self) -> Duration {
+        if self.cycle_count == 0 { Duration::ZERO } else { self.duration_peak / self.cycle_count }
+    }
+
+    /// Take the current stats and reset for the next export window.
+    fn take(&mut self) -> TimingsReport {
+        std::mem::take(self)
+    }
 }

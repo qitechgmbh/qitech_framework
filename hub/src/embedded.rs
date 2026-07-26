@@ -51,7 +51,7 @@ macro_rules! measured_operation {
 }
 
 impl Embedded {
-    pub async fn init(
+    pub async fn new(
         config: Config,
         schemas: Vec<String>,
     ) -> anyhow::Result<(Self, EmbeddedSession)> {
