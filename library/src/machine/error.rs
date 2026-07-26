@@ -1,5 +1,8 @@
+use core::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+
+use thiserror::Error;
 
 pub use crate::machine::build::BuildError;
 pub use crate::machine::build::BuildResult;
@@ -8,58 +11,78 @@ pub use crate::machine::resource::CommandExecuteError;
 // --- act ---
 pub type ActResult = Result<(), ActError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("{kind}")]
 pub struct ActError {
     pub kind: ActErrorKind,
     pub recoverable: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ActErrorKind {
+    #[error("hardware fault: {0}")]
     HardwareFault(String),
+    #[error("validation failed: {0}")]
     ValidationFailed(String),
 }
 
-pub type SyncResult = Result<(), ActError>;
+// --- sync ---
+pub type SyncResult = Result<(), SyncError>;
 
-#[derive(Debug)]
-pub struct ReactError {
-    pub kind: ReactErrorKind,
+#[derive(Debug, Error)]
+#[error("{kind}")]
+pub struct SyncError {
+    pub kind: SyncErrorKind,
     pub recoverable: bool,
 }
 
-#[derive(Debug)]
-pub enum ReactErrorKind {
+#[derive(Debug, Error)]
+pub enum SyncErrorKind {
+    #[error("hardware fault: {0}")]
     HardwareFault(String),
-    ValidationFailed(BoundsError),
+    #[error(transparent)]
+    ValidationFailed(#[from] BoundsError),
+    #[error("subscription handle expired")]
     ExpiredHandle,
 }
 
-#[derive(Debug)]
+// --- validate ---
+#[derive(Debug, Error)]
 pub enum ValidateError {
-    OutOfBounds(BoundsError),
+    #[error(transparent)]
+    OutOfBounds(#[from] BoundsError),
+    #[error("{0}")]
     Custom(String),
 }
 
+// --- subscribe ---
 pub type SubscribeResult = Result<(), SubscribeError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SubscribeError {
+    #[error("subscription rejected")]
     Rejected,
+    #[error("unsupported machine")]
     UnsupportedMachine,
+    #[error("too many subscriptions")]
     TooManySubscriptions,
+    #[error("no such resource")]
     NoSuchResource,
+    #[error("invalid resource type")]
     InvalidResourceType,
 }
 
-#[derive(Debug)]
+// --- bounds ---
+#[derive(Debug, Error)]
 pub enum BoundsError {
-    I64(BoundsErrorAny<i64>),
-    F64(BoundsErrorAny<f64>),
+    #[error(transparent)]
+    I64(#[from] BoundsErrorAny<i64>),
+    #[error(transparent)]
+    F64(#[from] BoundsErrorAny<f64>),
 }
 
 #[derive(Debug)]
-pub struct BoundsErrorAny<T> {
+pub struct BoundsErrorAny<T: Debug> {
     pub resource_path: &'static str,
     pub received: T,
     pub min: Option<T>,
@@ -68,9 +91,9 @@ pub struct BoundsErrorAny<T> {
 
 impl<T> Display for BoundsErrorAny<T>
 where
-    T: Display + Copy,
+    T: Debug + Display + Copy,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (self.min, self.max) {
             (Some(min), Some(max)) => write!(
                 f,
@@ -97,14 +120,3 @@ where
 }
 
 impl<T> std::error::Error for BoundsErrorAny<T> where T: Display + Debug + Copy {}
-
-impl Display for BoundsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::I64(err) => Display::fmt(err, f),
-            Self::F64(err) => Display::fmt(err, f),
-        }
-    }
-}
-
-impl std::error::Error for BoundsError {}

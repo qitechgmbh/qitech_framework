@@ -66,13 +66,13 @@ pub(crate) struct Resources {
 }
 
 impl Resources {
-    pub fn clear_machine(&mut self, ident: MachineIdentificationUnique) {
-        self.config_properties.unregister_machine(ident);
-        self.state_properties.unregister_machine(ident);
-        self.measurements.unregister_machine(ident);
-        self.commands.unregister_machine(ident);
-        self.events.unregister_machine(ident);
-    }
+    // pub fn clear_machine(&mut self, ident: MachineIdentificationUnique) {
+    //     self.config_properties.unregister_machine(ident);
+    //     self.state_properties.unregister_machine(ident);
+    //     self.measurements.unregister_machine(ident);
+    //     self.commands.unregister_machine(ident);
+    //     self.events.unregister_machine(ident);
+    // }
 
     pub fn extract_report(&mut self, report: &mut MachinesReport) {
         self.config_properties.drain_journal(|entry| {

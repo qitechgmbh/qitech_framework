@@ -142,6 +142,14 @@ where
         })
     }
 
+    pub fn create_remote() {
+
+    }
+
+    pub fn sync_remotes() {
+        
+    }
+
     /// attempts to read data of an entry using a read handle
     pub fn read_value<T>(&self, handle: &PropertyReadHandle<K, T>) -> &T {
         let generation = &self.buf_generation[handle.index];

@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
 pub const MAGIC: u64 = 0x4855425F4C494E4B;
@@ -13,8 +14,8 @@ pub struct Hello {
 
 impl Hello {
     pub fn new() -> Self {
-        Self { 
-            magic: MAGIC, 
+        Self {
+            magic: MAGIC,
             protocol_version: PROTOCOL_VERSION,
         }
     }
@@ -33,19 +34,12 @@ pub enum HandshakeMessage {
     RegisterMachine(String),
 }
 
-
 #[derive(Error, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SendHelloError {
     #[error("data store disconnected")]
-    InvalidMagic {
-        expected: u64,
-        received: u64,
-    },
+    InvalidMagic { expected: u64, received: u64 },
     #[error("data store disconnected")]
-    ProtocolVersionMismatch {
-        expected: u64,
-        received: u64,
-    },
+    ProtocolVersionMismatch { expected: u64, received: u64 },
     #[error("data store disconnected")]
     ConnectionLost,
 }
@@ -53,10 +47,7 @@ pub enum SendHelloError {
 #[derive(Error, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyncRegistryError {
     #[error("data store disconnected")]
-    InvalidMagic {
-        expected: u64,
-        received: u64,
-    },
+    InvalidMagic { expected: u64, received: u64 },
     #[error("data store disconnected")]
     ConnectionLost,
 }

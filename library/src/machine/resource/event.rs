@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
@@ -40,6 +41,13 @@ impl<T: Serialize> Emitter<T> {
 pub struct Manager {
     registry: HashSet<Key<'static>>,
     journal: Journal<MachineEmittedEvent>,
+    remotes: HashMap<RemoteKey, >
+}
+
+#[derive(Hash)]
+struct Entry {
+    resource: &'static str,
+    provider: MachineIdentificationUnique,
 }
 
 impl Manager {

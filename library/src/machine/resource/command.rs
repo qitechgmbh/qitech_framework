@@ -3,7 +3,6 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt;
 use std::rc::Rc;
 use std::rc::Weak;
 
@@ -11,6 +10,7 @@ use chrono::Utc;
 use qitech_framework_common::MachineCommandCall;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationResult;
+use thiserror::Error;
 
 use crate::machine::Machine;
 use crate::machine::resource::Journal;
@@ -205,42 +205,25 @@ impl<M, A> Default for RegisterOptions<M, A> {
 }
 
 // --- errors ---
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ExecuteError {
+    #[error("unexpected machine type: expected `{expected}`, received `{received}`")]
     UnexpectedMachineType {
         expected: &'static str,
         received: &'static str,
     },
+
+    #[error("command is disabled")]
     Disabled,
+
+    #[error("command not found")]
     NotFound,
-    ParsingError(serde_json::Error),
+
+    #[error("failed to parse command arguments: {0}")]
+    ParsingError(#[from] serde_json::Error),
+
+    #[error("command execution failed: {0}")]
     ExecutionError(String),
-}
-
-impl fmt::Display for ExecuteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnexpectedMachineType { expected, received } => {
-                write!(
-                    f,
-                    "unexpected machine type: expected `{expected}`, received `{received}`"
-                )
-            }
-            Self::Disabled => write!(f, "command is disabled"),
-            Self::NotFound => write!(f, "command not found"),
-            Self::ParsingError(err) => write!(f, "failed to parse command arguments: {err}"),
-            Self::ExecutionError(msg) => write!(f, "command execution failed: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for ExecuteError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::ParsingError(err) => Some(err),
-            _ => None,
-        }
-    }
 }
 
 // --- testing ---
@@ -262,8 +245,6 @@ mod test {
             },
             serial: 0,
         };
-
-        let mut r = Manager::new();
 
         struct TestMachine;
 
@@ -295,6 +276,8 @@ mod test {
             c: bool,
             d: String,
         }
+
+        let mut r = Manager::new();
 
         // --- simple ---
         let mut handle = r.register(

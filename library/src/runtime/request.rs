@@ -24,9 +24,9 @@ impl<B: Bridge> Runtime<B> {
                     // TODO: submit error !
                     _ = utils::write_machine_device_info(
                         controller,
-                        machine_ident, 
-                        role, 
-                        subdevice_index
+                        machine_ident,
+                        role,
+                        subdevice_index,
                     );
                 }
 

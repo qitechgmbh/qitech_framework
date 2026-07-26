@@ -126,13 +126,17 @@ pub enum RuntimeInitEvent {
         error: String,
     },
     EtherCATDeviceInitializationCompleted {
-        devices: Vec<EtherCATDeviceMetadata>
+        devices: Vec<EtherCATDeviceMetadata>,
     },
 
     // --- machine ---
     BuildingMachines,
-    BuiltMachine { ident: MachineIdentificationUnique },
-    FailedToBuildMachine { ident: MachineIdentificationUnique },
+    BuiltMachine {
+        ident: MachineIdentificationUnique,
+    },
+    FailedToBuildMachine {
+        ident: MachineIdentificationUnique,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -165,7 +169,7 @@ pub enum RuntimeEventKind {
         error: String,
     },
     EtherCATDeviceInitializationCompleted {
-        devices: Vec<EtherCATDeviceMetadata>
+        devices: Vec<EtherCATDeviceMetadata>,
     },
 
     // --- modbus ---
@@ -233,7 +237,11 @@ impl TimingsReport {
     }
 
     fn duration_avg(&self) -> Duration {
-        if self.cycle_count == 0 { Duration::ZERO } else { self.duration_peak / self.cycle_count }
+        if self.cycle_count == 0 {
+            Duration::ZERO
+        } else {
+            self.duration_peak / self.cycle_count
+        }
     }
 
     /// Take the current stats and reset for the next export window.

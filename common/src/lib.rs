@@ -28,6 +28,7 @@ pub use machine::MachineStateMutation;
 pub use machine::MachinesReport;
 
 mod runtime;
+pub use runtime::EtherCATDeviceMetadata;
 pub use runtime::RuntimeEvent;
 pub use runtime::RuntimeInitEvent;
 pub use runtime::RuntimeReport;
@@ -36,7 +37,6 @@ pub use runtime::RuntimeRequest;
 pub use runtime::RuntimeRequestKind;
 pub use runtime::RuntimeState;
 pub use runtime::RuntimeStateMutation;
-pub use runtime::EtherCATDeviceMetadata;
 
 mod logs;
 pub use logs::LogLevel;
@@ -50,8 +50,8 @@ pub use types::ScalarValue;
 pub use types::ScalarValueKind;
 
 pub mod sync;
-pub use sync::Hello;
 pub use sync::HandshakeMessage;
+pub use sync::Hello;
 
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));

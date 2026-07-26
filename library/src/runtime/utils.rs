@@ -21,7 +21,7 @@ pub fn write_machine_device_info(
     controller: &EtherCATController,
     machine_ident: MachineIdentificationUnique,
     role: u16,
-    subdevice_index: usize
+    subdevice_index: usize,
 ) -> Result<(), String> {
     let mut idents = read_machine_device_info()?;
 
@@ -46,8 +46,11 @@ pub fn write_machine_device_info(
         });
     }
 
-    // legacy eeprom ? 
-    if let Err(e) = controller.channel.write_machine_device_info_eeprom(idents.clone()) {
+    // legacy eeprom ?
+    if let Err(e) = controller
+        .channel
+        .write_machine_device_info_eeprom(idents.clone())
+    {
         return Err(e.to_string());
     }
 
@@ -57,16 +60,16 @@ pub fn write_machine_device_info(
 pub fn read_machine_device_info() -> Result<Vec<MachineDeviceInfo>, &'static str> {
     let path = get_machine_device_info_path();
 
-    let exists = fs::exists(&path).map_err(|_| "failed to check if machine device info file exists")?;
+    let exists =
+        fs::exists(&path).map_err(|_| "failed to check if machine device info file exists")?;
     if !exists {
         return Ok(vec![]);
     }
 
-    let json = fs::read_to_string(&path)
-        .map_err(|_| "failed to read machine device info file")?;
+    let json = fs::read_to_string(&path).map_err(|_| "failed to read machine device info file")?;
 
-    let value = serde_json::to_value(&json)
-        .map_err(|_| "failed to parse machine device info as JSON")?;
+    let value =
+        serde_json::to_value(&json).map_err(|_| "failed to parse machine device info as JSON")?;
 
     let infos = value
         .as_array()

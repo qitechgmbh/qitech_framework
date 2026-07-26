@@ -22,5 +22,3 @@ pub struct ModbusRTUDeviceIdentified {
     pub device: Rc<RefCell<dyn ModbusDevice>>,
     pub path: String,
 }
-
-// need a way to map device to machine identifcation unique

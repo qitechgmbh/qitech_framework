@@ -3,16 +3,27 @@ use std::sync::Arc;
 use anyhow::bail;
 use arc_swap::ArcSwap;
 use bytes::Bytes;
-use futures::{SinkExt, StreamExt};
-use futures::stream::{SplitSink, SplitStream};
-use qitech_framework_common::{HandshakeMessage, Hello, MachineSchema, RuntimeReport, RuntimeRequest};
+use futures::SinkExt;
+use futures::StreamExt;
+use futures::stream::SplitSink;
+use futures::stream::SplitStream;
+use qitech_framework_common::HandshakeMessage;
+use qitech_framework_common::Hello;
+use qitech_framework_common::MachineSchema;
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeRequest;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::{broadcast, mpsc};
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use tokio::net::UnixListener;
+use tokio::net::UnixStream;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
+use tokio_util::codec::Framed;
+use tokio_util::codec::LengthDelimitedCodec;
 
-use crate::{Config, SchemaRegistry, SharedState};
+use crate::Config;
+use crate::SchemaRegistry;
+use crate::SharedState;
 use crate::ingest::IngestManager;
 use crate::migration;
 use crate::transaction::TransactionManager;
@@ -66,9 +77,7 @@ pub async fn run(listener: UnixListener, config: Config) -> anyhow::Result<()> {
         // --- connected to client ---
         let (tx, rx) = conn.split();
 
-        let join_res = tokio::join!(
-            run_request_dispatcher(&mut request_rx, tx)
-        );
+        let join_res = tokio::join!(run_request_dispatcher(&mut request_rx, tx));
     }
 }
 
@@ -84,7 +93,7 @@ async fn run_report_receiver(
 
 async fn run_request_sender(
     rx: &mut mpsc::Receiver<RuntimeRequest>,
-    mut tx: SplitSink<Framed<UnixStream, LengthDelimitedCodec>, Bytes>
+    mut tx: SplitSink<Framed<UnixStream, LengthDelimitedCodec>, Bytes>,
 ) {
     loop {
         let request = rx.recv().await.unwrap();
@@ -93,10 +102,7 @@ async fn run_request_sender(
     }
 }
 
-async fn init_runtime(
-    conn: &mut Framed<UnixStream, LengthDelimitedCodec>
-) -> anyhow::Result<()> {
-
+async fn init_runtime(conn: &mut Framed<UnixStream, LengthDelimitedCodec>) -> anyhow::Result<()> {
     // --- receive hello ---
     if Hello::new() != expect_next::<Hello>(conn).await? {
         todo!("Send Rejected");
@@ -113,7 +119,7 @@ async fn init_runtime(
         match expect_next::<HandshakeMessage>(conn).await? {
             HandshakeMessage::RegisterMachine(yaml_str) => {
                 let schema = MachineSchema::from_yaml_str(&yaml_str)?;
-                
+
                 if reg.insert(schema.identification, schema).is_some() {
                     bail!("Duplicate Schema");
                 }
@@ -123,7 +129,7 @@ async fn init_runtime(
                 break;
             }
 
-            _ => bail!("Unexpected Message")
+            _ => bail!("Unexpected Message"),
         }
     }
 

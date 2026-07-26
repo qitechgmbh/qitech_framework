@@ -100,20 +100,14 @@ impl fmt::Display for ResourceKind {
 }
 
 // --- journal ---
-const JOURNAL_CAPACITY: usize = 16384;
-
-pub type JournalBuffer<T> = heapless::Vec<T, JOURNAL_CAPACITY>;
-
 #[derive(Debug)]
 pub struct Journal<T> {
-    buffer: Rc<RefCell<JournalBuffer<T>>>,
+    buffer: Rc<RefCell<Vec<T>>>,
 }
 
 impl<T> Journal<T> {
     pub fn new() -> Self {
-        Self {
-            buffer: Default::default(),
-        }
+        Self { buffer: Default::default() }
     }
 
     fn new_handle(&self) -> JournalHandle<T> {
@@ -140,15 +134,11 @@ impl<T> Default for Journal<T> {
 
 #[derive(Debug)]
 pub struct JournalHandle<T> {
-    buffer: Rc<RefCell<JournalBuffer<T>>>,
+    buffer: Rc<RefCell<Vec<T>>>,
 }
 
 impl<T: Debug> JournalHandle<T> {
     fn append(&self, entry: T) {
-        assert!(
-            self.buffer.borrow_mut().push(entry).is_ok(),
-            "Runtime exceeded maximum journal entries ({}) in a report cycle",
-            JOURNAL_CAPACITY,
-        );
+        self.buffer.borrow_mut().push(entry)
     }
 }
