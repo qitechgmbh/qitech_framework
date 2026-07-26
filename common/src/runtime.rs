@@ -138,6 +138,7 @@ pub enum RuntimeEventKind {
     MachineConnected {
         ident: MachineIdentificationUnique,
     },
+
     MachineDisconnected {
         ident: MachineIdentificationUnique,
     },

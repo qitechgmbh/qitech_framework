@@ -16,12 +16,15 @@ use crate::runtime::Runtime;
 use crate::runtime::init::error::RuntimeInitializeError;
 use crate::runtime::init::error::RuntimeInitializeResult;
 use crate::runtime::types::BuildMachineFn;
+use crate::runtime::types::Config;
 
 mod error;
 mod ethercat;
 mod hub;
 
 pub struct RuntimeBuilder {
+    config: Config,
+
     machines: Vec<(&'static str, BuildMachineFn)>,
     ethercat_mode: EtherCATMode,
     modbus_rtu_mode: ModbusRtuMode,
@@ -33,11 +36,22 @@ pub struct RuntimeBuilder {
 impl RuntimeBuilder {
     pub(crate) fn new() -> Self {
         Self {
+            config: Default::default(),
             machines: Default::default(),
             ethercat_mode: EtherCATMode::Disabled,
             modbus_rtu_mode: ModbusRtuMode::Disabled,
             modbus_tcp_mode: ModbusTcpMode::Disabled,
         }
+    }
+
+    pub fn cycle_timeout(mut self, value: Duration) -> Self {
+        self.config.cycle_timeout = value;
+        self
+    }
+
+    pub fn export_interval(mut self, value: Duration) -> Self {
+        self.config.export_interval = value;
+        self
     }
 
     pub fn with_ethercat(mut self, config: EtherCATConfig) -> Self {
@@ -103,6 +117,7 @@ impl RuntimeBuilder {
 
         // --- create runtime ---
         let mut rt = Runtime {
+            config: self.config,
             machine_registry,
             hardware_registry,
             resources: Resources::default(),
@@ -136,8 +151,9 @@ pub enum EtherCATMode {
 }
 
 pub struct EtherCATConfig {
-    pub interface_discovery_retry_interval: Duration,
+    pub interface_scan_interval: Duration,
     pub master_config: Option<MasterConfiguration>,
+    pub stay_in_preop: bool,
 }
 
 pub enum ModbusRtuMode {

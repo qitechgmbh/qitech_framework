@@ -23,7 +23,7 @@ pub fn main() -> anyhow::Result<()> {
     interface::bring_up_all_ethernet();
 
     let rt = Runtime::new()
-        .with_ethercat(ecat_config())
+        .with_ethercat(ETHERCAT_CONFIG)
         .with_machine::<LaserV1>()
         // .with_machine::<WinderV1>()
         .build()?;
@@ -31,7 +31,7 @@ pub fn main() -> anyhow::Result<()> {
     rt.run().map_err(|_| anyhow!("idk"))
 }
 
-pub fn ecat_config() -> EtherCATConfig {
+const ETHERCAT_CONFIG: EtherCATConfig = {
     let target_cycle_time_us: u64 = 1000;
 
     let dc_config = DcConfiguration {
@@ -60,7 +60,8 @@ pub fn ecat_config() -> EtherCATConfig {
     };
 
     EtherCATConfig {
-        interface_discovery_retry_interval: Duration::from_secs(2),
+        interface_scan_interval: Duration::from_secs(2),
         master_config: Some(master_config),
+        stay_in_preop: false,
     }
-}
+};

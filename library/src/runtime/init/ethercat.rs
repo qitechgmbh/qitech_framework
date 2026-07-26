@@ -33,7 +33,7 @@ pub fn init(
     hardware_registry: &mut HardwareRegistry,
 ) -> RuntimeInitializeResult<(EtherCATController, Vec<EtherCATSubDevice>)> {
     println!("Discovering EtherCAT Interface...");
-    let interface = find_interface(config.interface_discovery_retry_interval);
+    let interface = find_interface(config.interface_scan_interval);
     println!("ok");
 
     println!("Intializing EtherCAT Controller with interface {interface}");

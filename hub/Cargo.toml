@@ -5,8 +5,7 @@ edition = "2024"
 
 [dependencies]
 # --- internal deps ---
-control_core = { path = "../control-core" }
-# control_hub_macros = { path = "../control-hub-macros" }
+qitech_framework_common = { path = "../common" }
 
 # --- workspace deps ---
 anyhow = { workspace = true }

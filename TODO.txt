@@ -10,3 +10,24 @@ subscription
 export 
 
 bridge
+
+
+
+
+
+The stale data problem:
+-----------------------
+
+--- cycle one ---
+<extruder> reads from <winder>
+<extruder> new state
+
+<winder> reads from <laser>
+<winder> new state
+
+-> extruder updated itself with stale data!
+
+
+Subscription:
+-------------
+Resource Manager tracks

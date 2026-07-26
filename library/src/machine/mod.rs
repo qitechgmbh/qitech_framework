@@ -4,7 +4,7 @@ pub use qitech_framework_common::MachineIdentificationUnique;
 
 pub mod error;
 use error::ActResult;
-use error::ReactResult;
+use error::SyncResult;
 use error::SubscribeError;
 use error::SubscribeResult;
 
@@ -13,7 +13,7 @@ pub use build::BuildContext;
 
 mod subscribe;
 use qitech_framework_common::MachinesReport;
-pub use subscribe::ReactContext;
+pub use subscribe::SyncContext;
 pub use subscribe::SubscribeContext;
 
 pub(crate) mod hardware;
@@ -27,18 +27,22 @@ use crate::machine::resource::MeasurementManager;
 use crate::machine::resource::StatePropertyManager;
 
 pub trait Machine: Any {
+    /// defines the update cycle of a machine
     fn act(&mut self) -> ActResult;
 
-    fn react(&mut self, ctx: &ReactContext) -> ReactResult {
+    /// allows a machine to sync remote resources (from subscriptions)
+    fn sync(&self, ctx: &SyncContext) -> SyncResult {
         _ = ctx;
         Ok(())
     }
 
+    /// called when the machine is offered a subscription to another machine
     fn subscribe(&mut self, ctx: &SubscribeContext) -> SubscribeResult {
         _ = ctx;
         Err(SubscribeError::Rejected)
     }
 
+    /// called when the machine is notified a subscription is canceled
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
         _ = ident
     }

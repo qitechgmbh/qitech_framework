@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::thread::sleep;
-use std::time::Duration;
 use std::time::Instant;
 
 use bitvec::order::Lsb0;
@@ -10,9 +9,12 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
 
 use crate::machine::BuildContext;
-use crate::machine::ReactContext;
+use crate::machine::Machine;
+use crate::machine::SyncContext;
 use crate::machine::Resources;
+use crate::machine::error::ActResult;
 use crate::runtime::init::RuntimeBuilder;
+use crate::runtime::types::Config;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
 
@@ -47,8 +49,9 @@ pub struct Runtime {
     // --- instances ---
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
-    
+
     // --- misc ---
+    config: Config,
     last_export_ts: Instant,
     subscriptions: HashMap<MachineIdentificationUnique, Vec<MachineIdentificationUnique>>,
 }
@@ -75,14 +78,30 @@ impl Runtime {
             self.run_machines();
             self.write_ecat_outputs();
 
-            if now.duration_since(self.last_export_ts) >= Duration::from_secs_f64(1.0 / 32.0) {
+            if now.duration_since(self.last_export_ts) >= self.config.export_interval {
                 self.export_report();
             }
 
-            sleep(Duration::from_micros(100));
+            sleep(self.config.cycle_timeout);
         }
     }
 
+    // --- hub management ---
+    fn export_report(&mut self) {
+        // --- collect data ---
+        self.report.timestamp = Utc::now();
+        self.resources.init_report(&mut self.report.machines);
+
+        // TODO: send to hub
+
+        // --- reset buffers ---
+        self.report.logs.clear();
+        self.report.responses.clear();
+        self.report.runtime.events.clear();
+        self.report.runtime.state_mutations.clear();
+    }
+
+    // --- machine managment ---
     fn build_machines(&mut self) {
         for (ident_unique, hardware) in &self.hardware_registry {
             let ident = ident_unique.identification;
@@ -92,11 +111,11 @@ impl Runtime {
                 // bail!("Failed to find registry entry for machine {{{ident}}}");
             };
 
-            let ethercat_interface = self.ecat_controller.as_ref().map(|v| v.channel.clone());
+            let ecat_interface = self.ecat_controller.as_ref().map(|v| v.channel.clone());
 
             let ctx = BuildContext::new(
                 *ident_unique,
-                ethercat_interface,
+                ecat_interface,
                 &mut self.resources,
                 hardware.clone(),
             );
@@ -116,60 +135,39 @@ impl Runtime {
     }
 
     fn run_machines(&mut self) {
-        // --- act pass ---
+        // let ctx = SyncContext::new(&self.resources);
+        // Self::run_machines_pass(&mut self.resources, &mut self.machines, |m| m.act());
+        // Self::run_machines_pass(&mut self.resources, &mut self.machines, |m| m.react(&ctx));
+    }
+
+    /* 
+    fn run_machines_pass(
+        resources: &mut Resources,
+        machines: &mut Vec<MachineInstance>,
+        mut step: impl FnMut(&mut dyn Machine) -> ActResult,
+    ) {
         let mut i = 0;
+        while i < machines.len() {
+            let (ident, machine) = &mut machines[i];
+            match step(machine.as_mut()) {
+                Ok(()) => i += 1,
+                Err(e) if e.recoverable => i += 1,
+                Err(_) => {
+                    // machine cannot recover from this error.
+                    // remove using swap and pop, meaning we don't increment. 
+                    machines.swap_remove(i);
 
-        while i < self.machines.len() {
-            let (_, machine) = &mut self.machines[i];
+                    // free up resources
+                    resources.clear_machine(*ident);
 
-            let remove = match machine.act() {
-                Ok(()) => false,
-                Err(e) => {
-                    if !e.recoverable {
-                        // TODO: handle/log error
-                        true
-                    } else {
-                        false
-                    }
+                    // TODO: handle/log error
                 }
-            };
-
-            if remove {
-                self.machines.swap_remove(i);
-                // do not increment i; the swapped element still needs processing
-            } else {
-                i += 1;
-            }
-        }
-
-        // --- react pass ---
-        let ctx = ReactContext::new(&self.resources);
-        let mut i = 0;
-
-        while i < self.machines.len() {
-            let (_, machine) = &mut self.machines[i];
-
-            let remove = match machine.react(&ctx) {
-                Ok(()) => false,
-                Err(e) => {
-                    if !e.recoverable {
-                        // TODO: handle/log error
-                        true
-                    } else {
-                        false
-                    }
-                }
-            };
-
-            if remove {
-                self.machines.swap_remove(i);
-                // do not increment i; the swapped element still needs processing
-            } else {
-                i += 1;
             }
         }
     }
+    */
 
+    // --- ethercat managment ---
     fn write_ecat_inputs(&mut self) {
         let Some(controller) = &mut self.ecat_controller else {
             return;
@@ -215,14 +213,5 @@ impl Runtime {
         }
 
         controller.app_handle.send_outputs();
-    }
-
-    fn export_report(&mut self) {
-        self.report.timestamp = Utc::now();
-        self.resources.init_report(&mut self.report.machines);
-
-        // TODO: send data to hub
-        self.report.logs.clear();
-        self.report.responses.clear();
     }
 }

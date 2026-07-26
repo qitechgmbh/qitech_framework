@@ -70,7 +70,7 @@ impl Runtime {
                 match machine.subscribe(&ctx) {
                     Ok(_) => {
                         // self.subscriptions.insert(provider, consumer);
-                    },
+                    }
                     Err(_) => todo!(),
                 }
             }
@@ -91,7 +91,7 @@ impl Runtime {
 
                     return;
                 };
-            },
+            }
         }
     }
 }

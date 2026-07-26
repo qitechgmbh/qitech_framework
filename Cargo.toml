@@ -1,10 +1,10 @@
 [workspace]
 members = [
     "common",
-    "macros",
-    "library",
-    # "hub",
-    "control",
+    # "macros",
+    # "library",
+    "hub",
+    # "control",
 ]
 resolver = "2"
 

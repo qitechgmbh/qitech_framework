@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 
 use qitech_framework_common::MachineIdentification;
 use qitech_framework_common::MachineIdentificationUnique;
@@ -23,3 +24,17 @@ pub type BuildMachineFn = fn(BuildContext<'_>) -> BuildResult<Box<dyn Machine>>;
 
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
+
+pub struct Config {
+    pub export_interval: Duration,
+    pub cycle_timeout: Duration,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            export_interval: Duration::from_secs_f64(1.0 / 30.0),
+            cycle_timeout: Duration::from_micros(100),
+        }
+    }
+}

@@ -47,7 +47,7 @@ impl MachineInterface for LaserV1 {
 }
 
 impl MachineBuild for LaserV1 {
-    fn build(mut ctx: BuildContext<'_>) -> Result<Self, BuildError> {
+    fn build(mut ctx: BuildContext) -> Result<Self, BuildError> {
         let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
 
         let diameter_target = ctx

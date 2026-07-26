@@ -20,7 +20,7 @@ pub enum ActErrorKind {
     ValidationFailed(String),
 }
 
-pub type ReactResult = Result<(), ActError>;
+pub type SyncResult = Result<(), ActError>;
 
 #[derive(Debug)]
 pub struct ReactError {
