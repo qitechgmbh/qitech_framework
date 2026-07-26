@@ -4,8 +4,14 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+use qitech_framework_common::DeviceHardwareIdentification;
+use qitech_framework_common::DeviceHardwareIdentificationEthercat;
+use qitech_framework_common::DeviceIdentification;
+use qitech_framework_common::DeviceMachineIdentification;
+use qitech_framework_common::EtherCATDeviceMetadata;
 use qitech_framework_common::MachineIdentification;
 use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_common::RuntimeInitEvent;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::EtherCATState;
@@ -17,7 +23,6 @@ use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
 use qitech_lib::ethercat_hal::interface_discovery::test_interface;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
-use super::EtherCATConfig;
 use super::error::EtherCATInitializeError;
 use super::error::EtherCATInitializeResult;
 use super::error::RuntimeInitializeError;
@@ -26,49 +31,58 @@ use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
+use crate::runtime::bridge::BridgeInitializer;
+use crate::runtime::init::types::EtherCATConfig;
 use crate::runtime::types::HardwareRegistry;
 
-pub fn init(
+#[tracing::instrument(skip_all)]
+pub fn init<B: BridgeInitializer>(
+    bridge: &mut B,
     config: EtherCATConfig,
     hardware_registry: &mut HardwareRegistry,
-) -> RuntimeInitializeResult<(EtherCATController, Vec<EtherCATSubDevice>)> {
-    println!("Discovering EtherCAT Interface...");
+) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
+    bridge.submit_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
+
     let interface = find_interface(config.interface_scan_interval);
-    println!("ok");
 
-    println!("Intializing EtherCAT Controller with interface {interface}");
+    bridge.submit_event(RuntimeInitEvent::EtherCATDiscoveryCompleted {
+        interface: interface.clone(),
+    })?;
+
     let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
-    println!("ok");
 
-    println!("Setting up EtherCAT Devices");
-    let sub_devices = setup(&controller, hardware_registry)?;
-    println!("ok");
+    bridge.submit_event(RuntimeInitEvent::EtherCATDeviceInitializationStarted)?;
+    let sub_devices = setup(&controller)?;
 
-    Ok((controller, sub_devices))
+    let devices = read_and_register_identifications(&controller, &sub_devices, hardware_registry);
+
+    bridge.submit_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
+        devices: build_ecat_metadata(&sub_devices, &devices),
+    })?;
+
+    Ok((Some(controller), sub_devices))
 }
 
-fn find_interface(retry_delay: Duration) -> String {
+#[tracing::instrument]
+pub fn find_interface(retry_delay: Duration) -> String {
     loop {
         let interfaces = match list_ethernet_interfaces() {
-            Ok(interfaces) => interfaces,
+            Ok(v) => v,
             Err(err) => {
-                println!(
-                    "Could not list ethernet interfaces ({err:?}), retrying in {retry_delay:?}..."
+                tracing::warn!(
+                    ?err,
+                    ?retry_delay,
+                    "could not list ethernet interfaces, retrying"
                 );
+
                 thread::sleep(retry_delay);
                 continue;
             }
         };
 
-        let names = interfaces
-            .iter()
-            .map(|interface| interface.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        println!("testing interfaces: [{}]", names);
-
         for interface in interfaces {
+            tracing::debug!(interface = %interface.name, "testing interface");
+
             if !matches!(interface.link_type, LinkType::Link) {
                 continue;
             }
@@ -78,15 +92,13 @@ fn find_interface(retry_delay: Duration) -> String {
             }
         }
 
-        println!("no interface found, retrying in {retry_delay:?}...");
+        tracing::warn!(?retry_delay, "no interface found, retrying");
         thread::sleep(retry_delay);
     }
 }
 
-fn setup(
-    controller: &EtherCATController,
-    hardware_registry: &mut HardwareRegistry,
-) -> RuntimeInitializeResult<Vec<EtherCATSubDevice>> {
+#[tracing::instrument(skip_all)]
+pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<EtherCATSubDevice>> {
     // switch into pre op mode
     controller
         .channel
@@ -116,11 +128,9 @@ fn setup(
         }
     }
 
-    let mut idents = vec![];
-
-    println!(
-        "Initialized {} subdevices",
-        controller.app_handle.get_subdevice_count()
+    tracing::info!(
+        count = controller.app_handle.get_subdevice_count(),
+        "initialized subdevices"
     );
 
     let meta_subdevices = controller
@@ -129,19 +139,15 @@ fn setup(
         .map_err(EtherCATInitializeError::FailedToGetSubDevices)?;
 
     let mut subdevices = Vec::new();
+
     for meta in meta_subdevices {
         let dev = match device_from_subdevice_identity_rc(&meta) {
             Ok(d) => d,
             Err(_) => {
-                println!(
-                    "No EtherCAT device implementation for {:?}",
-                    meta.get_name()
-                );
+                tracing::warn!(name = ?meta.get_name(), "no EtherCAT device implementation");
                 continue;
             }
         };
-
-        println!("pushing: {meta:?}");
 
         subdevices.push((meta, dev.clone()));
         if meta.vendor == BECKHOFF_VENDOR_ID {
@@ -152,22 +158,10 @@ fn setup(
         }
     }
 
-    match controller.channel.read_device_identifications() {
-        Ok(mut eeprom_idents) => {
-            append_ethercat(hardware_registry, &eeprom_idents, &subdevices);
-            idents.append(&mut eeprom_idents);
-        }
-        Err(e) => {
-            println!("Could not read device identifications from eeprom: {:?}", e);
-        }
-    };
-
-    // TODO: find way to emit this later
-    // let _res = state.fill_ethercat_metadata(eth_control, idents);
-
     Ok(subdevices)
 }
 
+#[tracing::instrument(skip_all)]
 pub fn finalize(
     controller: &EtherCATController,
     sub_devices: &mut Vec<EtherCATSubDevice>,
@@ -234,10 +228,71 @@ fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
     dest.end_rx = src.end_rx;
 }
 
+// --- deconstructing ---
+fn read_and_register_identifications(
+    controller: &EtherCATController,
+    subdevices: &[EtherCATSubDevice],
+    hardware_registry: &mut HardwareRegistry,
+) -> Vec<MachineDeviceInfo> {
+    let mut idents = Vec::new();
+
+    match controller.channel.read_device_identifications() {
+        Ok(mut eeprom_idents) => {
+            append_ethercat(hardware_registry, &eeprom_idents, subdevices);
+            idents.append(&mut eeprom_idents);
+        }
+        Err(err) => {
+            tracing::error!(?err, "could not read device identifications from eeprom");
+        }
+    }
+
+    idents
+}
+
+fn build_ecat_metadata(
+    subdevices: &[EtherCATSubDevice],
+    idents: &[MachineDeviceInfo],
+) -> Vec<EtherCATDeviceMetadata> {
+    subdevices
+        .iter()
+        .map(|(meta, _)| {
+            let device_machine_identification = idents
+                .iter()
+                .find(|info| info.device_address == meta.device_address)
+                .map(|info| DeviceMachineIdentification {
+                    machine_ident: MachineIdentificationUnique {
+                        identification: MachineIdentification {
+                            vendor_id: info.machine_vendor,
+                            machine_id: info.machine_id,
+                        },
+                        serial: info.machine_serial,
+                    },
+                    role: info.role,
+                });
+
+            EtherCATDeviceMetadata {
+                configured_address: meta.device_address,
+                name: meta.get_name().expect("please be a utf-8"),
+                vendor_id: meta.vendor,
+                product_id: meta.product_id,
+                revision: meta.revision,
+                device_identification: DeviceIdentification {
+                    device_machine_identification,
+                    device_hardware_identification: DeviceHardwareIdentification::Ethercat(
+                        DeviceHardwareIdentificationEthercat {
+                            subdevice_index: meta.device_address as usize,
+                        },
+                    ),
+                },
+            }
+        })
+        .collect()
+}
+
 fn append_ethercat(
     hardware_registry: &mut HardwareRegistry,
     device_infos: &[MachineDeviceInfo],
-    mapped_ecat_devices: &Vec<(MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>)>,
+    mapped_ecat_devices: &[EtherCATSubDevice],
 ) {
     let combined_list = create_mapped_ethercat_devices(device_infos, mapped_ecat_devices);
 
@@ -262,7 +317,7 @@ fn append_ethercat(
 
 fn create_mapped_ethercat_devices(
     device_infos: &[MachineDeviceInfo],
-    mapped_ecat_devices: &[(MetaSubdevice, Rc<RefCell<dyn EthercatDevice>>)],
+    mapped_ecat_devices: &[EtherCATSubDevice],
 ) -> Vec<(MachineDeviceInfo, Rc<RefCell<dyn EthercatDevice>>)> {
     let mut result = Vec::new();
 

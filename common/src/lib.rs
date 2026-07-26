@@ -29,12 +29,14 @@ pub use machine::MachinesReport;
 
 mod runtime;
 pub use runtime::RuntimeEvent;
-pub use runtime::RuntimeEventKind;
+pub use runtime::RuntimeInitEvent;
 pub use runtime::RuntimeReport;
 pub use runtime::RuntimeReportData;
 pub use runtime::RuntimeRequest;
 pub use runtime::RuntimeRequestKind;
 pub use runtime::RuntimeState;
+pub use runtime::RuntimeStateMutation;
+pub use runtime::EtherCATDeviceMetadata;
 
 mod logs;
 pub use logs::LogLevel;
@@ -47,7 +49,7 @@ pub use types::OperationResult;
 pub use types::ScalarValue;
 pub use types::ScalarValueKind;
 
-mod sync;
+pub mod sync;
 pub use sync::Hello;
 pub use sync::HandshakeMessage;
 

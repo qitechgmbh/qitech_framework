@@ -15,7 +15,7 @@ use qitech_framework_common::MachinesReport;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
 use qitech_framework_common::RuntimeEvent;
-use qitech_framework_common::RuntimeEventKind;
+use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeReportData;
 use qitech_framework_common::ScalarValue;
@@ -111,11 +111,11 @@ async fn my_test() -> anyhow::Result<()> {
             events: vec![
                 RuntimeEvent {
                     timestamp: now,
-                    kind: RuntimeEventKind::MachineConnected { ident: ident_m1 },
+                    kind: RuntimeInitEvent::MachineConnected { ident: ident_m1 },
                 },
                 RuntimeEvent {
                     timestamp: now,
-                    kind: RuntimeEventKind::MachineConnected { ident: ident_m1 },
+                    kind: RuntimeInitEvent::MachineConnected { ident: ident_m1 },
                 },
             ],
             ..Default::default()
@@ -130,7 +130,7 @@ async fn my_test() -> anyhow::Result<()> {
         runtime: RuntimeReportData {
             events: vec![RuntimeEvent {
                 timestamp: Utc::now(),
-                kind: RuntimeEventKind::MachineDisconnected { ident: ident_m0 },
+                kind: RuntimeInitEvent::MachineDisconnected { ident: ident_m0 },
             }],
             ..Default::default()
         },

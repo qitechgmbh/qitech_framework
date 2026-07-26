@@ -8,7 +8,6 @@ use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
 
-use crate::machine::BuildContext;
 use crate::machine::Resources;
 use crate::runtime::init::RuntimeBuilder;
 use crate::runtime::types::Config;
@@ -20,18 +19,13 @@ pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
 
-mod utils;
-
 mod init;
-pub use init::EtherCATConfig;
-
-mod bridge;
-pub use bridge::Bridge;
+mod utils;
 
 mod request;
 
-// mod utils;
-// use utils::build_machines;
+pub mod bridge;
+pub use bridge::Bridge;
 
 pub struct Runtime<B: Bridge> {
     // --- registries ---
@@ -72,15 +66,10 @@ impl<B: Bridge> Runtime<B> {
             }
 
             self.write_ecat_inputs();
-
             self.receive_instances();
-
             self.process_requests();
-
             self.run_machines();
-
             self.write_ecat_outputs();
-
             self.export_report_if_due(now);
 
             let elapsed = now.elapsed();
@@ -120,39 +109,6 @@ impl<B: Bridge> Runtime<B> {
 
         // --- reset timer ---
         self.last_export_ts = now;
-    }
-
-    // --- machine managment ---
-    fn build_machines(&mut self) {
-        for (ident_unique, hardware) in &self.hardware_registry {
-            let ident = ident_unique.identification;
-
-            let Some(build) = self.machine_registry.get(&ident) else {
-                todo!()
-                // bail!("Failed to find registry entry for machine {{{ident}}}");
-            };
-
-            let ecat_interface = self.ecat_controller.as_ref().map(|v| v.channel.clone());
-
-            let ctx = BuildContext::new(
-                *ident_unique,
-                ecat_interface,
-                &mut self.resources,
-                hardware.clone(),
-            );
-
-            println!("Building machine `{ident_unique}`");
-
-            let machine = match (build)(ctx) {
-                Ok(v) => v,
-                Err(e) => {
-                    println!("Failed to build machine: {e}");
-                    continue;
-                }
-            };
-
-            self.machines.push((*ident_unique, machine));
-        }
     }
 
     fn run_machines(&mut self) {

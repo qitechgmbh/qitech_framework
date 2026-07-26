@@ -1,0 +1,36 @@
+The stale data problem:
+-----------------------
+
+--- cycle one ---
+<extruder> reads from <winder>
+<extruder> new state
+
+<winder> reads from <laser>
+<winder> new state
+
+-> extruder updated itself with stale data and is off by one cycle
+   winder is however not. Since order is not guranteed this is UB in a sense
+
+Solution:
+---------
+Each Machine creates handles and inside sync() can refresh the values.
+Poor ergonomics.
+
+Instead define a subscription such that we can directly update those at the 
+end of a cycle.
+
+
+The Modbus problem:
+-------------------
+- Currently no way to distinguish modbus devices if they dont implement the protocol..
+- We want to offer hotplug, yet some machines (*cough* stahlwerk) used both 
+  xtrem + ethercat in the previous machine, how to resolve such problems in the future ?
+
+
+Code base loc:
+--------------
+common: 2435
+library: 3744
+hub: 2835
+control/machines: 1688
+total: 10702 LoC

@@ -5,6 +5,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::DeviceIdentification;
 use crate::LogRecord;
 use crate::MachineIdentificationUnique;
 use crate::MachinesReport;
@@ -102,10 +103,46 @@ pub struct RuntimeReportData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeEvent {
     /// event kind
-    pub kind: RuntimeEventKind,
+    pub kind: RuntimeInitEvent,
 
     /// event timestamp
     pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuntimeInitEvent {
+    EtherCATStateUpdate(EtherCATState),
+    EtherCATFinalizing,
+
+    // --- ether cat discovery ---
+    EtherCATDiscoveryStarted,
+    EtherCATDiscoveryCompleted {
+        interface: String,
+    },
+
+    // --- ether cat device ---
+    EtherCATDeviceInitializationStarted,
+    EtherCATDeviceInitializationFailed {
+        error: String,
+    },
+    EtherCATDeviceInitializationCompleted {
+        devices: Vec<EtherCATDeviceMetadata>
+    },
+
+    // --- machine ---
+    BuildingMachines,
+    BuiltMachine { ident: MachineIdentificationUnique },
+    FailedToBuildMachine { ident: MachineIdentificationUnique },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum EtherCATState {
+    NoInterface,
+    Boot,
+    Init,
+    PreOp,
+    PreopPdi,
+    Op,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,19 +156,16 @@ pub enum RuntimeEventKind {
     // --- ether cat discovery state ---
     EtherCATDiscoveryStarted,
     EtherCATDiscoveryCompleted {
-        interface_name: String,
+        interface: String,
     },
 
     // --- ether cat initialization ---
     EtherCATDeviceInitializationStarted,
-    EtherCATDeviceInitializationUpdate {
-        state: String,
-    },
     EtherCATDeviceInitializationFailed {
         error: String,
     },
     EtherCATDeviceInitializationCompleted {
-        // devices: Vec<EtherCatDeviceMetaData>
+        devices: Vec<EtherCATDeviceMetadata>
     },
 
     // --- modbus ---
@@ -161,12 +195,11 @@ pub struct RuntimeStateMutation {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeState {
-    Started,
-    Stopped,
     DiscoveringEtherCATInterface,
     InitializingEtherCAT,
-    ScanningSerialPorts,
     BuildingMachines,
+    FinalizingEtherCAT,
+    Initialized,
     Running { in_pre_op: bool },
 }
 
@@ -207,4 +240,15 @@ impl TimingsReport {
     fn take(&mut self) -> TimingsReport {
         std::mem::take(self)
     }
+}
+
+// --- misc ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EtherCATDeviceMetadata {
+    pub configured_address: u16,
+    pub name: String,
+    pub vendor_id: u32,
+    pub product_id: u32,
+    pub revision: u32,
+    pub device_identification: DeviceIdentification,
 }

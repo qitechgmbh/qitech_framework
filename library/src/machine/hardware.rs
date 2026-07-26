@@ -8,7 +8,7 @@ use qitech_lib::modbus::ModbusDevice;
 #[derive(Clone)]
 pub enum Hardware {
     Ethercat(EtherCATDeviceIdentified),
-    Modbus(ModbusDeviceIdentified),
+    ModbusRTU(ModbusRTUDeviceIdentified),
 }
 
 #[derive(Clone)]
@@ -18,6 +18,9 @@ pub struct EtherCATDeviceIdentified {
 }
 
 #[derive(Clone)]
-pub struct ModbusDeviceIdentified {
+pub struct ModbusRTUDeviceIdentified {
     pub device: Rc<RefCell<dyn ModbusDevice>>,
+    pub path: String,
 }
+
+// need a way to map device to machine identifcation unique

@@ -1,23 +1,28 @@
-use core::fmt;
-use std::error::Error;
-
 use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::schema::ParseError;
+use thiserror::Error;
+
+use crate::runtime::bridge::BridgeInitializeError;
 
 pub type RuntimeInitializeResult<T> = Result<T, RuntimeInitializeError>;
 pub type EtherCATInitializeResult<T> = Result<T, EtherCATInitializeError>;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum RuntimeInitializeError {
-    DuplicateMachine(MachineIdentification),
-    CannotReadSchema(yaml_serde::Error),
-    AssertionFailed(&'static str),
-    EtherCATError(EtherCATInitializeError),
-}
+    #[error("data store disconnected")]
+    BridgeInitialize(#[from] BridgeInitializeError),
 
-impl From<yaml_serde::Error> for RuntimeInitializeError {
-    fn from(err: yaml_serde::Error) -> Self {
-        RuntimeInitializeError::CannotReadSchema(err)
-    }
+    #[error("data store disconnected")]
+    DuplicateMachine(MachineIdentification),
+
+    #[error("data store disconnected")]
+    CannotReadSchema(#[from] ParseError),
+
+    #[error("data store disconnected")]
+    AssertionFailed(&'static str),
+
+    #[error("data store disconnected")]
+    EtherCATError(EtherCATInitializeError),
 }
 
 #[derive(Debug)]
@@ -35,6 +40,7 @@ impl From<EtherCATInitializeError> for RuntimeInitializeError {
     }
 }
 
+/*
 // --- impl ---
 impl fmt::Display for RuntimeInitializeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -98,3 +104,4 @@ impl Error for EtherCATInitializeError {
         }
     }
 }
+*/

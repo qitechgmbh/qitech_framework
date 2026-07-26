@@ -128,6 +128,21 @@ impl DeviceMachineIdentification {
     }
 }
 
+// impl From<MachineDeviceInfo> for DeviceMachineIdentification {
+//     fn from(value: MachineDeviceInfo) -> Self {
+//         DeviceMachineIdentification {
+//             machine_identification_unique: QiTechMachineIdentificationUnique {
+//                 machine_identification: MachineIdentification {
+//                     vendor: value.machine_vendor,
+//                     machine: value.machine_id,
+//                 },
+//                 serial: value.machine_serial,
+//             },
+//             role: value.role,
+//         }
+//     }
+// }
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DeviceHardwareIdentification {
     Ethercat(DeviceHardwareIdentificationEthercat),

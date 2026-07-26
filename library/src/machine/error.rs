@@ -52,15 +52,6 @@ pub enum SubscribeError {
     InvalidResourceType,
 }
 
-// impl From<ResolveError> for SubscribeError {
-//     fn from(value: ResolveError) -> Self {
-//         match value {
-//             ResolveError::NoSuchProperty => SubscribeError::NoSuchResource,
-//             ResolveError::InvalidType => SubscribeError::InvalidResourceType,
-//         }
-//     }
-// }
-
 #[derive(Debug)]
 pub enum BoundsError {
     I64(BoundsErrorAny<i64>),

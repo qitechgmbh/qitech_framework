@@ -13,7 +13,7 @@ use qitech_framework_common::MachineMeasurementVec;
 use qitech_framework_common::MachineStateMutation;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::RuntimeEvent;
-use qitech_framework_common::RuntimeEventKind;
+use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::ScalarValue;
 use qitech_framework_common::ScalarValueKind;
@@ -186,7 +186,7 @@ impl IngestManager {
 
     async fn process_runtime_events(&mut self, events: &Vec<RuntimeEvent>) -> anyhow::Result<()> {
         for event in events {
-            use RuntimeEventKind::*;
+            use RuntimeInitEvent::*;
             match &event.kind {
                 MachineConnected { ident } => {
                     let schemas = self.state.schemas.load();

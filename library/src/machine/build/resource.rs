@@ -56,7 +56,6 @@ where
         self
     }
 
-    // Option<millimeter> -> Some(1.75) -> Some(Length) ->
     pub fn minimum(mut self, value: T::Input) -> Self {
         self.options.min = T::convert_input(value).as_bound();
         self

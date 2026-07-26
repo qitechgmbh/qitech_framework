@@ -2,8 +2,9 @@ use std::time::Duration;
 use std::time::Instant;
 
 use qitech_framework_common::MachineSchema;
+use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
-use qitech_lib::ethercat_hal::MasterConfiguration;
+use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
@@ -13,24 +14,28 @@ use crate::machine::Resources;
 use crate::machine::error::BuildResult;
 use crate::runtime::MachineRegistry;
 use crate::runtime::Runtime;
+use crate::runtime::bridge::BridgeInitializer;
 use crate::runtime::init::error::RuntimeInitializeError;
 use crate::runtime::init::error::RuntimeInitializeResult;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
+use crate::runtime::types::HardwareRegistry;
+use crate::runtime::types::MachineInstance;
 
 mod error;
 mod ethercat;
-mod hub;
+
+mod types;
+use types::EtherCATConfig;
+use types::EtherCATMode;
+use types::ModbusMode;
 
 pub struct RuntimeBuilder {
     config: Config,
 
     machines: Vec<(&'static str, BuildMachineFn)>,
     ethercat_mode: EtherCATMode,
-    modbus_rtu_mode: ModbusRtuMode,
-
-    #[allow(unused)]
-    modbus_tcp_mode: ModbusTcpMode,
+    modbus_rtu_mode: ModbusMode,
 }
 
 impl RuntimeBuilder {
@@ -39,8 +44,7 @@ impl RuntimeBuilder {
             config: Default::default(),
             machines: Default::default(),
             ethercat_mode: EtherCATMode::Disabled,
-            modbus_rtu_mode: ModbusRtuMode::Disabled,
-            modbus_tcp_mode: ModbusTcpMode::Disabled,
+            modbus_rtu_mode: ModbusMode::Disabled,
         }
     }
 
@@ -65,7 +69,7 @@ impl RuntimeBuilder {
     // }
 
     pub fn with_modbus_rtu(mut self) -> Self {
-        self.modbus_rtu_mode = ModbusRtuMode::Enabled;
+        self.modbus_rtu_mode = ModbusMode::Enabled;
         self
     }
 
@@ -85,10 +89,14 @@ impl RuntimeBuilder {
     }
 
     /// attempts to create a new runtime with the provided configuration
-    pub fn build(self) -> RuntimeInitializeResult<Runtime> {
-        // --- connect to hub ---
+    pub fn init<B: BridgeInitializer>(
+        self,
+        mut bridge: B,
+    ) -> RuntimeInitializeResult<Runtime<B::Output>> {
+        // --- send hello ---
+        bridge.send_hello()?;
 
-        // --- crate machine registry ---
+        // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
 
         for (schema_str, build_fn) in self.machines {
@@ -102,74 +110,100 @@ impl RuntimeBuilder {
                     schema.identification,
                 ));
             }
+
+            bridge.sync_machine(schema_str)?;
         }
 
         // --- initialize hardware ---
         let mut hardware_registry = Default::default();
 
-        let (ecat_controller, sub_devices) =
+        let (ecat_controller, mut sub_devices) =
             if let EtherCATMode::Enabled(config) = self.ethercat_mode {
-                let (controller, sub_devices) = ethercat::init(config, &mut hardware_registry)?;
-                (Some(controller), sub_devices)
+                ethercat::init(&mut bridge, config, &mut hardware_registry)?
             } else {
                 (None, Default::default())
             };
 
+        // --- build machines ---
+        let mut resources = Resources::default();
+        let mut machines = Vec::new();
+
+        bridge.submit_event(RuntimeInitEvent::BuildingMachines)?;
+
+        build_machines(
+            &mut bridge,
+            &machine_registry,
+            &hardware_registry,
+            ecat_controller.as_ref().map(|c| c.channel.clone()),
+            &mut resources,
+            &mut machines,
+        )?;
+
+        bridge.submit_event(RuntimeInitEvent::EtherCATFinalizing)?;
+        if let Some(controller) = &ecat_controller {
+            ethercat::finalize(controller, &mut sub_devices)?;
+        }
+
         // --- create runtime ---
-        let mut rt = Runtime {
+        Ok(Runtime {
             config: self.config,
             machine_registry,
             hardware_registry,
-            resources: Resources::default(),
+            resources,
             report: RuntimeReport::default(),
             ecat_controller,
-            machines: Default::default(),
+            machines,
             sub_devices,
             subscriptions: Default::default(),
             last_export_ts: Instant::now(),
-        };
-
-        // --- build machines ---
-        rt.build_machines();
-
-        // --- finish ethercat setup ---
-        if let Some(controller) = &rt.ecat_controller {
-            ethercat::finalize(controller, &mut rt.sub_devices)?;
-        }
-
-        Ok(rt)
+            bridge: bridge.upgrade(),
+        })
     }
 }
 
-// --- types ---
-pub enum EtherCATMode {
-    Disabled,
-    Enabled(EtherCATConfig),
+// --- utils ---
+pub fn build_machines<B: BridgeInitializer>(
+    bride: &mut B,
+    machine_registry: &MachineRegistry,
+    hardware_registry: &HardwareRegistry,
+    ecat_interface: Option<EtherCATThreadChannel>,
+    resources: &mut Resources,
+    machines: &mut Vec<MachineInstance>,
+) -> RuntimeInitializeResult<()> {
+    for (ident_unique, hardware) in hardware_registry {
+        let ident = ident_unique.identification;
 
-    #[allow(unused)]
-    Mock,
-}
+        let Some(build) = machine_registry.get(&ident) else {
+            todo!()
+            // bail!("Failed to find registry entry for machine {{{ident}}}");
+        };
 
-pub struct EtherCATConfig {
-    pub interface_scan_interval: Duration,
-    pub master_config: Option<MasterConfiguration>,
-    pub stay_in_preop: bool,
-}
+        let ctx = BuildContext::new(
+            *ident_unique,
+            ecat_interface.clone(),
+            resources,
+            hardware.clone(),
+        );
 
-pub enum ModbusRtuMode {
-    Disabled,
-    Enabled,
+        println!("Building machine `{ident_unique}`");
 
-    #[allow(unused)]
-    Mock,
-}
+        let inner = match (build)(ctx) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Failed to build machine: {e}");
+                continue;
+            }
+        };
 
-pub enum ModbusTcpMode {
-    Disabled,
+        machines.push(MachineInstance {
+            ident: *ident_unique,
+            inner,
+        });
 
-    #[allow(unused)]
-    Enabled,
+        bride.submit_event(RuntimeInitEvent::BuiltMachine {
+            ident: *ident_unique,
+        })?;
+    }
 
-    #[allow(unused)]
-    Mock,
+    Ok(())
 }

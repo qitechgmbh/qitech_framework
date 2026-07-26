@@ -45,6 +45,8 @@ pub use event::EventFieldKind;
 
 mod raw;
 
+pub type ParseError = yaml_serde::Error;
+
 #[derive(Debug, Clone)]
 pub struct MachineSchema {
     // --- meta data ---
@@ -62,7 +64,7 @@ pub struct MachineSchema {
 }
 
 impl MachineSchema {
-    pub fn from_yaml_str(value: &str) -> yaml_serde::Result<Self> {
+    pub fn from_yaml_str(value: &str) -> Result<Self, ParseError> {
         yaml_serde::from_str(value)
     }
 }

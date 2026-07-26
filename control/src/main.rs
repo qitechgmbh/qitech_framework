@@ -26,7 +26,7 @@ pub fn main() -> anyhow::Result<()> {
         .with_ethercat(ETHERCAT_CONFIG)
         .with_machine::<LaserV1>()
         // .with_machine::<WinderV1>()
-        .build()?;
+        .run()?;
 
     rt.run().map_err(|_| anyhow!("idk"))
 }

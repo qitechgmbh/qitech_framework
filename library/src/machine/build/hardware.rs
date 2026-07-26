@@ -11,7 +11,7 @@ use crate::machine::build::BuildError;
 use crate::machine::build::BuildResult;
 use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::machine::hardware::Hardware;
-use crate::machine::hardware::ModbusDeviceIdentified;
+use crate::machine::hardware::ModbusRTUDeviceIdentified;
 
 // --- ethercat ---
 impl BuildContext<'_> {
@@ -73,7 +73,7 @@ impl BuildContext<'_> {
             return Err(BuildError::ExpectedHardwareAtIndex { index });
         };
 
-        let Hardware::Modbus(ModbusDeviceIdentified { device }) = hardware else {
+        let Hardware::ModbusRTU(ModbusRTUDeviceIdentified { device, .. }) = hardware else {
             return Err(BuildError::ExpectedSerialDeviceAtIndex { index });
         };
 

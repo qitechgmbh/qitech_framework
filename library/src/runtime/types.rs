@@ -19,7 +19,6 @@ use crate::machine::error::BuildResult;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
 pub type MachineRegistry = HashMap<MachineIdentification, BuildMachineFn>;
-pub type MachineInstance = (MachineIdentificationUnique, Box<dyn Machine>);
 pub type BuildMachineFn = fn(BuildContext<'_>) -> BuildResult<Box<dyn Machine>>;
 
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
@@ -39,4 +38,9 @@ impl Default for Config {
             cycle_timeout: Duration::from_micros(100),
         }
     }
+}
+
+pub struct MachineInstance {
+    pub ident: MachineIdentificationUnique,
+    pub inner: Box<dyn Machine>,
 }

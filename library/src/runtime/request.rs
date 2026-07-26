@@ -5,13 +5,30 @@ use crate::Runtime;
 use crate::machine::Machine;
 use crate::machine::SubscribeContext;
 use crate::runtime::Bridge;
+use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 
 impl<B: Bridge> Runtime<B> {
     pub fn process_requests(&mut self) {
         for req in self.bridge.get_requests(self.config.requests_per_cycle_max) {
             match req.kind {
-                RuntimeRequestKind::WriteMachineDeviceInfo { .. } => {}
+                RuntimeRequestKind::WriteMachineDeviceInfo {
+                    machine_ident,
+                    role,
+                    subdevice_index,
+                } => {
+                    let Some(controller) = &self.ecat_controller else {
+                        todo!("send error");
+                    };
+
+                    // TODO: submit error !
+                    _ = utils::write_machine_device_info(
+                        controller,
+                        machine_ident, 
+                        role, 
+                        subdevice_index
+                    );
+                }
 
                 RuntimeRequestKind::SetMachineConfiguration(..) => {
                     // self.resources.config_properties;
@@ -32,10 +49,12 @@ impl<B: Bridge> Runtime<B> {
 
                     let machine_ref: &mut dyn Machine = &mut *machine;
 
-                    let res =
-                        self.resources
-                            .commands
-                            .invoke(target, machine_ref, &resource_path, &arguments);
+                    let res = self.resources.commands.invoke(
+                        target,
+                        machine_ref,
+                        &resource_path,
+                        &arguments,
+                    );
 
                     // TODO: create logs with transaction id as tag
                     let response = match res {
@@ -43,9 +62,7 @@ impl<B: Bridge> Runtime<B> {
                         Err(_) => OperationResult::Failure,
                     };
 
-                    self.report
-                        .responses
-                        .push((req.transaction_id, response));
+                    self.report.responses.push((req.transaction_id, response));
                 }
 
                 RuntimeRequestKind::MachineSubscribe { provider, consumer } => {
