@@ -16,7 +16,7 @@ use super::error::RegisterErrorKind;
 use super::error::RegisterResult;
 
 pub struct Emitter<T: Serialize> {
-    source: MachineIdentificationUnique,
+    machine: MachineIdentificationUnique,
     path: &'static str,
     journal: JournalHandle<MachineEmittedEvent>,
     _marker: PhantomData<T>,
@@ -26,8 +26,8 @@ impl<T: Serialize> Emitter<T> {
     pub fn emit(&mut self, data: T) -> EventEmitResult {
         let event = MachineEmittedEvent {
             timestamp: Utc::now(),
-            source: self.source,
-            resource_path: Cow::Borrowed(self.path),
+            machine: self.machine,
+            path: Cow::Borrowed(self.path),
             data: serde_json::to_string(&data)?,
         };
 
@@ -73,7 +73,7 @@ impl Manager {
         }
 
         Ok(Emitter {
-            source: ident,
+            machine: ident,
             path,
             journal: self.journal.new_handle(),
             _marker: PhantomData,

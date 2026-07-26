@@ -1,5 +1,7 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::DateTime;
+use chrono::Utc;
+use serde::Deserialize;
+use serde::Serialize;
 
 type Timestamp = DateTime<Utc>;
 
@@ -87,8 +89,7 @@ pub mod machine_config_mutations {
     use super::*;
 
     pub const TABLE_NAME: &str = "machine_config_mutations";
-    pub const COLUMNS: &str =
-        "timestamp, identity, name, value_type, value_enum, 
+    pub const COLUMNS: &str = "timestamp, identity, name, value_type, value_enum, 
         value_string, value_int, value_float, value_bool, origin, result";
 
     pub const TIMESTAMP: &str = "timestamp";
@@ -120,8 +121,8 @@ pub mod machine_config_mutations {
         #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
         pub timestamp: Timestamp,
 
-        pub identity: Identity,
-        pub name: Name,
+        pub machine: Identity,
+        pub path: Name,
 
         pub value_type: ValueType,
         pub value_enum: ValueEnum,
@@ -140,8 +141,7 @@ pub mod machine_state_mutations {
     use super::*;
 
     pub const TABLE_NAME: &str = "machine_state_mutations";
-    pub const COLUMNS: &str =
-        "timestamp, identity, name, value_type, value_enum, value_string, 
+    pub const COLUMNS: &str = "timestamp, identity, name, value_type, value_enum, value_string, 
         value_int, value_float, value_bool";
 
     pub const TIMESTAMP: &str = "timestamp";
@@ -170,7 +170,7 @@ pub mod machine_state_mutations {
         pub timestamp: Timestamp,
 
         pub identity: Identity,
-        pub name: Name,
+        pub path: Name,
 
         pub value_type: ValueType,
         pub value_enum: ValueEnum,

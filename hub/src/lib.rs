@@ -1,15 +1,14 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use arc_swap::ArcSwap;
-use tokio::sync::{mpsc, broadcast};
-use clickhouse::Client;
 
-use control_core::{
-    schema::latest::MachineSchema,
-    RuntimeRequest,
-    MachineIdentification, 
-    RuntimeReport, 
-};
+use arc_swap::ArcSwap;
+use clickhouse::Client;
+use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::MachineSchema;
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeRequest;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 
 mod config;
 pub use config::Config;
@@ -35,6 +34,7 @@ mod embedded;
 pub use embedded::Embedded;
 pub use embedded::EmbeddedSession;
 
+mod connection;
 mod standalone;
 
 type Swappable<T> = Arc<ArcSwap<T>>;
@@ -58,7 +58,6 @@ struct SharedState {
 
     /// channel to start a transaction
     pub pending_tx: mpsc::Sender<PendingRuntimeRequest>,
-
     // TODO: implemen
     // pub runtime_state: RuntimeState
 }

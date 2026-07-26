@@ -1,10 +1,28 @@
-use std::{sync::Arc, time::{Duration, Instant}};
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
+
 use anyhow::bail;
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
+use chrono::Utc;
 use clickhouse::inserter::Inserter;
-use control_core::{LogRecord, MachineConfigMutation, MachineEvent, MachineMeasurementVec, MachineStateMutation, Origin, RuntimeEvent, RuntimeEventKind, RuntimeReport, ScalarValue, ScalarValueKind};
-use tokio::{sync::broadcast, time::timeout};
-use crate::{SharedState, machine_registry::MachineRegistry, tables};
+use qitech_framework_common::LogRecord;
+use qitech_framework_common::MachineConfigMutation;
+use qitech_framework_common::MachineEmittedEvent;
+use qitech_framework_common::MachineMeasurementVec;
+use qitech_framework_common::MachineStateMutation;
+use qitech_framework_common::OperationOrigin;
+use qitech_framework_common::RuntimeEvent;
+use qitech_framework_common::RuntimeEventKind;
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::ScalarValue;
+use qitech_framework_common::ScalarValueKind;
+use tokio::sync::broadcast;
+use tokio::time::timeout;
+
+use crate::SharedState;
+use crate::machine_registry::MachineRegistry;
+use crate::tables;
 
 const MAX_ROWS: u64 = 10_000;
 
@@ -27,7 +45,8 @@ impl IngestManager {
     pub fn init(state: &SharedState) -> Self {
         macro_rules! define_inserter {
             ($mod:tt) => {
-                state.client
+                state
+                    .client
                     .inserter::<tables::$mod::Row>(tables::$mod::TABLE_NAME)
                     .with_period(Some(state.config.commit_interval))
                     .with_max_rows(MAX_ROWS)
@@ -43,7 +62,7 @@ impl IngestManager {
         let machine_state_mutations = define_inserter!(machine_state_mutations);
         let machine_measurements = define_inserter!(machine_measurements);
 
-        Self { 
+        Self {
             state: state.clone(),
             machines,
             logs,
@@ -108,24 +127,33 @@ impl IngestManager {
             timed!("logs.commit", self.logs.commit()),
             timed!("events.commit", self.events.commit()),
             timed!("machine_activity.commit", self.machine_activity.commit()),
-            timed!("machine_config_mutations.commit", self.machine_config_mutations.commit()),
-            timed!("machine_state_mutations.commit", self.machine_state_mutations.commit()),
-            timed!("machine_measurements.commit", self.machine_measurements.commit()),
+            timed!(
+                "machine_config_mutations.commit",
+                self.machine_config_mutations.commit()
+            ),
+            timed!(
+                "machine_state_mutations.commit",
+                self.machine_state_mutations.commit()
+            ),
+            timed!(
+                "machine_measurements.commit",
+                self.machine_measurements.commit()
+            ),
         )?;
 
         Ok(())
     }
 
-    async fn process_report(
-        &mut self,
-        report: Arc<RuntimeReport>,
-    ) -> anyhow::Result<()> {
+    async fn process_report(&mut self, report: Arc<RuntimeReport>) -> anyhow::Result<()> {
         self.process_logs(&report.logs).await?;
         self.process_runtime_events(&report.runtime.events).await?;
         self.process_machine_events(&report.machines.events).await?;
-        self.process_machine_config_mutations(&report.machines.config_mutations).await?;
-        self.process_machine_state_mutations(&report.machines.state_mutations).await?;
-        self.process_machine_measurements(report.created_at, &report.machines.measurements).await?;
+        self.process_machine_config_mutations(&report.machines.config_mutations)
+            .await?;
+        self.process_machine_state_mutations(&report.machines.state_mutations)
+            .await?;
+        self.process_machine_measurements(report.timestamp, &report.machines.measurements)
+            .await?;
 
         // finally replace the outdated shared registry with the new one
         self.state.machines.swap(Arc::new(self.machines.clone()));
@@ -136,46 +164,48 @@ impl IngestManager {
         for record in records {
             let origin = record.origin.to_u64();
 
-            let attributes = record.attributes
+            let attributes = record
+                .attributes
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
 
-            self.logs.write(&tables::logs::Row {
-                timestamp: record.timestamp,
-                origin,
-                level: record.level as i8,
-                message: record.message.clone(),
-                attributes,
-            }).await?;
+            self.logs
+                .write(&tables::logs::Row {
+                    timestamp: record.timestamp,
+                    origin,
+                    level: record.level as i8,
+                    message: record.message.clone(),
+                    attributes,
+                })
+                .await?;
         }
 
         Ok(())
     }
 
-    async fn process_runtime_events(
-        &mut self,
-        events: &Vec<RuntimeEvent>,
-    ) -> anyhow::Result<()> {
+    async fn process_runtime_events(&mut self, events: &Vec<RuntimeEvent>) -> anyhow::Result<()> {
         for event in events {
             use RuntimeEventKind::*;
             match &event.kind {
                 MachineConnected { ident } => {
                     let schemas = self.state.schemas.load();
                     self.machines.mark_connected(&schemas, *ident)?;
-                },
+                }
                 MachineDisconnected { ident } => {
                     self.machines.mark_disconnected(*ident);
-                },
+                }
                 _ => {}
             }
 
-            self.events.write(&tables::events::Row {
-                timestamp: event.timestamp,
-                origin: 0,
-                name: "".into(), // TODO: USE KIND AS TAG
-                value: "".to_string(), // TODO: EXPORT
-            }).await?;
+            self.events
+                .write(&tables::events::Row {
+                    timestamp: event.timestamp,
+                    origin: 0,
+                    name: "".into(),       // TODO: USE KIND AS TAG
+                    value: "".to_string(), // TODO: EXPORT
+                })
+                .await?;
         }
 
         Ok(())
@@ -183,21 +213,23 @@ impl IngestManager {
 
     async fn process_machine_events(
         &mut self,
-        events: &Vec<MachineEvent>,
+        events: &Vec<MachineEmittedEvent>,
     ) -> anyhow::Result<()> {
-        for MachineEvent {
+        for MachineEmittedEvent {
             timestamp,
-            ident,
-            name,
+            machine: origin,
+            path,
             data,
         } in events
         {
-            self.events.write(&tables::events::Row {
-                timestamp: *timestamp,
-                origin: ident.to_u64(),
-                name: name.to_string(),
-                value: data.to_string(),
-            }).await?;
+            self.events
+                .write(&tables::events::Row {
+                    timestamp: *timestamp,
+                    origin: origin.to_u64(),
+                    name: path.to_string(),
+                    value: data.to_string(),
+                })
+                .await?;
         }
 
         Ok(())
@@ -208,18 +240,18 @@ impl IngestManager {
         mutations: &Vec<MachineConfigMutation>,
     ) -> anyhow::Result<()> {
         for mutation in mutations {
-            let Some(machine) = self.machines.get_mut(mutation.ident) else {
+            let Some(machine) = self.machines.get_mut(mutation.machine) else {
                 bail!(
                     "Exported config mutation for non existing machine {}",
-                    mutation.ident
+                    mutation.machine
                 );
             };
 
-            let Some(prop) = machine.properties.config.get_mut(mutation.name.as_ref()) else {
+            let Some(prop) = machine.properties.config.get_mut(mutation.path.as_ref()) else {
                 bail!(
                     "Exported config mutation for non existing property {} of machine {}",
-                    mutation.name.as_ref(),
-                    mutation.ident,
+                    mutation.path.as_ref(),
+                    mutation.machine,
                 );
             };
 
@@ -235,22 +267,24 @@ impl IngestManager {
                 value_bool,
             } = ScalarValueColumns::from(&mutation.value);
 
-            self.machine_config_mutations.write(&tables::machine_config_mutations::Row {
-                timestamp: mutation.timestamp,
-                identity: mutation.ident.to_u64(),
-                name: mutation.name.to_string(),
-                value_type: value_type as i8,
-                value_enum,
-                value_string,
-                value_int,
-                value_float,
-                value_bool,
-                origin: match mutation.origin {
-                    Origin::Request { request_id } => request_id,
-                    Origin::Machine => 0,
-                },
-                result: mutation.result as i8,
-            }).await?;
+            self.machine_config_mutations
+                .write(&tables::machine_config_mutations::Row {
+                    timestamp: mutation.timestamp,
+                    machine: mutation.machine.to_u64(),
+                    path: mutation.path.to_string(),
+                    value_type: value_type as i8,
+                    value_enum,
+                    value_string,
+                    value_int,
+                    value_float,
+                    value_bool,
+                    origin: match mutation.origin {
+                        OperationOrigin::Request { request_id } => request_id,
+                        OperationOrigin::Machine => 0,
+                    },
+                    result: mutation.result as i8,
+                })
+                .await?;
         }
 
         Ok(())
@@ -261,18 +295,18 @@ impl IngestManager {
         records: &Vec<MachineStateMutation>,
     ) -> anyhow::Result<()> {
         for record in records {
-            let Some(machine) = self.machines.get_mut(record.ident) else {
+            let Some(machine) = self.machines.get_mut(record.machine) else {
                 bail!(
                     "Exported state mutation for non existing machine {}",
-                    record.ident
+                    record.machine
                 );
             };
 
-            let Some(prop) = machine.properties.state.get_mut(record.name.as_ref()) else {
+            let Some(prop) = machine.properties.state.get_mut(record.path.as_ref()) else {
                 bail!(
                     "Exported state mutation for non existing property {} of machine {}",
-                    record.name.as_ref(),
-                    record.ident,
+                    record.path.as_ref(),
+                    record.machine,
                 );
             };
 
@@ -288,17 +322,19 @@ impl IngestManager {
                 value_bool,
             } = ScalarValueColumns::from(&record.value);
 
-            self.machine_state_mutations.write(&tables::machine_state_mutations::Row {
-                timestamp: record.timestamp,
-                identity: record.ident.to_u64(),
-                name: record.name.to_string(),
-                value_type: value_type as i8,
-                value_enum,
-                value_string,
-                value_int,
-                value_float,
-                value_bool,
-            }).await?;
+            self.machine_state_mutations
+                .write(&tables::machine_state_mutations::Row {
+                    timestamp: record.timestamp,
+                    identity: record.machine.to_u64(),
+                    path: record.path.to_string(),
+                    value_type: value_type as i8,
+                    value_enum,
+                    value_string,
+                    value_int,
+                    value_float,
+                    value_bool,
+                })
+                .await?;
         }
 
         Ok(())
@@ -310,34 +346,36 @@ impl IngestManager {
         measurements: &MachineMeasurementVec,
     ) -> anyhow::Result<()> {
         for snapshot in measurements {
-            let Some(machine) = self.machines.get_mut(*snapshot.ident) else {
+            let Some(machine) = self.machines.get_mut(*snapshot.machine) else {
                 bail!(
                     "Exported state mutation for non existing machine {}",
-                    snapshot.ident
+                    snapshot.machine
                 );
             };
 
-            let Some(prop) = machine.properties.measurements.get_mut(snapshot.name) else {
+            let Some(prop) = machine
+                .properties
+                .measurements
+                .get_mut(snapshot.path.as_ref())
+            else {
                 bail!(
                     "Exported state mutation for non existing property {} of machine {}",
-                    &snapshot.name,
-                    snapshot.ident,
+                    &snapshot.path,
+                    snapshot.machine,
                 );
             };
 
             // update cached value
-            *prop = if *snapshot.null {
-                None
-            } else {
-                Some(*snapshot.value)
-            };
+            *prop = *snapshot.value;
 
-            self.machine_measurements.write(&tables::machine_measurements::Row {
-                timestamp,
-                identity: snapshot.ident.to_u64(),
-                name: snapshot.name.to_string(),
-                value: *prop,
-            }).await?;
+            self.machine_measurements
+                .write(&tables::machine_measurements::Row {
+                    timestamp,
+                    identity: snapshot.machine.to_u64(),
+                    name: snapshot.path.to_string(),
+                    value: *prop,
+                })
+                .await?;
         }
 
         Ok(())
@@ -367,11 +405,13 @@ impl From<&ScalarValue> for ScalarValueColumns {
         };
 
         match value {
-            ScalarValue::Enum { value } => columns.value_enum = value.clone(),
-            ScalarValue::String { value } => columns.value_string = value.clone(),
-            ScalarValue::Boolean { value } => columns.value_bool = *value,
-            ScalarValue::Integer { value } => columns.value_int = *value,
-            ScalarValue::Float { value } => columns.value_float = *value,
+            ScalarValue::Enum(_) => columns.value_enum = "TODO: FIX".to_string(),
+            ScalarValue::String(value) => {
+                columns.value_string = value.as_ref().map(|cow| cow.clone().into_owned())
+            }
+            ScalarValue::Boolean(value) => columns.value_bool = *value,
+            ScalarValue::Integer(value) => columns.value_int = *value,
+            ScalarValue::Float(value) => columns.value_float = *value,
         };
 
         columns

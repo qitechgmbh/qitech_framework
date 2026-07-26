@@ -1,17 +1,23 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use control_core::{RuntimeReport, RuntimeRequest};
-use tokio::sync::{broadcast, mpsc};
-use tracing::{Instrument, info, info_span};
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeRequest;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
+use tracing::info;
 
-use crate::{
-    Config, IngestManager, MachineRegistry, RuntimeReportSender, 
-    RuntimeRequestReceiver, SharedState, TransactionManager,
-    migration,
-};
-
-use crate::utils::{init_client, init_schema_registry, import_schemas};
+use crate::Config;
+use crate::IngestManager;
+use crate::MachineRegistry;
+use crate::RuntimeReportSender;
+use crate::RuntimeRequestReceiver;
+use crate::SharedState;
+use crate::TransactionManager;
+use crate::migration;
+use crate::utils::import_schemas;
+use crate::utils::init_client;
+use crate::utils::init_schema_registry;
 
 pub struct Embedded {
     ingest_manager: IngestManager,
@@ -53,8 +59,7 @@ impl Embedded {
 
         tracing_subscriber::fmt()
             .with_env_filter(
-                EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new("info")),
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
             )
             .init();
 
@@ -66,17 +71,9 @@ impl Embedded {
         )?;
 
         if config.auto_migrate {
-            measured_operation!(
-                "Apply migrations",
-                migration::execute(&client)
-                    .await
-            )?;
+            measured_operation!("Apply migrations", migration::execute(&client).await)?;
         } else {
-            measured_operation!(
-                "Validate migrations",
-                migration::validate(&client)
-                    .await
-            )?;
+            measured_operation!("Validate migrations", migration::validate(&client).await)?;
         }
 
         let client = client.with_database(&config.db.name);
@@ -114,7 +111,6 @@ impl Embedded {
         };
 
         // --- init managers ---
-
         let ingest_manager = measured_operation!(
             "Initialize ingest manager",
             Ok::<_, anyhow::Error>(IngestManager::init(&state))
@@ -143,10 +139,7 @@ impl Embedded {
     pub async fn run(self) -> anyhow::Result<()> {
         info!("Starting Embedded Hub");
 
-        let result = tokio::join!(
-            self.ingest_manager.run(),
-            self.transaction_manager.run(),
-        );
+        let result = tokio::join!(self.ingest_manager.run(), self.transaction_manager.run(),);
 
         // TODO: use this maybe?
         _ = result;
@@ -170,5 +163,5 @@ impl EmbeddedSession {
     pub fn export(&mut self, data: RuntimeReport) {
         // ignore errors since a new listener might be addes/re-added
         _ = self.tx.send(Arc::new(data));
-    } 
+    }
 }

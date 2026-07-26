@@ -102,8 +102,8 @@ impl Manager {
         let journal = self.journal.new_handle();
         let record = Box::new(move |value: &T::Type| {
             let entry = MachineStateMutation {
-                source: ident,
-                resource_path: Cow::Borrowed(path),
+                machine: ident,
+                path: Cow::Borrowed(path),
                 value: T::into_scalar(value),
                 timestamp: Utc::now(),
             };

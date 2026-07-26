@@ -34,10 +34,10 @@ pub struct MachinesReport {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MachineConfigMutation {
     /// target machine
-    pub target: MachineIdentificationUnique,
+    pub machine: MachineIdentificationUnique,
 
     /// configuration resource path (e.g. "laser.power")
-    pub resource_path: Cow<'static, str>,
+    pub path: Cow<'static, str>,
 
     /// assigned value
     pub value: ScalarValue,
@@ -56,10 +56,10 @@ pub struct MachineConfigMutation {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MachineStateMutation {
     /// source machine
-    pub source: MachineIdentificationUnique,
+    pub machine: MachineIdentificationUnique,
 
     /// state resource path (e.g. "laser.diameter")
-    pub resource_path: Cow<'static, str>,
+    pub path: Cow<'static, str>,
 
     /// updated value
     pub value: ScalarValue,
@@ -73,10 +73,10 @@ pub struct MachineStateMutation {
 #[soa_derive(Debug, Serialize, Deserialize)]
 pub struct MachineMeasurement {
     /// source machine
-    pub source: MachineIdentificationUnique,
+    pub machine: MachineIdentificationUnique,
 
     /// measurement resource path
-    pub resource_path: Cow<'static, str>,
+    pub path: Cow<'static, str>,
 
     /// measured value
     pub value: Option<f64>,
@@ -105,10 +105,10 @@ pub struct MachineCommandCall {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MachineEmittedEvent {
     /// source machine
-    pub source: MachineIdentificationUnique,
+    pub machine: MachineIdentificationUnique,
 
     /// event resource path
-    pub resource_path: Cow<'static, str>,
+    pub path: Cow<'static, str>,
 
     /// event payload
     pub data: String,

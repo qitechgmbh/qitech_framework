@@ -1,22 +1,29 @@
-use std::{collections::{BTreeMap, HashMap}, sync::Arc};
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use anyhow::bail;
-use chrono::{DateTime, Utc};
-use clickhouse::{Client, Row};
-use control_core::{MachineIdentification, MachineIdentificationUnique, ScalarValue, schema::{self, v1_0::{MachineSchema, Property, PropertyKind}}};
+use chrono::DateTime;
+use chrono::Utc;
+use clickhouse::Client;
+use clickhouse::Row;
 use indexmap::IndexMap;
+use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_common::MachineSchema;
+use qitech_framework_common::ScalarValue;
+use qitech_framework_common::schema::Node;
 use serde::Deserialize;
+
 use crate::SchemaRegistry;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MachineRegistry {
     inner: BTreeMap<MachineIdentificationUnique, MachineRegistryEntry>,
 }
 
 impl MachineRegistry {
-    pub async fn init(
-        client: &Client,
-        schemas: &SchemaRegistry,
-    ) -> anyhow::Result<Self> {
+    pub async fn init(client: &Client, schemas: &SchemaRegistry) -> anyhow::Result<Self> {
         #[derive(Debug, Row, Deserialize)]
         struct IdentRow {
             identity: u64,
@@ -24,21 +31,26 @@ impl MachineRegistry {
         }
 
         let rows = client
-            .query("SELECT
+            .query(
+                "SELECT
         identity,
         max(updated_at) AS updated_at
     FROM machine_activity
-    GROUP BY identity"
+    GROUP BY identity",
             )
             .fetch_all::<IdentRow>()
             .await?;
 
         let mut inner = BTreeMap::new();
-        for IdentRow { identity, updated_at } in rows {
-            let ident = MachineIdentificationUnique::from_u64(identity);
+        for IdentRow {
+            identity,
+            updated_at,
+        } in rows
+        {
+            let ident_unique = MachineIdentificationUnique::from_u64(identity);
 
-            if !schemas.contains_key(&MachineIdentification::from(ident)) {
-                bail!("Could not find schema for registered machine {ident}");
+            if !schemas.contains_key(&ident_unique.identification) {
+                bail!("Could not find schema for registered machine {ident_unique}");
             }
 
             let entry = MachineRegistryEntry {
@@ -47,15 +59,15 @@ impl MachineRegistry {
                 properties: Default::default(),
             };
 
-            inner.insert(ident, entry);
+            inner.insert(ident_unique, entry);
         }
 
         Ok(Self { inner })
     }
 
     pub fn get_mut(
-        &mut self, 
-        ident: MachineIdentificationUnique
+        &mut self,
+        ident: MachineIdentificationUnique,
     ) -> Option<&mut MachineRegistryEntry> {
         self.inner.get_mut(&ident)
     }
@@ -63,11 +75,11 @@ impl MachineRegistry {
     pub fn insert(
         &mut self,
         schemas: &Arc<BTreeMap<MachineIdentification, MachineSchema>>,
-        ident: MachineIdentificationUnique
+        ident_unique: MachineIdentificationUnique,
     ) -> anyhow::Result<()> {
-        let Some(schema) = schemas.get(&MachineIdentification::from(ident)) else {
+        let Some(schema) = schemas.get(&ident_unique.identification) else {
             // TODO: think about how to handle this error. Maybe disconnect from runtime ?
-            bail!("Could not find schema for registered machine {ident}");
+            bail!("Could not find schema for registered machine {ident_unique}");
         };
 
         let entry = MachineRegistryEntry {
@@ -76,11 +88,11 @@ impl MachineRegistry {
             properties: Self::init_properties(schema),
         };
 
-        self.inner.insert(ident, entry);
+        self.inner.insert(ident_unique, entry);
         Ok(())
     }
 
-    /// Marks the machine as disconnected, no-op if 
+    /// Marks the machine as disconnected, no-op if
     /// no such machine is present in the registry
     pub fn mark_connected(
         &mut self,
@@ -95,12 +107,9 @@ impl MachineRegistry {
         Ok(())
     }
 
-    /// Marks the machine as disconnected, no-op if 
+    /// Marks the machine as disconnected, no-op if
     /// no such machine is present in the registry
-    pub fn mark_disconnected(
-        &mut self,
-        ident: MachineIdentificationUnique
-    ) {
+    pub fn mark_disconnected(&mut self, ident: MachineIdentificationUnique) {
         if let Some(entry) = self.inner.get_mut(&ident) {
             entry.connected = false;
             entry.properties.config.clear();
@@ -110,39 +119,35 @@ impl MachineRegistry {
     }
 
     // walks the schema the initialize the values with empty ones
-    fn init_properties(
-        schema: &MachineSchema,
-    ) -> MachinePropertyCache {
+    fn init_properties(schema: &MachineSchema) -> MachinePropertyCache {
         let mut properties = MachinePropertyCache::default();
 
-        Self::walk(&schema.config, |path, v| {
-            use schema::latest::config::Value::*;
-
-            let value = match v {
-                Enum(_) | String(_) => ScalarValue::String { value: None },
-                Boolean(_) => ScalarValue::Boolean { value: None },
-                Integer(_) => ScalarValue::Integer { value: None },
-                Float(_) | Fraction(_) | Percentage(_) | Quantity { .. } => {
-                    ScalarValue::Float { value: None }
-                }
-            };
-
-            properties.config.insert(path, value);
+        Self::walk(&schema.config_properties, |path, v| {
+            // let value = match v {
+            //     Enum(_) | String(_) => ScalarValue::String { value: None },
+            //     Boolean(_) => ScalarValue::Boolean { value: None },
+            //     Integer(_) => ScalarValue::Integer { value: None },
+            //     Float(_) | Fraction(_) | Percentage(_) | Quantity { .. } => {
+            //         ScalarValue::Float { value: None }
+            //     }
+            // };
+            //
+            // properties.config.insert(path, value);
         });
 
-        Self::walk(&schema.state, |path, v| {
-            use schema::latest::state::Value::*;
+        Self::walk(&schema.state_properties, |path, v| {
+            // use schema::latest::state::Value::*;
+            //
+            // let value = match v {
+            //     Enum(_) | String(_) => ScalarValue::String { value: None },
+            //     Boolean(_) => ScalarValue::Boolean { value: None },
+            //     Integer(_) => ScalarValue::Integer { value: None },
+            //     Float(_) | Fraction(_) | Percentage(_) | Quantity { .. } => {
+            //         ScalarValue::Float { value: None }
+            //     }
+            // };
 
-            let value = match v {
-                Enum(_) | String(_) => ScalarValue::String { value: None },
-                Boolean(_) => ScalarValue::Boolean { value: None },
-                Integer(_) => ScalarValue::Integer { value: None },
-                Float(_) | Fraction(_) | Percentage(_) | Quantity { .. } => {
-                    ScalarValue::Float { value: None }
-                }
-            };
-
-            properties.state.insert(path, value);
+            // properties.state.insert(path, value);
         });
 
         Self::walk(&schema.measurements, |path, _| {
@@ -152,26 +157,23 @@ impl MachineRegistry {
         properties
     }
 
-    fn walk<T>(
-        root: &IndexMap<String, Property<T>>,
-        mut visit: impl FnMut(String, &T),
-    ) {
-        let mut stack = vec![(String::new(), root)];
-
-        while let Some((prefix, items)) = stack.pop() {
-            for (name, prop) in items {
-                let path = if prefix.is_empty() {
-                    name.clone()
-                } else {
-                    format!("{prefix}.{name}")
-                };
-
-                match &prop.kind {
-                    PropertyKind::Group(children) => stack.push((path, children)),
-                    PropertyKind::Value(value) => visit(path, value),
-                }
-            }
-        }
+    fn walk<T>(root: &IndexMap<String, Node<T>>, mut visit: impl FnMut(String, &T)) {
+        // let mut stack = vec![(String::new(), root)];
+        //
+        // while let Some((prefix, items)) = stack.pop() {
+        //     for (name, prop) in items {
+        //         let path = if prefix.is_empty() {
+        //             name.clone()
+        //         } else {
+        //             format!("{prefix}.{name}")
+        //         };
+        //
+        //         match &prop.kind {
+        //             PropertyKind::Group(children) => stack.push((path, children)),
+        //             PropertyKind::Value(value) => visit(path, value),
+        //         }
+        //     }
+        // }
     }
 }
 

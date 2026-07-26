@@ -1,5 +1,5 @@
 [package]
-name = "control_hub"
+name = "qitech_framework_hub"
 version = "0.1.0"
 edition = "2024"
 

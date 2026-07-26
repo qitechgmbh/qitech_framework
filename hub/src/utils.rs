@@ -1,8 +1,12 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
 use anyhow::anyhow;
+use clickhouse::Client;
+use clickhouse::Row;
+use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::MachineSchema;
 use serde::Deserialize;
-use clickhouse::{Client, Row};
-use control_core::{MachineIdentification, schema::{self, latest::MachineSchema}};
 
 use crate::DatabaseConfig;
 
@@ -41,7 +45,7 @@ pub async fn init_schema_registry(
     let mut registry = BTreeMap::new();
 
     for SchemaRow { content, .. } in fetched_schemas {
-        let schema = schema::parse_latest(&content)?;
+        let schema = MachineSchema::from_yaml_str(&content)?;
 
         if let Some(s) = registry.insert(schema.identification, schema) {
             return Err(anyhow!("Duplicate schema {}", s.identification));
@@ -59,14 +63,14 @@ pub fn import_schemas(
     let mut new_schemas = (*registry).clone();
 
     for schema_data in incoming {
-        let schema = schema::parse_latest(&schema_data)?;
+        let schema = MachineSchema::from_yaml_str(&schema_data)?;
 
         if let Some(s) = registry.get(&schema.identification) {
-            if schema.schema_revision != s.schema_revision {
+            if schema.revision != s.revision {
                 return Err(anyhow!(
                     "schema revision mismatch for {}: expected {}",
                     schema.identification,
-                    s.schema_revision,
+                    s.revision,
                 ));
             }
 

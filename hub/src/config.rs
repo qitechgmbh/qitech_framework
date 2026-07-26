@@ -12,7 +12,7 @@ pub struct Config {
     /// database configuration
     pub db: DatabaseConfig,
 
-    /// Should the hub attempt to migrate the database 
+    /// Should the hub attempt to migrate the database
     /// if it is outdated automatically
     pub auto_migrate: bool,
 
@@ -27,10 +27,10 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { 
+        Self {
             db: Default::default(),
             auto_migrate: defaults::AUTO_MIGRATE,
-            api_port: defaults::API_PORT, 
+            api_port: defaults::API_PORT,
             commit_interval: defaults::COMMIT_INTERVAL,
         }
     }

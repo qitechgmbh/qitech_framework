@@ -1,8 +1,11 @@
 use anyhow::bail;
-use chrono::{DateTime, Utc};
-use clickhouse::{Client, Row};
+use chrono::DateTime;
+use chrono::Utc;
+use clickhouse::Client;
+use clickhouse::Row;
 use serde::Deserialize;
-use tracing::{info, warn};
+use tracing::info;
+use tracing::warn;
 
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/001_init_schema_migrations.sql"),
@@ -18,8 +21,8 @@ const MIGRATIONS: &[&str] = &[
 ];
 
 #[derive(Deserialize, Row)]
-pub struct MigrationEntry { 
-    version: u64, 
+pub struct MigrationEntry {
+    version: u64,
 
     #[serde(with = "clickhouse::serde::chrono::datetime64::millis")]
     applied_at: DateTime<Utc>,
@@ -54,9 +57,7 @@ pub async fn validate(client: &Client) -> anyhow::Result<()> {
     }
 
     let last_version = client
-        .query(
-            "SELECT * FROM control_hub.schema_migrations ORDER BY version DESC LIMIT 1",
-        )
+        .query("SELECT * FROM control_hub.schema_migrations ORDER BY version DESC LIMIT 1")
         .fetch_one::<MigrationEntry>()
         .await?;
 
@@ -84,7 +85,11 @@ pub async fn validate(client: &Client) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tracing::instrument(name = "migration::execute", skip(client), fields(database = "control_hub"))]
+#[tracing::instrument(
+    name = "migration::execute",
+    skip(client),
+    fields(database = "control_hub")
+)]
 pub async fn execute(client: &Client) -> anyhow::Result<()> {
     info!("Checking database migrations");
 

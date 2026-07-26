@@ -1,14 +1,25 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::sync::Arc;
+
 use anyhow::bail;
-use tokio::{select, sync::{broadcast, mpsc, oneshot}};
-use control_core::{OperationResult, RuntimeReport, RuntimeRequest, RuntimeRequestKind};
-use crate::{RuntimeReportReceiver, SharedState};
+use qitech_framework_common::OperationResult;
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeRequest;
+use qitech_framework_common::RuntimeRequestKind;
+use tokio::select;
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+
+use crate::RuntimeReportReceiver;
+use crate::SharedState;
 
 pub type TransactionId = u64;
 
 pub struct PendingRuntimeRequest {
     address: SocketAddr,
-    request: RuntimeRequestKind, 
+    request: RuntimeRequestKind,
     response_tx: oneshot::Sender<OperationResult>,
 }
 
@@ -39,12 +50,12 @@ impl TransactionManager {
         let sql = "SELECT max(transaction_id) FROM runtime_transactions";
         let id_counter = state.client.query(sql).fetch_one::<u64>().await?;
 
-        Ok(Self { 
-            id_counter, 
-            report_rx: state.report_tx.subscribe(), 
-            pending_rx, 
-            request_tx, 
-            transactions: HashMap::new(), 
+        Ok(Self {
+            id_counter,
+            report_rx: state.report_tx.subscribe(),
+            pending_rx,
+            request_tx,
+            transactions: HashMap::new(),
         })
     }
 
@@ -82,9 +93,9 @@ impl TransactionManager {
                     // put into registry
                     self.transactions.insert(transaction_id, transaction.response_tx);
 
-                    let request = RuntimeRequest { 
-                        transaction_id, 
-                        kind: transaction.request 
+                    let request = RuntimeRequest {
+                        transaction_id,
+                        kind: transaction.request
                     };
 
                     use mpsc::error::TrySendError;

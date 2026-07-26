@@ -4,17 +4,17 @@ pub use qitech_framework_common::MachineIdentificationUnique;
 
 pub mod error;
 use error::ActResult;
-use error::SyncResult;
 use error::SubscribeError;
 use error::SubscribeResult;
+use error::SyncResult;
 
 mod build;
 pub use build::BuildContext;
 
 mod subscribe;
 use qitech_framework_common::MachinesReport;
-pub use subscribe::SyncContext;
 pub use subscribe::SubscribeContext;
+pub use subscribe::SyncContext;
 
 pub(crate) mod hardware;
 pub use hardware::Hardware;

@@ -1,18 +1,39 @@
+use std::borrow::Cow;
+use std::path::PathBuf;
+use std::time::Duration;
+
 use anyhow::bail;
 use chrono::Utc;
-use control_core::{
-    LogLevel, LogOrigin, LogRecord, MachineConfigMutation, 
-    MachineIdentificationUnique, MachineMeasurement, MachineStateMutation, 
-    MachinesReport, OperationResult, Origin, RuntimeEvent, RuntimeEventKind, 
-    RuntimeReport, RuntimeReportData, ScalarValue, vendors, MachineMeasurementVec,
-};
-use control_hub::{Config, Embedded, DatabaseConfig};
-use std::{borrow::Cow, path::PathBuf, time::Duration};
-use tokio::{process::Command, time::sleep};
-
-use testcontainers::{
-    GenericImage, ImageExt, core::{ContainerPort, Mount, WaitFor, wait::HttpWaitStrategy}, runners::AsyncRunner,
-};
+use qitech_framework_common::LogLevel;
+use qitech_framework_common::LogOrigin;
+use qitech_framework_common::LogRecord;
+use qitech_framework_common::MachineConfigMutation;
+use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_common::MachineMeasurement;
+use qitech_framework_common::MachineMeasurementVec;
+use qitech_framework_common::MachineStateMutation;
+use qitech_framework_common::MachinesReport;
+use qitech_framework_common::OperationOrigin;
+use qitech_framework_common::OperationResult;
+use qitech_framework_common::RuntimeEvent;
+use qitech_framework_common::RuntimeEventKind;
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeReportData;
+use qitech_framework_common::ScalarValue;
+use qitech_framework_common::vendors;
+use qitech_framework_hub::Config;
+use qitech_framework_hub::DatabaseConfig;
+use qitech_framework_hub::Embedded;
+use testcontainers::GenericImage;
+use testcontainers::ImageExt;
+use testcontainers::core::ContainerPort;
+use testcontainers::core::Mount;
+use testcontainers::core::WaitFor;
+use testcontainers::core::wait::HttpWaitStrategy;
+use testcontainers::runners::AsyncRunner;
+use tokio::process::Command;
+use tokio::time::sleep;
 
 pub const CLICKHOUSE_PORT: ContainerPort = ContainerPort::Tcp(8123);
 
@@ -56,7 +77,7 @@ async fn my_test() -> anyhow::Result<()> {
     sleep(Duration::from_millis(100)).await;
 
     // --- create hub instance ---
-    let (app, mut session) = Embedded::init(
+    let (hub, mut session) = Embedded::init(
         config,
         vec![
             include_str!("../schemas/machine_0.yaml").to_string(),
@@ -65,21 +86,25 @@ async fn my_test() -> anyhow::Result<()> {
     )
     .await?;
 
-    tokio::spawn(app.run());
+    tokio::spawn(hub.run());
 
     // give hub time to initialize
     sleep(Duration::from_millis(250)).await;
 
     // --- Step 1: emit connected machines ---
     let ident_m0 = MachineIdentificationUnique {
-        vendor: vendors::QITECH.id,
-        machine: 10,
+        identification: MachineIdentification {
+            vendor_id: vendors::QITECH.id,
+            machine_id: 10,
+        },
         serial: 0,
     };
 
     let ident_m1 = MachineIdentificationUnique {
-        vendor: vendors::QITECH.id,
-        machine: 20,
+        identification: MachineIdentification {
+            vendor_id: vendors::QITECH.id,
+            machine_id: 20,
+        },
         serial: 1,
     };
 
@@ -106,58 +131,55 @@ async fn my_test() -> anyhow::Result<()> {
 
     session.export(RuntimeReport {
         runtime: RuntimeReportData {
-            events: vec![
-                RuntimeEvent {
-                    timestamp: Utc::now(),
-                    kind: RuntimeEventKind::MachineDisconnected { ident: ident_m0 },
-                },
-            ],
+            events: vec![RuntimeEvent {
+                timestamp: Utc::now(),
+                kind: RuntimeEventKind::MachineDisconnected { ident: ident_m0 },
+            }],
             ..Default::default()
         },
         ..Default::default()
     });
 
     // --- Step 3: Export some data ---
-    let ident = ident_m1;
+    let machine = ident_m1;
 
     let logs = vec![LogRecord {
         timestamp: Utc::now(),
         level: LogLevel::Debug,
-        origin: LogOrigin::Machine(ident),
+        origin: LogOrigin::Machine(machine),
         message: "Hello World".to_string(),
         attributes: Default::default(),
     }];
 
     let config_mutations = vec![MachineConfigMutation {
         timestamp: Utc::now(),
-        ident,
-        name: Cow::Borrowed("temperature.target"),
-        value: ScalarValue::Float { value: Some(22.0) },
-        origin: Origin::Request { request_id: 0 },
+        machine,
+        path: Cow::Borrowed("temperature.target"),
+        value: ScalarValue::Float(Some(22.0)),
+        origin: OperationOrigin::Request { request_id: 0 },
         result: OperationResult::Success,
     }];
 
     let state_mutations = vec![
         MachineStateMutation {
             timestamp: Utc::now(),
-            ident,
-            name: Cow::Borrowed("heating"),
-            value: ScalarValue::Boolean { value: Some(true) },
+            machine,
+            path: Cow::Borrowed("heating"),
+            value: ScalarValue::Boolean(Some(true)),
         },
         MachineStateMutation {
             timestamp: Utc::now(),
-            ident,
-            name: Cow::Borrowed("cooling"),
-            value: ScalarValue::Boolean { value: Some(true) },
+            machine,
+            path: Cow::Borrowed("cooling"),
+            value: ScalarValue::Boolean(Some(true)),
         },
     ];
 
     let mut measurements = MachineMeasurementVec::new();
     measurements.push(MachineMeasurement {
-        ident,
-        name: "temperature.current".to_string(),
-        value: 9.0,
-        null: false,
+        machine,
+        path: Cow::Borrowed("temperature.current"),
+        value: Some(9.0),
     });
 
     session.export(RuntimeReport {

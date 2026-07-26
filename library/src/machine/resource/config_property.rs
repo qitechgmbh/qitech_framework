@@ -102,7 +102,7 @@ pub struct Manager {
 impl Manager {
     pub fn register<T>(
         &mut self,
-        ident: MachineIdentificationUnique,
+        machine: MachineIdentificationUnique,
         path: &'static str,
         options: RegisterOptions<T::Type>,
     ) -> Result<ConfigProperty<T::Type>, RegisterError>
@@ -116,8 +116,8 @@ impl Manager {
         let write = Box::new(
             move |handle: &mut PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
                 let mut entry = MachineConfigMutation {
-                    target: ident,
-                    resource_path: Cow::Borrowed(path),
+                    machine,
+                    path: Cow::Borrowed(path),
                     value: T::into_scalar(&value),
                     origin: OperationOrigin::Machine,
                     result: OperationResult::Failure,
@@ -148,8 +148,8 @@ impl Manager {
                 let out = unsafe { &mut *(bytes as *mut T::Type) };
 
                 let mut entry = MachineConfigMutation {
-                    target: ident,
-                    resource_path: Cow::Borrowed(path),
+                    machine,
+                    path: Cow::Borrowed(path),
                     value: T::into_scalar(&value),
                     origin: OperationOrigin::Request { request_id },
                     result: OperationResult::Failure,
@@ -170,9 +170,9 @@ impl Manager {
         );
 
         let default = options.default;
-        let handle = self
-            .inner
-            .register::<T::Type>(ident, path, "", write_api, default.clone())?;
+        let handle =
+            self.inner
+                .register::<T::Type>(machine, path, "", write_api, default.clone())?;
 
         Ok(ConfigProperty {
             handle,

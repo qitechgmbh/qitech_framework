@@ -10,8 +10,8 @@ use qitech_framework_common::RuntimeReport;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
-use crate::machine::SyncContext;
 use crate::machine::Resources;
+use crate::machine::SyncContext;
 use crate::machine::error::ActResult;
 use crate::runtime::init::RuntimeBuilder;
 use crate::runtime::types::Config;
@@ -140,7 +140,7 @@ impl Runtime {
         // Self::run_machines_pass(&mut self.resources, &mut self.machines, |m| m.react(&ctx));
     }
 
-    /* 
+    /*
     fn run_machines_pass(
         resources: &mut Resources,
         machines: &mut Vec<MachineInstance>,
@@ -154,7 +154,7 @@ impl Runtime {
                 Err(e) if e.recoverable => i += 1,
                 Err(_) => {
                     // machine cannot recover from this error.
-                    // remove using swap and pop, meaning we don't increment. 
+                    // remove using swap and pop, meaning we don't increment.
                     machines.swap_remove(i);
 
                     // free up resources

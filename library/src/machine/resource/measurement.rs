@@ -186,8 +186,8 @@ impl Manager {
             let value = unsafe { (info.metadata.extract)(bytes) };
 
             let entry = MachineMeasurement {
-                source: info.ident,
-                resource_path: Cow::Borrowed(info.path),
+                machine: info.ident,
+                path: Cow::Borrowed(info.path),
                 value,
             };
 
