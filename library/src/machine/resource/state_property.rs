@@ -8,7 +8,7 @@ use qitech_framework_common::with_uom_quantities;
 use super::PropertyHandle;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::PropertyReadHandle;
+use crate::machine::resource::Subscriber;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::uom;
@@ -78,7 +78,7 @@ const SLOT_SIZE: usize = size_of::<String>();
 const MAX_ITEMS: usize = 512;
 type Kind = super::property_kind::StateProperty;
 
-pub type ReaderHandle<T> = PropertyReadHandle<Kind, T>;
+pub type ReaderHandle<T> = Subscriber<Kind, T>;
 
 #[derive(Default)]
 pub struct Manager {

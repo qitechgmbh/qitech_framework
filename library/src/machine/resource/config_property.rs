@@ -12,7 +12,7 @@ use super::PropertyHandle;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::PropertyReadHandle;
+use crate::machine::resource::Subscriber;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterError;
@@ -91,7 +91,7 @@ const MAX_ITEMS: usize = 512;
 type Kind = super::property_kind::ConfigProperty;
 type Metadata = WriteApiFn;
 
-pub type RemoteHandle<T> = PropertyReadHandle<Kind, T>;
+pub type RemoteHandle<T> = Subscriber<Kind, T>;
 
 #[derive(Default)]
 pub struct Manager {

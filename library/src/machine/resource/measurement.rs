@@ -6,7 +6,7 @@ use qitech_framework_common::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::PropertyReadHandle;
+use crate::machine::resource::Subscriber;
 use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterResult;
@@ -113,8 +113,6 @@ struct Metadata {
     is_stat: bool,
 }
 
-pub type ReadHandle<T> = PropertyReadHandle<Kind, T>;
-
 #[derive(Default)]
 pub struct Manager {
     inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
@@ -177,8 +175,6 @@ impl Manager {
         self.inner.unregister_machine(ident)
     }
 
-    pub fn create_read_handle(&mut self) {}
-
     // TODO: reset measurements somehow
     pub fn drain_measurements(&mut self, mut f: impl FnMut(MachineMeasurement)) {
         for (info, bytes) in self.inner.iter_mut() {
@@ -186,7 +182,7 @@ impl Manager {
             let value = unsafe { (info.metadata.extract)(bytes) };
 
             let entry = MachineMeasurement {
-                machine: info.ident,
+                machine: info.machine,
                 path: Cow::Borrowed(info.path),
                 value,
             };

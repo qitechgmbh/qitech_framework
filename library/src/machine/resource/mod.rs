@@ -1,7 +1,10 @@
 use core::fmt;
+use std::borrow::Cow;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::rc::Rc;
+use std::rc::Weak;
 
 use qitech_framework_common::MachineIdentificationUnique;
 
@@ -10,7 +13,7 @@ pub mod error;
 mod property;
 use property::PropertyHandle;
 use property::PropertyManager;
-use property::PropertyReadHandle;
+use property::Subscriber;
 
 mod config_property;
 pub use config_property::ConfigProperty;
@@ -21,7 +24,6 @@ pub use config_property::RemoteHandle as ConfigPropertyReaderHandle;
 mod measurement;
 pub use measurement::Manager as MeasurementManager;
 pub use measurement::Measurement;
-pub use measurement::ReadHandle as MeasurementAccessHandle;
 pub use measurement::RegisterOptions as MeasurementRegisterOptions;
 
 mod state_property;
@@ -39,13 +41,28 @@ mod event;
 pub use event::Emitter as EventEmitter;
 pub use event::Manager as EventManager;
 
+use crate::machine::resource::error::SubscribeErrorKind;
+use crate::machine::resource::error::SubscribeResult;
+
 pub mod conversion;
+
+mod registry;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Key<'a> {
     ident: MachineIdentificationUnique,
     path: &'a str,
     postfix: &'a str,
+}
+
+impl<'a> Key<'a> {
+    pub fn simple(ident: MachineIdentificationUnique, path: &'a str) -> Self {
+        Self {
+            ident,
+            path,
+            postfix: "",
+        }
+    }
 }
 
 // --- kind ---
@@ -107,7 +124,9 @@ pub struct Journal<T> {
 
 impl<T> Journal<T> {
     pub fn new() -> Self {
-        Self { buffer: Default::default() }
+        Self {
+            buffer: Default::default(),
+        }
     }
 
     fn new_handle(&self) -> JournalHandle<T> {
@@ -141,4 +160,65 @@ impl<T: Debug> JournalHandle<T> {
     fn append(&self, entry: T) {
         self.buffer.borrow_mut().push(entry)
     }
+}
+
+pub struct ResourceKey {
+    ident: MachineIdentificationUnique,
+    path: Cow<'static, str>,
+}
+
+type ResourceId = u64;
+
+// --- subscription ---
+type SubscriptionId = u64;
+struct SubscriptionToken;
+
+#[derive(Default)]
+pub struct SubscriptionRegistry {
+    counter: u64,
+    inner: HashMap<SubscriptionEntry, Rc<SubscriptionToken>>,
+}
+
+impl SubscriptionRegistry {
+    pub fn register(
+        &mut self, 
+        producer: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+        resource: &'static str,
+    ) -> SubscribeResult<Weak<SubscriptionToken>> {
+        let key = SubscriptionEntry {
+            producer,
+            consumer,
+            resource,
+        };
+
+        if self.inner.contains_key(&key) {
+            return Err(SubscribeErrorKind::Duplicate);
+        }
+
+        let token = Rc::new(SubscriptionToken);
+        self.inner.insert(key, token.clone());
+        Ok(Rc::downgrade(&token))
+    }
+
+    // e.g. winder , need to clear all its subscriptions
+    pub fn unregister(
+        &mut self, 
+        producer: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    ) {
+        self.inner.retain(|key, _| !(key.producer == producer && key.consumer == consumer));
+    }
+
+    // e.g. laser disconnected and need to clear all its subscriptions and subscriber
+    pub fn unregister_producer(&mut self, producer: MachineIdentificationUnique) {
+        self.inner.retain(|key, _| key.producer != producer && key.consumer != producer);
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct SubscriptionEntry {
+    producer: MachineIdentificationUnique,
+    consumer: MachineIdentificationUnique,
+    resource: &'static str,
 }

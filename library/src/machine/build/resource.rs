@@ -258,7 +258,7 @@ where
 
 impl<'a, 'b, T> EventBuilder<'a, 'b, T>
 where
-    T: Serialize,
+    T: Serialize + 'static,
 {
     pub fn register(self) -> BuildResult<EventEmitter<T>> {
         Ok(self

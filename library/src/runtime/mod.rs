@@ -36,15 +36,12 @@ pub struct Runtime<B: Bridge> {
     resources: Resources,
     report: RuntimeReport,
 
-    // --- connections ---
-    // session: Session with hub
-    ecat_controller: Option<EtherCATController>,
-
     // --- instances ---
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
 
     // --- misc ---
+    ecat_controller: Option<EtherCATController>,
     config: Config,
     bridge: B,
     last_export_ts: Instant,

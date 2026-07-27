@@ -1,115 +1,120 @@
-use qitech_framework_common::OperationResult;
 use qitech_framework_common::RuntimeRequestKind;
 
 use crate::Runtime;
 use crate::machine::Machine;
-use crate::machine::SubscribeContext;
 use crate::runtime::Bridge;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 
 impl<B: Bridge> Runtime<B> {
     pub fn process_requests(&mut self) {
+        
+
         for req in self.bridge.get_requests(self.config.requests_per_cycle_max) {
-            match req.kind {
-                RuntimeRequestKind::WriteMachineDeviceInfo {
+            let response = self.process_request(req.kind);
+            self.report.responses.push((req.transaction_id, response));
+        }
+    }
+
+    fn process_request(&mut self, kind: RuntimeRequestKind) -> Result<(), String> {
+        match kind {
+            RuntimeRequestKind::WriteMachineDeviceInfo {
+                machine_ident,
+                role,
+                subdevice_index,
+            } => {
+                let Some(controller) = &self.ecat_controller else {
+                    return Err("No EtherCAT controller available".into());
+                };
+
+                // TODO: submit error !
+                _ = utils::write_machine_device_info(
+                    controller,
                     machine_ident,
                     role,
                     subdevice_index,
-                } => {
-                    let Some(controller) = &self.ecat_controller else {
-                        todo!("send error");
-                    };
+                );
 
-                    // TODO: submit error !
-                    _ = utils::write_machine_device_info(
-                        controller,
-                        machine_ident,
-                        role,
-                        subdevice_index,
-                    );
-                }
+                return Ok(());
+            }
 
-                RuntimeRequestKind::SetMachineConfiguration(..) => {
-                    // self.resources.config_properties;
-                }
+            RuntimeRequestKind::SetMachineConfiguration(..) => {
+                // self.resources.config_properties;
+                return Ok(());
+            }
 
-                RuntimeRequestKind::InvokeMachineCommand {
+            RuntimeRequestKind::InvokeMachineCommand {
+                target,
+                resource_path,
+                arguments,
+            } => {
+                let Some(machine) = find_machine(&mut self.machines, target) else {
+                    return Err("No Such Machine".to_string());
+                };
+
+                let machine_ref: &mut dyn Machine = &mut *machine;
+
+                let res = self.resources.commands.invoke(
                     target,
-                    resource_path,
-                    arguments,
-                } => {
-                    let Some(machine) = find_machine(&mut self.machines, target) else {
-                        self.report
-                            .responses
-                            .push((req.transaction_id, OperationResult::Failure));
+                    machine_ref,
+                    &resource_path,
+                    &arguments,
+                );
 
-                        return;
-                    };
+                let result = res.map_err(|e| format!("{e}"));
+                self.report.responses.push((req.transaction_id, result));
+            }
 
-                    let machine_ref: &mut dyn Machine = &mut *machine;
-
-                    let res = self.resources.commands.invoke(
-                        target,
-                        machine_ref,
-                        &resource_path,
-                        &arguments,
-                    );
-
-                    // TODO: create logs with transaction id as tag
-                    let response = match res {
-                        Ok(_) => OperationResult::Success,
-                        Err(_) => OperationResult::Failure,
-                    };
-
-                    self.report.responses.push((req.transaction_id, response));
+            RuntimeRequestKind::MachineSubscribe { provider, consumer } => {
+                // --- ensure provider exists ---
+                if find_machine(&mut self.machines, provider).is_none() {
+                    return Err("No Such Machine".to_string());
                 }
 
-                RuntimeRequestKind::MachineSubscribe { provider, consumer } => {
-                    // --- ensure provider exists ---
-                    if find_machine(&mut self.machines, provider).is_none() {
-                        self.report
-                            .responses
-                            .push((req.transaction_id, OperationResult::Failure));
-                    }
+                // --- find consumer ---
+                let Some(machine) = find_machine(&mut self.machines, consumer) else {
+                    return Err("No Such Machine".to_string());
+                };
 
-                    // --- find consumer ---
-                    let Some(machine) = find_machine(&mut self.machines, consumer) else {
-                        self.report
-                            .responses
-                            .push((req.transaction_id, OperationResult::Failure));
+                let entry = self.subscriptions.entry(consumer);
 
-                        return;
-                    };
+                if entry.
 
-                    let ctx = SubscribeContext::new(provider, &mut self.resources);
+                let ctx = SubscribeContext::new(provider, &mut self.resources);
 
-                    // TODO: do something with this I guess
-                    match machine.subscribe(&ctx) {
-                        Ok(_) => {
-                            // self.subscriptions.insert(provider, consumer);
-                        }
-                        Err(_) => todo!(),
-                    }
+                let result = machine.subscribe(&ctx).map_err(|e| format!("{e}"));
+
+                if result.is_ok() {
+                    
                 }
 
-                RuntimeRequestKind::MachineUnsubscribe { provider, consumer } => {
-                    // --- ensure provider exists ---
-                    if find_machine(&mut self.machines, provider).is_none() {
-                        self.report
-                            .responses
-                            .push((req.transaction_id, OperationResult::Failure));
-                    }
+                self.report
+                    .responses
+                    .push((req.transaction_id, result));
+            }
 
-                    // --- find consumer ---
-                    let Some(machine) = find_machine(&mut self.machines, consumer) else {
-                        self.report
-                            .responses
-                            .push((req.transaction_id, OperationResult::Failure));
-
-                        return;
-                    };
+            RuntimeRequestKind::MachineUnsubscribe { provider, consumer } => {
+                // --- ensure provider exists ---
+                if find_machine(&mut self.machines, provider).is_none() {
+                    return Err("No Such Machine")
                 }
+
+                // --- find consumer ---
+                let Some(machine) = find_machine(&mut self.machines, consumer) else {
+                    self.report
+                        .responses
+                        .push((req.transaction_id, Err(format!("No Such Machine {provider}"))));
+
+                    return;
+                };
+
+                let Some(entry) = self.subscriptions.get_mut(&consumer) else {
+
+
+                    return;
+                };
+
+                return Ok(());
             }
         }
     }

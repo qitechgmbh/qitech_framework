@@ -75,7 +75,7 @@ pub struct RuntimeReport {
     pub timestamp: DateTime<Utc>,
 
     /// results for completed requests
-    pub responses: Vec<(u64, OperationResult)>,
+    pub responses: Vec<(u64, Result<(), String>)>,
 
     /// runtime activity
     pub runtime: RuntimeReportData,

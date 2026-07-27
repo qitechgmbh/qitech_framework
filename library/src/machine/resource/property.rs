@@ -1,17 +1,22 @@
 use std::any::TypeId;
+use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
+use std::rc::Weak;
 
 use qitech_framework_common::MachineIdentificationUnique;
 
 use super::PropertyKind;
-use super::error::RegisterError;
 use super::error::RegisterErrorKind;
 use super::error::RegisterResult;
-use super::error::ResolveError;
-use super::error::ResolveErrorKind;
-use super::error::ResolveResult;
+use super::error::SubscribeErrorKind;
+use super::error::SubscribeResult;
+use crate::machine::resource::ResourceKey;
+use crate::machine::resource::SubscriptionRegistry;
+use crate::machine::resource::SubscriptionToken;
+
+// create new property, stored under a ResourceId
 
 pub struct PropertyManager<
     const SLOT_SIZE: usize,
@@ -20,9 +25,11 @@ pub struct PropertyManager<
     Metadata = (),
 > {
     occupied: heapless::Vec<bool, MAX_ITEMS>,
-    buf_generation: [MaybeUninit<u64>; MAX_ITEMS],
-    buf_storage: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
+    buf_gen: [u64; MAX_ITEMS],
     buf_info: [MaybeUninit<SlotInfo<Metadata>>; MAX_ITEMS],
+    buf_storage: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
+    buf_cache: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
+    subscriptions: SubscriptionRegistry,
     _marker: PhantomData<K>,
 }
 
@@ -34,9 +41,11 @@ where
     fn default() -> Self {
         Self {
             occupied: Default::default(),
-            buf_generation: [MaybeUninit::uninit(); MAX_ITEMS],
-            buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
+            buf_gen: [0; MAX_ITEMS],
             buf_info: [const { MaybeUninit::uninit() }; MAX_ITEMS],
+            buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
+            buf_cache: [MaybeUninit::uninit(); MAX_ITEMS],
+            subscriptions: Default::default(),
             _marker: PhantomData,
         }
     }
@@ -50,8 +59,7 @@ where
     pub fn register<T: 'static>(
         &mut self,
         ident: MachineIdentificationUnique,
-        path: &'static str,
-        path_postfix: &'static str,
+        path: String,
         metadata: M,
         initial_value: T,
     ) -> RegisterResult<PropertyHandle<T>> {
@@ -60,19 +68,24 @@ where
             assert!(align_of::<T>() <= align_of::<Storage<SLOT_SIZE>>());
         }
 
-        let index = self.find_slot(ident, path, path_postfix)?;
+        let index = self.find_slot()?;
 
         self.occupied[index] = true;
-
         let type_id = TypeId::of::<T>();
 
         self.buf_info[index].write(SlotInfo {
-            ident,
+            machine: ident,
             path,
-            path_postfix,
             type_id,
             metadata,
         });
+
+        let generation = self.buf_gen[index];
+
+        let p_generation = unsafe {
+            let ptr = self.buf_gen[index] as *mut u64;
+            NonNull::new_unchecked(ptr)
+        };
 
         let p_value = unsafe {
             let ptr = self.buf_storage[index].as_mut_ptr().cast::<T>();
@@ -83,88 +96,77 @@ where
             NonNull::new_unchecked(ptr)
         };
 
-        Ok(PropertyHandle { p_value })
+        Ok(PropertyHandle {
+            generation,
+            p_generation,
+            p_value,
+        })
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
         for (i, occupied) in self.occupied.iter_mut().enumerate() {
             let info = unsafe { self.buf_info[i].assume_init_ref() };
 
-            if info.ident != ident {
+            if info.machine != ident {
                 continue;
             }
 
             // increment generation so existing handles to this resource fail
-            let generation = unsafe { self.buf_generation[i].assume_init_mut() };
-            *generation += 1;
+            self.buf_gen[i] += 1;
 
             // mark slot as unused
             *occupied = false;
         }
+
+        self.subscriptions.unregister_producer(ident);
     }
 
-    pub fn resolve_read_handle<T: 'static>(
+    pub fn create_subscriber<T: 'static>(
         &mut self,
-        ident: MachineIdentificationUnique,
-        path: &'static str,
-    ) -> ResolveResult<PropertyReadHandle<K, T>> {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+        resource: &'static str,
+    ) -> SubscribeResult<Subscriber<T>> {
         let result = self.occupied.iter().enumerate().find_map(|(i, occupied)| {
             if !*occupied {
                 return None;
             }
 
             let info = unsafe { self.buf_info[i].assume_init_ref() };
-            (info.ident == ident && info.path == path).then_some((i, info))
+            (info.machine == provider && info.path == resource).then_some((i, info))
         });
 
         let Some((index, info)) = result else {
-            return Err(ResolveError {
-                resource_kind: K::RESOURCE_KIND,
-                resource_path: path,
-                error_kind: ResolveErrorKind::NoSuchProperty,
-            });
+            return Err(SubscribeErrorKind::NoSuchProperty);
         };
 
         if info.type_id != TypeId::of::<T>() {
-            return Err(ResolveError {
-                resource_kind: K::RESOURCE_KIND,
-                resource_path: path,
-                error_kind: ResolveErrorKind::InvalidType,
-            });
+            return Err(SubscribeErrorKind::InvalidType);
         }
 
-        let generation = unsafe { self.buf_generation[index].assume_init() };
+        let p_value = unsafe {
+            let ptr = self.buf_cache[index].as_mut_ptr().cast::<T>();
+            NonNull::new_unchecked(ptr)
+        };
 
-        Ok(PropertyReadHandle {
-            index,
-            generation,
-            _marker: PhantomData,
-        })
+        let token = self.subscriptions.register(provider, subscriber, resource)?;
+        Ok(Subscriber { token, p_value })
     }
 
-    pub fn create_remote() {
-
+    pub fn remove_subscription(
+        &mut self, 
+        provider: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    ) {
+        self.subscriptions.unregister(provider, consumer);
     }
 
-    pub fn sync_remotes() {
-        
-    }
-
-    /// attempts to read data of an entry using a read handle
-    pub fn read_value<T>(&self, handle: &PropertyReadHandle<K, T>) -> &T {
-        let generation = &self.buf_generation[handle.index];
-
-        // Safety:
-        // - register() verified T fits in storage
-        // - register() stored TypeId::of::<T>()
-        // - resolve_read_handle() only creates PropertyHandle<T> after type check
-        unsafe {
-            // if generations don't match a machine attempted to read data with handles
-            // after the subscription was terminated. This considered illegal
-            assert_eq!(generation.assume_init(), handle.generation);
-
-            let storage = &self.buf_storage[handle.index].assume_init_read();
-            &*(storage.bytes.as_ptr() as *const T)
+    pub fn sync_cache(&mut self) {
+        for (i, occupied) in self.occupied.iter().enumerate() {
+            if !occupied {
+                continue;
+            }
+            self.buf_cache[i] = self.buf_storage[i];
         }
     }
 
@@ -176,12 +178,7 @@ where
     }
 
     // --- utils ---
-    fn find_slot(
-        &mut self,
-        ident: MachineIdentificationUnique,
-        path: &'static str,
-        post: &'static str,
-    ) -> RegisterResult<usize> {
+    fn find_slot(&mut self) -> RegisterResult<usize> {
         // --- step one: ensure no duplicates ---
         for item in &self.occupied {}
 
@@ -190,11 +187,7 @@ where
         }
 
         if self.occupied.push(true).is_err() {
-            return Err(RegisterError {
-                resource_kind: K::RESOURCE_KIND,
-                resource_path: path,
-                error_kind: RegisterErrorKind::RegistryFull,
-            });
+            return Err(RegisterErrorKind::RegistryFull);
         }
 
         Ok(self.occupied.len() - 1)
@@ -203,25 +196,32 @@ where
 
 // insert, write/read
 pub struct SlotInfo<Metadata> {
-    pub ident: MachineIdentificationUnique,
-    pub path: &'static str,
-    pub path_postfix: &'static str,
+    pub machine: MachineIdentificationUnique,
+    pub path: String,
     pub type_id: TypeId,
     pub metadata: Metadata,
 }
 
 #[derive(Debug)]
 pub struct PropertyHandle<T> {
+    generation: u64,
+    p_generation: NonNull<u64>,
     p_value: NonNull<T>,
 }
 
 impl<T> PropertyHandle<T> {
     pub fn read(&self) -> &T {
-        unsafe { self.p_value.as_ref() }
+        unsafe {
+            assert!(self.generation == self.p_generation.read());
+            self.p_value.as_ref()
+        }
     }
 
     pub fn write(&self, value: T) {
-        unsafe { self.p_value.write(value) }
+        unsafe {
+            assert!(self.generation == self.p_generation.read());
+            self.p_value.write(value)
+        }
     }
 }
 
@@ -231,10 +231,27 @@ struct Storage<const SLOT_SIZE: usize> {
     bytes: [u8; SLOT_SIZE],
 }
 
-pub struct PropertyReadHandle<K: PropertyKind, T> {
-    generation: u64,
-    index: usize,
-    _marker: PhantomData<(K, T)>,
+pub struct Subscriber<T> {
+    token: Weak<SubscriptionToken>,
+    p_value: NonNull<T>,
+}
+
+impl<T> Subscriber<T> {
+    pub fn get_ref(&self) -> &T {
+        self.token
+            .upgrade()
+            .expect("Subscriber outlived subscription");
+        unsafe { self.p_value.as_ref() }
+    }
+}
+
+impl<T: Copy> Subscriber<T> {
+    pub fn get(&self) -> T {
+        self.token
+            .upgrade()
+            .expect("Subscriber outlived subscription");
+        unsafe { self.p_value.read() }
+    }
 }
 
 // --- iter ---

@@ -1,12 +1,17 @@
+use std::any::TypeId;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::mem;
+use std::rc::Rc;
+use std::rc::Weak;
 
 use chrono::Utc;
 use qitech_framework_common::MachineEmittedEvent;
 use qitech_framework_common::MachineIdentificationUnique;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use super::Journal;
 use super::JournalHandle;
@@ -15,46 +20,64 @@ use super::ResourceKind;
 use super::error::RegisterError;
 use super::error::RegisterErrorKind;
 use super::error::RegisterResult;
+use crate::machine::resource::SubscriptionId;
+use crate::machine::resource::SubscriptionRegistry;
+use crate::machine::resource::SubscriptionToken;
 
 pub struct Emitter<T: Serialize> {
     machine: MachineIdentificationUnique,
     path: &'static str,
+    slot: Weak<RefCell<Slot>>,
     journal: JournalHandle<MachineEmittedEvent>,
     _marker: PhantomData<T>,
 }
 
 impl<T: Serialize> Emitter<T> {
-    pub fn emit(&mut self, data: T) -> EventEmitResult {
-        let event = MachineEmittedEvent {
+    pub fn emit(&mut self, event: T) -> EventEmitResult {
+        self.journal.append(MachineEmittedEvent {
             timestamp: Utc::now(),
             machine: self.machine,
             path: Cow::Borrowed(self.path),
-            data: serde_json::to_string(&data)?,
-        };
+            data: serde_json::to_string(&event)?,
+        });
 
-        self.journal.append(event);
+        let slot = self.slot.upgrade().expect("must not outlive manager entry");
+        let mut slot = slot.borrow_mut();
+
+        if slot.subscriber_count > 0 {
+            let data = postcard::to_allocvec(&event).expect("json succeeded");
+            slot.cache.push(data);
+        }
+
         Ok(())
     }
 }
 
 // --- manager ---
 pub struct Manager {
-    registry: HashSet<Key<'static>>,
-    journal: Journal<MachineEmittedEvent>,
-    remotes: HashMap<RemoteKey, >
-}
+    registry: HashMap<Key<'static>, Entry>,
 
-#[derive(Hash)]
-struct Entry {
-    resource: &'static str,
-    provider: MachineIdentificationUnique,
+    /// journal of all emitted events
+    journal: Journal<MachineEmittedEvent>,
+
+    /// counter for uniquely identifiying a subscription
+    subscribe_id_counter: u64,
+
+    /// list of entries that have subscribers
+    subscribed: Vec<Key<'static>>,
+
+    /// all active subscriptions
+    subscriptions: SubscriptionRegistry,
 }
 
 impl Manager {
     pub fn new() -> Self {
         Self {
             registry: Default::default(),
-            journal: Journal::new(),
+            journal: Journal::default(),
+            subscribe_id_counter: 0,
+            subscribed: Default::default(),
+            subscriptions: Default::default(),
         }
     }
 
@@ -64,32 +87,111 @@ impl Manager {
         path: &'static str,
     ) -> RegisterResult<Emitter<T>>
     where
-        T: Serialize,
+        T: Serialize + 'static,
     {
-        let key = Key {
-            ident,
-            path,
-            postfix: "",
-        };
+        let key = Key::simple(ident, path);
 
-        if !self.registry.insert(key) {
-            return Err(RegisterError {
-                resource_kind: ResourceKind::Event,
-                resource_path: path,
-                error_kind: RegisterErrorKind::Duplicate,
-            });
+        if self.registry.contains_key(&key) {
+            return Err(RegisterErrorKind::Duplicate);
         }
 
-        Ok(Emitter {
+        let slot = Rc::new(RefCell::new(Slot {
+            subscriber_count: 0,
+            cache: Default::default(),
+        }));
+
+        let emitter = Emitter {
             machine: ident,
             path,
+            slot: Rc::downgrade(&slot),
             journal: self.journal.new_handle(),
             _marker: PhantomData,
-        })
+        };
+
+        let entry = Entry {
+            type_id: TypeId::of::<T>(),
+            slot,
+            subscriber_cache: Default::default(),
+        };
+
+        self.registry.insert(key, entry);
+        Ok(emitter)
     }
 
-    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
-        self.registry.retain(|key| key.ident != ident);
+    pub fn create_subscriber<T: DeserializeOwned + 'static>(
+        &mut self,
+        machine: MachineIdentificationUnique,
+        resource: &'static str,
+    ) -> Result<(SubscriptionId, Subscriber<T>), ()> {
+
+
+
+        let key = Key::simple(machine, resource);
+
+        let (slot, data) = {
+            let Some(entry) = self.registry.get(&key) else {
+                return Err(());
+            };
+
+            // ensure the user provided the correct Type
+            if entry.type_id != TypeId::of::<T>() {
+                return Err(());
+            }
+
+            (entry.slot.clone(), &entry.subscriber_cache)
+        };
+
+        {
+            let mut slot = slot.borrow_mut();
+            slot.subscriber_count += 1;
+
+            if slot.subscriber_count == 1 {
+                self.subscribed.push(key);
+            }
+        }
+
+        let (id, token) = self.subscriptions.register();
+
+        let subscriber = Subscriber {
+            token,
+            data: Rc::downgrade(data),
+            _marker: PhantomData,
+        };
+
+        Ok((id, subscriber))
+    }
+
+    pub fn remove_subscriber(&mut self, id: SubscriptionId) -> bool {
+        let Some(s_entry) = self.subscriptions.remove(&id) else {
+            return false;
+        };
+
+        let entry = self.registry.get_mut(&s_entry.key).expect("must exist");
+
+        let mut slot = entry.slot.borrow_mut();
+
+        slot.subscriber_count = slot.subscriber_count.saturating_sub(1);
+
+        if slot.subscriber_count == 0 {
+            self.subscribed.retain(|k| k != &s_entry.key);
+        }
+
+        true
+    }
+
+    pub fn sync_remotes(&mut self) {
+        for key in self.subscribed.clone() {
+            let entry = self.registry.get_mut(&key).expect("Must be in sync");
+
+            // extract the cached entries out of slot
+            let cache = {
+                let mut slot = entry.slot.borrow_mut();
+                mem::take(&mut slot.cache)
+            };
+
+            // replace subscriber-visible cache
+            entry.subscriber_cache.replace(cache);
+        }
     }
 
     pub fn drain_journal(&mut self, f: impl FnMut(MachineEmittedEvent)) {
@@ -103,6 +205,47 @@ impl Default for Manager {
     }
 }
 
+// --- types ---
+type EventCache = Vec<Vec<u8>>;
+
+struct Entry {
+    type_id: TypeId,
+    slot: Rc<RefCell<Slot>>,
+    subscriber_cache: Rc<RefCell<EventCache>>,
+}
+
+struct Slot {
+    subscriber_count: u32,
+    cache: EventCache,
+}
+
+struct Subscriber<T> {
+    token: Weak<SubscriptionToken>,
+    data: Weak<RefCell<Vec<Vec<u8>>>>,
+    _marker: PhantomData<T>,
+}
+
+impl<T> Subscriber<T>
+where
+    T: DeserializeOwned,
+{
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), postcard::Error>
+    where
+        F: FnMut(T),
+    {
+        self.token.upgrade().expect("Token outlived subscription");
+        let data = self.data.upgrade().expect("token is valid");
+        let data = data.borrow();
+
+        for bytes in data.iter() {
+            let value = postcard::from_bytes::<T>(bytes)?;
+            f(value);
+        }
+
+        Ok(())
+    }
+}
+
 // --- errors ---
 pub type EventEmitResult = Result<(), serde_json::Error>;
 
@@ -110,6 +253,7 @@ pub type EventEmitResult = Result<(), serde_json::Error>;
 #[cfg(test)]
 mod test {
     use qitech_framework_common::MachineIdentification;
+    use serde::Deserialize;
 
     use super::*;
 
@@ -125,8 +269,14 @@ mod test {
 
         let mut mgr = Manager::new();
 
+        let (id, mut x) = mgr
+            .create_subscriber::<SimpleEvent>(ident, "idk bruh")
+            .expect("haha");
+
+        x.for_each(|event| {});
+
         // --- simple ---
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize)]
         struct SimpleEvent {
             a: i64,
             b: f64,

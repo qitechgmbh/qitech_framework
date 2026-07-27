@@ -4,7 +4,7 @@ use qitech_framework_common::MachineIdentificationUnique;
 
 use super::ResourceKind;
 
-pub type RegisterResult<T> = Result<T, RegisterError>;
+pub type RegisterResult<T> = Result<T, RegisterErrorKind>;
 pub type RegisterError = ResourceError<RegisterErrorKind>;
 
 #[derive(Debug)]
@@ -15,17 +15,19 @@ pub enum RegisterErrorKind {
     NameTooLarge,
 }
 
-pub type ResolveResult<T> = Result<T, ResolveError>;
-pub type ResolveError = ResourceError<ResolveErrorKind>;
+pub type SubscribeResult<T> = Result<T, SubscribeErrorKind>;
+pub type SubscribeError = ResourceError<SubscribeErrorKind>;
 
 #[derive(Debug, Clone, Copy)]
-pub enum ResolveErrorKind {
-    NoSuchProperty,
+pub enum SubscribeErrorKind {
+    Duplicate,
     InvalidType,
+    NoSuchProperty,
 }
 
 #[derive(Debug)]
 pub struct ResourceError<E> {
+    pub machine_ident: MachineIdentificationUnique,
     pub resource_kind: ResourceKind,
     pub resource_path: &'static str,
     pub error_kind: E,
@@ -57,11 +59,11 @@ impl fmt::Display for RegisterErrorKind {
     }
 }
 
-impl fmt::Display for ResolveErrorKind {
+impl fmt::Display for SubscribeErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResolveErrorKind::NoSuchProperty => write!(f, "no such property"),
-            ResolveErrorKind::InvalidType => write!(f, "invalid type"),
+            SubscribeErrorKind::NoSuchProperty => write!(f, "no such property"),
+            SubscribeErrorKind::InvalidType => write!(f, "invalid type"),
         }
     }
 }

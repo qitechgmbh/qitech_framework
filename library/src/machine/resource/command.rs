@@ -15,6 +15,7 @@ use thiserror::Error;
 use crate::machine::Machine;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
+use crate::machine::resource::ResourceId;
 use crate::machine::resource::ResourceKind;
 use crate::machine::resource::error::HandleError;
 use crate::machine::resource::error::RegisterError;
@@ -45,6 +46,8 @@ pub struct Manager {
     journal: Journal<MachineCommandCall>,
 }
 
+// yields a resource id 
+
 impl Manager {
     pub fn new() -> Self {
         Self::default()
@@ -60,14 +63,11 @@ impl Manager {
         M: Machine + 'static,
         A: serde::de::DeserializeOwned + 'static,
     {
-        let key = Key {
-            ident,
-            path,
-            postfix: "",
-        };
-
+        let key = Key::simple(ident, path);
+        
         let Some(execute) = options.execute else {
             return Err(RegisterError {
+                machine_ident: todo!(),
                 resource_kind: ResourceKind::Command,
                 resource_path: path,
                 error_kind: RegisterErrorKind::MissingRequiredField("execute"),
@@ -76,6 +76,7 @@ impl Manager {
 
         if self.registry.contains_key(&key) {
             return Err(RegisterError {
+                machine_ident: ident,
                 resource_kind: ResourceKind::Command,
                 resource_path: path,
                 error_kind: RegisterErrorKind::Duplicate,
@@ -116,8 +117,8 @@ impl Manager {
         Ok(handle)
     }
 
-    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
-        self.registry.retain(|key, _| key.ident != ident);
+    pub fn invoke_(id: ResourceId, args: &str) -> Result<(), ExecuteError> {
+        
     }
 
     pub fn invoke(
