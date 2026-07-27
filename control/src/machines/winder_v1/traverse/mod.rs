@@ -3,15 +3,15 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
-use control_runtime::machine::Measurement;
+use qitech_framework::machine::resource::Measurement;
 use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
-use qitech_framework::uom::ConstZero;
-use qitech_framework::uom::Length;
-use qitech_framework::uom::Velocity;
-use qitech_framework::uom::angular_velocity::revolution_per_second;
-use qitech_framework::uom::length::millimeter;
-use qitech_framework::uom::velocity::millimeter_per_second;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::Velocity;
+use qitech_lib::units::angular_velocity::revolution_per_second;
+use qitech_lib::units::length::millimeter;
+use qitech_lib::units::velocity::millimeter_per_second;
 
 use crate::converters::LinearStepConverter;
 use crate::machines::winder_v1::spool::Spool;
@@ -41,8 +41,8 @@ pub struct Traverse {
     laser_enabled: bool,
 
     // --- measurements ---
-    position: Measurement<millimeter>,
-    speed: Measurement<millimeter_per_second>,
+    position: Measurement<Length>,
+    speed: Measurement<Velocity>,
 
     // --- converters ---
     fullstep_converter: LinearStepConverter,

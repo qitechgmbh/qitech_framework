@@ -28,7 +28,6 @@ tokio-serial = "5.5.0"
 bitvec = "1"
 
 # --- uom ---
-uom = { version = "0.38.0", default-features = false, features = [ "f64", "serde" ] }
 crossbeam = "0.8.4"
 tracing.workspace = true
 

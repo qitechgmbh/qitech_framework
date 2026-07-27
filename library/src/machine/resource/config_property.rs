@@ -6,18 +6,16 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
 use qitech_framework_common::with_uom_quantities;
-use serde::de::DeserializeOwned;
 
 use super::PropertyHandle;
+use crate::machine::TypeWrapper;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
 use crate::machine::resource::conversion::BoundedMeta;
-use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
-use crate::uom;
 
 pub struct ConfigProperty<T: Clone> {
     handle: PropertyHandle<T>,
@@ -84,7 +82,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_quantities!(uom, impl_uom);
+with_uom_quantities!(impl_uom);
 
 // --- resource managment ---
 const SLOT_SIZE: usize = 32;
@@ -106,8 +104,8 @@ impl Manager {
         options: RegisterOptions<T::Type>,
     ) -> RegisterResult<ConfigProperty<T::Type>>
     where
-        T: ScalarTypeWrapper + 'static,
-        T::Type: Clone + DeserializeOwned + BoundedMeta,
+        T: TypeWrapper + 'static,
+        T::Type: Clone + BoundedMeta,
     {
         let opts = options.clone();
         let journal = self.journal.new_handle();
@@ -143,7 +141,7 @@ impl Manager {
                   bytes: *mut u8,
                   raw: &str|
                   -> Result<Result<(), WriteError>, serde_json::Error> {
-                let value: T::Type = serde_json::from_str(raw)?;
+                let value: T::Type = T::deserialize_json(raw)?;
                 let out = unsafe { &mut *(bytes as *mut T::Type) };
 
                 let mut entry = MachineConfigMutation {

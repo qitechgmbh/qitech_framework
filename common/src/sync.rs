@@ -36,19 +36,31 @@ pub enum HandshakeMessage {
 
 #[derive(Error, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SendHelloError {
-    #[error("data store disconnected")]
-    InvalidMagic { expected: u64, received: u64 },
-    #[error("data store disconnected")]
-    ProtocolVersionMismatch { expected: u64, received: u64 },
-    #[error("data store disconnected")]
+    #[error("invalid magic value: expected {expected:#x}, received {received:#x}")]
+    InvalidMagic {
+        expected: u64,
+        received: u64,
+    },
+
+    #[error("protocol version mismatch: expected {expected}, received {received}")]
+    ProtocolVersionMismatch {
+        expected: u64,
+        received: u64,
+    },
+
+    #[error("connection lost")]
     ConnectionLost,
 }
 
 #[derive(Error, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyncRegistryError {
-    #[error("data store disconnected")]
-    InvalidMagic { expected: u64, received: u64 },
-    #[error("data store disconnected")]
+    #[error("invalid magic value: expected {expected:#x}, received {received:#x}")]
+    InvalidMagic {
+        expected: u64,
+        received: u64,
+    },
+
+    #[error("connection lost")]
     ConnectionLost,
 }
 

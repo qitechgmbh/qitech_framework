@@ -7,12 +7,9 @@ use qitech_framework::machine::MachineInterface;
 use qitech_framework::machine::SubscribeContext;
 use qitech_framework::machine::SubscribedProperty;
 use qitech_framework::machine::error::ActResult;
-use qitech_framework::machine::error::SubscribeError;
 use qitech_framework::machine::error::SubscribeResult;
 use qitech_framework::machine::resource::StateProperty;
-use qitech_framework::uom::Length;
-use serde::de::DeserializeOwned;
-use types::Commands;
+use qitech_lib::units::Length;
 use types::Mode;
 
 mod build;
@@ -33,6 +30,9 @@ use traverse::Traverse;
 mod spool_target;
 use spool_target::SpoolTarget;
 use spool_target::SpoolTargetReachedAction;
+
+mod commands;
+use commands::Commands;
 
 struct LaserSubscription {
     ident: MachineIdentificationUnique,
@@ -111,72 +111,10 @@ impl Machine for WinderV1 {
     }
 
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
-        if let Some(sub) = &mut self.laser_subscription && sub.ident == ident {
+        if let Some(sub) = &mut self.laser_subscription
+            && sub.ident == ident
+        {
             self.laser_subscription = None;
         }
     }
-}
-
-// --- traverse utilities ---
-impl WinderV1 {}
-
-pub struct EnterStandyCommand {}
-
-impl EnterStandyCommand {
-    pub fn execute(machine: &mut WinderV1) {}
-}
-
-// --- commands ---
-impl WinderV1 {
-    pub fn enter_standby(&mut self) {}
-
-    pub fn enter_hold(&mut self) {}
-
-    pub fn start_pulling(&mut self) {}
-
-    pub fn start_winding(&mut self) {}
-
-    pub fn enable_laser(&mut self) {
-        // self.travserse.enable_laser();
-    }
-
-    pub fn disable_laser(&mut self) {
-        // self.travserse.disable_laser();
-    }
-
-    pub fn traverse_goto_limit_inner(&mut self) {
-        // self.travserse.goto_limit_inner();
-    }
-
-    pub fn traverse_goto_limit_outer(&mut self) {
-        // self.travserse.goto_limit_outer();
-    }
-
-    pub fn traverse_goto_home(&mut self) {
-        // self.travserse.goto_home();
-    }
-}
-
-pub struct EnterStandbyCommand;
-impl MachineCommand<WinderV1> for EnterStandbyCommand {
-    type Args = ();
-
-    fn execute(machine: &mut WinderV1, args: Self::Args) -> MachineCommandResult {
-        machine.puller.update(Instant::now());
-        Ok(())
-    }
-}
-
-trait MachineCommand<M> {
-    type Args: DeserializeOwned;
-    fn execute(machine: &mut M, args: Self::Args) -> MachineCommandResult;
-}
-
-type MachineCommandResult = Result<(), MachineCommandExeucteError>;
-
-pub enum MachineCommandExeucteError {
-    OutOfBounds,
-    InvalidInput,
-    MachineError,
-    Custom(),
 }

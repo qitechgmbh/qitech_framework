@@ -32,7 +32,7 @@ use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
 use crate::runtime::bridge::BridgeInitializer;
-use crate::runtime::init::types::EtherCATConfig;
+use crate::runtime::builder::types::EtherCATConfig;
 use crate::runtime::types::HardwareRegistry;
 
 #[tracing::instrument(skip_all)]

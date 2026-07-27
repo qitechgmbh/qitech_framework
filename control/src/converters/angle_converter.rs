@@ -1,5 +1,5 @@
-use qitech_framework::uom::angle::radian;
-use qitech_framework::uom::f64::Angle;
+use qitech_lib::units::angle::radian;
+use qitech_lib::units::f64::Angle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AngleConverter {

@@ -8,8 +8,6 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::with_uom_quantities;
 use thiserror::Error;
 
-use crate::uom;
-
 pub struct SubscriptionToken;
 
 // --- property ---
@@ -64,7 +62,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_quantities!(uom, impl_uom);
+with_uom_quantities!(impl_uom);
 
 // --- registry ---
 #[derive(Default)]

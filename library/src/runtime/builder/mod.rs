@@ -15,8 +15,8 @@ use crate::machine::error::BuildResult;
 use crate::runtime::MachineRegistry;
 use crate::runtime::Runtime;
 use crate::runtime::bridge::BridgeInitializer;
-use crate::runtime::init::error::RuntimeInitializeError;
-use crate::runtime::init::error::RuntimeInitializeResult;
+use crate::runtime::builder::error::RuntimeInitializeError;
+use crate::runtime::builder::error::RuntimeInitializeResult;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
 use crate::runtime::types::HardwareRegistry;
@@ -24,6 +24,7 @@ use crate::runtime::types::MachineInstance;
 
 mod error;
 mod ethercat;
+mod serial;
 
 mod types;
 pub use types::EtherCATConfig;
@@ -39,7 +40,7 @@ pub struct RuntimeBuilder {
 }
 
 impl RuntimeBuilder {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             config: Default::default(),
             machines: Default::default(),
@@ -58,7 +59,7 @@ impl RuntimeBuilder {
         self
     }
 
-    pub fn with_ethercat(mut self, config: EtherCATConfig) -> Self {
+    pub fn ethercat(mut self, config: EtherCATConfig) -> Self {
         self.ethercat_mode = EtherCATMode::Enabled(config);
         self
     }
@@ -73,7 +74,7 @@ impl RuntimeBuilder {
         self
     }
 
-    pub fn with_machine<M>(mut self) -> Self
+    pub fn machine<M>(mut self) -> Self
     where
         M: Machine + MachineBuild + MachineInterface + 'static,
     {
@@ -89,7 +90,7 @@ impl RuntimeBuilder {
     }
 
     /// attempts to create a new runtime with the provided configuration
-    pub fn init<B: BridgeInitializer>(
+    pub fn build<B: BridgeInitializer>(
         self,
         mut bridge: B,
     ) -> RuntimeInitializeResult<Runtime<B::Output>> {
@@ -158,6 +159,12 @@ impl RuntimeBuilder {
             last_export_ts: Instant::now(),
             bridge: bridge.upgrade(),
         })
+    }
+}
+
+impl Default for RuntimeBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -1,6 +1,10 @@
 use std::time::Instant;
 
-use qitech_framework::uom::{ConstZero, Length, Velocity, length::meter, velocity::meter_per_second};
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::Velocity;
+use qitech_lib::units::length::meter;
+use qitech_lib::units::velocity::meter_per_second;
 
 /// Controls adaptive puller speed based on laser diameter feedback.
 ///

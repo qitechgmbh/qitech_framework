@@ -224,13 +224,13 @@ fn create_with_uom(out_dir: &String) -> io::Result<()> {
 
     // --- pass one: quantities  ---
     file.write_all(b"#[macro_export]")?;
-    file.write_all(b"macro_rules! with_uom_quantities { ($prefix:tt, $callback:ident) => { ")?;
+    file.write_all(b"macro_rules! with_uom_quantities { ($callback:ident) => { ")?;
 
     for UomEntry { name, .. } in &quantity {
         let module = pascal_to_snake(name);
 
-        let module_path = format!("$prefix::{module}");
-        let quantity = format!("$prefix::{name}");
+        let module_path = format!("qitech_lib::units::{module}");
+        let quantity = format!("qitech_lib::units::{name}");
         let unit_trait = format!("{module_path}::Unit");
         let conversion_trait = format!("{module_path}::Conversion<f64>");
 
@@ -244,15 +244,15 @@ fn create_with_uom(out_dir: &String) -> io::Result<()> {
 
     // --- pass two: units  ---
     file.write_all(b"#[macro_export]")?;
-    file.write_all(b"macro_rules! with_uom_units { ($prefix:tt, $callback:ident) => { ")?;
+    file.write_all(b"macro_rules! with_uom_units { ($callback:ident) => { ")?;
 
     for UomEntry { name, units } in &quantity {
         let module = pascal_to_snake(name);
 
         for unit in units {
-            let module_path = format!("$prefix::{module}");
+            let module_path = format!("qitech_lib::units::{module}");
 
-            let quantity = format!("$prefix::{name}");
+            let quantity = format!("qitech_lib::units::{name}");
             let unit = format!("{module_path}::{}", pascal_to_snake(unit));
             let unit_trait = format!("{module_path}::Unit");
             let conversion_trait = format!("{module_path}::Conversion<f64>");

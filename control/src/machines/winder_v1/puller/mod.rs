@@ -2,10 +2,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
 
-use qitech_framework::uom::ConstZero;
-use qitech_framework::uom::Length;
-use qitech_framework::uom::Velocity;
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::Velocity;
 
 use crate::controllers::LinearJerkSpeedController;
 use crate::converters::LinearStepConverter;

@@ -5,7 +5,6 @@ use thiserror::Error;
 use crate::machine::Resources;
 use crate::machine::hardware::Hardware;
 use crate::machine::resource::error::RegisterError;
-use crate::machine::resource::error::ResourceError;
 
 mod hardware;
 mod resource;
@@ -53,6 +52,9 @@ pub enum BuildError {
 
     #[error("expected a serial device at index {index}")]
     ExpectedSerialDeviceAtIndex { index: usize },
+
+    #[error("failed to configure hardware {0}")]
+    HardwareConfig(#[from] anyhow::Error),
 
     #[error("device type mismatch at index {index}. Expected: {expected}")]
     DeviceTypeMismatch {

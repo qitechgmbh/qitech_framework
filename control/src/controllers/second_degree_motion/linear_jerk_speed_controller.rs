@@ -1,11 +1,11 @@
 use std::time::Instant;
 
-use qitech_framework::uom::acceleration::meter_per_second_squared;
-use qitech_framework::uom::f64::Acceleration;
-use qitech_framework::uom::f64::Jerk;
-use qitech_framework::uom::f64::Velocity;
-use qitech_framework::uom::jerk::meter_per_second_cubed;
-use qitech_framework::uom::velocity::meter_per_second;
+use qitech_lib::units::acceleration::meter_per_second_squared;
+use qitech_lib::units::f64::Acceleration;
+use qitech_lib::units::f64::Jerk;
+use qitech_lib::units::f64::Velocity;
+use qitech_lib::units::jerk::meter_per_second_cubed;
+use qitech_lib::units::velocity::meter_per_second;
 
 use super::acceleration_position_controller::MotionControllerError;
 use super::jerk_speed_controller::JerkSpeedController;

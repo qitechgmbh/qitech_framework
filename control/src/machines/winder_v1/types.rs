@@ -1,6 +1,10 @@
-use qitech_framework::machine::resource::CommandHandle;
+use qitech_framework::ScalarValue;
+use qitech_framework::machine::BoundedMeta;
+use qitech_framework::machine::TypeWrapper;
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Mode {
     #[default]
     Standby,
@@ -9,18 +13,42 @@ pub enum Mode {
     Wind,
 }
 
-pub struct Commands {
-    enter_standby: CommandHandle,
-    enter_hold: CommandHandle,
-    start_pulling: CommandHandle,
-    start_winding: CommandHandle,
+impl TypeWrapper for Mode {
+    type Type = Mode;
+    type Input = Mode;
 
-    traverse_go_home: CommandHandle,
-    goto_limit_outer: CommandHandle,
-    goto_limit_inner: CommandHandle,
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Enum(Some(
+            match value {
+                Self::Standby => "standby",
+                Self::Hold => "hold",
+                Self::Pull => "pull",
+                Self::Wind => "wind",
+            }
+            .to_owned(),
+        ))
+    }
 
-    spool_auto_stop_reset_progress: CommandHandle,
+    fn convert_input(input: Self::Input) -> Self::Type {
+        input
+    }
 
-    laser_enable: CommandHandle,
-    laser_disable: CommandHandle,
+    fn deserialize_json(raw: &str) -> serde_json::Result<Self> {
+        match raw {
+            "standby" => Ok(Self::Standby),
+            "hold" => Ok(Self::Hold),
+            "pull" => Ok(Self::Pull),
+            "wind" => Ok(Self::Wind),
+            _ => Err(serde::de::Error::custom(format!(
+                "unknown Mode variant: {raw}"
+            ))),
+        }
+    }
+}
+
+impl BoundedMeta for Mode {
+    type Bound = u64;
+    fn as_bound(&self) -> Option<Self::Bound> {
+        None
+    }
 }

@@ -14,11 +14,11 @@ use qitech_framework::machine::error::BuildError;
 use qitech_framework::machine::resource::ConfigProperty;
 use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;
-use qitech_framework::uom::Length;
-use qitech_framework::uom::length::millimeter;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
+use qitech_lib::units::Length;
+use qitech_lib::units::length::millimeter;
 
 pub struct LaserV1 {
     // --- hardware ---
@@ -118,6 +118,8 @@ impl LaserV1 {
         self.in_tolerance.set(true);
         self.in_tolerance.get();
         self.diameter.get();
+
+        // self.diameter_target.set_as::<millimeter>(10.0)?;
 
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()

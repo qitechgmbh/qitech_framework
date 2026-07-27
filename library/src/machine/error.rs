@@ -6,7 +6,7 @@ use thiserror::Error;
 
 pub use crate::machine::build::BuildError;
 pub use crate::machine::build::BuildResult;
-pub use crate::machine::resource::CommandExecuteError;
+pub type CommandExecuteResult = Result<(), String>;
 
 // --- act ---
 pub type ActResult = Result<(), ActError>;

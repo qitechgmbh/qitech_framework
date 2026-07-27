@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use anyhow::anyhow;
-use qitech_framework::Runtime;
 use qitech_framework::runtime::EtherCATConfig;
+use qitech_framework::runtime::RuntimeBuilder;
+use qitech_framework::runtime::bridge::MockBridge;
 use qitech_lib::ethercat_hal::DcConfiguration;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::ethercat_hal::MasterTxRxConfig;
@@ -22,13 +22,14 @@ use machines::WinderV1;
 pub fn main() -> anyhow::Result<()> {
     interface::bring_up_all_ethernet();
 
-    let rt = Runtime::new()
-        .with_ethercat(ETHERCAT_CONFIG)
-        .with_machine::<LaserV1>()
-        .with_machine::<WinderV1>()
-        .init()?;
+    let rt = RuntimeBuilder::new()
+        // .ethercat(ETHERCAT_CONFIG)
+        .machine::<LaserV1>()
+        .machine::<WinderV1>()
+        .build(MockBridge)?;
 
-    rt.run().map_err(|_| anyhow!("idk"))
+    rt.run();
+    Ok(())
 }
 
 const ETHERCAT_CONFIG: EtherCATConfig = {

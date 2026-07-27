@@ -1,14 +1,14 @@
 use std::time::Instant;
 
-use qitech_framework::uom::Angle;
-use qitech_framework::uom::AngularAcceleration;
-use qitech_framework::uom::AngularVelocity;
-use qitech_framework::uom::ConstZero;
-use qitech_framework::uom::angle::degree;
-use qitech_framework::uom::angular_acceleration::radian_per_second_squared;
-use qitech_framework::uom::angular_acceleration::revolution_per_minute_per_second;
-use qitech_framework::uom::angular_velocity::radian_per_second;
-use qitech_framework::uom::angular_velocity::revolution_per_minute;
+use qitech_lib::units::Angle;
+use qitech_lib::units::AngularAcceleration;
+use qitech_lib::units::AngularVelocity;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::angle::degree;
+use qitech_lib::units::angular_acceleration::radian_per_second_squared;
+use qitech_lib::units::angular_acceleration::revolution_per_minute_per_second;
+use qitech_lib::units::angular_velocity::radian_per_second;
+use qitech_lib::units::angular_velocity::revolution_per_minute;
 
 use super::super::utils::FilamentTensionCalculator;
 use crate::controllers::first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController;

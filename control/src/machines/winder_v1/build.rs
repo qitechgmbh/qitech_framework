@@ -4,28 +4,28 @@ use std::rc::Rc;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::error::BuildResult;
-use qitech_framework::machine::resource::MeasurementRegisterOptions;
-use qitech_framework::uom::Angle;
-use qitech_framework::uom::ConstZero;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::ethercat_hal::coe::ConfigurableDevice;
 use qitech_lib::ethercat_hal::devices::ek1100::EK1100;
 use qitech_lib::ethercat_hal::devices::el7031::EL7031;
 use qitech_lib::ethercat_hal::devices::el7031::coe::EL7031Configuration;
 use qitech_lib::ethercat_hal::devices::el7031::pdo::EL7031PredefinedPdoAssignment;
+use qitech_lib::ethercat_hal::devices::el7031_0030;
 use qitech_lib::ethercat_hal::devices::el7031_0030::EL7031_0030;
 use qitech_lib::ethercat_hal::devices::el7031_0030::coe::EL7031_0030Configuration;
 use qitech_lib::ethercat_hal::devices::el7031_0030::pdo::EL7031_0030PredefinedPdoAssignment;
-use qitech_lib::ethercat_hal::devices::el7031_0030::{self};
 use qitech_lib::ethercat_hal::devices::el7041_0052::EL7041_0052;
 use qitech_lib::ethercat_hal::devices::el7041_0052::coe::EL7041_0052Configuration;
 use qitech_lib::ethercat_hal::shared_config;
 use qitech_lib::ethercat_hal::shared_config::el70x1::EL70x1OperationMode;
 use qitech_lib::ethercat_hal::shared_config::el70x1::EL70x1SpeedRange;
 use qitech_lib::ethercat_hal::shared_config::el70x1::StmMotorConfiguration;
+use qitech_lib::units::angle::revolution;
 
+use super::Commands;
 use super::WinderV1;
-use crate::machines::winder_v1::tension_arm::TensionArm;
+use super::tension_arm::TensionArm;
+use super::types::Mode;
 
 impl MachineBuild for WinderV1 {
     fn build(mut ctx: BuildContext) -> BuildResult<Self> {
@@ -42,20 +42,18 @@ impl MachineBuild for WinderV1 {
         // --- virtual devices ---
         let tension_arm = TensionArm::new(
             el7031_0030.clone(),
-            ctx.register_state("tension_arm.zero", None)?,
-            ctx.register_measurement(
-                "tension_arm.angle",
-                MeasurementRegisterOptions {
-                    initial: Some(Angle::ZERO),
-                    ..Default::default()
-                },
-            )?,
+            ctx.state::<Option<revolution>>("tension_arm.zero")
+                .initial(None)
+                .register()?,
+            ctx.measurement::<revolution>("tension_arm.angle")
+                .initial(0.0)
+                .register()?,
         );
 
         Ok(Self {
-            mode: ctx.register_state("mode")?,
+            mode: ctx.state::<Mode>("mode").register()?,
             tension_arm,
-            commands: todo!(),
+            commands: Self::init_commands(&mut ctx)?,
             spool: todo!(),
             puller: todo!(),
             travserse: todo!(),
@@ -141,4 +139,62 @@ fn init_el7031_0030(
         .write_config(interface.clone(), addr, &config)?;
     interface.enable_dc_sync0(addr)?;
     Ok(dev)
+}
+
+// --- resources ---
+impl WinderV1 {
+    // #[machine_resources] ->
+    pub fn init_commands(ctx: &mut BuildContext) -> BuildResult<Commands> {
+        Ok(Commands {
+            enter_standby: ctx
+                .command("enter_standby")
+                .execute(Self::enter_standby)
+                .register()?,
+
+            enter_hold: ctx
+                .command("enter_hold")
+                .execute(Self::enter_hold)
+                .register()?,
+
+            start_pulling: ctx
+                .command("start_pulling")
+                .execute(Self::start_pulling)
+                .register()?,
+
+            start_winding: ctx
+                .command("start_winding")
+                .execute(Self::start_winding)
+                .register()?,
+
+            traverse_goto_home: ctx
+                .command("traverse_goto_home")
+                .execute(Self::traverse_goto_limit_inner)
+                .register()?,
+
+            traverse_goto_limit_inner: ctx
+                .command("traverse_goto_limit_inner")
+                .execute(Self::traverse_goto_limit_inner)
+                .register()?,
+
+            traverse_goto_limit_outer: ctx
+                .command("traverse_goto_limit_outer")
+                .execute(Self::traverse_goto_limit_outer)
+                .register()?,
+
+            spool_auto_stop_reset_progress: ctx
+                .command("spool_auto_stop_reset_progress")
+                .execute(Self::spool_auto_stop_reset_progress)
+                .register()?,
+
+            laser_enable: ctx
+                .command("laser_enable")
+                .execute(Self::laser_enable)
+                .register()?,
+
+            laser_disable: ctx
+                .command("laser_disable")
+                .execute(Self::disable_laser)
+                .register()?,
+        })
+    }
 }

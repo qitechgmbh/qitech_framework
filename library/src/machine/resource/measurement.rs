@@ -12,7 +12,6 @@ use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::property_kind;
 use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
-use crate::uom;
 
 #[derive(Debug)]
 pub struct Measurement<T> {
@@ -76,7 +75,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_quantities!(uom, impl_uom);
+with_uom_quantities!(impl_uom);
 
 // --- statistics ---
 #[derive(Debug)]
@@ -232,13 +231,13 @@ pub struct RegisterOptions<T: Default> {
 #[cfg(test)]
 mod test {
     use qitech_framework_common::MachineIdentification;
-    use uom_crate::ConstZero;
+    use qitech_lib::units::ConstZero;
+    use qitech_lib::units::Length;
+    use qitech_lib::units::length::centimeter;
+    use qitech_lib::units::length::meter;
+    use qitech_lib::units::length::millimeter;
 
     use super::*;
-    use crate::uom::Length;
-    use crate::uom::length::centimeter;
-    use crate::uom::length::meter;
-    use crate::uom::length::millimeter;
 
     #[test]
     pub fn register_and_use() -> anyhow::Result<()> {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::time::Instant;
 
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
-use qitech_framework::uom::AngularVelocity;
+use qitech_lib::units::AngularVelocity;
 
 use crate::converters::AngularStepConverter;
 use crate::machines::winder_v1::Puller;

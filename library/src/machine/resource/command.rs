@@ -10,6 +10,7 @@ use chrono::Utc;
 use qitech_framework_common::MachineCommandCall;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationResult;
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 use crate::machine::Machine;
@@ -18,7 +19,7 @@ use crate::machine::resource::Key;
 use crate::machine::resource::error::RegisterError;
 use crate::machine::resource::error::RegisterResult;
 
-type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), ExecuteError>>;
+pub type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), ExecuteError>>;
 
 pub struct Handle {
     enabled: Weak<RefCell<bool>>,
@@ -45,26 +46,20 @@ impl Manager {
         Self::default()
     }
 
-    pub fn register<M, A>(
+    pub fn register(
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-        options: RegisterOptions<M, A>,
-    ) -> RegisterResult<Handle>
-    where
-        M: Machine + 'static,
-        A: serde::de::DeserializeOwned + 'static,
-    {
+        disabled: bool,
+        execute: ExecuteFn,
+    ) -> RegisterResult<Handle> {
         let key = Key::from_str(ident, path);
-
-        let Some(execute) = options.execute else {
-            return Err(RegisterError::MissingRequiredField("execute"));
-        };
 
         if self.registry.contains_key(&key) {
             return Err(RegisterError::Duplicate);
         }
 
+        /*
         let execute = Box::new(move |machine: &mut dyn Machine, bytes: &str| {
             let machine_type_name = any::type_name_of_val(machine);
             let any: &mut dyn Any = machine;
@@ -81,13 +76,17 @@ impl Manager {
                 Err(e) => return Err(ExecuteError::ParsingError(e)),
             };
 
-            execute(machine, args)
+            execute(machine, args).map_err(ExecuteError::ExecutionError)
         });
+        */
 
-        let enabled = Rc::default();
+        let enabled = Rc::<RefCell<bool>>::default();
+        *enabled.borrow_mut() = disabled;
+
         let handle = Handle {
             enabled: Rc::downgrade(&enabled),
         };
+
         self.registry.insert(key, Entry { enabled, execute });
         Ok(handle)
     }
@@ -159,20 +158,74 @@ struct Entry {
     execute: ExecuteFn,
 }
 
-pub struct RegisterOptions<M, A> {
-    pub disabled: bool,
-
-    #[allow(clippy::type_complexity)]
-    pub execute: Option<fn(&mut M, A) -> Result<(), ExecuteError>>,
-}
+// pub struct RegisterOptions<M, A> {
+//     pub disabled: bool,
+//
+//     #[allow(clippy::type_complexity)]
+//     pub execute: Option<IntoExecuteFn<M, A>>,
+// }
 
 // you piece of shit compiler too retarded to use the derive properly... FUCK. YOU.
-impl<M, A> Default for RegisterOptions<M, A> {
-    fn default() -> Self {
-        Self {
-            disabled: Default::default(),
-            execute: Default::default(),
-        }
+// impl<M, A> Default for RegisterOptions<M, A> {
+//     fn default() -> Self {
+//         Self {
+//             disabled: Default::default(),
+//             execute: Default::default(),
+//         }
+//     }
+// }
+
+// --- trait wank ---
+pub trait IntoExecuteFn {
+    fn into_execute_fn(self) -> ExecuteFn;
+}
+
+impl<M> IntoExecuteFn for fn(&mut M) -> Result<(), String>
+where
+    M: Machine + 'static,
+{
+    fn into_execute_fn(self) -> ExecuteFn {
+        Box::new(move |machine: &mut dyn Machine, bytes: &str| {
+            let machine_type_name = any::type_name_of_val(machine);
+            let any: &mut dyn Any = machine;
+
+            let machine = any
+                .downcast_mut::<M>()
+                .ok_or(ExecuteError::UnexpectedMachineType {
+                    expected: any::type_name::<M>(),
+                    received: machine_type_name,
+                })?;
+
+            // Validate that the caller sent an empty argument payload
+            let _: () = serde_json::from_str(bytes).map_err(ExecuteError::ParsingError)?;
+
+            self(machine).map_err(ExecuteError::ExecutionError)
+        })
+    }
+}
+
+impl<M, A> IntoExecuteFn for fn(&mut M, A) -> Result<(), String>
+where
+    M: Machine + 'static,
+    A: DeserializeOwned + 'static,
+{
+    fn into_execute_fn(self) -> ExecuteFn {
+        Box::new(move |machine: &mut dyn Machine, bytes: &str| {
+            let machine_type_name = any::type_name_of_val(machine);
+            let any: &mut dyn Any = machine;
+
+            let machine = any
+                .downcast_mut::<M>()
+                .ok_or(ExecuteError::UnexpectedMachineType {
+                    expected: any::type_name::<M>(),
+                    received: machine_type_name,
+                })?;
+
+            // Validate that the caller sent an empty argument payload
+            let args: A = serde_json::from_str(bytes).map_err(ExecuteError::ParsingError)?;
+
+            self(machine, args).map_err(ExecuteError::ExecutionError)
+        })
     }
 }
 
@@ -227,12 +280,12 @@ mod test {
         }
 
         impl TestMachine {
-            fn simple_command(&mut self, _args: ()) -> Result<(), ExecuteError> {
+            fn simple_command(&mut self) -> Result<(), String> {
                 println!("Hello World!");
                 Ok(())
             }
 
-            fn complex_command(&mut self, args: ComplexCommandArgs) -> Result<(), ExecuteError> {
+            fn complex_command(&mut self, args: ComplexCommandArgs) -> Result<(), String> {
                 assert_eq!(args.a, 2.0);
                 assert_eq!(args.b, 5);
                 assert!(!args.c);
@@ -251,27 +304,20 @@ mod test {
 
         let mut r = Manager::new();
 
+        let cmd: fn(&mut TestMachine) -> Result<(), String> = TestMachine::simple_command;
+        let execute = cmd.into_execute_fn();
+
         // --- simple ---
-        let mut handle = r.register(
-            ident,
-            "simple",
-            RegisterOptions {
-                disabled: false,
-                execute: Some(TestMachine::simple_command),
-            },
-        )?;
+        let mut handle = r.register(ident, "simple", false, execute)?;
         handle.set_enabled(false);
         handle.set_enabled(true);
 
         // --- complex ---
-        let mut handle = r.register(
-            ident,
-            "not.simple",
-            RegisterOptions {
-                disabled: false,
-                execute: Some(TestMachine::complex_command),
-            },
-        )?;
+        let cmd: fn(&mut TestMachine, ComplexCommandArgs) -> Result<(), String> =
+            TestMachine::complex_command;
+        let execute = cmd.into_execute_fn();
+
+        let mut handle = r.register(ident, "not.simple", false, execute)?;
         handle.set_enabled(false);
         handle.set_enabled(true);
 

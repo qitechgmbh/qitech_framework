@@ -1,82 +1,108 @@
 qms_version: 1.0
-
-name: winder_v1
-schema_revision: 1
+revision: 1
 
 identification:
-  vendor: 1
-  machine: 2
+  name: winder_v1
+  vendor_id: 1
+  machine_id: 2
 
 config:
-  # travserse config
-  travserse:
+  # traverse config
+  traverse:
     padding: !float
+      default: 0.0
+
     step_size: !float
+      default: 0.0
+
     limit_outer: !float
+      default: 0.0
+
     limit_inner: !float
+      default: 0.0
 
   # puller config
   puller:
     speed_target: !float
-    diameter_target: !float
+      default: 0.0
 
-    regulation: !enum 
+    diameter_target: !float
+      default: 0.0
+
+    regulation: !enum
       variants: [speed, diameter]
+      default: speed
 
     direction: !enum
       variants: [forward, reverse]
+      default: forward
 
     gear_ratio: !enum
       variants: [one_to_one, one_to_five, one_to_ten]
-
-    speed_control:
-      adapative:
-        reference_machine: !machine_identification
+      default: one_to_one
 
   # spool config
   spool:
     direction: !enum
       variants: [forward, reverse]
+      default: forward
 
     speed_control_mode: !enum
       variants: [adaptive, min_max]
+      default: adaptive
 
-    adapative_speed_control:
+    adaptive_speed_control:
       tension_target: !float
-      radius_learning_ate: !float
+        default: 0.0
+
+      radius_learning_rate: !float
+        default: 0.0
+
       speed_multiplier_max: !float
+        default: 1.0
+
       acceleration_factor: !float
+        default: 1.0
+
       deacceleration_urgency_multiplier: !float
+        default: 1.0
 
     speed_control:
       mode: !enum
         variants: [adaptive, min_max]
+        default: adaptive
 
       min_max:
         speed_min: !float
-        speed_max: !float
+          default: 0.0
 
-    auto_action: 
+        speed_max: !float
+          default: 0.0
+
+    auto_action:
       required_distance: !meter
+        default: 0.0
 
       action: !enum
         variants: [none, pull, hold]
+        default: none
+
 
 state:
   # tension arm
   tension_arm:
-    zero: !bool
+    zero: !boolean
       nullable: true
 
   # travserse state
   travserse:
     laser:
-      enabled: !bool
+      enabled: !boolean
 
-    is_going_in: !bool,
-    is_going_out: !bool,
-    is_going_home: !bool,
-    is_traversing: !bool,
+    is_going_in: !boolean
+    is_going_out: !boolean
+    is_going_home: !boolean
+    is_traversing: !boolean
 
   # puller state
 
@@ -89,13 +115,13 @@ measurements:
     speed: !meter_per_minute
 
   spool:
-    rpm: !rotations_per_minute
+    rpm: !revolution_per_minute
 
     auto_action:
       progress: !meter
 
   tension_arm:
-    angle: !angle
+    angle: !revolution
 
 commands:
   enter_standby: !command

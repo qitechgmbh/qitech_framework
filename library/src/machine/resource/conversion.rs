@@ -1,11 +1,8 @@
-use std::borrow::Cow;
 use std::fmt::Debug;
 
 use qitech_framework_common::ScalarValue;
 use qitech_framework_common::with_uom_quantities;
 use qitech_framework_common::with_uom_units;
-
-use crate::uom;
 
 pub trait Extract<T> {
     /// Extracts a value from a raw byte pointer.
@@ -29,24 +26,28 @@ pub trait TypeWrapper {
     type Type: Clone + 'static;
     type Input;
 
-    fn convert_input(input: Self::Input) -> Self::Type;
-}
-
-/// Specialized TypeWrapper for dealing with scalar values.
-/// Used by ConfigPropertyManager and StatePropertyManager for registration.
-pub trait ScalarTypeWrapper: TypeWrapper + Clone + Extract<ScalarValue> + 'static {
     fn into_scalar(value: &Self::Type) -> ScalarValue;
+    fn convert_input(input: Self::Input) -> Self::Type;
+    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type>;
 }
 
-// --- type wrapper ---
+// --- type wrapper ---q
 macro_rules! simple_type_wrapper {
-    ($type:ty) => {
+    ($type:ty, $scalar_name:tt) => {
         impl TypeWrapper for $type {
             type Type = $type;
             type Input = $type;
 
             fn convert_input(input: Self::Input) -> Self::Type {
                 input
+            }
+
+            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+                serde_json::from_str(raw)
+            }
+
+            fn into_scalar(value: &Self::Type) -> ScalarValue {
+                ScalarValue::$scalar_name(Some(*value))
             }
         }
 
@@ -57,13 +58,21 @@ macro_rules! simple_type_wrapper {
             fn convert_input(input: Self::Input) -> Self::Type {
                 input
             }
+
+            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+                serde_json::from_str(raw)
+            }
+
+            fn into_scalar(value: &Self::Type) -> ScalarValue {
+                ScalarValue::$scalar_name(value.as_ref().map(|v| v.clone()))
+            }
         }
     };
 }
 
-simple_type_wrapper!(f64);
-simple_type_wrapper!(i64);
-simple_type_wrapper!(bool);
+simple_type_wrapper!(f64, Float);
+simple_type_wrapper!(i64, Integer);
+simple_type_wrapper!(bool, Boolean);
 
 impl TypeWrapper for String {
     type Type = String;
@@ -71,6 +80,14 @@ impl TypeWrapper for String {
 
     fn convert_input(input: &'static str) -> String {
         input.to_string()
+    }
+
+    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+        serde_json::from_str(raw)
+    }
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::String(Some(value.clone()))
     }
 }
 
@@ -81,15 +98,17 @@ impl TypeWrapper for Option<String> {
     fn convert_input(input: Option<&'static str>) -> Option<String> {
         input.map(|x| x.to_string())
     }
-}
 
-// --- float ---
-impl ScalarTypeWrapper for f64 {
+    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+        serde_json::from_str(raw)
+    }
+
     fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::Float(Some(*value))
+        ScalarValue::String(value.clone())
     }
 }
 
+// --- float ---
 impl Extract<Option<f64>> for f64 {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const f64) };
@@ -105,12 +124,6 @@ impl Extract<ScalarValue> for f64 {
 }
 
 // --- optional float ---
-impl ScalarTypeWrapper for Option<f64> {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::Float(*value)
-    }
-}
-
 impl Extract<Option<f64>> for Option<f64> {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         unsafe { *(bytes as *const Option<f64>) }
@@ -125,12 +138,6 @@ impl Extract<ScalarValue> for Option<f64> {
 }
 
 // --- integer ---
-impl ScalarTypeWrapper for i64 {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::Integer(Some(*value))
-    }
-}
-
 impl Extract<Option<f64>> for i64 {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const i64) };
@@ -146,12 +153,6 @@ impl Extract<ScalarValue> for i64 {
 }
 
 // --- optional int ---
-impl ScalarTypeWrapper for Option<i64> {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::Integer(*value)
-    }
-}
-
 impl Extract<Option<f64>> for Option<i64> {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const Option<i64>) };
@@ -167,12 +168,6 @@ impl Extract<ScalarValue> for Option<i64> {
 }
 
 // --- bool ---
-impl ScalarTypeWrapper for bool {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::Boolean(Some(*value))
-    }
-}
-
 impl Extract<Option<f64>> for bool {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const bool) };
@@ -188,12 +183,6 @@ impl Extract<ScalarValue> for bool {
 }
 
 // --- optional bool ---
-impl ScalarTypeWrapper for Option<bool> {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::Boolean(*value)
-    }
-}
-
 impl Extract<Option<f64>> for Option<bool> {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const Option<bool>) };
@@ -209,16 +198,10 @@ impl Extract<ScalarValue> for Option<bool> {
 }
 
 // --- string ---
-impl ScalarTypeWrapper for String {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::String(Some(Cow::Owned(value.clone())))
-    }
-}
-
 impl Extract<ScalarValue> for String {
     unsafe fn extract(bytes: *const u8) -> ScalarValue {
         let value = unsafe { (*(bytes as *const String)).clone() };
-        ScalarValue::String(Some(Cow::Owned(value.clone())))
+        ScalarValue::String(Some(value.clone()))
     }
 }
 
@@ -230,19 +213,12 @@ impl BoundedMeta for String {
     }
 }
 
-// --- optional string ---
-impl ScalarTypeWrapper for Option<String> {
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::String(value.clone().map(Cow::Owned))
-    }
-}
-
-impl Extract<ScalarValue> for Option<String> {
-    unsafe fn extract(bytes: *const u8) -> ScalarValue {
-        let value = unsafe { (*(bytes as *const Option<String>)).clone() };
-        ScalarValue::String(value.clone().map(Cow::Owned))
-    }
-}
+// impl Extract<ScalarValue> for Option<String> {
+//     unsafe fn extract(bytes: *const u8) -> ScalarValue {
+//         let value = unsafe { (*(bytes as *const Option<String>)).clone() };
+//         ScalarValue::String(value.clone().map(Cow::Owned))
+//     }
+// }
 
 // --- uom quantities ---
 macro_rules! impl_uom_unit {
@@ -254,9 +230,12 @@ macro_rules! impl_uom_unit {
             fn convert_input(input: f64) -> $quantity {
                 <$quantity>::new::<$unit>(input)
             }
-        }
 
-        impl ScalarTypeWrapper for $unit {
+            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+                let value = serde_json::from_str::<f64>(raw)?;
+                Ok(<$quantity>::new::<$unit>(value))
+            }
+
             fn into_scalar(value: &Self::Type) -> ScalarValue {
                 ScalarValue::Float(Some(value.get::<$unit>()))
             }
@@ -284,9 +263,12 @@ macro_rules! impl_uom_unit {
             fn convert_input(input: Option<f64>) -> Option<$quantity> {
                 input.map(|x| <$quantity>::new::<$unit>(x))
             }
-        }
 
-        impl ScalarTypeWrapper for Option<$unit> {
+            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+                let value = serde_json::from_str::<Option<f64>>(raw)?;
+                Ok(value.map(|x| <$quantity>::new::<$unit>(x)))
+            }
+
             fn into_scalar(value: &Self::Type) -> ScalarValue {
                 ScalarValue::Float(value.map(|x| x.get::<$unit>()))
             }
@@ -308,7 +290,7 @@ macro_rules! impl_uom_unit {
     };
 }
 
-with_uom_units!(uom, impl_uom_unit);
+with_uom_units!(impl_uom_unit);
 
 // --- quantity ---
 macro_rules! impl_uom_quantity {
@@ -323,4 +305,4 @@ macro_rules! impl_uom_quantity {
     };
 }
 
-with_uom_quantities!(uom, impl_uom_quantity);
+with_uom_quantities!(impl_uom_quantity);

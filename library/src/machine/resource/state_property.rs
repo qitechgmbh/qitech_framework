@@ -6,13 +6,12 @@ use qitech_framework_common::MachineStateMutation;
 use qitech_framework_common::with_uom_quantities;
 
 use super::PropertyHandle;
+use crate::machine::TypeWrapper;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
-use crate::uom;
 
 pub struct StateProperty<T> {
     handle: PropertyHandle<T>,
@@ -72,7 +71,7 @@ macro_rules! impl_uom {
     };
 }
 
-with_uom_quantities!(uom, impl_uom);
+with_uom_quantities!(impl_uom);
 
 // --- manager ---
 const SLOT_SIZE: usize = size_of::<String>();
@@ -93,7 +92,7 @@ impl Manager {
         initial_value: T::Type,
     ) -> RegisterResult<StateProperty<T::Type>>
     where
-        T: ScalarTypeWrapper,
+        T: TypeWrapper,
         T::Type: Default,
     {
         // create boxed function to type erase the wrapper type
@@ -156,13 +155,13 @@ pub type RecordFn<T> = Box<dyn Fn(&T)>;
 #[cfg(test)]
 mod test {
     use qitech_framework_common::MachineIdentification;
-    use uom_crate::ConstZero;
+    use qitech_lib::units::ConstZero;
+    use qitech_lib::units::Length;
+    use qitech_lib::units::length::centimeter;
+    use qitech_lib::units::length::meter;
+    use qitech_lib::units::length::millimeter;
 
     use super::*;
-    use crate::uom::Length;
-    use crate::uom::length::centimeter;
-    use crate::uom::length::meter;
-    use crate::uom::length::millimeter;
 
     #[test]
     pub fn register_and_use() -> anyhow::Result<()> {

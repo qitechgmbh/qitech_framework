@@ -18,7 +18,11 @@ pub(crate) mod hardware;
 pub use hardware::Hardware;
 
 pub mod resource;
+pub use resource::CommandHandle;
+pub use resource::IntoExecuteFn;
 pub use resource::SubscribedEvent;
+pub use resource::conversion::BoundedMeta;
+pub use resource::conversion::TypeWrapper;
 pub use resource::subscription::SubscribedProperty;
 
 use crate::machine::resource::CommandManager;

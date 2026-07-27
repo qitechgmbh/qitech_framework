@@ -5,10 +5,10 @@ use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;
 use qitech_lib::ethercat_hal::io::analog_input::physical::AnalogInputValue;
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
-use qitech_framework::uom::Angle;
-use qitech_framework::uom::ConstZero;
-use qitech_framework::uom::angle::revolution;
-use qitech_framework::uom::electric_potential::volt;
+use qitech_lib::units::Angle;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::angle::revolution;
+use qitech_lib::units::electric_potential::volt;
 
 const ANALOG_INPUT_PORT: usize = 0;
 

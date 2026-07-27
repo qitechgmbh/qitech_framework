@@ -1,9 +1,9 @@
 use std::time::Instant;
 
-use qitech_framework::uom::ConstZero;
-use qitech_framework::uom::Length;
-use qitech_framework::uom::length::meter;
-use qitech_framework::uom::velocity::meter_per_second;
+use qitech_lib::units::ConstZero;
+use qitech_lib::units::Length;
+use qitech_lib::units::length::meter;
+use qitech_lib::units::velocity::meter_per_second;
 
 use crate::machines::winder_v1::puller::Puller;
 

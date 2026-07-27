@@ -1,5 +1,5 @@
-use qitech_framework::uom::angle::revolution;
-use qitech_framework::uom::f64::*;
+use qitech_lib::units::angle::revolution;
+use qitech_lib::units::f64::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Clamping {

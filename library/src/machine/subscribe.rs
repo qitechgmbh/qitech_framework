@@ -32,7 +32,7 @@ impl<'a> SubscribeContext<'a> {
     pub fn subscribe_config<T>(
         &mut self,
         resource: &'static str,
-    ) -> SubscribeResult<SubscribedProperty<T>>{
+    ) -> SubscribeResult<SubscribedProperty<T>> {
         // self.resources.config_properties
         //     .create_subscriber(self.producer, self.consumer, resource)?
         todo!()
@@ -41,7 +41,7 @@ impl<'a> SubscribeContext<'a> {
     pub fn subscribe_state<T>(
         &mut self,
         resource: &'static str,
-    ) -> SubscribeResult<SubscribedProperty<T>>{
+    ) -> SubscribeResult<SubscribedProperty<T>> {
         // self.resources.config_properties
         //     .create_subscriber(self.producer, self.consumer, resource)?
         todo!()
@@ -50,7 +50,7 @@ impl<'a> SubscribeContext<'a> {
     pub fn subscribe_measurement<T>(
         &mut self,
         resource: &'static str,
-    ) -> SubscribeResult<SubscribedProperty<T>>{
+    ) -> SubscribeResult<SubscribedProperty<T>> {
         // self.resources.config_properties
         //     .create_subscriber(self.producer, self.consumer, resource)?
         todo!()

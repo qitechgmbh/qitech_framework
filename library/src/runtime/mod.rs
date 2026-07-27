@@ -5,8 +5,7 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
-pub use init::EtherCATConfig;
-use init::RuntimeBuilder;
+pub use builder::EtherCATConfig;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
 use types::Config;
@@ -20,8 +19,11 @@ pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
 
-mod init;
+mod builder;
+pub use builder::RuntimeBuilder;
+
 mod utils;
+mod config;
 
 mod request;
 
@@ -50,17 +52,12 @@ pub struct Runtime<B: Bridge> {
 }
 
 impl<B: Bridge> Runtime<B> {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> RuntimeBuilder {
-        RuntimeBuilder::new()
-    }
-
-    pub fn run(mut self) -> Result<(), &'static str> {
+    pub fn run(mut self) {
         loop {
             let now = Instant::now();
 
             if self.controller_finished() {
-                return Ok(());
+                return;
             }
 
             self.write_ecat_inputs();

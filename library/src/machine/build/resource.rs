@@ -5,28 +5,29 @@ use serde::de::DeserializeOwned;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
+use crate::machine::build::BuildError;
 use crate::machine::build::BuildResult;
-use crate::machine::error::CommandExecuteError;
 use crate::machine::resource::CommandHandle;
-use crate::machine::resource::CommandRegisterOptions;
 use crate::machine::resource::ConfigProperty;
 use crate::machine::resource::ConfigPropertyRegisterOptions;
 use crate::machine::resource::EventEmitter;
+use crate::machine::resource::ExecuteFn;
+use crate::machine::resource::IntoExecuteFn;
 use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementRegisterOptions;
 use crate::machine::resource::StateProperty;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::conversion::Extract;
-use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::conversion::TypeWrapper;
+use crate::machine::resource::error::RegisterError;
 
 // --- config property ---
 impl<'a> BuildContext<'a> {
     pub fn config<'b, T>(&'b mut self, path: &'static str) -> ConfigPropertyBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: ScalarTypeWrapper + 'static,
-        T::Type: Clone + DeserializeOwned + Default + BoundedMeta,
+        T: TypeWrapper + 'static,
+        T::Type: Clone + Default + BoundedMeta,
     {
         ConfigPropertyBuilder {
             root: self,
@@ -38,8 +39,8 @@ impl<'a> BuildContext<'a> {
 
 pub struct ConfigPropertyBuilder<'a, 'b, T>
 where
-    T: ScalarTypeWrapper + 'static,
-    T::Type: Clone + DeserializeOwned + BoundedMeta,
+    T: TypeWrapper + 'static,
+    T::Type: Clone + BoundedMeta,
 {
     root: &'b mut BuildContext<'a>,
     path: &'static str,
@@ -48,8 +49,8 @@ where
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
 where
-    T: ScalarTypeWrapper + 'static,
-    T::Type: Clone + DeserializeOwned + BoundedMeta,
+    T: TypeWrapper + 'static,
+    T::Type: Clone + BoundedMeta,
 {
     pub fn default(mut self, value: T::Input) -> Self {
         self.options.default = T::convert_input(value);
@@ -85,7 +86,7 @@ impl<'a> BuildContext<'a> {
     pub fn state<'b, T>(&'b mut self, path: &'static str) -> StatePropertyBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: ScalarTypeWrapper,
+        T: TypeWrapper,
         T::Type: Default,
     {
         StatePropertyBuilder {
@@ -98,7 +99,7 @@ impl<'a> BuildContext<'a> {
 
 pub struct StatePropertyBuilder<'a, 'b, T>
 where
-    T: ScalarTypeWrapper,
+    T: TypeWrapper,
     T::Type: Default,
 {
     root: &'b mut BuildContext<'a>,
@@ -108,7 +109,7 @@ where
 
 impl<'a, 'b, T> StatePropertyBuilder<'a, 'b, T>
 where
-    T: ScalarTypeWrapper,
+    T: TypeWrapper,
     T::Type: Default,
 {
     pub fn initial(mut self, value: T::Input) -> Self {
@@ -182,52 +183,65 @@ where
 
 // --- command ---
 impl<'a> BuildContext<'a> {
-    pub fn command<'b, M, A>(&'b mut self, path: &'static str) -> CommandBuilder<'a, 'b, M, A>
+    pub fn command<'b, M>(&'b mut self, path: &'static str) -> CommandBuilder<'a, 'b, M>
     where
         'a: 'b,
         M: Machine + 'static,
-        A: serde::de::DeserializeOwned + 'static,
     {
         CommandBuilder {
             root: self,
             path,
-            options: Default::default(),
+            disabled: false,
+            execute: None,
             _marker: PhantomData,
         }
     }
 }
 
-pub struct CommandBuilder<'a, 'b, M, A>
+pub struct CommandBuilder<'a, 'b, M>
 where
     M: Machine + 'static,
-    A: serde::de::DeserializeOwned + 'static,
 {
     root: &'b mut BuildContext<'a>,
     path: &'static str,
-    options: CommandRegisterOptions<M, A>,
-    _marker: PhantomData<(M, A)>,
+    disabled: bool,
+    execute: Option<ExecuteFn>,
+    _marker: PhantomData<M>,
 }
 
-impl<'a, 'b, M, A> CommandBuilder<'a, 'b, M, A>
+impl<'a, 'b, M> CommandBuilder<'a, 'b, M>
 where
     M: Machine + 'static,
-    A: serde::de::DeserializeOwned + 'static,
 {
-    pub fn execute(mut self, execute: fn(&mut M, A) -> Result<(), CommandExecuteError>) -> Self {
-        self.options.execute = Some(execute);
+    pub fn execute(mut self, execute: fn(&mut M) -> Result<(), String>) -> Self {
+        self.execute = Some(execute.into_execute_fn());
+        self
+    }
+
+    pub fn execute_args<A>(mut self, execute: fn(&mut M, A) -> Result<(), String>) -> Self
+    where
+        A: DeserializeOwned + 'static,
+    {
+        self.execute = Some(execute.into_execute_fn());
         self
     }
 
     pub fn disabled(mut self) -> Self {
-        self.options.disabled = true;
+        self.disabled = true;
         self
     }
 
     pub fn register(self) -> BuildResult<CommandHandle> {
-        Ok(self.root.resources.commands.register::<M, A>(
+        let Some(execute) = self.execute else {
+            let err = RegisterError::MissingRequiredField("execute");
+            return Err(BuildError::RegisterError(err));
+        };
+
+        Ok(self.root.resources.commands.register(
             self.root.ident,
             self.path,
-            self.options,
+            self.disabled,
+            execute,
         )?)
     }
 }

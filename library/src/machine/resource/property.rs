@@ -188,7 +188,7 @@ where
             }
 
             let info = unsafe { self.buf_info[i].assume_init_ref() };
-            if info.machine == ident && &info.path == path {
+            if info.machine == ident && info.path == path {
                 return Err(RegisterError::Duplicate);
             }
         }

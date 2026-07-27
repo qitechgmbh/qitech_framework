@@ -28,9 +28,10 @@ pub use state_property::StateProperty;
 
 mod command;
 pub use command::ExecuteError as CommandExecuteError;
+pub use command::ExecuteFn;
 pub use command::Handle as CommandHandle;
+pub use command::IntoExecuteFn;
 pub use command::Manager as CommandManager;
-pub use command::RegisterOptions as CommandRegisterOptions;
 
 mod event;
 pub use event::Emitter as EventEmitter;

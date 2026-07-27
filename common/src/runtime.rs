@@ -9,7 +9,6 @@ use crate::DeviceIdentification;
 use crate::LogRecord;
 use crate::MachineIdentificationUnique;
 use crate::MachinesReport;
-use crate::OperationResult;
 use crate::ScalarValue;
 
 // --- request ---

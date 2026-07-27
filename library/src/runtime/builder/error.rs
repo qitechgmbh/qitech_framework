@@ -9,19 +9,19 @@ pub type EtherCATInitializeResult<T> = Result<T, EtherCATInitializeError>;
 
 #[derive(Error, Debug)]
 pub enum RuntimeInitializeError {
-    #[error("data store disconnected")]
+    #[error("bridge initialization failed: {0}")]
     BridgeInitialize(#[from] BridgeInitializeError),
 
-    #[error("data store disconnected")]
+    #[error("machine already registered: {0:?}")]
     DuplicateMachine(MachineIdentification),
 
-    #[error("data store disconnected")]
+    #[error("failed to read schema: {0}")]
     CannotReadSchema(#[from] ParseError),
 
-    #[error("data store disconnected")]
+    #[error("initialization assertion failed: {0}")]
     AssertionFailed(&'static str),
 
-    #[error("data store disconnected")]
+    #[error("EtherCAT initialization failed")]
     EtherCATError(EtherCATInitializeError),
 }
 
