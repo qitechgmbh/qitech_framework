@@ -81,6 +81,17 @@ impl Resources {
         self.events.sync_cache();
     }
 
+    pub fn remove_subscription(
+        &mut self, 
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    ) {
+        self.config_properties.remove_subscription(provider, subscriber);
+        self.state_properties.remove_subscription(provider, subscriber);
+        self.measurements.remove_subscription(provider, subscriber);
+        self.events.remove_subscription(provider, subscriber);
+    }
+
     pub fn extract_report(&mut self, report: &mut MachinesReport) {
         self.config_properties.drain_journal(|entry| {
             report.config_mutations.push(entry);

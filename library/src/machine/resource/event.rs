@@ -160,7 +160,7 @@ impl Manager {
         Ok(subscribed_event)
     }
 
-    pub fn remove_subscriber(
+    pub fn remove_subscription(
         &mut self,
         producer: MachineIdentificationUnique,
         consumer: MachineIdentificationUnique,

@@ -2,6 +2,7 @@ use qitech_framework_common::RuntimeRequestKind;
 
 use crate::Runtime;
 use crate::machine::Machine;
+use crate::machine::SubscribeContext;
 use crate::runtime::Bridge;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
@@ -25,7 +26,7 @@ impl<B: Bridge> Runtime<B> {
                     return Err("No EtherCAT controller available".into());
                 };
 
-                // TODO: submit error !
+                // TODO: submit error
                 _ = utils::write_machine_device_info(
                     controller,
                     machine_ident,
@@ -43,7 +44,7 @@ impl<B: Bridge> Runtime<B> {
 
             RuntimeRequestKind::InvokeMachineCommand {
                 target,
-                resource_path,
+                resource,
                 arguments,
             } => {
                 let Some(machine) = find_machine(&mut self.machines, target) else {
@@ -55,62 +56,53 @@ impl<B: Bridge> Runtime<B> {
                 let res = self.resources.commands.invoke(
                     target,
                     machine_ref,
-                    &resource_path,
+                    &resource,
                     &arguments,
                 );
 
-                let result = res.map_err(|e| format!("{e}"));
-                self.report.responses.push((req.transaction_id, result));
+                res.map_err(|e| format!("{e}"))
             }
 
-            RuntimeRequestKind::MachineSubscribe { provider, consumer } => {
+            RuntimeRequestKind::MachineSubscribe { provider, subscriber } => {
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
                     return Err("No Such Machine".to_string());
                 }
 
                 // --- find consumer ---
-                let Some(machine) = find_machine(&mut self.machines, consumer) else {
+                let Some(machine) = find_machine(&mut self.machines, subscriber) else {
                     return Err("No Such Machine".to_string());
                 };
 
-                let entry = self.subscriptions.entry(consumer);
+                // --- prevent duplicate subscription ---
+                let subscribers = self.subscriptions.entry(provider).or_default();
 
-                if entry.
-
-                let ctx = SubscribeContext::new(provider, &mut self.resources);
-
-                let result = machine.subscribe(&ctx).map_err(|e| format!("{e}"));
-
-                if result.is_ok() {
-
+                if subscribers.contains(&subscriber) {
+                    return Err("Already subscribed".to_string());
                 }
 
-                self.report
-                    .responses
-                    .push((req.transaction_id, result));
+                // --- let machine allocate resources ---
+                let ctx = SubscribeContext::new(provider, subscriber, &mut self.resources);
+
+                if let Err(e) = machine.subscribe(ctx).map_err(|e| e.to_string()) {
+                    // failed, clean up any created handles
+                    self.resources.remove_subscription(provider, subscriber);
+                    return Err(e);
+                }
+
+                // --- register subscription ---
+                subscribers.push(subscriber);
+
+                Ok(())
             }
 
-            RuntimeRequestKind::MachineUnsubscribe { provider, consumer } => {
-                // --- ensure provider exists ---
-                if find_machine(&mut self.machines, provider).is_none() {
-                    return Err("No Such Machine")
-                }
-
-                // --- find consumer ---
-                let Some(machine) = find_machine(&mut self.machines, consumer) else {
-                    self.report
-                        .responses
-                        .push((req.transaction_id, Err(format!("No Such Machine {provider}"))));
-
-                    return;
+            RuntimeRequestKind::MachineUnsubscribe { provider, subscriber } => {
+                let Some(entry) = self.subscriptions.get_mut(&provider) else {
+                    return Err("No such provider".to_string());
                 };
 
-                let Some(entry) = self.subscriptions.get_mut(&consumer) else {
-
-
-                    return;
-                };
+                entry.retain(|v| *v != subscriber);
+                self.resources.remove_subscription(provider, subscriber);
 
                 return Ok(());
             }

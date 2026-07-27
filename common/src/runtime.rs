@@ -33,12 +33,12 @@ pub enum RuntimeRequestKind {
 
     MachineSubscribe {
         provider: MachineIdentificationUnique,
-        consumer: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
     },
 
     MachineUnsubscribe {
         provider: MachineIdentificationUnique,
-        consumer: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
     },
 
     SetMachineConfiguration(SetMachineConfigurationRequest),
@@ -48,7 +48,7 @@ pub enum RuntimeRequestKind {
         target: MachineIdentificationUnique,
 
         /// command resource path
-        resource_path: String,
+        resource: String,
 
         /// command arguments
         arguments: String,
