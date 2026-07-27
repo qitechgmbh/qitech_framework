@@ -5,6 +5,7 @@ use thiserror::Error;
 use crate::machine::Resources;
 use crate::machine::hardware::Hardware;
 use crate::machine::resource::error::RegisterError;
+use crate::machine::resource::error::ResourceError;
 
 mod hardware;
 mod resource;

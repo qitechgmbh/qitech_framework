@@ -17,7 +17,7 @@ mod interface;
 
 mod machines;
 use machines::LaserV1;
-// use machines::WinderV1;
+use machines::WinderV1;
 
 pub fn main() -> anyhow::Result<()> {
     interface::bring_up_all_ethernet();
@@ -25,8 +25,8 @@ pub fn main() -> anyhow::Result<()> {
     let rt = Runtime::new()
         .with_ethercat(ETHERCAT_CONFIG)
         .with_machine::<LaserV1>()
-        // .with_machine::<WinderV1>()
-        .run()?;
+        .with_machine::<WinderV1>()
+        .init()?;
 
     rt.run().map_err(|_| anyhow!("idk"))
 }

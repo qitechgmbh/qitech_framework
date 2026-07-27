@@ -76,7 +76,7 @@ pub struct MachineMeasurement {
     pub machine: MachineIdentificationUnique,
 
     /// measurement resource path
-    pub path: Cow<'static, str>,
+    pub path: String,
 
     /// measured value
     pub value: Option<f64>,

@@ -8,9 +8,10 @@ use qitech_framework_common::with_uom_quantities;
 use super::PropertyHandle;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::Subscriber;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
 use crate::machine::resource::error::RegisterResult;
+use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::SubscribedProperty;
 use crate::uom;
 
 pub struct StateProperty<T> {
@@ -78,11 +79,9 @@ const SLOT_SIZE: usize = size_of::<String>();
 const MAX_ITEMS: usize = 512;
 type Kind = super::property_kind::StateProperty;
 
-pub type ReaderHandle<T> = Subscriber<Kind, T>;
-
 #[derive(Default)]
 pub struct Manager {
-    registry: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind>,
+    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind>,
     journal: Journal<MachineStateMutation>,
 }
 
@@ -112,15 +111,39 @@ impl Manager {
         });
 
         let handle = self
-            .registry
-            .register::<T::Type>(ident, path, "", (), initial_value)?;
+            .inner
+            .register::<T::Type>(ident, path.to_string(), (), initial_value)?;
+
         Ok(StateProperty { handle, record })
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
-        self.registry.unregister_machine(ident)
+        self.inner.unregister_machine(ident)
     }
 
+    // --- subscription ---
+    pub fn create_subscriber<T: 'static>(
+        &mut self,
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+        resource: &'static str,
+    ) -> Result<SubscribedProperty<T>, SubscribeError> {
+        self.inner.create_subscriber(provider, subscriber, resource)
+    }
+
+    pub fn remove_subscription(
+        &mut self,
+        provider: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    ) {
+        self.inner.remove_subscription(provider, consumer);
+    }
+
+    pub fn sync_cache(&mut self) {
+        self.inner.sync_cache();
+    }
+
+    // --- reporting ---
     pub fn drain_journal(&mut self, f: impl FnMut(MachineStateMutation)) {
         self.journal.drain_with(f);
     }

@@ -1,22 +1,16 @@
 use std::any::TypeId;
-use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
-use std::rc::Weak;
 
 use qitech_framework_common::MachineIdentificationUnique;
 
 use super::PropertyKind;
-use super::error::RegisterErrorKind;
+use super::error::RegisterError;
 use super::error::RegisterResult;
-use super::error::SubscribeErrorKind;
-use super::error::SubscribeResult;
-use crate::machine::resource::ResourceKey;
-use crate::machine::resource::SubscriptionRegistry;
-use crate::machine::resource::SubscriptionToken;
-
-// create new property, stored under a ResourceId
+use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::SubscribedProperty;
+use crate::machine::resource::subscription::SubscriptionRegistry;
 
 pub struct PropertyManager<
     const SLOT_SIZE: usize,
@@ -68,7 +62,7 @@ where
             assert!(align_of::<T>() <= align_of::<Storage<SLOT_SIZE>>());
         }
 
-        let index = self.find_slot()?;
+        let index = self.find_slot(ident, &path)?;
 
         self.occupied[index] = true;
         let type_id = TypeId::of::<T>();
@@ -80,8 +74,10 @@ where
             metadata,
         });
 
+        // get current generation to compare later
         let generation = self.buf_gen[index];
 
+        // get pointer to read the latest generation
         let p_generation = unsafe {
             let ptr = self.buf_gen[index] as *mut u64;
             NonNull::new_unchecked(ptr)
@@ -126,7 +122,7 @@ where
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> SubscribeResult<Subscriber<T>> {
+    ) -> Result<SubscribedProperty<T>, SubscribeError> {
         let result = self.occupied.iter().enumerate().find_map(|(i, occupied)| {
             if !*occupied {
                 return None;
@@ -137,11 +133,11 @@ where
         });
 
         let Some((index, info)) = result else {
-            return Err(SubscribeErrorKind::NoSuchProperty);
+            return Err(SubscribeError::NoSuchProperty);
         };
 
         if info.type_id != TypeId::of::<T>() {
-            return Err(SubscribeErrorKind::InvalidType);
+            return Err(SubscribeError::InvalidType);
         }
 
         let p_value = unsafe {
@@ -149,12 +145,14 @@ where
             NonNull::new_unchecked(ptr)
         };
 
-        let token = self.subscriptions.register(provider, subscriber, resource)?;
-        Ok(Subscriber { token, p_value })
+        let token = self
+            .subscriptions
+            .register(provider, subscriber, resource)?;
+        Ok(SubscribedProperty::new(token, p_value))
     }
 
     pub fn remove_subscription(
-        &mut self, 
+        &mut self,
         provider: MachineIdentificationUnique,
         consumer: MachineIdentificationUnique,
     ) {
@@ -178,16 +176,31 @@ where
     }
 
     // --- utils ---
-    fn find_slot(&mut self) -> RegisterResult<usize> {
-        // --- step one: ensure no duplicates ---
-        for item in &self.occupied {}
+    fn find_slot(
+        &mut self,
+        ident: MachineIdentificationUnique,
+        path: &str,
+    ) -> RegisterResult<usize> {
+        // --- ensure no duplicates ---
+        for (i, occupied) in self.occupied.iter().enumerate() {
+            if !*occupied {
+                continue;
+            }
 
-        if let Some(index) = self.occupied.iter().position(|slot| !slot) {
+            let info = unsafe { self.buf_info[i].assume_init_ref() };
+            if info.machine == ident && &info.path == path {
+                return Err(RegisterError::Duplicate);
+            }
+        }
+
+        // --- find available slot ---
+        if let Some(index) = self.occupied.iter().position(|occupied| !occupied) {
             return Ok(index);
         }
 
+        // no free slot, try to expand buffer
         if self.occupied.push(true).is_err() {
-            return Err(RegisterErrorKind::RegistryFull);
+            return Err(RegisterError::RegistryFull);
         }
 
         Ok(self.occupied.len() - 1)
@@ -229,29 +242,6 @@ impl<T> PropertyHandle<T> {
 #[repr(C, align(16))]
 struct Storage<const SLOT_SIZE: usize> {
     bytes: [u8; SLOT_SIZE],
-}
-
-pub struct Subscriber<T> {
-    token: Weak<SubscriptionToken>,
-    p_value: NonNull<T>,
-}
-
-impl<T> Subscriber<T> {
-    pub fn get_ref(&self) -> &T {
-        self.token
-            .upgrade()
-            .expect("Subscriber outlived subscription");
-        unsafe { self.p_value.as_ref() }
-    }
-}
-
-impl<T: Copy> Subscriber<T> {
-    pub fn get(&self) -> T {
-        self.token
-            .upgrade()
-            .expect("Subscriber outlived subscription");
-        unsafe { self.p_value.read() }
-    }
 }
 
 // --- iter ---

@@ -12,10 +12,11 @@ use super::PropertyHandle;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::Subscriber;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::conversion::ScalarTypeWrapper;
-use crate::machine::resource::error::RegisterError;
+use crate::machine::resource::error::RegisterResult;
+use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::SubscribedProperty;
 use crate::uom;
 
 pub struct ConfigProperty<T: Clone> {
@@ -91,8 +92,6 @@ const MAX_ITEMS: usize = 512;
 type Kind = super::property_kind::ConfigProperty;
 type Metadata = WriteApiFn;
 
-pub type RemoteHandle<T> = Subscriber<Kind, T>;
-
 #[derive(Default)]
 pub struct Manager {
     inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
@@ -105,7 +104,7 @@ impl Manager {
         machine: MachineIdentificationUnique,
         path: &'static str,
         options: RegisterOptions<T::Type>,
-    ) -> Result<ConfigProperty<T::Type>, RegisterError>
+    ) -> RegisterResult<ConfigProperty<T::Type>>
     where
         T: ScalarTypeWrapper + 'static,
         T::Type: Clone + DeserializeOwned + BoundedMeta,
@@ -170,9 +169,12 @@ impl Manager {
         );
 
         let default = options.default;
-        let handle =
-            self.inner
-                .register::<T::Type>(machine, path, "", write_api, default.clone())?;
+        let handle = self.inner.register::<T::Type>(
+            machine,
+            path.to_string(),
+            write_api,
+            default.clone(),
+        )?;
 
         Ok(ConfigProperty {
             handle,
@@ -185,6 +187,29 @@ impl Manager {
         self.inner.unregister_machine(ident)
     }
 
+    // --- subscription ---
+    pub fn create_subscriber<T: 'static>(
+        &mut self,
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+        resource: &'static str,
+    ) -> Result<SubscribedProperty<T>, SubscribeError> {
+        self.inner.create_subscriber(provider, subscriber, resource)
+    }
+
+    pub fn remove_subscription(
+        &mut self,
+        provider: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    ) {
+        self.inner.remove_subscription(provider, consumer);
+    }
+
+    pub fn sync_cache(&mut self) {
+        self.inner.sync_cache();
+    }
+
+    // --- reporting ---
     pub fn drain_journal(&mut self, f: impl FnMut(MachineConfigMutation)) {
         self.journal.drain_with(f);
     }

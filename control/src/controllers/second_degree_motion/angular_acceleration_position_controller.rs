@@ -1,11 +1,11 @@
 use std::time::Instant;
 
-use qitech_lib::units::angle::radian;
-use qitech_lib::units::angular_acceleration::radian_per_second_squared;
-use qitech_lib::units::angular_velocity::radian_per_second;
-use qitech_lib::units::f64::Angle;
-use qitech_lib::units::f64::AngularAcceleration;
-use qitech_lib::units::f64::AngularVelocity;
+use qitech_framework::uom::angle::radian;
+use qitech_framework::uom::angular_acceleration::radian_per_second_squared;
+use qitech_framework::uom::angular_velocity::radian_per_second;
+use qitech_framework::uom::f64::Angle;
+use qitech_framework::uom::f64::AngularAcceleration;
+use qitech_framework::uom::f64::AngularVelocity;
 
 use super::acceleration_position_controller::AccelerationPositionController;
 use super::acceleration_position_controller::MotionControllerError;

@@ -5,14 +5,15 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
+pub use init::EtherCATConfig;
+use init::RuntimeBuilder;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
+use types::Config;
+use types::HardwareRegistry;
+use types::MachineInstance;
 
 use crate::machine::Resources;
-use crate::runtime::init::RuntimeBuilder;
-use crate::runtime::types::Config;
-use crate::runtime::types::HardwareRegistry;
-use crate::runtime::types::MachineInstance;
 
 mod types;
 pub use types::EtherCATController;
@@ -66,6 +67,7 @@ impl<B: Bridge> Runtime<B> {
             self.receive_instances();
             self.process_requests();
             self.run_machines();
+            self.resources.sync_caches();
             self.write_ecat_outputs();
             self.export_report_if_due(now);
 

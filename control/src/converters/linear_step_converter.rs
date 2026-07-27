@@ -1,11 +1,11 @@
-use qitech_lib::units::angle::revolution;
-use qitech_lib::units::angular_velocity::revolution_per_second;
-use qitech_lib::units::f64::Acceleration;
-use qitech_lib::units::f64::Angle;
-use qitech_lib::units::f64::AngularAcceleration;
-use qitech_lib::units::f64::AngularVelocity;
-use qitech_lib::units::f64::Length;
-use qitech_lib::units::f64::Velocity;
+use qitech_framework::uom::angle::revolution;
+use qitech_framework::uom::angular_velocity::revolution_per_second;
+use qitech_framework::uom::f64::Acceleration;
+use qitech_framework::uom::f64::Angle;
+use qitech_framework::uom::f64::AngularAcceleration;
+use qitech_framework::uom::f64::AngularVelocity;
+use qitech_framework::uom::f64::Length;
+use qitech_framework::uom::f64::Velocity;
 
 use super::angular_step_converter::AngularStepConverter;
 use super::circular_converter::CircularConverter;

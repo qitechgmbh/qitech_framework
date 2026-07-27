@@ -3,7 +3,7 @@ members = [
     "common",
     "macros",
     "library",
-    "hub",
+    # "hub",
     "control",
 ]
 resolver = "2"

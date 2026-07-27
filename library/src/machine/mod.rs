@@ -6,7 +6,6 @@ pub mod error;
 use error::ActResult;
 use error::SubscribeError;
 use error::SubscribeResult;
-use error::SyncResult;
 
 mod build;
 pub use build::BuildContext;
@@ -14,12 +13,14 @@ pub use build::BuildContext;
 mod subscribe;
 use qitech_framework_common::MachinesReport;
 pub use subscribe::SubscribeContext;
-pub use subscribe::SyncContext;
 
 pub(crate) mod hardware;
 pub use hardware::Hardware;
 
 pub mod resource;
+pub use resource::SubscribedEvent;
+pub use resource::subscription::SubscribedProperty;
+
 use crate::machine::resource::CommandManager;
 use crate::machine::resource::ConfigPropertyManager;
 use crate::machine::resource::EventManager;
@@ -31,13 +32,7 @@ pub trait Machine: Any {
     fn act(&mut self) -> ActResult;
 
     /// allows a machine to sync remote resources (from subscriptions)
-    fn sync(&self, ctx: &SyncContext) -> SyncResult {
-        _ = ctx;
-        Ok(())
-    }
-
-    /// called when the machine is offered a subscription to another machine
-    fn subscribe(&mut self, ctx: &SubscribeContext) -> SubscribeResult {
+    fn subscribe(&mut self, ctx: SubscribeContext) -> SubscribeResult<()> {
         _ = ctx;
         Err(SubscribeError::Rejected)
     }
@@ -73,6 +68,13 @@ impl Resources {
     //     self.commands.unregister_machine(ident);
     //     self.events.unregister_machine(ident);
     // }
+
+    pub fn sync_caches(&mut self) {
+        self.config_properties.sync_cache();
+        self.state_properties.sync_cache();
+        self.measurements.sync_cache();
+        self.events.sync_cache();
+    }
 
     pub fn extract_report(&mut self, report: &mut MachinesReport) {
         self.config_properties.drain_journal(|entry| {

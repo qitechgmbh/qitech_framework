@@ -8,15 +8,18 @@ use crate::runtime::utils::find_machine;
 
 impl<B: Bridge> Runtime<B> {
     pub fn process_requests(&mut self) {
-        
 
+        /*
         for req in self.bridge.get_requests(self.config.requests_per_cycle_max) {
             let response = self.process_request(req.kind);
             self.report.responses.push((req.transaction_id, response));
         }
+        */
     }
 
     fn process_request(&mut self, kind: RuntimeRequestKind) -> Result<(), String> {
+        Ok(())
+        /*
         match kind {
             RuntimeRequestKind::WriteMachineDeviceInfo {
                 machine_ident,
@@ -85,7 +88,7 @@ impl<B: Bridge> Runtime<B> {
                 let result = machine.subscribe(&ctx).map_err(|e| format!("{e}"));
 
                 if result.is_ok() {
-                    
+
                 }
 
                 self.report
@@ -117,5 +120,6 @@ impl<B: Bridge> Runtime<B> {
                 return Ok(());
             }
         }
+        */
     }
 }

@@ -1,9 +1,9 @@
 use euclid::Point2D;
-use qitech_lib::units::ConstZero;
-use qitech_lib::units::angle::radian;
-use qitech_lib::units::f64::*;
-use qitech_lib::units::length::centimeter;
-use qitech_lib::units::ratio::ratio;
+use qitech_framework::uom::ConstZero;
+use qitech_framework::uom::angle::radian;
+use qitech_framework::uom::f64::*;
+use qitech_framework::uom::length::centimeter;
+use qitech_framework::uom::ratio::ratio;
 
 use crate::converters::AngleConverter;
 use crate::converters::AngleConverterUom;

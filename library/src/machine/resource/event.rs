@@ -16,13 +16,11 @@ use serde::de::DeserializeOwned;
 use super::Journal;
 use super::JournalHandle;
 use super::Key;
-use super::ResourceKind;
 use super::error::RegisterError;
-use super::error::RegisterErrorKind;
 use super::error::RegisterResult;
-use crate::machine::resource::SubscriptionId;
-use crate::machine::resource::SubscriptionRegistry;
-use crate::machine::resource::SubscriptionToken;
+use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::SubscriptionRegistry;
+use crate::machine::resource::subscription::SubscriptionToken;
 
 pub struct Emitter<T: Serialize> {
     machine: MachineIdentificationUnique,
@@ -60,9 +58,6 @@ pub struct Manager {
     /// journal of all emitted events
     journal: Journal<MachineEmittedEvent>,
 
-    /// counter for uniquely identifiying a subscription
-    subscribe_id_counter: u64,
-
     /// list of entries that have subscribers
     subscribed: Vec<Key<'static>>,
 
@@ -75,7 +70,6 @@ impl Manager {
         Self {
             registry: Default::default(),
             journal: Journal::default(),
-            subscribe_id_counter: 0,
             subscribed: Default::default(),
             subscriptions: Default::default(),
         }
@@ -89,10 +83,10 @@ impl Manager {
     where
         T: Serialize + 'static,
     {
-        let key = Key::simple(ident, path);
+        let key = Key::from_str(ident, path);
 
         if self.registry.contains_key(&key) {
-            return Err(RegisterErrorKind::Duplicate);
+            return Err(RegisterError::Duplicate);
         }
 
         let slot = Rc::new(RefCell::new(Slot {
@@ -111,7 +105,8 @@ impl Manager {
         let entry = Entry {
             type_id: TypeId::of::<T>(),
             slot,
-            subscriber_cache: Default::default(),
+            cache: Default::default(),
+            subscribers: 0,
         };
 
         self.registry.insert(key, entry);
@@ -120,26 +115,26 @@ impl Manager {
 
     pub fn create_subscriber<T: DeserializeOwned + 'static>(
         &mut self,
-        machine: MachineIdentificationUnique,
+        producer: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> Result<(SubscriptionId, Subscriber<T>), ()> {
-
-
-
-        let key = Key::simple(machine, resource);
+    ) -> Result<SubscribedEvent<T>, SubscribeError> {
+        let key = Key::from_str(producer, resource);
 
         let (slot, data) = {
             let Some(entry) = self.registry.get(&key) else {
-                return Err(());
+                return Err(SubscribeError::NoSuchProperty);
             };
 
             // ensure the user provided the correct Type
             if entry.type_id != TypeId::of::<T>() {
-                return Err(());
+                return Err(SubscribeError::InvalidType);
             }
 
-            (entry.slot.clone(), &entry.subscriber_cache)
+            (entry.slot.clone(), &entry.cache)
         };
+
+        let token = self.subscriptions.register(producer, consumer, resource)?;
 
         {
             let mut slot = slot.borrow_mut();
@@ -150,36 +145,43 @@ impl Manager {
             }
         }
 
-        let (id, token) = self.subscriptions.register();
-
-        let subscriber = Subscriber {
+        let subscribed_event = SubscribedEvent {
             token,
             data: Rc::downgrade(data),
             _marker: PhantomData,
         };
 
-        Ok((id, subscriber))
+        Ok(subscribed_event)
     }
 
-    pub fn remove_subscriber(&mut self, id: SubscriptionId) -> bool {
-        let Some(s_entry) = self.subscriptions.remove(&id) else {
-            return false;
-        };
+    pub fn remove_subscriber(
+        &mut self,
+        producer: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    ) {
+        for resource in self.subscriptions.subscribed_resources(producer, consumer) {
+            let key = Key {
+                ident: producer,
+                path: Cow::Owned(resource.to_string()),
+            };
 
-        let entry = self.registry.get_mut(&s_entry.key).expect("must exist");
+            let entry = self
+                .registry
+                .get_mut(&key)
+                .expect("created subscriber for non existing item");
 
-        let mut slot = entry.slot.borrow_mut();
+            entry.subscribers = entry.subscribers.saturating_sub(1);
 
-        slot.subscriber_count = slot.subscriber_count.saturating_sub(1);
-
-        if slot.subscriber_count == 0 {
-            self.subscribed.retain(|k| k != &s_entry.key);
+            if entry.subscribers == 0 {
+                self.subscribed.retain(|v| *v != key);
+                entry.cache.borrow_mut().clear();
+            }
         }
 
-        true
+        self.subscriptions.unregister(producer, consumer);
     }
 
-    pub fn sync_remotes(&mut self) {
+    pub fn sync_cache(&mut self) {
         for key in self.subscribed.clone() {
             let entry = self.registry.get_mut(&key).expect("Must be in sync");
 
@@ -190,7 +192,7 @@ impl Manager {
             };
 
             // replace subscriber-visible cache
-            entry.subscriber_cache.replace(cache);
+            entry.cache.replace(cache);
         }
     }
 
@@ -211,7 +213,8 @@ type EventCache = Vec<Vec<u8>>;
 struct Entry {
     type_id: TypeId,
     slot: Rc<RefCell<Slot>>,
-    subscriber_cache: Rc<RefCell<EventCache>>,
+    cache: Rc<RefCell<EventCache>>,
+    subscribers: u32,
 }
 
 struct Slot {
@@ -219,13 +222,13 @@ struct Slot {
     cache: EventCache,
 }
 
-struct Subscriber<T> {
+pub struct SubscribedEvent<T: DeserializeOwned> {
     token: Weak<SubscriptionToken>,
     data: Weak<RefCell<Vec<Vec<u8>>>>,
     _marker: PhantomData<T>,
 }
 
-impl<T> Subscriber<T>
+impl<T> SubscribedEvent<T>
 where
     T: DeserializeOwned,
 {
@@ -268,13 +271,6 @@ mod test {
         };
 
         let mut mgr = Manager::new();
-
-        let (id, mut x) = mgr
-            .create_subscriber::<SimpleEvent>(ident, "idk bruh")
-            .expect("haha");
-
-        x.for_each(|event| {});
-
         // --- simple ---
         #[derive(Serialize, Deserialize)]
         struct SimpleEvent {

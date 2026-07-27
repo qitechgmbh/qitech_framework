@@ -26,7 +26,7 @@ mod error;
 mod ethercat;
 
 mod types;
-use types::EtherCATConfig;
+pub use types::EtherCATConfig;
 use types::EtherCATMode;
 use types::ModbusMode;
 

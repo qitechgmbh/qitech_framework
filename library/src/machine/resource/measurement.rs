@@ -6,11 +6,12 @@ use qitech_framework_common::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::Subscriber;
 use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::property_kind;
+use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::SubscribedProperty;
 use crate::uom;
 
 #[derive(Debug)]
@@ -135,30 +136,35 @@ impl Manager {
         T: TypeWrapper + Extract<Option<f64>> + 'static,
         T::Type: Copy + PartialOrd + Default,
     {
-        let mut init_handle = |postfix: &'static str| -> RegisterResult<PropertyHandle<T::Type>> {
-            self.inner.register::<T::Type>(
-                ident,
-                path,
-                postfix,
-                Metadata {
-                    extract: T::extract,
-                    is_stat: !postfix.is_empty(),
-                },
-                T::Type::default(),
-            )
-        };
+        let mut init_handle =
+            |postfix: Option<&'static str>| -> RegisterResult<PropertyHandle<T::Type>> {
+                let path: Cow<'static, str> = match postfix {
+                    Some(postfix) => Cow::Owned(format!("{path}.{postfix}")),
+                    None => Cow::Borrowed(path),
+                };
 
-        let handle = (init_handle)("")?;
+                self.inner.register::<T::Type>(
+                    ident,
+                    path.to_string(),
+                    Metadata {
+                        extract: T::extract,
+                        is_stat: postfix.is_some(),
+                    },
+                    T::Type::default(),
+                )
+            };
+
+        let handle = (init_handle)(None)?;
         handle.write(options.initial);
 
         let stat_min_handle = if options.record_min {
-            Some(init_handle("min")?)
+            Some(init_handle(Some("min"))?)
         } else {
             None
         };
 
         let stat_max_handle = if options.record_max {
-            Some(init_handle("min")?)
+            Some(init_handle(Some("max"))?)
         } else {
             None
         };
@@ -175,6 +181,29 @@ impl Manager {
         self.inner.unregister_machine(ident)
     }
 
+    // --- subscriptions ---
+    pub fn create_subscriber<T: 'static>(
+        &mut self,
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+        resource: &'static str,
+    ) -> Result<SubscribedProperty<T>, SubscribeError> {
+        self.inner.create_subscriber(provider, subscriber, resource)
+    }
+
+    pub fn remove_subscription(
+        &mut self,
+        provider: MachineIdentificationUnique,
+        consumer: MachineIdentificationUnique,
+    ) {
+        self.inner.remove_subscription(provider, consumer);
+    }
+
+    pub fn sync_cache(&mut self) {
+        self.inner.sync_cache();
+    }
+
+    // --- export data ---
     // TODO: reset measurements somehow
     pub fn drain_measurements(&mut self, mut f: impl FnMut(MachineMeasurement)) {
         for (info, bytes) in self.inner.iter_mut() {
@@ -183,7 +212,7 @@ impl Manager {
 
             let entry = MachineMeasurement {
                 machine: info.machine,
-                path: Cow::Borrowed(info.path),
+                path: info.path.clone(),
                 value,
             };
 

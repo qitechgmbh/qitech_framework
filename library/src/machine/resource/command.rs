@@ -15,28 +15,22 @@ use thiserror::Error;
 use crate::machine::Machine;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
-use crate::machine::resource::ResourceId;
-use crate::machine::resource::ResourceKind;
-use crate::machine::resource::error::HandleError;
 use crate::machine::resource::error::RegisterError;
-use crate::machine::resource::error::RegisterErrorKind;
 use crate::machine::resource::error::RegisterResult;
 
 type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), ExecuteError>>;
 
 pub struct Handle {
-    error: HandleError,
     enabled: Weak<RefCell<bool>>,
 }
 
 impl Handle {
-    pub fn set_enabled(&mut self, value: bool) -> Result<(), HandleError> {
-        let Some(handle) = self.enabled.upgrade() else {
-            return Err(self.error);
-        };
-
+    pub fn set_enabled(&mut self, value: bool) {
+        let handle = self
+            .enabled
+            .upgrade()
+            .expect("Handle outlived manager's entry");
         *handle.borrow_mut() = value;
-        Ok(())
     }
 }
 
@@ -45,8 +39,6 @@ pub struct Manager {
     registry: HashMap<Key<'static>, Entry>,
     journal: Journal<MachineCommandCall>,
 }
-
-// yields a resource id 
 
 impl Manager {
     pub fn new() -> Self {
@@ -63,24 +55,14 @@ impl Manager {
         M: Machine + 'static,
         A: serde::de::DeserializeOwned + 'static,
     {
-        let key = Key::simple(ident, path);
-        
+        let key = Key::from_str(ident, path);
+
         let Some(execute) = options.execute else {
-            return Err(RegisterError {
-                machine_ident: todo!(),
-                resource_kind: ResourceKind::Command,
-                resource_path: path,
-                error_kind: RegisterErrorKind::MissingRequiredField("execute"),
-            });
+            return Err(RegisterError::MissingRequiredField("execute"));
         };
 
         if self.registry.contains_key(&key) {
-            return Err(RegisterError {
-                machine_ident: ident,
-                resource_kind: ResourceKind::Command,
-                resource_path: path,
-                error_kind: RegisterErrorKind::Duplicate,
-            });
+            return Err(RegisterError::Duplicate);
         }
 
         let execute = Box::new(move |machine: &mut dyn Machine, bytes: &str| {
@@ -103,22 +85,11 @@ impl Manager {
         });
 
         let enabled = Rc::default();
-
         let handle = Handle {
             enabled: Rc::downgrade(&enabled),
-            error: HandleError {
-                resource_kind: ResourceKind::Command,
-                resource_path: path,
-                machine_ident: ident,
-            },
         };
-
         self.registry.insert(key, Entry { enabled, execute });
         Ok(handle)
-    }
-
-    pub fn invoke_(id: ResourceId, args: &str) -> Result<(), ExecuteError> {
-        
     }
 
     pub fn invoke(
@@ -130,9 +101,9 @@ impl Manager {
     ) -> Result<(), ExecuteError> {
         let key = Key {
             ident: target,
-            path,
-            postfix: "",
+            path: Cow::Owned(path.to_string()),
         };
+
         let handle = self.journal.new_handle();
 
         let finish = |err: Result<(), ExecuteError>| -> Result<(), ExecuteError> {
@@ -289,8 +260,8 @@ mod test {
                 execute: Some(TestMachine::simple_command),
             },
         )?;
-        handle.set_enabled(false)?;
-        handle.set_enabled(true)?;
+        handle.set_enabled(false);
+        handle.set_enabled(true);
 
         // --- complex ---
         let mut handle = r.register(
@@ -301,8 +272,8 @@ mod test {
                 execute: Some(TestMachine::complex_command),
             },
         )?;
-        handle.set_enabled(false)?;
-        handle.set_enabled(true)?;
+        handle.set_enabled(false);
+        handle.set_enabled(true);
 
         // --- execute simple ---
         r.invoke(ident, &mut TestMachine, "simple", "null")?;

@@ -7,8 +7,6 @@ use qitech_framework_common::with_uom_units;
 
 use crate::uom;
 
-pub type ExtractFn<T> = unsafe fn(*const u8) -> T;
-
 pub trait Extract<T> {
     /// Extracts a value from a raw byte pointer.
     ///

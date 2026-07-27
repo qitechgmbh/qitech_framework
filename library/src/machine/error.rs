@@ -26,26 +26,6 @@ pub enum ActErrorKind {
     ValidationFailed(String),
 }
 
-// --- sync ---
-pub type SyncResult = Result<(), SyncError>;
-
-#[derive(Debug, Error)]
-#[error("{kind}")]
-pub struct SyncError {
-    pub kind: SyncErrorKind,
-    pub recoverable: bool,
-}
-
-#[derive(Debug, Error)]
-pub enum SyncErrorKind {
-    #[error("hardware fault: {0}")]
-    HardwareFault(String),
-    #[error(transparent)]
-    ValidationFailed(#[from] BoundsError),
-    #[error("subscription handle expired")]
-    ExpiredHandle,
-}
-
 // --- validate ---
 #[derive(Debug, Error)]
 pub enum ValidateError {
@@ -56,7 +36,7 @@ pub enum ValidateError {
 }
 
 // --- subscribe ---
-pub type SubscribeResult = Result<(), SubscribeError>;
+pub type SubscribeResult<T> = Result<T, SubscribeError>;
 
 #[derive(Debug, Error)]
 pub enum SubscribeError {
