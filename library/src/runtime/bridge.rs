@@ -1,24 +1,32 @@
+use std::sync::mpsc;
+
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeRequest;
-use qitech_framework_common::RuntimeState;
-use qitech_framework_common::sync::SendHelloError;
-use qitech_framework_common::sync::SubmitStateError;
-use qitech_framework_common::sync::SyncRegistryError;
-use thiserror::Error;
 
-// --- send hello ---
-pub trait BridgeInitializer {
-    type Output: Bridge;
-    fn send_hello(&mut self) -> Result<(), BridgeInitializeError>;
-    fn sync_machine(&mut self, schema: &str) -> Result<(), BridgeInitializeError>;
-    fn submit_state(&mut self, state: RuntimeState) -> Result<(), BridgeInitializeError>;
-    fn submit_event(&mut self, state: RuntimeInitEvent) -> Result<(), BridgeInitializeError>;
-    fn upgrade(self) -> Self::Output;
+use crate::runtime::error::BridgeBootstrapError;
+
+pub trait BridgeBootstrap<T: Bridge> {
+    fn send_hello(&mut self) -> Result<(), BridgeBootstrapError> {
+        Ok(())
+    }
+
+    fn sync_machine(&mut self, schema: &str) -> Result<(), BridgeBootstrapError> {
+        _ = schema;
+        Ok(())
+    }
+
+    fn submit_event(&mut self, state: RuntimeInitEvent) -> Result<(), BridgeBootstrapError> {
+        _ = state;
+        Ok(())
+    }
+
+    fn finish(self) -> T;
 }
 
-// --- runtime bridge ---
-pub trait Bridge {
+pub trait Bridge: Sized {
+    type Bootstrap: BridgeBootstrap<Self>;
+
     /// Drains up to `max` currently-buffered requests without blocking.
     fn get_requests(&mut self, max: usize) -> impl Iterator<Item = RuntimeRequest>;
 
@@ -26,53 +34,16 @@ pub trait Bridge {
     fn export(&mut self, data: &RuntimeReport);
 }
 
-// --- errors ---
-#[derive(Error, Debug)]
-pub enum BridgeInitializeError {
-    #[error("bridge disconnected")]
-    BridgeDisconnected,
-
-    #[error("failed to send hello")]
-    SendHello(#[from] SendHelloError),
-
-    #[error("failed to sync registry")]
-    SyncRegistry(#[from] SyncRegistryError),
-
-    #[error("failed to submit state")]
-    SubmitState(#[from] SubmitStateError),
-}
-
 // --- mock ---
 pub struct MockBridge;
 
-impl BridgeInitializer for MockBridge {
-    type Output = MockBridge;
-
-    fn send_hello(&mut self) -> Result<(), BridgeInitializeError> {
-        Ok(())
-    }
-
-    fn sync_machine(&mut self, schema: &str) -> Result<(), BridgeInitializeError> {
-        _ = schema;
-        Ok(())
-    }
-
-    fn submit_state(&mut self, state: RuntimeState) -> Result<(), BridgeInitializeError> {
-        _ = state;
-        Ok(())
-    }
-
-    fn submit_event(&mut self, state: RuntimeInitEvent) -> Result<(), BridgeInitializeError> {
-        _ = state;
-        Ok(())
-    }
-
-    fn upgrade(self) -> Self::Output {
-        self
-    }
+impl BridgeBootstrap<MockBridge> for MockBridge {
+    fn finish(self) -> MockBridge { self }
 }
 
 impl Bridge for MockBridge {
+    type Bootstrap = MockBridge;
+
     fn get_requests(&mut self, max: usize) -> impl Iterator<Item = RuntimeRequest> {
         _ = max;
         std::iter::empty()
@@ -82,3 +53,29 @@ impl Bridge for MockBridge {
         _ = data;
     }
 }
+
+// --- debug bridge ---
+pub struct DebugBridge {
+    pub rx: mpsc::Receiver<RuntimeRequest>,
+}
+
+impl BridgeBootstrap<DebugBridge> for DebugBridge {
+    fn finish(self) -> DebugBridge { self }
+}
+
+impl Bridge for DebugBridge {
+    type Bootstrap = DebugBridge;
+
+    fn get_requests(&mut self, max: usize) -> impl Iterator<Item = RuntimeRequest> {
+        std::iter::from_fn(|| self.rx.try_recv().ok())
+            .take(max)
+    }
+
+    fn export(&mut self, data: &RuntimeReport) {
+        println!("{data:#?}");
+    }
+}
+
+// --- tokio mpsc ---
+
+// --- unix socket ---

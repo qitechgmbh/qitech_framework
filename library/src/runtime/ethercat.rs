@@ -29,34 +29,35 @@ use super::error::RuntimeInitializeError;
 use super::error::RuntimeInitializeResult;
 use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
+use crate::runtime::Bridge;
+use crate::runtime::EtherCATConfig;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
-use crate::runtime::bridge::BridgeInitializer;
-use crate::runtime::builder::types::EtherCATConfig;
+use crate::runtime::bridge::BridgeBootstrap;
 use crate::runtime::types::HardwareRegistry;
 
 #[tracing::instrument(skip_all)]
-pub fn init<B: BridgeInitializer>(
-    bridge: &mut B,
+pub fn init<B: Bridge>(
     config: EtherCATConfig,
+    bootstrap: &mut B::Bootstrap,
     hardware_registry: &mut HardwareRegistry,
 ) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
-    bridge.submit_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
+    bootstrap.submit_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
 
     let interface = find_interface(config.interface_scan_interval);
 
-    bridge.submit_event(RuntimeInitEvent::EtherCATDiscoveryCompleted {
+    bootstrap.submit_event(RuntimeInitEvent::EtherCATDiscoveryCompleted {
         interface: interface.clone(),
     })?;
 
     let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
 
-    bridge.submit_event(RuntimeInitEvent::EtherCATDeviceInitializationStarted)?;
+    bootstrap.submit_event(RuntimeInitEvent::EtherCATInitializationStarted)?;
     let sub_devices = setup(&controller)?;
 
     let devices = read_and_register_identifications(&controller, &sub_devices, hardware_registry);
 
-    bridge.submit_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
+    bootstrap.submit_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
         devices: build_ecat_metadata(&sub_devices, &devices),
     })?;
 

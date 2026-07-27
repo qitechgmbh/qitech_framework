@@ -59,27 +59,6 @@ impl Manager {
             return Err(RegisterError::Duplicate);
         }
 
-        /*
-        let execute = Box::new(move |machine: &mut dyn Machine, bytes: &str| {
-            let machine_type_name = any::type_name_of_val(machine);
-            let any: &mut dyn Any = machine;
-
-            let machine = any
-                .downcast_mut::<M>()
-                .ok_or(ExecuteError::UnexpectedMachineType {
-                    expected: any::type_name::<M>(),
-                    received: machine_type_name,
-                })?;
-
-            let args: A = match serde_json::from_str(bytes) {
-                Ok(v) => v,
-                Err(e) => return Err(ExecuteError::ParsingError(e)),
-            };
-
-            execute(machine, args).map_err(ExecuteError::ExecutionError)
-        });
-        */
-
         let enabled = Rc::<RefCell<bool>>::default();
         *enabled.borrow_mut() = disabled;
 
@@ -89,6 +68,10 @@ impl Manager {
 
         self.registry.insert(key, Entry { enabled, execute });
         Ok(handle)
+    }
+
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.registry.retain(|k, _| k.ident != ident);
     }
 
     pub fn invoke(

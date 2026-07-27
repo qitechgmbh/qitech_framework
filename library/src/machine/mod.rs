@@ -52,6 +52,7 @@ pub trait MachineBuild: Sized {
 }
 
 pub trait MachineInterface {
+    // TODO: parse schema at compile time and expose that instead ...
     const SCHEMA: &'static str;
 }
 
@@ -65,13 +66,13 @@ pub(crate) struct Resources {
 }
 
 impl Resources {
-    // pub fn clear_machine(&mut self, ident: MachineIdentificationUnique) {
-    //     self.config_properties.unregister_machine(ident);
-    //     self.state_properties.unregister_machine(ident);
-    //     self.measurements.unregister_machine(ident);
-    //     self.commands.unregister_machine(ident);
-    //     self.events.unregister_machine(ident);
-    // }
+    pub fn clear_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.config_properties.unregister_machine(ident);
+        self.state_properties.unregister_machine(ident);
+        self.measurements.unregister_machine(ident);
+        self.commands.unregister_machine(ident);
+        self.events.unregister_machine(ident);
+    }
 
     pub fn sync_caches(&mut self) {
         self.config_properties.sync_cache();

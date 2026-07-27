@@ -5,35 +5,40 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
-pub use builder::EtherCATConfig;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
 use types::Config;
-use types::HardwareRegistry;
 use types::MachineInstance;
 
 use crate::machine::Resources;
+
+pub mod error;
 
 mod types;
 pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
+pub use types::RuntimeStatus;
 
-mod builder;
-pub use builder::RuntimeBuilder;
-
+mod ethercat;
+mod init;
 mod utils;
+
 mod config;
+pub use config::EtherCATConfig;
+pub use config::RuntimeConfiguration;
 
 mod request;
 
 pub mod bridge;
-pub use bridge::Bridge;
+use bridge::Bridge;
 
 pub struct Runtime<B: Bridge> {
-    // --- registries ---
-    machine_registry: MachineRegistry,
-    hardware_registry: HardwareRegistry,
+    status: RuntimeStatus,
+
+    // // --- registries ---
+    // machine_registry: MachineRegistry,
+    // hardware_registry: HardwareRegistry,
 
     // --- resource managers ---
     resources: Resources,
@@ -42,39 +47,52 @@ pub struct Runtime<B: Bridge> {
     // --- instances ---
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
+    subscriptions: HashMap<MachineIdentificationUnique, Vec<MachineIdentificationUnique>>,
 
     // --- misc ---
     ecat_controller: Option<EtherCATController>,
     config: Config,
     bridge: B,
     last_export_ts: Instant,
-    subscriptions: HashMap<MachineIdentificationUnique, Vec<MachineIdentificationUnique>>,
 }
 
 impl<B: Bridge> Runtime<B> {
     pub fn run(mut self) {
         loop {
             let now = Instant::now();
+            self.tick(now);
 
-            if self.controller_finished() {
-                return;
-            }
-
-            self.write_ecat_inputs();
-            self.receive_instances();
-            self.process_requests();
-            self.run_machines();
-            self.resources.sync_caches();
-            self.write_ecat_outputs();
-            self.export_report_if_due(now);
-
-            let elapsed = now.elapsed();
-            if let Some(remaining) = self.config.cycle_timeout.checked_sub(elapsed) {
-                sleep(remaining);
-            } else {
-                // cycle overran its budget
+            if self.tick(now) != RuntimeStatus::Running {
+                break;
             }
         }
+    }
+
+    pub fn tick(&mut self, now: Instant) -> RuntimeStatus {
+        if self.status == RuntimeStatus::Stopped {
+            return self.status;
+        }
+
+        if self.controller_finished() {
+            self.status = RuntimeStatus::Stopped;
+            return self.status;
+        }
+
+        self.write_ecat_inputs();
+        self.process_requests();
+        self.run_machines();
+        self.resources.sync_caches();
+        self.write_ecat_outputs();
+        self.export_report_if_due(now);
+
+        let elapsed = now.elapsed();
+        if let Some(remaining) = self.config.cycle_timeout.checked_sub(elapsed) {
+            sleep(remaining);
+        } else {
+            // cycle overran its budget
+        }
+
+        RuntimeStatus::Running
     }
 
     fn controller_finished(&self) -> bool {
@@ -108,37 +126,26 @@ impl<B: Bridge> Runtime<B> {
     }
 
     fn run_machines(&mut self) {
-        // let ctx = SyncContext::new(&self.resources);
-        // Self::run_machines_pass(&mut self.resources, &mut self.machines, |m| m.act());
-        // Self::run_machines_pass(&mut self.resources, &mut self.machines, |m| m.react(&ctx));
-    }
-
-    /*
-    fn run_machines_pass(
-        resources: &mut Resources,
-        machines: &mut Vec<MachineInstance>,
-        mut step: impl FnMut(&mut dyn Machine) -> ActResult,
-    ) {
         let mut i = 0;
-        while i < machines.len() {
-            let (ident, machine) = &mut machines[i];
-            match step(machine.as_mut()) {
-                Ok(()) => i += 1,
-                Err(e) if e.recoverable => i += 1,
-                Err(_) => {
-                    // machine cannot recover from this error.
-                    // remove using swap and pop, meaning we don't increment.
-                    machines.swap_remove(i);
 
-                    // free up resources
-                    resources.clear_machine(*ident);
+        while i < self.machines.len() {
+            match self.machines[i].inner.act() {
+                Ok(()) => i += 1,
+
+                Err(e) if e.recoverable => i += 1,
+
+                Err(_) => {
+                    // --- machine cannot recover, remove it ---
+                    let MachineInstance { ident, .. } = self.machines.swap_remove(i);
+
+                    // --- free up resources ---
+                    self.resources.clear_machine(ident);
 
                     // TODO: handle/log error
                 }
             }
         }
     }
-    */
 
     // --- ethercat managment ---
     fn write_ecat_inputs(&mut self) {
@@ -186,10 +193,5 @@ impl<B: Bridge> Runtime<B> {
         }
 
         controller.app_handle.send_outputs();
-    }
-
-    // --- misc ---
-    fn receive_instances(&mut self) {
-        // TODO: handle laser hotplug
     }
 }

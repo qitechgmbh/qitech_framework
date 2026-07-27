@@ -120,7 +120,37 @@ pub enum RuntimeInitEvent {
     },
 
     // --- ether cat device ---
-    EtherCATDeviceInitializationStarted,
+    EtherCATInitializationStarted,
+    EtherCATDeviceInitializationFailed {
+        error: String,
+    },
+    EtherCATDeviceInitializationCompleted {
+        devices: Vec<EtherCATDeviceMetadata>,
+    },
+
+    // --- machine ---
+    BuildingMachines,
+    BuiltMachine {
+        ident: MachineIdentificationUnique,
+    },
+    FailedToBuildMachine {
+        ident: MachineIdentificationUnique,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuntimeEventKind {
+    EtherCATStateUpdate(EtherCATState),
+    EtherCATFinalizing,
+
+    // --- ether cat discovery ---
+    EtherCATDiscoveryStarted,
+    EtherCATDiscoveryCompleted {
+        interface: String,
+    },
+
+    // --- ether cat device ---
+    EtherCATInitializationStarted,
     EtherCATDeviceInitializationFailed {
         error: String,
     },
@@ -146,44 +176,6 @@ pub enum EtherCATState {
     PreOp,
     PreopPdi,
     Op,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeEventKind {
-    Started,
-    Stopped,
-    Terminated {
-        error: String,
-    },
-
-    // --- ether cat discovery state ---
-    EtherCATDiscoveryStarted,
-    EtherCATDiscoveryCompleted {
-        interface: String,
-    },
-
-    // --- ether cat initialization ---
-    EtherCATDeviceInitializationStarted,
-    EtherCATDeviceInitializationFailed {
-        error: String,
-    },
-    EtherCATDeviceInitializationCompleted {
-        devices: Vec<EtherCATDeviceMetadata>,
-    },
-
-    // --- modbus ---
-    ModbusDeviceDiscovered {
-        path: String,
-    },
-
-    // --- machines ---
-    MachineConnected {
-        ident: MachineIdentificationUnique,
-    },
-
-    MachineDisconnected {
-        ident: MachineIdentificationUnique,
-    },
 }
 
 // --- state ---

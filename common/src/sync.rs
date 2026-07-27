@@ -37,16 +37,10 @@ pub enum HandshakeMessage {
 #[derive(Error, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SendHelloError {
     #[error("invalid magic value: expected {expected:#x}, received {received:#x}")]
-    InvalidMagic {
-        expected: u64,
-        received: u64,
-    },
+    InvalidMagic { expected: u64, received: u64 },
 
     #[error("protocol version mismatch: expected {expected}, received {received}")]
-    ProtocolVersionMismatch {
-        expected: u64,
-        received: u64,
-    },
+    ProtocolVersionMismatch { expected: u64, received: u64 },
 
     #[error("connection lost")]
     ConnectionLost,
@@ -54,12 +48,6 @@ pub enum SendHelloError {
 
 #[derive(Error, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyncRegistryError {
-    #[error("invalid magic value: expected {expected:#x}, received {received:#x}")]
-    InvalidMagic {
-        expected: u64,
-        received: u64,
-    },
-
     #[error("connection lost")]
     ConnectionLost,
 }

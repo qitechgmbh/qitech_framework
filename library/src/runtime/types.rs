@@ -44,3 +44,11 @@ pub struct MachineInstance {
     pub ident: MachineIdentificationUnique,
     pub inner: Box<dyn Machine>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeStatus {
+    Initialized,
+    Running,
+    Stopped,
+    Failed,
+}

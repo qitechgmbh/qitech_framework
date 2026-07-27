@@ -3,6 +3,8 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
+use qitech_framework::MachineIdentification;
+use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
@@ -112,6 +114,11 @@ impl Machine for LaserV1 {
 }
 
 impl LaserV1 {
+    pub const IDENTIFICATION: MachineIdentification = MachineIdentification {
+        vendor_id: 1,
+        machine_id: 6,
+    };
+
     fn update_device(&mut self) -> ActResult {
         let mut laser = self.device.borrow_mut();
 

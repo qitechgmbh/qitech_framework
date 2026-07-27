@@ -113,6 +113,12 @@ impl Manager {
         Ok(emitter)
     }
 
+    pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
+        self.registry.retain(|k, _| k.ident != ident);
+        self.subscribed.retain(|x| x.ident != ident);
+        self.subscriptions.unregister_producer(ident);
+    }
+
     pub fn create_subscriber<T: DeserializeOwned + 'static>(
         &mut self,
         producer: MachineIdentificationUnique,

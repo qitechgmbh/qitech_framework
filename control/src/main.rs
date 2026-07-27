@@ -1,7 +1,9 @@
 use std::time::Duration;
 
+use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeBuilder;
+use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::runtime::bridge::MockBridge;
 use qitech_lib::ethercat_hal::DcConfiguration;
 use qitech_lib::ethercat_hal::MasterConfiguration;
@@ -19,11 +21,25 @@ mod machines;
 use machines::LaserV1;
 use machines::WinderV1;
 
+// udevadm info --query=property --name=/dev/ttyUSB0 | grep ID_PATH_TAG
+
 pub fn main() -> anyhow::Result<()> {
     interface::bring_up_all_ethernet();
 
-    let rt = RuntimeBuilder::new()
+    let laser = MachineIdentificationUnique {
+        identification: LaserV1::IDENTIFICATION,
+        serial: 1,
+    };
+
+    let config = RuntimeConfiguration::default()
         // .ethercat(ETHERCAT_CONFIG)
+        .modbus_rtu_device("pci-0000_c6_00_0-usb-0_2_1_1_0", laser)
+        .machine::<LaserV1>()
+        .machine::<WinderV1>();
+
+    let mut rt = RuntimeBuilder::new()
+        // .ethercat(ETHERCAT_CONFIG)
+        .with_modbus_rtu()
         .machine::<LaserV1>()
         .machine::<WinderV1>()
         .build(MockBridge)?;

@@ -13,7 +13,7 @@ pub struct SubscribeContext<'a> {
 }
 
 impl<'a> SubscribeContext<'a> {
-    pub fn new(
+    pub(crate) fn new(
         producer: MachineIdentificationUnique,
         consumer: MachineIdentificationUnique,
         resources: &'a mut Resources,
@@ -26,7 +26,7 @@ impl<'a> SubscribeContext<'a> {
     }
 
     pub fn producer(&self) -> MachineIdentificationUnique {
-        self.consumer
+        self.producer
     }
 
     pub fn subscribe_config<T>(
