@@ -4,7 +4,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use qitech_framework::MachineIdentification;
-use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
@@ -122,12 +121,6 @@ impl LaserV1 {
     fn update_device(&mut self) -> ActResult {
         let mut laser = self.device.borrow_mut();
 
-        self.in_tolerance.set(true);
-        self.in_tolerance.get();
-        self.diameter.get();
-
-        // self.diameter_target.set_as::<millimeter>(10.0)?;
-
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()
             && let LaserError::IoErr() = laser_error
@@ -183,6 +176,6 @@ impl LaserV1 {
         let top = target + self.diameter_tolerance_upper.get();
         let bottom = target - self.diameter_tolerance_lower.get();
 
-        self.diameter.get() > top || self.diameter.get() < bottom
+        self.diameter.get() < top && self.diameter.get() > bottom
     }
 }

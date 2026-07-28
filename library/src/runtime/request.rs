@@ -9,7 +9,11 @@ use crate::runtime::utils::find_machine;
 
 impl<B: Bridge> Runtime<B> {
     pub fn process_requests(&mut self) {
-        for req in self.bridge.get_requests(self.config.requests_per_cycle_max) {
+        for _ in 0..self.config.requests_per_cycle_max {
+            let Some(req) = self.bridge.get_request() else {
+                break;
+            };
+
             let response = self.process_request(req.kind);
             self.report.responses.push((req.transaction_id, response));
         }
@@ -34,12 +38,12 @@ impl<B: Bridge> Runtime<B> {
                     subdevice_index,
                 );
 
-                return Ok(());
+                Ok(())
             }
 
             RuntimeRequestKind::SetMachineConfiguration(..) => {
                 // self.resources.config_properties;
-                return Ok(());
+                Ok(())
             }
 
             RuntimeRequestKind::InvokeMachineCommand {
@@ -104,7 +108,7 @@ impl<B: Bridge> Runtime<B> {
                 entry.retain(|v| *v != subscriber);
                 self.resources.remove_subscription(provider, subscriber);
 
-                return Ok(());
+                Ok(())
             }
         }
     }

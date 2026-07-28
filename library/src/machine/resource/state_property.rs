@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::MachineStateMutation;
@@ -101,7 +99,7 @@ impl Manager {
         let record = Box::new(move |value: &T::Type| {
             let entry = MachineStateMutation {
                 machine: ident,
-                path: Cow::Borrowed(path),
+                path: path.to_string(),
                 value: T::into_scalar(value),
                 timestamp: Utc::now(),
             };

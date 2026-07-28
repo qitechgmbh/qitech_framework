@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use chrono::Utc;
 use qitech_framework_common::MachineConfigMutation;
 use qitech_framework_common::MachineIdentificationUnique;
@@ -114,7 +112,7 @@ impl Manager {
             move |handle: &mut PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
                 let mut entry = MachineConfigMutation {
                     machine,
-                    path: Cow::Borrowed(path),
+                    path: path.to_string(),
                     value: T::into_scalar(&value),
                     origin: OperationOrigin::Machine,
                     result: OperationResult::Failure,
@@ -146,7 +144,7 @@ impl Manager {
 
                 let mut entry = MachineConfigMutation {
                     machine,
-                    path: Cow::Borrowed(path),
+                    path: path.to_string(),
                     value: T::into_scalar(&value),
                     origin: OperationOrigin::Request { request_id },
                     result: OperationResult::Failure,

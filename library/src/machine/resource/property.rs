@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::any::type_name;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -21,7 +22,7 @@ pub struct PropertyManager<
     occupied: heapless::Vec<bool, MAX_ITEMS>,
     buf_gen: [u64; MAX_ITEMS],
     buf_info: [MaybeUninit<SlotInfo<Metadata>>; MAX_ITEMS],
-    buf_storage: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
+    buf_value: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
     buf_cache: [MaybeUninit<Storage<SLOT_SIZE>>; MAX_ITEMS],
     subscriptions: SubscriptionRegistry,
     _marker: PhantomData<K>,
@@ -37,7 +38,7 @@ where
             occupied: Default::default(),
             buf_gen: [0; MAX_ITEMS],
             buf_info: [const { MaybeUninit::uninit() }; MAX_ITEMS],
-            buf_storage: [MaybeUninit::uninit(); MAX_ITEMS],
+            buf_value: [MaybeUninit::uninit(); MAX_ITEMS],
             buf_cache: [MaybeUninit::uninit(); MAX_ITEMS],
             subscriptions: Default::default(),
             _marker: PhantomData,
@@ -79,12 +80,12 @@ where
 
         // get pointer to read the latest generation
         let p_generation = unsafe {
-            let ptr = self.buf_gen[index] as *mut u64;
+            let ptr = &mut self.buf_gen[index] as *mut u64;
             NonNull::new_unchecked(ptr)
         };
 
         let p_value = unsafe {
-            let ptr = self.buf_storage[index].as_mut_ptr().cast::<T>();
+            let ptr = self.buf_value[index].as_mut_ptr().cast::<T>();
 
             // initialize value
             *ptr = initial_value;
@@ -164,7 +165,7 @@ where
             if !occupied {
                 continue;
             }
-            self.buf_cache[i] = self.buf_storage[i];
+            self.buf_cache[i] = self.buf_value[i];
         }
     }
 
@@ -258,7 +259,7 @@ impl<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M> Iterator
 where
     K: PropertyKind,
 {
-    type Item = (SlotInfo<M>, *const u8);
+    type Item = (NonNull<SlotInfo<M>>, *const u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.index < self.manager.occupied.len() {
@@ -266,7 +267,13 @@ where
             self.index += 1;
 
             if self.manager.occupied[index] {
-                todo!("yield occupied slot {index}");
+
+                unsafe {
+                    let info = self.manager.buf_info[index].as_mut_ptr();
+                    let ptr = self.manager.buf_value[index].as_ptr() as *const u8;
+
+                    return Some((NonNull::new_unchecked(info), ptr));
+                }
             }
         }
 

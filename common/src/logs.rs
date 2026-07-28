@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::MachineIdentificationUnique;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogRecord {
     pub timestamp: DateTime<Utc>,
     pub level: LogLevel,

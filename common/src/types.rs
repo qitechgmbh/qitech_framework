@@ -1,3 +1,5 @@
+use core::fmt;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -70,6 +72,25 @@ impl ScalarValue {
     }
 }
 
+impl fmt::Display for ScalarValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ScalarValue::Enum(Some(v)) => write!(f, "{v}"),
+            ScalarValue::String(Some(v)) => write!(f, "{v}"),
+            ScalarValue::Boolean(Some(v)) => write!(f, "{v}"),
+            ScalarValue::Integer(Some(v)) => write!(f, "{v}"),
+            ScalarValue::Float(Some(v)) => write!(f, "{v}"),
+
+            ScalarValue::Enum(None)
+            | ScalarValue::String(None)
+            | ScalarValue::Boolean(None)
+            | ScalarValue::Integer(None)
+            | ScalarValue::Float(None) => write!(f, "null"),
+        }
+    }
+}
+
+// --- misc ---
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum OperationOrigin {
     Request { request_id: u64 },

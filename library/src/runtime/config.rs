@@ -4,6 +4,11 @@ use std::time::Duration;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 
+use crate::machine::BuildContext;
+use crate::machine::Machine;
+use crate::machine::MachineBuild;
+use crate::machine::MachineInterface;
+use crate::machine::error::BuildResult;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
 
@@ -54,6 +59,21 @@ impl RuntimeConfiguration {
 
         config.bindings.insert(id_path.to_string(), ident);
         self.modbus_rtu_mode = ModbusRtuMode::Enabled(config);
+        self
+    }
+
+    pub fn machine<M>(mut self) -> Self
+    where
+        M: Machine + MachineBuild + MachineInterface + 'static,
+    {
+        fn build_adapter<T>(builder: BuildContext<'_>) -> BuildResult<Box<dyn Machine>>
+        where
+            T: MachineBuild + Machine + 'static,
+        {
+            Ok(Box::new(T::build(builder)?))
+        }
+
+        self.machines.push((M::SCHEMA, build_adapter::<M>));
         self
     }
 }

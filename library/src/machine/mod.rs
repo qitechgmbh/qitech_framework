@@ -105,6 +105,7 @@ impl Resources {
             report.measurements.push(entry);
         });
 
+                        /*
         self.commands.drain_journal(|entry| {
             report.commands.push(entry);
         });
@@ -112,5 +113,6 @@ impl Resources {
         self.events.drain_journal(|entry| {
             report.events.push(entry);
         });
+        */
     }
 }

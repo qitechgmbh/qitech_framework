@@ -41,7 +41,7 @@ pub struct Runtime<B: Bridge> {
     // hardware_registry: HardwareRegistry,
 
     // --- resource managers ---
-    resources: Resources,
+    resources: Box<Resources>,
     report: RuntimeReport,
 
     // --- instances ---
@@ -57,6 +57,7 @@ pub struct Runtime<B: Bridge> {
 }
 
 impl<B: Bridge> Runtime<B> {
+    
     pub fn run(mut self) {
         loop {
             let now = Instant::now();
@@ -118,8 +119,6 @@ impl<B: Bridge> Runtime<B> {
         // --- reset buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
-        self.report.runtime.events.clear();
-        self.report.runtime.state_mutations.clear();
 
         // --- reset timer ---
         self.last_export_ts = now;

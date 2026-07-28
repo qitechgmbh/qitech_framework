@@ -1,14 +1,10 @@
+use std::thread;
 use std::time::Duration;
 
 use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::runtime::EtherCATConfig;
-use qitech_framework::runtime::RuntimeBuilder;
+use qitech_framework::Runtime;
+use qitech_framework::machine::MachineInterface;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_framework::runtime::bridge::MockBridge;
-use qitech_lib::ethercat_hal::DcConfiguration;
-use qitech_lib::ethercat_hal::MasterConfiguration;
-use qitech_lib::ethercat_hal::MasterTxRxConfig;
-use qitech_lib::ethercat_hal::RtOptimizationConfig;
 
 mod types;
 mod utils;
@@ -20,6 +16,8 @@ mod interface;
 mod machines;
 use machines::LaserV1;
 use machines::WinderV1;
+use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
+use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
 
 // udevadm info --query=property --name=/dev/ttyUSB0 | grep ID_PATH_TAG
 
@@ -33,21 +31,28 @@ pub fn main() -> anyhow::Result<()> {
 
     let config = RuntimeConfiguration::default()
         // .ethercat(ETHERCAT_CONFIG)
+        .export_interval(Duration::from_secs(1))
         .modbus_rtu_device("pci-0000_c6_00_0-usb-0_2_1_1_0", laser)
         .machine::<LaserV1>()
         .machine::<WinderV1>();
 
-    let mut rt = RuntimeBuilder::new()
-        // .ethercat(ETHERCAT_CONFIG)
-        .with_modbus_rtu()
-        .machine::<LaserV1>()
-        .machine::<WinderV1>()
-        .build(MockBridge)?;
+    let (bridge, handle) = CrossbeamBridgeBootstrap::new();
 
-    rt.run();
-    Ok(())
+    // --- start runtime in new thread ---
+    thread::spawn(move || {
+        let rt = Runtime::<CrossbeamBridge>::init(config, bridge).unwrap();
+        rt.run();
+    });
+
+    // --- start tui in main thread ---
+    let schemas = vec![
+        LaserV1::SCHEMA,
+    ];
+
+    qitech_framework_tui::run(schemas, handle)
 }
 
+/*
 const ETHERCAT_CONFIG: EtherCATConfig = {
     let target_cycle_time_us: u64 = 1000;
 
@@ -82,3 +87,4 @@ const ETHERCAT_CONFIG: EtherCATConfig = {
         stay_in_preop: false,
     }
 };
+*/

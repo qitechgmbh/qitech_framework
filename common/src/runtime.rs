@@ -68,16 +68,13 @@ pub struct SetMachineConfigurationRequest {
 }
 
 // --- report ---
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RuntimeReport {
     /// report creation timestamp
     pub timestamp: DateTime<Utc>,
 
     /// results for completed requests
     pub responses: Vec<(u64, Result<(), String>)>,
-
-    /// runtime activity
-    pub runtime: RuntimeReportData,
 
     /// timings data
     pub timings: TimingsReport,
@@ -88,28 +85,18 @@ pub struct RuntimeReport {
     /// runtime log records
     pub logs: Vec<LogRecord>,
 }
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct RuntimeReportData {
-    /// runtime state mutations
-    pub state_mutations: Vec<RuntimeStateMutation>,
-
-    /// runtime events
-    pub events: Vec<RuntimeEvent>,
-}
-
 // --- event ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuntimeEvent {
+#[derive(Debug, Clone)]
+pub struct RuntimeEvent<F> {
     /// event kind
-    pub kind: RuntimeInitEvent,
+    pub kind: RuntimeInitEvent<F>,
 
     /// event timestamp
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeInitEvent {
+#[derive(Debug, Clone)]
+pub enum RuntimeInitEvent<FinishedPayload> {
     EtherCATStateUpdate(EtherCATState),
     EtherCATFinalizing,
 
@@ -136,6 +123,9 @@ pub enum RuntimeInitEvent {
     FailedToBuildMachine {
         ident: MachineIdentificationUnique,
     },
+
+    // --- finished ---
+    Finished(FinishedPayload),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,7 +189,7 @@ pub enum RuntimeState {
 }
 
 // --- timing ---
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TimingsReport {
     // total number of cycles
     cycle_count: u32,

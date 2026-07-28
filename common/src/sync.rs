@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 pub const MAGIC: u64 = 0x4855425F4C494E4B;
@@ -25,6 +26,16 @@ impl Default for Hello {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "T: Serialize",
+    deserialize = "T: DeserializeOwned"
+))]
+pub enum HelloAck<T> {
+    Accepted(T),
+    Rejected,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]

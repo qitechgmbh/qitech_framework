@@ -1,18 +1,25 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Instant;
 
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
+use qitech_lib::modbus::ModbusDevice;
+use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 
 use crate::Runtime;
 use crate::machine::BuildContext;
+use crate::machine::Hardware;
 use crate::machine::Resources;
+use crate::machine::hardware::ModbusRTUDeviceIdentified;
 use crate::runtime::Bridge;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::RuntimeStatus;
 use crate::runtime::bridge::BridgeBootstrap;
 use crate::runtime::config::EtherCATMode;
+use crate::runtime::config::ModbusRtuMode;
 use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::error::RuntimeInitializeResult;
 use crate::runtime::ethercat;
@@ -56,12 +63,31 @@ impl<B: Bridge> Runtime<B> {
             };
 
         // --- initialize modbus rtu ---
+        if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
+            for (_, ident) in config.bindings {
+
+                let device: Rc<RefCell<LaserDevice>> =
+                    Rc::new(RefCell::new(
+                        LaserDevice::new("/dev/ttyUSB0".to_string(), 
+                        1, 
+                        None).unwrap()
+                    ));
+
+                hardware_registry.insert(ident, vec![
+                    Hardware::ModbusRTU(ModbusRTUDeviceIdentified { 
+                        device, 
+                        path: "/dev/ttyUSB0".to_string(),
+                    })
+                ]);
+            }
+        }
+
         // TODO: title says it ...
 
         // --- build machines ---
         bootstrap.submit_event(RuntimeInitEvent::BuildingMachines)?;
 
-        let mut resources = Resources::default();
+        let mut resources = Box::new(Resources::default());
         let machines = Self::init_machines(
             &mut bootstrap,
             &machine_registry,
@@ -71,9 +97,8 @@ impl<B: Bridge> Runtime<B> {
         )?;
 
         // --- finalize ethercat ---
-        bootstrap.submit_event(RuntimeInitEvent::EtherCATFinalizing)?;
-
         if let Some(controller) = &ecat_controller {
+            bootstrap.submit_event(RuntimeInitEvent::EtherCATFinalizing)?;
             ethercat::finalize(controller, &mut sub_devices)?;
         }
 
@@ -88,7 +113,7 @@ impl<B: Bridge> Runtime<B> {
             sub_devices,
             ecat_controller,
             config: config.config,
-            bridge: bootstrap.finish(),
+            bridge: bootstrap.finish()?,
             last_export_ts: Instant::now(),
             subscriptions: Default::default(),
         })
@@ -118,12 +143,12 @@ impl<B: Bridge> Runtime<B> {
                 hardware.clone(),
             );
 
-            println!("Building machine `{ident_unique}`");
+            // println!("Building machine `{ident_unique}`");
 
             let inner = match (build)(ctx) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("Failed to build machine: {e}");
+                    // println!("Failed to build machine: {e}");
                     continue;
                 }
             };

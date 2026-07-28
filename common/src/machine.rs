@@ -12,7 +12,7 @@ use crate::types::OperationResult;
 use crate::types::ScalarValue;
 
 // --- report ---
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MachinesReport {
     /// machine configuration mutations
     pub config_mutations: Vec<MachineConfigMutation>,
@@ -31,13 +31,13 @@ pub struct MachinesReport {
 }
 
 // --- config ---
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineConfigMutation {
     /// target machine
     pub machine: MachineIdentificationUnique,
 
     /// configuration resource path (e.g. "laser.power")
-    pub path: Cow<'static, str>,
+    pub path: String,
 
     /// assigned value
     pub value: ScalarValue,
@@ -53,13 +53,13 @@ pub struct MachineConfigMutation {
 }
 
 // --- state ---
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineStateMutation {
     /// source machine
     pub machine: MachineIdentificationUnique,
 
     /// state resource path (e.g. "laser.diameter")
-    pub path: Cow<'static, str>,
+    pub path: String,
 
     /// updated value
     pub value: ScalarValue,
@@ -70,7 +70,7 @@ pub struct MachineStateMutation {
 
 // --- measurements ---
 #[derive(StructOfArray, Debug, Serialize, Deserialize)]
-#[soa_derive(Debug, Serialize, Deserialize)]
+#[soa_derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineMeasurement {
     /// source machine
     pub machine: MachineIdentificationUnique,
@@ -83,7 +83,7 @@ pub struct MachineMeasurement {
 }
 
 // --- command ---
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineCommandCall {
     /// target machine
     pub target: MachineIdentificationUnique,
@@ -102,7 +102,7 @@ pub struct MachineCommandCall {
 }
 
 // --- event ---
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineEmittedEvent {
     /// source machine
     pub machine: MachineIdentificationUnique,

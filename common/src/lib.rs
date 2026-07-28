@@ -32,7 +32,6 @@ pub use runtime::EtherCATDeviceMetadata;
 pub use runtime::RuntimeEvent;
 pub use runtime::RuntimeInitEvent;
 pub use runtime::RuntimeReport;
-pub use runtime::RuntimeReportData;
 pub use runtime::RuntimeRequest;
 pub use runtime::RuntimeRequestKind;
 pub use runtime::RuntimeState;
