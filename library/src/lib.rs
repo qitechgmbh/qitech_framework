@@ -1,6 +1,7 @@
 pub use qitech_framework_common::MachineIdentification;
 pub use qitech_framework_common::MachineIdentificationUnique;
 pub use qitech_framework_common::ScalarValue;
+pub use qitech_framework_common::vendors;
 // pub use qitech_framework_macros::*;
 
 pub mod machine;

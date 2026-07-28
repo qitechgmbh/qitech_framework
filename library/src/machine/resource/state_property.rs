@@ -16,10 +16,12 @@ pub struct StateProperty<T> {
     record: RecordFn<T>,
 }
 
-impl<T: Clone> StateProperty<T> {
+impl<T: Clone + PartialEq> StateProperty<T> {
     pub fn set(&mut self, value: T) {
-        (self.record)(&value);
-        self.handle.write(value);
+        if &value != self.handle.read() {
+            (self.record)(&value);
+            self.handle.write(value);
+        }
     }
 
     pub fn get_ref(&self) -> &T {
@@ -106,6 +108,9 @@ impl Manager {
 
             journal.append(entry);
         });
+
+        // record initial value so it's visible
+        (record)(&initial_value);
 
         let handle = self
             .inner

@@ -3,7 +3,7 @@ use qitech_framework::machine::BoundedMeta;
 use qitech_framework::machine::TypeWrapper;
 use serde::Deserialize;
 
-#[derive(Clone, Default, Deserialize)]
+#[derive(Clone, PartialEq, Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
     #[default]

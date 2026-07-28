@@ -57,7 +57,6 @@ pub struct Runtime<B: Bridge> {
 }
 
 impl<B: Bridge> Runtime<B> {
-    
     pub fn run(mut self) {
         loop {
             let now = Instant::now();

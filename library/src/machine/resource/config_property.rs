@@ -4,6 +4,7 @@ use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
 use qitech_framework_common::with_uom_quantities;
+use thiserror::Error;
 
 use super::PropertyHandle;
 use crate::machine::TypeWrapper;
@@ -172,11 +173,15 @@ impl Manager {
             default.clone(),
         )?;
 
-        Ok(ConfigProperty {
+        let mut property = ConfigProperty {
             handle,
             write,
             default,
-        })
+        };
+
+        // invoke a reset to record the initial value
+        property.reset();
+        Ok(property)
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
@@ -245,26 +250,11 @@ pub type WriteApiFn =
     Box<dyn Fn(u64, *mut u8, &str) -> Result<Result<(), WriteError>, serde_json::Error>>;
 
 // --- errors ---
-use core::fmt;
-use std::error::Error;
-
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum WriteError {
+    #[error("value out of bounds: {0}")]
     OutOfBounds(BoundsError),
+
+    #[error("validation failed: {0}")]
     Validate(String),
 }
-
-impl fmt::Display for WriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WriteError::OutOfBounds(err) => {
-                write!(f, "value out of bounds: {}", err)
-            }
-            WriteError::Validate(msg) => {
-                write!(f, "validation failed: {}", msg)
-            }
-        }
-    }
-}
-
-impl Error for WriteError {}

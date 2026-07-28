@@ -15,6 +15,7 @@ use qitech_framework::machine::error::BuildError;
 use qitech_framework::machine::resource::ConfigProperty;
 use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;
+use qitech_framework::vendors;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
@@ -114,7 +115,7 @@ impl Machine for LaserV1 {
 
 impl LaserV1 {
     pub const IDENTIFICATION: MachineIdentification = MachineIdentification {
-        vendor_id: 1,
+        vendor_id: vendors::QITECH.id,
         machine_id: 6,
     };
 
@@ -165,12 +166,12 @@ impl LaserV1 {
 
     /// Calculates if the current diameter is inside of the tolerance
     fn compute_in_tolerance(&mut self) -> bool {
-        const DIAMETER_EPSILON: f64 = 0.0001; // in mm
-
-        // early return true if the diameter is 0 to prevent warning happening before start
-        if self.diameter.get_as::<millimeter>() < DIAMETER_EPSILON {
-            return true;
-        }
+        // const DIAMETER_EPSILON: f64 = 0.0001; // in mm
+        // 
+        // // early return true if the diameter is 0 to prevent warning happening before start
+        // if self.diameter.get_as::<millimeter>() < DIAMETER_EPSILON {
+        //     return true;
+        // }
 
         let target = self.diameter_target.get();
         let top = target + self.diameter_tolerance_upper.get();

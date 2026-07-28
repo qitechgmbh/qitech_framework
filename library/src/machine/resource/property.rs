@@ -1,5 +1,4 @@
 use std::any::TypeId;
-use std::any::type_name;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;

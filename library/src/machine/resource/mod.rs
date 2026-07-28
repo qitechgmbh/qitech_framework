@@ -149,6 +149,6 @@ pub struct JournalHandle<T> {
 
 impl<T: Debug> JournalHandle<T> {
     fn append(&self, entry: T) {
-        self.buffer.borrow_mut().push(entry)
+        self.buffer.borrow_mut().push(entry);
     }
 }

@@ -30,6 +30,10 @@ impl<'a> BuildContext<'a> {
             hardware,
         }
     }
+
+    pub fn ident_unique(&self) -> MachineIdentificationUnique {
+        self.ident
+    }
 }
 
 // --- errors ---
@@ -37,6 +41,10 @@ pub type BuildResult<T> = Result<T, BuildError>;
 
 #[derive(Debug, Error)]
 pub enum BuildError {
+    // --- machine errors ---
+    #[error("machine required a valid ethercat interface")]
+    UnexpectedMachineIdentification(),
+
     // --- hardware errors ---
     #[error("machine required a valid ethercat interface")]
     ExpectedEtherCATInterface,

@@ -97,7 +97,7 @@ impl BridgeBootstrap<CrossbeamBridge> for CrossbeamBridgeBootstrap {
         match ack_rx.recv().unwrap() {
             HelloAck::Accepted(event_tx) => {
                 *self = CrossbeamBridgeBootstrap::Initialize { event_tx };
-                return Ok(());
+                Ok(())
             },
             HelloAck::Rejected => panic!("not accepted sadge"),
         }
