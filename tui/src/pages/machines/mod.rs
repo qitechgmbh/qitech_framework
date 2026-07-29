@@ -1,0 +1,327 @@
+use std::matches;
+
+use crossterm::event::KeyCode;
+use indexmap::IndexMap;
+use ratatui::Frame;
+use ratatui::layout::Alignment;
+use ratatui::layout::Constraint;
+use ratatui::layout::Direction;
+use ratatui::layout::Layout;
+use ratatui::layout::Rect;
+use ratatui::style::Color;
+use ratatui::style::Modifier;
+use ratatui::style::Style;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Cell;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Row;
+use ratatui::widgets::Table;
+use ratatui::widgets::Tabs;
+
+use crate::ConfigField;
+use crate::MachineEntry;
+use crate::MeasurementField;
+use crate::StateField;
+use crate::pages::Page;
+use crate::types::AppAction;
+use crate::types::AppContext;
+use crate::types::Focus;
+
+mod nav;
+use nav::Cursor;
+
+pub struct MachinesPage {
+    machine: Option<usize>,
+    cursor: Cursor,
+    editing: Option<String>,
+}
+
+impl Page for MachinesPage {
+    fn at_top(&self) -> bool {
+        matches!(self.cursor, Cursor::Tab)
+    }
+
+    fn on_key_event(&mut self, code: KeyCode, ctx: &AppContext) -> AppAction {
+        let Some(idx) = self.synced_machine_idx(ctx) else {
+            self.cursor = Cursor::Tab;
+            self.machine = None;
+            return AppAction::NoAction;
+        };
+
+        self.machine = Some(idx);
+        let machine = &ctx.machines[idx];
+
+        match code {
+            KeyCode::Up => {
+                self.cursor.up(machine);
+                AppAction::NoAction
+            },
+            KeyCode::Down => {
+                self.cursor.down(machine);
+                AppAction::NoAction
+            },
+            _ => AppAction::NoAction
+        }
+    }
+
+    fn render(&self, frame: &mut Frame, area: Rect, ctx: &AppContext) {
+        const TITLE: &str = "Machines";
+
+        let style = match ctx.focus {
+            Focus::Content => Style::default().fg(Color::LightBlue),
+            _ => Style::default(),
+        };
+
+        let block = Block::default()
+            .title(TITLE)
+            .borders(Borders::ALL)
+            .border_style(style);
+
+        frame.render_widget(&block, area);
+
+        let inner = block.inner(area);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(2), // Tabs
+                Constraint::Min(0),    // Content
+            ])
+            .split(inner);
+
+        self.render_tabs(frame, chunks[0], ctx);
+
+        let Some(idx) = self.synced_machine_idx(ctx) else {
+            self.render_no_machines(frame, chunks[1]);
+            return;
+        };
+
+        self.render_machine(frame, chunks[1], ctx, &ctx.machines[idx]);
+    }
+}
+
+impl MachinesPage {
+    pub fn new() -> Self {
+        Self {
+            cursor: Cursor::Tab,
+            editing: None,
+            machine: None,
+        }
+    }
+
+    fn synced_machine_idx(&self, ctx: &AppContext) -> Option<usize> {
+        if ctx.machines.is_empty() {
+            None
+        } else {
+            Some(self.machine.unwrap_or(0).min(ctx.machines.len().saturating_sub(1)))
+        }
+    }
+
+    fn render_tabs(&self, frame: &mut Frame, area: Rect, ctx: &AppContext) {
+        let style = match self.cursor {
+            Cursor::Tab if ctx.focus == Focus::Content => Style::default().fg(Color::LightBlue),
+            _ => Style::default(),
+        };
+
+        let mut titles = Vec::new();
+        for entry in ctx.machines {
+            titles.push(format!("{} ({})", entry.title, entry.ident.serial));
+        }
+
+        let tabs = Tabs::new(titles)
+            .select(self.synced_machine_idx(ctx))
+            .block(
+                Block::default()
+                    .borders(Borders::BOTTOM)
+                    .border_style(style),
+            )
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            );
+
+        frame.render_widget(tabs, area);
+    }
+
+    fn render_no_machines(&self, frame: &mut Frame, chunk: Rect) {
+        const PARAGRAPH: &str = "No Machines detected";
+
+        let error = Paragraph::new(PARAGRAPH)
+            .alignment(Alignment::Center)
+            .block(Block::default());
+
+        let area = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Fill(1),
+                Constraint::Length(1),
+                Constraint::Fill(1),
+            ])
+            .split(chunk)[1];
+
+        frame.render_widget(error, area);
+    }
+
+    fn render_machine(&self, frame: &mut Frame, chunk: Rect, ctx: &AppContext, page: &MachineEntry) {
+        let chunks = Layout::vertical([
+            Constraint::Length(2 + page.config.len() as u16),
+            Constraint::Length(2 + page.state.len() as u16),
+            Constraint::Length(2 + page.measurements.len() as u16),
+        ])
+        .split(chunk);
+
+        self.draw_config(frame, chunks[0], ctx, &page.config);
+        self.draw_state(frame, chunks[1], ctx, &page.state);
+        self.draw_measurement(frame, chunks[2], ctx, &page.measurements);
+    }
+
+    fn draw_config(
+        &self,
+        frame: &mut Frame,
+        chunk: Rect,
+        ctx: &AppContext,
+        items: &IndexMap<String, ConfigField>,
+    ) {
+        const TITLE: &str = " Config ";
+
+        let border_style = match ctx.focus {
+            Focus::Content if self.cursor.is_config() => Style::default().fg(Color::LightBlue),
+            _ => Style::default(),
+        };
+
+        let rows: Vec<Row> = items
+            .iter()
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = match self.cursor {
+                    Cursor::Config { field } if field == i => {
+                        Style::default().fg(Color::LightBlue)
+                    },
+                    _ => Style::default()
+                };
+
+                let value = match &field.value {
+                    Some(v) => format!("{}", v.clone()),
+                    None => "N/A".to_string(),
+                };
+
+                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [Constraint::Percentage(60), Constraint::Percentage(40)],
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(TITLE),
+        );
+
+        frame.render_widget(table, chunk);
+    }
+
+    fn draw_state(
+        &self, 
+        frame: &mut Frame, 
+        chunk: Rect, 
+        ctx: &AppContext,
+        items: &IndexMap<String, StateField>,
+    ) {
+        const TITLE: &str = " State ";
+
+        let border_style = match ctx.focus {
+            Focus::Content if self.cursor.is_state() => Style::default().fg(Color::LightBlue),
+            _ => Style::default(),
+        };
+
+        let rows: Vec<Row> = items
+            .iter()
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = match self.cursor {
+                    Cursor::State { field } if field == i => {
+                        Style::default().fg(Color::LightBlue)
+                    },
+                    _ => Style::default()
+                };
+
+                let value = field
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "N/A".to_string());
+
+                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [Constraint::Percentage(60), Constraint::Percentage(40)],
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(TITLE),
+        );
+
+        frame.render_widget(table, chunk);
+    }
+
+    fn draw_measurement(
+        &self,
+        frame: &mut Frame,
+        chunk: Rect,
+        ctx: &AppContext,
+        items: &IndexMap<String, MeasurementField>,
+    ) {
+        const TITLE: &str = " Measurements ";
+
+        let border_style = match ctx.focus {
+            Focus::Content if self.cursor.is_measurement() => Style::default().fg(Color::LightBlue),
+            _ => Style::default(),
+        };
+
+        // --- measurements ---
+        let rows: Vec<Row> = items
+            .iter()
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = match self.cursor {
+                    Cursor::Measurement { field } if field == i => {
+                        Style::default().fg(Color::LightBlue)
+                    },
+                    _ => Style::default()
+                };
+
+                let value = match &field.value {
+                    Some(v) => match v {
+                        Some(v) => format!("{v:.3}"),
+                        None => "null".to_string(),
+                    },
+                    None => "N/A".to_string(),
+                };
+
+                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [Constraint::Percentage(60), Constraint::Percentage(40)],
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(TITLE),
+        );
+
+        frame.render_widget(table, chunk);
+    }
+}

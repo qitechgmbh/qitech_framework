@@ -1,28 +1,71 @@
-// mod run;
-// pub use run::run;
+mod run;
+use std::collections::HashMap;
 
 use crossterm::event::KeyCode;
+use indexmap::IndexMap;
+use qitech_framework::MachineIdentification;
+use qitech_framework::MachineIdentificationUnique;
+use qitech_framework::ScalarValue;
+use qitech_framework_common::MachineSchema;
+use qitech_framework_common::RuntimeInitEvent;
+use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeStatus;
-use ratatui::{Frame, layout::{Constraint, Direction, Layout, Rect}, widgets::{Block, Borders, Paragraph}};
+use qitech_framework_common::schema::ConfigPropertyValue;
+use qitech_framework_common::schema::MeasurementValue;
+use qitech_framework_common::schema::Node;
+use qitech_framework_common::schema::NodeKind;
+use qitech_framework_common::schema::StatePropertyValue;
+use ratatui::Frame;
+use ratatui::layout::Constraint;
+use ratatui::layout::Direction;
+use ratatui::layout::Layout;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+pub use run::run;
+
+mod types;
+use types::*;
+
+mod status;
+use status::StatusWidget;
+
+mod menu;
+use menu::MenuWidget;
+
+mod pages;
+use pages::ContentManager;
 
 pub struct App {
     // --- state ---
     focus: Focus,
 
     rt_status: RuntimeStatus,
+    schemas: HashMap<MachineIdentification, MachineSchema>,
+    machines: Vec<MachineEntry>,
 
     // --- components ---
-    status: StatusWidget,
+    wg_status: StatusWidget,
+    wg_menu: MenuWidget,
+
+    content: ContentManager,
 }
 
 impl App {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(schemas: HashMap<MachineIdentification, MachineSchema>) -> Self {
         Self {
             focus: Focus::Status,
+            schemas,
+            machines: Default::default(),
             rt_status: RuntimeStatus::Initialized,
-            status: StatusWidget,
+            wg_status: StatusWidget,
+            wg_menu: MenuWidget,
+            content: ContentManager::new(),
         }
+    }
+
+    pub fn update_status(&mut self, value: RuntimeStatus) {
+        self.rt_status = value;
     }
 
     pub fn render(&self, frame: &mut Frame) {
@@ -41,62 +84,279 @@ impl App {
             ])
             .split(inner);
 
-        self.status.render(chunks[0], frame, self.rt_status);
+        let ctx = &AppContext {
+            focus: self.focus,
+            page: self.content.selected_id(),
+            rt_status: self.rt_status,
+            machines: &self.machines,
+        };
+
+        self.wg_status.render(frame, chunks[0], ctx);
+        self.wg_menu.render(frame, chunks[1], ctx);
+        self.content.render(frame, chunks[2], ctx);
     }
 
     pub fn on_key_event(&mut self, code: KeyCode) {
-        _ = code;
-    }
-}
-
-struct StatusWidget;
-
-impl StatusWidget {
-    fn render(&self, area: Rect, frame: &mut Frame, status: RuntimeStatus) {
-        let text = match status {
-            RuntimeStatus::Offline => " Offline ",
-            RuntimeStatus::DiscoveringEtherCATInterface => " Discovering EtherCAT Interface",
-            RuntimeStatus::InitializingEtherCAT => " Initializing EtherCAT ",
-            RuntimeStatus::InitializinhModbus => " Initializing Modbus ",
-            RuntimeStatus::BuildingMachines => " Building Machines ",
-            RuntimeStatus::FinalizingEtherCAT => " Finalizing EtherCAT ",
-            RuntimeStatus::Initialized => " Initialized ",
-            RuntimeStatus::Running { in_pre_op } => {
-                if in_pre_op {
-                    " Running (Pre-Op) "
-                } else {
-                    " Running "
-                }
-            }
+        let ctx = &AppContext {
+            focus: self.focus,
+            page: self.content.selected_id(),
+            rt_status: self.rt_status,
+            machines: &self.machines,
         };
-        
-        frame.render_widget(Paragraph::new(text), area);
+
+        let action = match self.focus {
+            Focus::Status => match code {
+                KeyCode::Down => {
+                    self.focus = Focus::Menu;
+                    AppAction::NoAction
+                }
+
+                _ => AppAction::NoAction,
+            },
+
+            Focus::Menu => match code {
+                KeyCode::Up => {
+                    self.focus = Focus::Status;
+                    AppAction::NoAction
+                }
+
+                KeyCode::Down => {
+                    self.focus = Focus::Content;
+                    AppAction::NoAction
+                }
+
+                _ => self.wg_menu.on_key_event(code, ctx),
+            },
+
+            Focus::Content => match code {
+                KeyCode::Up => {
+                    if self.content.at_top() {
+                        self.focus = Focus::Menu;
+                    } else {
+                        self.content.on_key_event(code, ctx);
+                    }
+
+                    AppAction::NoAction
+                }
+
+                _ => self.content.on_key_event(code, ctx),
+            },
+        };
+
+        match action {
+            AppAction::NoAction => {}
+            AppAction::GotoPage(page) => self.content.goto_page(page),
+            AppAction::Page(_) => {}
+        }
+    }
+
+    pub fn on_init_event_received<T>(&mut self, event: RuntimeInitEvent<T>) {
+        match event {
+            RuntimeInitEvent::EtherCATStateUpdate(_) => {}
+            RuntimeInitEvent::EtherCATFinalizing => {}
+            RuntimeInitEvent::EtherCATDiscoveryStarted => {}
+            RuntimeInitEvent::EtherCATDiscoveryCompleted { .. } => {}
+            RuntimeInitEvent::EtherCATInitializationStarted => {}
+            RuntimeInitEvent::EtherCATDeviceInitializationFailed { .. } => {}
+            RuntimeInitEvent::EtherCATDeviceInitializationCompleted { .. } => {}
+            RuntimeInitEvent::BuildingMachines => {}
+            RuntimeInitEvent::BuiltMachine { ident } => {
+                self.add_machine(ident);
+            }
+            RuntimeInitEvent::FailedToBuildMachine { .. } => {}
+            _ => {}
+        }
+    }
+
+    pub fn on_report_received(&mut self, report: RuntimeReport) {
+        let report = report.machines;
+
+        for mutation in &report.config_mutations {
+            let Some(entry) = self.find_machine_mut(mutation.machine) else {
+                continue;
+            };
+
+            let Some(item) = entry.config.get_mut(&mutation.path) else {
+                continue;
+            };
+
+            item.value = Some(mutation.value.clone());
+        }
+
+        for mutation in &report.state_mutations {
+            let Some(entry) = self.find_machine_mut(mutation.machine) else {
+                continue;
+            };
+
+            let Some(item) = entry.state.get_mut(&mutation.path) else {
+                continue;
+            };
+
+            item.value = Some(mutation.value.clone());
+        }
+
+        for measurement in &report.measurements {
+            let Some(entry) = self.find_machine_mut(*measurement.machine) else {
+                continue;
+            };
+
+            let Some(item) = entry.measurements.get_mut(measurement.path) else {
+                continue;
+            };
+
+            item.value = Some(*measurement.value);
+        }
+    }
+
+    fn find_machine_mut(&mut self, ident: MachineIdentificationUnique) -> Option<&mut MachineEntry> {
+        self.machines.iter_mut().find(|m| m.ident == ident)
     }
 }
 
-enum Focus {
-    Status,
-    Menu,
-    Content(ContentState),
+impl App {
+    pub fn add_machine(&mut self, ident_unique: MachineIdentificationUnique) {
+        let ident = ident_unique.identification;
+
+        let schema = self.schemas.get(&ident).unwrap();
+
+        let mut config = IndexMap::new();
+        collect_config_fields("", &schema.config_properties, &mut config);
+
+        let mut state = IndexMap::new();
+        collect_state_fields("", &schema.state_properties, &mut state);
+
+        let mut measurements = IndexMap::new();
+        collect_measurement_fields("", &schema.measurements, &mut measurements);
+
+        self.machines.push(MachineEntry {
+            title: schema.name.clone(),
+            ident: ident_unique,
+            config,
+            state,
+            measurements,
+        });
+    }
+
+    // #[allow(unused)]
+    // pub fn remove_machine(&mut self, ident: MachineIdentificationUnique) {
+    //     self.machines.retain(|entry| entry.ident != ident);
+    // }
 }
 
-enum ContentState {
-    Machines(MachinesState),
-    EtherCAT,
-    Modbus,
-    Logs,
+// --- types ---
+
+pub struct MachineEntry {
+    pub title: String,
+    pub ident: MachineIdentificationUnique,
+    pub config: IndexMap<String, ConfigField>,
+    pub state: IndexMap<String, StateField>,
+    pub measurements: IndexMap<String, MeasurementField>,
 }
 
-struct MachinesState {
-    machine: usize,
-    section: Section,
-    field: usize,
-    editing: Option<String>,
+pub struct ConfigField {
+    pub label: String,
+    pub value: Option<ScalarValue>,
 }
 
-enum Section {
-    Tab,
-    Config,
-    State,
-    Measurement,
+pub struct StateField {
+    pub label: String,
+    pub value: Option<ScalarValue>,
 }
+
+pub struct MeasurementField {
+    pub label: String,
+    pub value: Option<Option<f64>>,
+}
+
+// --- utils ---
+fn collect_config_fields(
+    prefix: &str,
+    properties: &IndexMap<String, Node<ConfigPropertyValue>>,
+    fields: &mut IndexMap<String, ConfigField>,
+) {
+    for (name, node) in properties {
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}.{name}")
+        };
+
+        match &node.kind {
+            NodeKind::Branch(children) => {
+                collect_config_fields(&path, children, fields);
+            }
+
+            NodeKind::Leaf(_) => {
+                fields.insert(
+                    path.clone(),
+                    ConfigField {
+                        label: path.clone(),
+                        value: None,
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn collect_state_fields(
+    prefix: &str,
+    properties: &IndexMap<String, Node<StatePropertyValue>>,
+    fields: &mut IndexMap<String, StateField>,
+) {
+    for (name, node) in properties {
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}.{name}")
+        };
+
+        match &node.kind {
+            NodeKind::Branch(children) => {
+                collect_state_fields(&path, children, fields);
+            }
+
+            NodeKind::Leaf(_) => {
+                fields.insert(
+                    path.clone(),
+                    StateField {
+                        label: path.clone(),
+                        value: None,
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn collect_measurement_fields(
+    prefix: &str,
+    properties: &IndexMap<String, Node<MeasurementValue>>,
+    fields: &mut IndexMap<String, MeasurementField>,
+) {
+    for (name, node) in properties {
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}.{name}")
+        };
+
+        match &node.kind {
+            NodeKind::Branch(children) => {
+                collect_measurement_fields(&path, children, fields);
+            }
+
+            NodeKind::Leaf(_) => {
+                fields.insert(
+                    path.clone(),
+                    MeasurementField {
+                        label: path.clone(),
+                        value: None,
+                    },
+                );
+            }
+        }
+    }
+}
+
+// ---
