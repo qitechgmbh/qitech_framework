@@ -31,10 +31,15 @@ use crate::types::Focus;
 mod nav;
 use nav::Cursor;
 
+enum Mode {
+    Navigate,
+    Edit { value: String, dirty: bool },
+}
+
 pub struct MachinesPage {
     machine: Option<usize>,
     cursor: Cursor,
-    editing: Option<String>,
+    mode: Mode,
 }
 
 impl Page for MachinesPage {
@@ -52,16 +57,107 @@ impl Page for MachinesPage {
         self.machine = Some(idx);
         let machine = &ctx.machines[idx];
 
+        // --- edit mode ---
+        if let Mode::Edit { value, dirty } = &mut self.mode {
+            return match code {
+                KeyCode::Esc => {
+                    self.mode = Mode::Navigate;
+                    AppAction::NoAction
+                }
+
+                KeyCode::Enter => {
+                    let value = value.clone();
+                    self.mode = Mode::Navigate;
+
+                    match self.cursor {
+                        Cursor::Config { field } => {
+                            let (key, _) = machine.config.get_index(field).unwrap();
+
+                            AppAction::SetConfig {
+                                machine: machine.ident,
+                                resource: key.clone(),
+                                value,
+                            }
+                        }
+
+                        _ => AppAction::NoAction,
+                    }
+                }
+
+                KeyCode::Char(c) => {
+                    if !*dirty {
+                        value.clear(); // first key replaces original value
+                        *dirty = true;
+                    }
+
+                    value.push(c);
+                    AppAction::NoAction
+                }
+
+                KeyCode::Backspace => {
+                    *dirty = true;
+                    value.pop();
+                    AppAction::NoAction
+                }
+
+                _ => AppAction::NoAction,
+            };
+        }
+
+        // --- navigate mode ---
         match code {
             KeyCode::Up => {
                 self.cursor.up(machine);
                 AppAction::NoAction
-            },
+            }
             KeyCode::Down => {
                 self.cursor.down(machine);
                 AppAction::NoAction
-            },
-            _ => AppAction::NoAction
+            }
+
+            KeyCode::Left => {
+                let Some(idx) = self.machine else {
+                    return AppAction::NoAction;
+                };
+
+                // increment then sync
+                self.machine = Some(idx.saturating_sub(1));
+                self.machine = self.synced_machine_idx(ctx);
+
+                AppAction::NoAction
+            }
+
+            KeyCode::Right => {
+                let Some(idx) = self.machine else {
+                    return AppAction::NoAction;
+                };
+
+                // increment then sync
+                self.machine = Some(idx + 1);
+                self.machine = self.synced_machine_idx(ctx);
+
+                AppAction::NoAction
+            }
+
+            KeyCode::Enter => {
+                if let Cursor::Config { field } = self.cursor {
+                    // --- start edit mode ---
+                    let (_, field) = machine.config.get_index(field).unwrap();
+
+                    // if value is N/A we can't set it
+                    let Some(value) = &field.value else {
+                        return AppAction::NoAction;
+                    };
+
+                    self.mode = Mode::Edit {
+                        value: value.to_string(),
+                        dirty: false,
+                    };
+                }
+
+                AppAction::NoAction
+            }
+            _ => AppAction::NoAction,
         }
     }
 
@@ -103,9 +199,9 @@ impl Page for MachinesPage {
 impl MachinesPage {
     pub fn new() -> Self {
         Self {
-            cursor: Cursor::Tab,
-            editing: None,
             machine: None,
+            cursor: Cursor::Tab,
+            mode: Mode::Navigate,
         }
     }
 
@@ -113,7 +209,11 @@ impl MachinesPage {
         if ctx.machines.is_empty() {
             None
         } else {
-            Some(self.machine.unwrap_or(0).min(ctx.machines.len().saturating_sub(1)))
+            Some(
+                self.machine
+                    .unwrap_or(0)
+                    .min(ctx.machines.len().saturating_sub(1)),
+            )
         }
     }
 
@@ -163,7 +263,13 @@ impl MachinesPage {
         frame.render_widget(error, area);
     }
 
-    fn render_machine(&self, frame: &mut Frame, chunk: Rect, ctx: &AppContext, page: &MachineEntry) {
+    fn render_machine(
+        &self,
+        frame: &mut Frame,
+        chunk: Rect,
+        ctx: &AppContext,
+        page: &MachineEntry,
+    ) {
         let chunks = Layout::vertical([
             Constraint::Length(2 + page.config.len() as u16),
             Constraint::Length(2 + page.state.len() as u16),
@@ -171,12 +277,12 @@ impl MachinesPage {
         ])
         .split(chunk);
 
-        self.draw_config(frame, chunks[0], ctx, &page.config);
-        self.draw_state(frame, chunks[1], ctx, &page.state);
-        self.draw_measurement(frame, chunks[2], ctx, &page.measurements);
+        self.render_config(frame, chunks[0], ctx, &page.config);
+        self.render_state(frame, chunks[1], ctx, &page.state);
+        self.render_measurement(frame, chunks[2], ctx, &page.measurements);
     }
 
-    fn draw_config(
+    fn render_config(
         &self,
         frame: &mut Frame,
         chunk: Rect,
@@ -194,16 +300,31 @@ impl MachinesPage {
             .iter()
             .enumerate()
             .map(|(i, (_, field))| {
-                let style = match self.cursor {
-                    Cursor::Config { field } if field == i => {
-                        Style::default().fg(Color::LightBlue)
-                    },
-                    _ => Style::default()
+                let selected = matches!(
+                    self.cursor,
+                    Cursor::Config { field } if field == i
+                );
+
+                let editing = selected && matches!(self.mode, Mode::Edit { .. });
+
+                let style = if editing {
+                    Style::default().fg(Color::Red)
+                } else if selected {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
                 };
 
-                let value = match &field.value {
-                    Some(v) => format!("{}", v.clone()),
-                    None => "N/A".to_string(),
+                let value = if editing {
+                    match &self.mode {
+                        Mode::Edit { value, .. } => value.clone(),
+                        _ => unreachable!(),
+                    }
+                } else {
+                    match &field.value {
+                        Some(v) => format!("{v}"),
+                        None => "N/A".to_string(),
+                    }
                 };
 
                 Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
@@ -224,10 +345,10 @@ impl MachinesPage {
         frame.render_widget(table, chunk);
     }
 
-    fn draw_state(
-        &self, 
-        frame: &mut Frame, 
-        chunk: Rect, 
+    fn render_state(
+        &self,
+        frame: &mut Frame,
+        chunk: Rect,
         ctx: &AppContext,
         items: &IndexMap<String, StateField>,
     ) {
@@ -243,10 +364,8 @@ impl MachinesPage {
             .enumerate()
             .map(|(i, (_, field))| {
                 let style = match self.cursor {
-                    Cursor::State { field } if field == i => {
-                        Style::default().fg(Color::LightBlue)
-                    },
-                    _ => Style::default()
+                    Cursor::State { field } if field == i => Style::default().fg(Color::LightBlue),
+                    _ => Style::default(),
                 };
 
                 let value = field
@@ -273,7 +392,7 @@ impl MachinesPage {
         frame.render_widget(table, chunk);
     }
 
-    fn draw_measurement(
+    fn render_measurement(
         &self,
         frame: &mut Frame,
         chunk: Rect,
@@ -295,8 +414,8 @@ impl MachinesPage {
                 let style = match self.cursor {
                     Cursor::Measurement { field } if field == i => {
                         Style::default().fg(Color::LightBlue)
-                    },
-                    _ => Style::default()
+                    }
+                    _ => Style::default(),
                 };
 
                 let value = match &field.value {

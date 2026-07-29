@@ -35,7 +35,7 @@ impl Cursor {
 
     pub fn up(&mut self, machine: &MachineEntry) -> bool {
         match self {
-            Cursor::Tab=> return true,
+            Cursor::Tab => return true,
 
             Cursor::Config { field } => {
                 if *field > 0 {
@@ -81,9 +81,7 @@ impl Cursor {
         match self {
             Cursor::Tab => {
                 if !machine.config.is_empty() {
-                    *self = Cursor::Config {
-                        field: 0,
-                    };
+                    *self = Cursor::Config { field: 0 };
                 } else if !machine.state.is_empty() {
                     *self = Cursor::State { field: 0 };
                 } else if !machine.measurements.is_empty() {

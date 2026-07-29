@@ -65,6 +65,7 @@ pub fn run(schemas: Vec<&str>, handle: CrossbeamHelloHandle) -> anyhow::Result<(
         terminal.draw(|frame| app.render(frame))?;
     };
 
+    app.on_init_complete();
     // app.runtime_status = RuntimeStatus::Running;
 
     // --- run stage ---
@@ -76,7 +77,7 @@ pub fn run(schemas: Vec<&str>, handle: CrossbeamHelloHandle) -> anyhow::Result<(
                 break;
             }
 
-            app.on_key_event(key.code);
+            app.on_key_event(key.code, &mut handle);
         }
 
         while let Some(report) = handle.recv() {

@@ -6,9 +6,12 @@ use indexmap::IndexMap;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::ScalarValue;
+use qitech_framework::runtime::bridge::CrossbeamHandle;
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeRequest;
+use qitech_framework_common::RuntimeRequestKind;
 use qitech_framework_common::RuntimeStatus;
 use qitech_framework_common::schema::ConfigPropertyValue;
 use qitech_framework_common::schema::MeasurementValue;
@@ -57,7 +60,7 @@ impl App {
             focus: Focus::Status,
             schemas,
             machines: Default::default(),
-            rt_status: RuntimeStatus::Initialized,
+            rt_status: RuntimeStatus::Offline,
             wg_status: StatusWidget,
             wg_menu: MenuWidget,
             content: ContentManager::new(),
@@ -96,7 +99,7 @@ impl App {
         self.content.render(frame, chunks[2], ctx);
     }
 
-    pub fn on_key_event(&mut self, code: KeyCode) {
+    pub fn on_key_event(&mut self, code: KeyCode, handle: &mut CrossbeamHandle) {
         let ctx = &AppContext {
             focus: self.focus,
             page: self.content.selected_id(),
@@ -146,26 +149,64 @@ impl App {
         match action {
             AppAction::NoAction => {}
             AppAction::GotoPage(page) => self.content.goto_page(page),
-            AppAction::Page(_) => {}
+            AppAction::SetConfig {
+                machine,
+                resource,
+                value,
+            } => {
+                handle.send(RuntimeRequest {
+                    transaction_id: 0,
+                    kind: RuntimeRequestKind::SetMachineConfiguration {
+                        target: machine,
+                        resource,
+                        value,
+                    },
+                });
+            }
         }
     }
 
     pub fn on_init_event_received<T>(&mut self, event: RuntimeInitEvent<T>) {
         match event {
-            RuntimeInitEvent::EtherCATStateUpdate(_) => {}
-            RuntimeInitEvent::EtherCATFinalizing => {}
-            RuntimeInitEvent::EtherCATDiscoveryStarted => {}
-            RuntimeInitEvent::EtherCATDiscoveryCompleted { .. } => {}
-            RuntimeInitEvent::EtherCATInitializationStarted => {}
-            RuntimeInitEvent::EtherCATDeviceInitializationFailed { .. } => {}
-            RuntimeInitEvent::EtherCATDeviceInitializationCompleted { .. } => {}
-            RuntimeInitEvent::BuildingMachines => {}
+            RuntimeInitEvent::EtherCATStateUpdate(_) => {
+
+            }
+            RuntimeInitEvent::EtherCATFinalizing => {
+                self.rt_status = RuntimeStatus::FinalizingEtherCAT;
+            }
+            RuntimeInitEvent::EtherCATDiscoveryStarted => {
+                self.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
+            }
+            RuntimeInitEvent::EtherCATDiscoveryCompleted { .. } => {
+                self.rt_status = RuntimeStatus::Initialized;
+            }
+            RuntimeInitEvent::EtherCATInitializationStarted => {
+                self.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
+            }
+            RuntimeInitEvent::EtherCATDeviceInitializationFailed { .. } => {
+                self.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
+            }
+            RuntimeInitEvent::EtherCATDeviceInitializationCompleted { .. } => {
+                self.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
+            }
+            RuntimeInitEvent::BuildingMachines => {
+                self.rt_status = RuntimeStatus::BuildingMachines;
+            }
             RuntimeInitEvent::BuiltMachine { ident } => {
                 self.add_machine(ident);
             }
             RuntimeInitEvent::FailedToBuildMachine { .. } => {}
+
+            RuntimeInitEvent::ModbusDiscoveryStarted => {
+                self.rt_status = RuntimeStatus::DiscoveringModbusDevices;
+            }
+
             _ => {}
         }
+    }
+
+    pub fn on_init_complete(&mut self) {
+        self.rt_status = RuntimeStatus::Running { in_pre_op: false };
     }
 
     pub fn on_report_received(&mut self, report: RuntimeReport) {
@@ -208,7 +249,10 @@ impl App {
         }
     }
 
-    fn find_machine_mut(&mut self, ident: MachineIdentificationUnique) -> Option<&mut MachineEntry> {
+    fn find_machine_mut(
+        &mut self,
+        ident: MachineIdentificationUnique,
+    ) -> Option<&mut MachineEntry> {
         self.machines.iter_mut().find(|m| m.ident == ident)
     }
 }

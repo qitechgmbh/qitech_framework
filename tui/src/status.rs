@@ -17,18 +17,18 @@ impl StatusWidget {
         const TITLE: &str = "Status";
 
         let status = match ctx.rt_status {
-            RuntimeStatus::Offline => " Offline ",
-            RuntimeStatus::DiscoveringEtherCATInterface => " Discovering EtherCAT Interface",
-            RuntimeStatus::InitializingEtherCAT => " Initializing EtherCAT ",
-            RuntimeStatus::InitializinhModbus => " Initializing Modbus ",
-            RuntimeStatus::BuildingMachines => " Building Machines ",
-            RuntimeStatus::FinalizingEtherCAT => " Finalizing EtherCAT ",
-            RuntimeStatus::Initialized => " Initialized ",
+            RuntimeStatus::Offline => "🔴 Offline",
+            RuntimeStatus::DiscoveringEtherCATInterface => "🟡 Discovering EtherCAT Interface",
+            RuntimeStatus::InitializingEtherCAT => "🟡 Initializing EtherCAT",
+            RuntimeStatus::DiscoveringModbusDevices => "🟡 Discovering Modbus RTU Devices",
+            RuntimeStatus::BuildingMachines => "🟡 Building Machines",
+            RuntimeStatus::FinalizingEtherCAT => "🟡 Finalizing EtherCAT",
+            RuntimeStatus::Initialized => "🟢 Initialized",
             RuntimeStatus::Running { in_pre_op } => {
                 if in_pre_op {
-                    " Running (Pre-Op) "
+                    "🔵 Running (Pre-Op)"
                 } else {
-                    " Running "
+                    "🟢 Running"
                 }
             }
         };

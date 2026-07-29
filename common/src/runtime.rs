@@ -106,6 +106,9 @@ pub enum RuntimeInitEvent<FinishedPayload> {
         devices: Vec<EtherCATDeviceMetadata>,
     },
 
+    // --- modbus rtu ---
+    ModbusDiscoveryStarted,
+
     // --- machine ---
     BuildingMachines,
     BuiltMachine {
@@ -150,7 +153,7 @@ pub enum RuntimeStatus {
     Offline,
     DiscoveringEtherCATInterface,
     InitializingEtherCAT,
-    InitializinhModbus,
+    DiscoveringModbusDevices,
     BuildingMachines,
     FinalizingEtherCAT,
     Initialized,

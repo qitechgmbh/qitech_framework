@@ -23,6 +23,7 @@ use crate::runtime::config::ModbusRtuMode;
 use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::error::RuntimeInitializeResult;
 use crate::runtime::ethercat;
+use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
 
@@ -64,22 +65,27 @@ impl<B: Bridge> Runtime<B> {
 
         // --- initialize modbus rtu ---
         if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
-            for (_, ident) in config.bindings {
+            bootstrap.submit_event(RuntimeInitEvent::ModbusDiscoveryStarted)?;
+
+            for (path, ident) in config.bindings {
+                let Some(path) = modbus_rtu::resolve_serial_by_path(&path) else {
+                    // path not found
+                    continue;
+                };
+
                 let device: Rc<RefCell<LaserDevice>> = Rc::new(RefCell::new(
-                    LaserDevice::new("/dev/ttyUSB0".to_string(), 1, None).unwrap(),
+                    LaserDevice::new(path.clone(), 1, None).unwrap(),
                 ));
 
                 hardware_registry.insert(
                     ident,
                     vec![Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
                         device,
-                        path: "/dev/ttyUSB0".to_string(),
+                        path,
                     })],
                 );
             }
         }
-
-        // TODO: title says it ...
 
         // --- build machines ---
         bootstrap.submit_event(RuntimeInitEvent::BuildingMachines)?;

@@ -22,6 +22,7 @@ pub use types::RuntimeStatus;
 
 mod ethercat;
 mod init;
+mod modbus_rtu;
 mod utils;
 
 mod config;

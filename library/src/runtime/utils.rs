@@ -8,7 +8,7 @@ use crate::runtime::EtherCATController;
 use crate::runtime::types::MachineInstance;
 
 pub fn find_machine(
-    machines: &mut Vec<MachineInstance>,
+    machines: &mut [MachineInstance],
     ident: MachineIdentificationUnique,
 ) -> Option<&mut dyn Machine> {
     machines

@@ -23,19 +23,20 @@ use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
 // udevadm info --query=property --name=/dev/ttyUSB0 | grep ID_PATH_TAG
 
 pub fn main() -> anyhow::Result<()> {
-    interface::bring_up_all_ethernet();
+    // interface::bring_up_all_ethernet();
 
-    let laser = MachineIdentificationUnique {
+    let laser_ident = |serial: u16| MachineIdentificationUnique {
         identification: LaserV1::IDENTIFICATION,
-        serial: 1,
+        serial,
     };
 
-    let config = RuntimeConfiguration::default()
-        // .ethercat(ETHERCAT_CONFIG)
+    // --- configure runtime ---
+    let config = RuntimeConfiguration::new()
+        .requests_per_cycle_max(10)
         .export_interval(Duration::from_secs_f64(1.0 / 4.0))
-        .modbus_rtu_device("pci-0000_c6_00_0-usb-0_2_1_1_0", laser)
+        .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0", laser_ident(1))
+        .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0", laser_ident(2))
         .machine::<LaserV1>();
-    // .machine::<WinderV1>();
 
     let (bridge, handle) = CrossbeamBridgeBootstrap::new();
 
@@ -47,7 +48,6 @@ pub fn main() -> anyhow::Result<()> {
 
     // --- start tui in main thread ---
     let schemas = vec![LaserV1::SCHEMA];
-
     qitech_framework_tui::run(schemas, handle)
 }
 

@@ -1,3 +1,4 @@
+use qitech_framework::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeStatus;
 
 use crate::MachineEntry;
@@ -20,7 +21,9 @@ pub struct AppContext<'a> {
 pub enum AppAction {
     NoAction,
     GotoPage(PageId),
-    Page(PageEvent),
+    SetConfig {
+        machine: MachineIdentificationUnique,
+        resource: String,
+        value: String,
+    },
 }
-
-pub enum PageEvent {}

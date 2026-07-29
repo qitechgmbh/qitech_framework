@@ -153,6 +153,14 @@ impl Extract<ScalarValue> for i64 {
 }
 
 // --- optional int ---
+impl BoundedMeta for i64 {
+    type Bound = i64;
+
+    fn as_bound(&self) -> Option<Self::Bound> {
+        Some(*self)
+    }
+}
+
 impl Extract<Option<f64>> for Option<i64> {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const Option<i64>) };

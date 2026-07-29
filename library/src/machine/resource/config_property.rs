@@ -6,7 +6,6 @@ use qitech_framework_common::MachineConfigMutation;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
-use qitech_framework_common::ScalarValue;
 use qitech_framework_common::with_uom_quantities;
 use thiserror::Error;
 

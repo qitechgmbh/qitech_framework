@@ -79,7 +79,7 @@ impl fmt::Display for ScalarValue {
             ScalarValue::String(Some(v)) => write!(f, "{v}"),
             ScalarValue::Boolean(Some(v)) => write!(f, "{v}"),
             ScalarValue::Integer(Some(v)) => write!(f, "{v}"),
-            ScalarValue::Float(Some(v)) => write!(f, "{v}"),
+            ScalarValue::Float(Some(v)) => write!(f, "{v:.2}"),
 
             ScalarValue::Enum(None)
             | ScalarValue::String(None)
