@@ -1,87 +1,83 @@
 mod winder2_imports {
-    pub use super::super::api::Winder2Namespace;
-    pub use super::super::tension_arm::TensionArm;
-    pub use super::super::{Winder2, Winder2Mode};
-    pub use crate::winder2::puller_speed_controller::PullerSpeedController;
-    pub use crate::winder2::spool_speed_controller::SpoolSpeedController;
-    pub use crate::winder2::traverse_controller::TraverseController;
-    pub use anyhow::Error;
-    pub use control_core::converters::angular_step_converter::AngularStepConverter;
-    pub use control_core::converters::linear_step_converter::LinearStepConverter;
+    pub use std::time::Instant;
 
     pub use qitech_lib::ethercat_hal::coe::ConfigurableDevice;
     pub use qitech_lib::ethercat_hal::devices::ek1100::EK1100;
-    pub use qitech_lib::ethercat_hal::devices::el2002::{EL2002, EL2002_IDENTITY_B, EL2002Port};
+    pub use qitech_lib::ethercat_hal::devices::el2002::EL2002;
+    pub use qitech_lib::ethercat_hal::devices::el7031::EL7031;
     pub use qitech_lib::ethercat_hal::devices::el7031::coe::EL7031Configuration;
     pub use qitech_lib::ethercat_hal::devices::el7031::pdo::EL7031PredefinedPdoAssignment;
-    pub use qitech_lib::ethercat_hal::devices::el7031::{
-        EL7031, EL7031_IDENTITY_A, EL7031_IDENTITY_B, EL7031DigitalInputPort, EL7031StepperPort,
-    };
+    pub use qitech_lib::ethercat_hal::devices::el7031_0030::EL7031_0030;
     pub use qitech_lib::ethercat_hal::devices::el7031_0030::coe::EL7031_0030Configuration;
     pub use qitech_lib::ethercat_hal::devices::el7031_0030::pdo::EL7031_0030PredefinedPdoAssignment;
-    pub use qitech_lib::ethercat_hal::devices::el7031_0030::{
-        self, EL7031_0030, EL7031_0030_IDENTITY_A, EL7031_0030AnalogInputPort,
-        EL7031_0030StepperPort,
-    };
+    pub use qitech_lib::ethercat_hal::devices::el7031_0030::{self};
+    pub use qitech_lib::ethercat_hal::devices::el7041_0052::EL7041_0052;
     pub use qitech_lib::ethercat_hal::devices::el7041_0052::coe::EL7041_0052Configuration;
-    pub use qitech_lib::ethercat_hal::devices::el7041_0052::{
-        EL7041_0052, EL7041_0052_IDENTITY_A, EL7041_0052Port,
-    };
-    pub use qitech_lib::ethercat_hal::devices::{
-        ek1100::EK1100_IDENTITY_A, el2002::EL2002_IDENTITY_A,
-    };
-    pub use qitech_lib::ethercat_hal::io::analog_input::AnalogInputDevice;
-    pub use qitech_lib::ethercat_hal::io::digital_input::DigitalInputDevice;
-    pub use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
-
     pub use qitech_lib::ethercat_hal::shared_config;
-    pub use qitech_lib::ethercat_hal::shared_config::el70x1::{
-        EL70x1OperationMode, StmMotorConfiguration,
-    };
+    pub use qitech_lib::ethercat_hal::shared_config::el70x1::EL70x1OperationMode;
+    pub use qitech_lib::ethercat_hal::shared_config::el70x1::StmMotorConfiguration;
     pub use qitech_lib::units::ConstZero;
     pub use qitech_lib::units::f64::*;
-    pub use qitech_lib::units::length::{centimeter, meter, millimeter};
+    pub use qitech_lib::units::length::centimeter;
+    pub use qitech_lib::units::length::meter;
+    pub use qitech_lib::units::length::millimeter;
     pub use qitech_lib::units::velocity::meter_per_minute;
-    pub use std::time::Instant;
+
+    pub use super::super::Winder2;
+    pub use super::super::Winder2Mode;
+    pub use super::super::puller_speed_controller::PullerSpeedController;
+    pub use super::super::spool_speed_controller::SpoolSpeedController;
+    pub use super::super::tension_arm::TensionArm;
+    pub use super::super::traverse_controller::TraverseController;
+    pub use crate::converters::angular_step_converter::AngularStepConverter;
+    pub use crate::converters::linear_step_converter::LinearStepConverter;
 }
 
-use crate::{MachineHardware, MachineNew};
-use qitech_lib::ethercat_hal::EtherCATThreadChannel;
+use qitech_framework::machine::BuildContext;
+use qitech_framework::machine::MachineBuild;
+use qitech_framework::machine::error::BuildResult;
+use qitech_lib::units::angle::degree;
+use qitech_lib::units::angular_velocity::revolution_per_minute;
 pub use winder2_imports::*;
-impl MachineNew for Winder2 {
-    fn new(hw: MachineHardware) -> Result<Self, Error> {
-        if hw.identification.machine_ident == Winder2::MACHINE_IDENTIFICATION {
-            Self::new_normal(hw)
-        } else if hw.identification.machine_ident == Winder2::MACHINE_IDENTIFICATION_7031_SPOOL {
-            Self::new_winder_spool_7031(hw)
+
+use crate::machines::winder_v3::api::Measurements;
+use crate::machines::winder_v3::api::ModeState;
+use crate::machines::winder_v3::api::PullerRegulationMode;
+use crate::machines::winder_v3::api::PullerState;
+use crate::machines::winder_v3::api::SpoolAutomaticActionState;
+use crate::machines::winder_v3::api::SpoolSpeedControllerState;
+use crate::machines::winder_v3::api::States;
+use crate::machines::winder_v3::api::TensionArmState;
+use crate::machines::winder_v3::api::TraverseState;
+
+impl MachineBuild for Winder2 {
+    fn build(ctx: BuildContext) -> BuildResult<Self> {
+        let ident = ctx.ident_unique().identification;
+
+        if ident == Winder2::MACHINE_IDENTIFICATION {
+            Self::new_normal(ctx)
+        } else if ident == Winder2::MACHINE_IDENTIFICATION_7031_SPOOL {
+            Self::new_winder_spool_7031(ctx)
         } else {
-            Err(anyhow::anyhow!(
-                "Winder2: Unexpected MachineIdentification {:?}!",
-                hw.identification.machine_ident
-            ))
+            // Err(anyhow::anyhow!(
+            //     "Winder2: Unexpected MachineIdentification {:?}!",
+            //     ctx.identification.machine_ident
+            // ))
+            todo!()
         }
     }
 }
 
 impl Winder2 {
-    fn new_normal(hw: MachineHardware) -> Result<Self, Error> {
-        let _ek1100 = hw.try_get_ethercat_device_and_addr_by_role::<EK1100>(0)?;
-        let el2002 = hw.try_get_ethercat_device_and_addr_by_role::<EL2002>(1)?;
-        let el7041 = hw.try_get_ethercat_device_and_addr_by_role::<EL7041_0052>(2)?;
-        let el7031 = hw.try_get_ethercat_device_and_addr_by_role::<EL7031>(3)?;
-        let el7031_0030 = hw.try_get_ethercat_device_and_addr_by_role::<EL7031_0030>(4)?;
+    fn new_normal(ctx: BuildContext) -> BuildResult<Self> {
+        let _ek1100 = ctx.find_ethercat_device_and_addr::<EK1100>(0)?;
+        let el2002 = ctx.find_ethercat_device_and_addr::<EL2002>(1)?;
+        let el7041 = ctx.find_ethercat_device_and_addr::<EL7041_0052>(2)?;
+        let el7031 = ctx.find_ethercat_device_and_addr::<EL7031>(3)?;
+        let el7031_0030 = ctx.find_ethercat_device_and_addr::<EL7031_0030>(4)?;
 
         let mode = Winder2Mode::Standby;
-        let (sender, receiver) = tokio::sync::mpsc::channel(2);
-
-        let interface: EtherCATThreadChannel = match &hw.ethercat_interface {
-            Some(ecat_interface) => ecat_interface.clone(),
-            None => {
-                return Err(anyhow::anyhow!(
-                    "Winder2: No EtherCat Interface was supplied!"
-                ));
-            }
-        };
+        let interface = ctx.get_ethercat_interface()?;
 
         // Role 4: Stepper Puller EL7031-0030
         let el7031_0030_config = EL7031_0030Configuration {
@@ -97,6 +93,7 @@ impl Winder2 {
             pdo_assignment: EL7031_0030PredefinedPdoAssignment::VelocityControlCompact,
             ..Default::default()
         };
+
         let mut b = el7031_0030.0.borrow_mut();
         (&mut *b).write_config(interface.clone(), el7031_0030.1, &el7031_0030_config)?;
         drop(b);
@@ -139,18 +136,14 @@ impl Winder2 {
         interface.enable_dc_sync0(el7041.1)?;
 
         let mut new = Self {
-            api_receiver: receiver,
-            api_sender: sender,
             traverse: el7031.0,
             puller: el7031_0030.0.clone(),
             spool: el7041.0,
             laser: el2002.0,
             tension_arm: TensionArm::new(el7031_0030.0.clone()),
-            namespace: Winder2Namespace { namespace: None },
             mode: mode.clone(),
             spool_step_converter: AngularStepConverter::new(200),
             spool_speed_controller: SpoolSpeedController::new(),
-            last_measurement_emit: Instant::now(),
             spool_mode: mode.clone().into(),
             traverse_mode: mode.clone().into(),
             puller_mode: mode.into(),
@@ -166,41 +159,32 @@ impl Winder2 {
                 Length::new::<millimeter>(92.0), // Default outer limit
                 64,                              // Microsteps
             ),
-            emitted_default_state: false,
             spool_automatic_action: super::SpoolAutomaticAction {
                 progress: Length::ZERO,
                 progress_last_check: Instant::now(),
                 target_length: Length::new::<meter>(250.0),
                 mode: super::api::SpoolAutomaticActionMode::NoAction,
             },
-            machine_identification_unique: hw.identification,
             laser_enabled: false,
-            laser_ident: None,
+            laser_subscription: None,
+
+            measurements: init_measurements(&mut ctx)?,
+
         };
 
         // initialize events
-        new.emit_state();
         Ok(new)
     }
 
-    fn new_winder_spool_7031(hw: MachineHardware) -> Result<Self, Error> {
-        let _ek1100 = hw.try_get_ethercat_device_and_addr_by_role::<EK1100>(0)?;
-        let el2002 = hw.try_get_ethercat_device_and_addr_by_role::<EL2002>(1)?;
-        let el7031_0030_spool = hw.try_get_ethercat_device_and_addr_by_role::<EL7031_0030>(2)?;
-        let el7031 = hw.try_get_ethercat_device_and_addr_by_role::<EL7031>(3)?;
-        let el7031_0030 = hw.try_get_ethercat_device_and_addr_by_role::<EL7031_0030>(4)?;
+    fn new_winder_spool_7031(ctx: BuildContext) -> BuildResult<Self> {
+        let _ek1100 = ctx.find_ethercat_device_and_addr::<EK1100>(0)?;
+        let el2002 = ctx.find_ethercat_device_and_addr::<EL2002>(1)?;
+        let el7031_0030_spool = ctx.find_ethercat_device_and_addr::<EL7031_0030>(2)?;
+        let el7031 = ctx.find_ethercat_device_and_addr::<EL7031>(3)?;
+        let el7031_0030 = ctx.find_ethercat_device_and_addr::<EL7031_0030>(4)?;
 
         let mode = Winder2Mode::Standby;
-        let (sender, receiver) = tokio::sync::mpsc::channel(2);
-
-        let interface: EtherCATThreadChannel = match &hw.ethercat_interface {
-            Some(ecat_interface) => ecat_interface.clone(),
-            None => {
-                return Err(anyhow::anyhow!(
-                    "Winder2: No EtherCat Interface was supplied!"
-                ));
-            }
-        };
+        let interface = ctx.get_ethercat_interface()?;
 
         // Role 4: Stepper Puller EL7031-0030
         let el7031_0030_config = EL7031_0030Configuration {
@@ -264,18 +248,14 @@ impl Winder2 {
         interface.enable_dc_sync0(el7031_0030_spool.1)?;
 
         let mut new = Self {
-            api_receiver: receiver,
-            api_sender: sender,
             traverse: el7031.0,
             puller: el7031_0030.0.clone(),
             spool: el7031_0030_spool.0,
             laser: el2002.0,
             tension_arm: TensionArm::new(el7031_0030.0.clone()),
-            namespace: Winder2Namespace { namespace: None },
             mode: mode.clone(),
             spool_step_converter: AngularStepConverter::new(200),
             spool_speed_controller: SpoolSpeedController::new(),
-            last_measurement_emit: Instant::now(),
             spool_mode: mode.clone().into(),
             traverse_mode: mode.clone().into(),
             puller_mode: mode.into(),
@@ -291,20 +271,160 @@ impl Winder2 {
                 Length::new::<millimeter>(92.0), // Default outer limit
                 64,                              // Microsteps
             ),
-            emitted_default_state: false,
             spool_automatic_action: super::SpoolAutomaticAction {
                 progress: Length::ZERO,
                 progress_last_check: Instant::now(),
                 target_length: Length::new::<meter>(250.0),
                 mode: super::api::SpoolAutomaticActionMode::NoAction,
             },
-            machine_identification_unique: hw.identification,
             laser_enabled: false,
-            laser_ident: None,
+            laser_subscription: None,
+
+            measurements: init_measurements(&mut ctx)?,
+
+            states: States { 
+                traverse_state: TraverseState {
+                    limit_inner: todo!(),
+                    limit_outer: todo!(),
+                    is_going_in: todo!(),
+                    is_going_out: todo!(),
+                    is_homed: todo!(),
+                    is_going_home: todo!(),
+                    is_traversing: todo!(),
+                    laserpointer: todo!(),
+                    step_size: todo!(),
+                    padding: todo!(),
+                    can_go_in: todo!(),
+                    can_go_out: todo!(),
+                    can_go_home: todo!(),
+                },
+                puller_state: PullerState {
+
+                },
+                spool_automatic_action_state: SpoolAutomaticActionState {
+
+                },
+                mode_state: ModeState {
+
+                },
+                tension_arm_state: TensionArmState {
+
+                },
+                spool_speed_controller_state: SpoolSpeedControllerState {
+
+                },
+
+                puller_reference_machine: ctx
+                    .state("puller_reference_machine")
+                    .register()?,
+            }
         };
 
         // initialize events
-        new.emit_state();
         Ok(new)
     }
+}
+
+fn init_measurements(ctx: &mut BuildContext) -> BuildResult<Measurements> { 
+    Ok(Measurements {
+        traverse_position: ctx
+            .measurement::<Option<millimeter>>("traverse_position")
+            .register()?,
+
+        puller_speed: ctx
+            .measurement::<meter_per_minute>("puller_speed")
+            .register()?,
+
+        spool_rpm: ctx
+            .measurement::<revolution_per_minute>("spool_rpm")
+            .register()?,
+
+        tension_arm_angle: ctx
+            .measurement::<degree>("tension_arm_angle")
+            .register()?,
+
+        spool_progress: ctx
+            .measurement::<meter>("spool_progress")
+            .register()?,
+    })
+}
+
+fn init_states(ctx: &mut BuildContext) -> BuildResult<States> { 
+    Ok(States { 
+        traverse_state: TraverseState {
+            limit_inner: ctx.state::<millimeter>("limit_inner").register()?,
+            limit_outer: ctx.state::<millimeter>("limit_outer").register()?,
+            is_going_in: ctx.state::<bool>("is_going_in").register()?,
+            is_going_out: ctx.state::<bool>("is_going_out").register()?,
+            is_homed: ctx.state::<bool>("is_homed").register()?,
+            is_going_home: ctx.state::<bool>("is_going_home").register()?,
+            is_traversing: ctx.state::<bool>("is_traversing").register()?,
+            laserpointer: ctx.state::<bool>("laserpointer").register()?,
+            step_size: ctx.state::<millimeter>("step_size").register()?,
+            padding: ctx.state::<millimeter>("padding").register()?,
+            can_go_in: ctx.state::<bool>("can_go_in").register()?,
+            can_go_out: ctx.state::<bool>("can_go_out").register()?,
+            can_go_home: ctx.state::<bool>("can_go_home").register()?,
+        },
+        puller_state: PullerState {
+            regulation: ctx.state::<PullerRegulationMode>("regulation").register()?,
+            target_speed: ctx.state::<meter_per_minute>("target_speed").register()?,
+            forward: ctx.state::<bool>("forward").register()?,
+            gear_ratio: ctx.state::<GearRatio>("gear_ratio").register()?,
+            adaptive_speed_delta_max: ctx.state::<f64>("adaptive_speed_delta_max").register()?,
+            adaptive_adjustment_distance: ctx
+                .state::<millimeter>("adaptive_adjustment_distance")
+                .register()?,
+            adaptive_change_per_step: ctx.state::<f64>("adaptive_change_per_step").register()?,
+            allowed_diameter_deviation: ctx
+                .state::<millimeter>("allowed_diameter_deviation")
+                .register()?,
+        },
+        spool_automatic_action_state: SpoolAutomaticActionState {
+            spool_required_meters: ctx
+                .state::<meter>("spool_required_meters")
+                .register()?,
+            spool_automatic_action_mode: ctx
+                .state::<SpoolAutomaticActionMode>("spool_automatic_action_mode")
+                .register()?,
+        },
+        mode_state: ModeState {
+            mode: ctx.state::<Mode>("mode").register()?,
+            can_wind: ctx.state::<bool>("can_wind").register()?,
+        },
+        tension_arm_state: TensionArmState {
+            zeroed: ctx.state::<bool>("zeroed").register()?,
+        },
+        spool_speed_controller_state: SpoolSpeedControllerState {
+            regulation_mode: ctx
+                .state::<SpoolSpeedControllerType>("regulation_mode")
+                .register()?,
+            minmax_min_speed: ctx
+                .state::<revolution_per_minute>("minmax_min_speed")
+                .register()?,
+            minmax_max_speed: ctx
+                .state::<revolution_per_minute>("minmax_max_speed")
+                .register()?,
+            adaptive_tension_target: ctx
+                .state::<f64>("adaptive_tension_target")
+                .register()?,
+            adaptive_radius_learning_rate: ctx
+                .state::<f64>("adaptive_radius_learning_rate")
+                .register()?,
+            adaptive_max_speed_multiplier: ctx
+                .state::<f64>("adaptive_max_speed_multiplier")
+                .register()?,
+            adaptive_acceleration_factor: ctx
+                .state::<f64>("adaptive_acceleration_factor")
+                .register()?,
+            adaptive_deacceleration_urgency_multiplier: ctx
+                .state::<f64>("adaptive_deacceleration_urgency_multiplier")
+                .register()?,
+            forward: ctx.state::<bool>("forward").register()?,
+        },
+
+        puller_reference_machine: ctx
+            .state("puller_reference_machine")
+            .register()?,
+    })
 }

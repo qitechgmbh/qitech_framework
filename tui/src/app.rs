@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Add;
-use std::todo;
 
 use crossterm::event::KeyCode;
 use qitech_framework::MachineIdentification;
@@ -8,14 +6,25 @@ use qitech_framework::runtime::bridge::CrossbeamHandle;
 use qitech_framework::runtime::bridge::CrossbeamRuntimeInitEvent;
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeReport;
+use ratatui::prelude::*;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
+use ratatui::widgets::Widget;
 
 use crate::pages::MachinesPage;
 use crate::pages::Page;
+use crate::widgets::AppWidget;
+use crate::widgets::AppWidgetState;
 
 pub enum RuntimeStatus {
     Offline,
     Starting,
     Running,
+}
+
+enum Mode {
+    Navigate(u16),
+    Edit { widget: u16, buffer: String },
 }
 
 #[derive(Clone, Copy)]
@@ -24,7 +33,6 @@ pub enum VerticalPosition {
     Status,
     Tab,
     Page,
-    InPage,
 }
 
 #[derive(Clone, Copy)]
@@ -40,6 +48,7 @@ pub struct App {
     pub runtime_status: RuntimeStatus,
 
     // --- positions ---
+    pub mode: Mode,
     pub pos_t: TabPosition,
     pub pos_v: VerticalPosition,
 
@@ -48,10 +57,44 @@ pub struct App {
 
     // --- misc ---
     pub running: bool,
+
+    // --- new ---
+    pub widgets: Vec<Box<dyn AppWidget>>,
+    pub widget_pos: usize,
 }
 
 impl App {
     pub const TABS: [&'static str; 4] = ["Machines", "EtherCAT", "Modbus", "Logs"];
+
+    pub fn display2(&mut self, frame: &mut Frame) {
+        // --- draw outer box ---
+        const TITLE: &str = " QiTech Control (Terminal Edition) ";
+        let outer = Block::default().borders(Borders::ALL).title(TITLE);
+        frame.render_widget(&outer, frame.area());
+
+        let inner = outer.inner(frame.area());
+
+        let mut constraints = Vec::new();
+        for (i, widget) in self.widgets.iter().enumerate() {
+            constraints.push(widget.height());
+        }
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(inner);
+
+        // --- peng ---
+        for (i, widget) in self.widgets.iter().enumerate() {
+            let state = if i == self.widget_pos {
+                AppWidgetState::InFocus
+            } else {
+                AppWidgetState::NoFocus
+            };
+
+            widget.display(shared, state, chunks[i], frame);
+        }
+    }
 
     pub fn new(schemas: HashMap<MachineIdentification, MachineSchema>) -> Self {
         Self {
@@ -81,29 +124,33 @@ impl App {
             // --- exit ---
             KeyCode::Char('q') => self.running = false,
 
-            KeyCode::Up => self.pos_v = match self.pos_v {
-                VerticalPosition::Status => VerticalPosition::Status,
-                VerticalPosition::Tab => VerticalPosition::Status,
-                VerticalPosition::Page => VerticalPosition::Tab,
-                VerticalPosition::InPage => {
-                    if self.selected_page().up() {
-                        VerticalPosition::Page
-                    } else {
-                        VerticalPosition::InPage
+            KeyCode::Up => {
+                self.pos_v = match self.pos_v {
+                    VerticalPosition::Status => VerticalPosition::Status,
+                    VerticalPosition::Tab => VerticalPosition::Status,
+                    VerticalPosition::Page => {
+                        let exited = self.selected_page().up();
+
+                        if exited {
+                            VerticalPosition::Tab
+                        } else {
+                            VerticalPosition::Page
+                        }
                     }
-                },
-            },
+                }
+            }
             KeyCode::Down => {
-                VerticalPosition::Status => VerticalPosition::Status,
-                VerticalPosition::Tab => VerticalPosition::Status,
-                VerticalPosition::Page => VerticalPosition::Status,
-                VerticalPosition::InPage => {
-                    if self.selected_page().up() {
+                self.pos_v = match self.pos_v {
+                    VerticalPosition::Status => VerticalPosition::Tab,
+                    VerticalPosition::Tab => {
+                        self.selected_page().down();
                         VerticalPosition::Page
-                    } else {
-                        VerticalPosition::InPage
                     }
-                },
+                    VerticalPosition::Page => {
+                        self.selected_page().down();
+                        VerticalPosition::Page
+                    }
+                }
             }
             KeyCode::Left => match self.pos_v {
                 VerticalPosition::Tab => {
@@ -113,11 +160,11 @@ impl App {
                         TabPosition::Modbus => TabPosition::EtherCAT,
                         TabPosition::Logs => TabPosition::Modbus,
                     }
-                },
+                }
                 VerticalPosition::Page => {
                     self.selected_page().left();
-                },
-                _ => {},
+                }
+                _ => {}
             },
             KeyCode::Right => match self.pos_v {
                 VerticalPosition::Tab => {
@@ -127,11 +174,11 @@ impl App {
                         TabPosition::Modbus => TabPosition::Logs,
                         TabPosition::Logs => TabPosition::Logs,
                     }
-                },
+                }
                 VerticalPosition::Page => {
                     self.selected_page().left();
-                },
-                _ => {},
+                }
+                _ => {}
             },
             _ => {}
         }

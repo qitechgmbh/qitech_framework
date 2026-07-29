@@ -1,12 +1,17 @@
-use super::{TRAVERSE_END_STOP_PORT, TRAVERSE_PORT};
-use control_core::converters::linear_step_converter::LinearStepConverter;
+use std::time::Instant;
+
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
 use qitech_lib::units::ConstZero;
 use qitech_lib::units::angular_velocity::revolution_per_second;
-use qitech_lib::units::f64::{AngularVelocity, Length, Velocity};
+use qitech_lib::units::f64::AngularVelocity;
+use qitech_lib::units::f64::Length;
+use qitech_lib::units::f64::Velocity;
 use qitech_lib::units::length::millimeter;
 use qitech_lib::units::velocity::millimeter_per_second;
-use std::time::Instant;
+
+use super::TRAVERSE_END_STOP_PORT;
+use super::TRAVERSE_PORT;
+use crate::converters::linear_step_converter::LinearStepConverter;
 
 #[derive(Debug)]
 pub struct TraverseController {

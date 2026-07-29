@@ -87,10 +87,11 @@ impl App {
     }
 
     fn draw_page(&self, frame: &mut Frame, chunk: Rect) {
-        let title = match self.pos_v {
-            VerticalPosition::Status => " Status ",
-            VerticalPosition::Tab => " Tab ",
-            VerticalPosition::Page => " Page ",
+        let title = match self.pos_t {
+            TabPosition::Machines => " Machines ",
+            TabPosition::EtherCAT => " EtherCAT ",
+            TabPosition::Modbus => " Modbus ",
+            TabPosition::Logs => " Logs ",
         };
 
         let style = match self.pos_v {
@@ -106,11 +107,10 @@ impl App {
         let inner = block.inner(chunk);
         frame.render_widget(block, chunk);
 
+        #[allow(clippy::single_match)]
         match self.pos_t {
-            TabPosition::Machines => {
-                self.page_machines.display(frame, inner)
-            }
-            _ => {},
+            TabPosition::Machines => self.page_machines.display(frame, inner),
+            _ => {}
         }
     }
 }

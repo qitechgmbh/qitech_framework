@@ -1,17 +1,19 @@
 use std::time::Instant;
 
-use control_core::{
-    controllers::second_degree_motion::linear_jerk_speed_controller::LinearJerkSpeedController,
-    converters::linear_step_converter::LinearStepConverter,
-};
 use qitech_lib::units::ConstZero;
 use qitech_lib::units::acceleration::meter_per_minute_per_second;
 use qitech_lib::units::f64::Length;
 use qitech_lib::units::f64::*;
 use qitech_lib::units::jerk::meter_per_minute_per_second_squared;
-use qitech_lib::units::length::{meter, millimeter};
-use qitech_lib::units::velocity::{meter_per_minute, meter_per_second};
-use serde::{Deserialize, Serialize};
+use qitech_lib::units::length::meter;
+use qitech_lib::units::length::millimeter;
+use qitech_lib::units::velocity::meter_per_minute;
+use qitech_lib::units::velocity::meter_per_second;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::controllers::second_degree_motion::linear_jerk_speed_controller::LinearJerkSpeedController;
+use crate::converters::linear_step_converter::LinearStepConverter;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum GearRatio {

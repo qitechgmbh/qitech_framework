@@ -34,7 +34,7 @@ pub use runtime::RuntimeInitEvent;
 pub use runtime::RuntimeReport;
 pub use runtime::RuntimeRequest;
 pub use runtime::RuntimeRequestKind;
-pub use runtime::RuntimeState;
+pub use runtime::RuntimeStatus;
 pub use runtime::RuntimeStateMutation;
 
 mod logs;

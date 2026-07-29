@@ -1,30 +1,38 @@
-#[cfg(not(feature = "mock-machine"))]
-use crate::machine_identification::QiTechMachineIdentificationUnique;
-use crate::winder2::Winder2Mode;
-
-pub use super::api::{
-    LiveValuesEvent, ModeState, PullerState, SpoolAutomaticActionMode, SpoolAutomaticActionState,
-    SpoolSpeedControllerState, StateEvent, TensionArmState, TraverseState, Winder2Events,
-};
-use super::{
-    LASER_PORT, PULLER_PORT, SPOOL_PORT, TRAVERSE_PORT, TraverseMode, Winder2,
-    api::PullerRegulationMode, spool_speed_controller,
-};
-pub use control_core::socketio::event::BuildEvent;
-pub use control_core::socketio::namespace::NamespaceCacheingLogic;
-use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
-#[cfg(not(feature = "mock-machine"))]
-pub use qitech_lib::units::{
-    angle::degree,
-    angular_velocity::revolution_per_minute,
-    f64::*,
-    length::{meter, millimeter},
-};
 use std::cell::RefMut;
 pub use std::time::Instant;
 
+use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 pub use qitech_lib::units::Velocity;
+#[cfg(not(feature = "mock-machine"))]
+pub use qitech_lib::units::angle::degree;
+#[cfg(not(feature = "mock-machine"))]
+pub use qitech_lib::units::angular_velocity::revolution_per_minute;
+#[cfg(not(feature = "mock-machine"))]
+pub use qitech_lib::units::f64::*;
+#[cfg(not(feature = "mock-machine"))]
+pub use qitech_lib::units::length::meter;
+#[cfg(not(feature = "mock-machine"))]
+pub use qitech_lib::units::length::millimeter;
 pub use qitech_lib::units::velocity::meter_per_minute;
+
+use super::LASER_PORT;
+use super::PULLER_PORT;
+use super::SPOOL_PORT;
+use super::TRAVERSE_PORT;
+use super::TraverseMode;
+use super::Winder2;
+use super::Winder2Mode;
+pub use super::api::Measurements;
+pub use super::api::ModeState;
+use super::api::PullerRegulationMode;
+pub use super::api::PullerState;
+pub use super::api::SpoolAutomaticActionMode;
+pub use super::api::SpoolAutomaticActionState;
+pub use super::api::SpoolSpeedControllerState;
+pub use super::api::States;
+pub use super::api::TensionArmState;
+pub use super::api::TraverseState;
+use super::spool_speed_controller;
 
 impl Winder2 {
     /// Implement Spool
@@ -95,7 +103,6 @@ impl Winder2 {
             self.set_puller_mode(mode);
             self.set_traverse_mode(mode);
         }
-        self.emit_state();
     }
 
     fn get_laser(&mut self) -> RefMut<'_, dyn DigitalOutputDevice> {
@@ -108,7 +115,6 @@ impl Winder2 {
         let mut laser = self.get_laser();
         laser.set_output(LASER_PORT, value);
         drop(laser);
-        self.emit_state();
     }
 
     pub fn traverse_set_limit_inner(&mut self, limit: f64) {
@@ -121,7 +127,6 @@ impl Winder2 {
             return;
         }
         self.traverse_controller.set_limit_inner(new_inner);
-        self.emit_state();
     }
 
     pub fn traverse_set_limit_outer(&mut self, limit: f64) {
@@ -135,49 +140,43 @@ impl Winder2 {
         }
 
         self.traverse_controller.set_limit_outer(new_outer);
-        self.emit_state();
     }
 
     pub fn traverse_set_step_size(&mut self, step_size: f64) {
         let step_size = Length::new::<millimeter>(step_size);
         self.traverse_controller.set_step_size(step_size);
-        self.emit_state();
     }
 
     pub fn traverse_set_padding(&mut self, padding: f64) {
         let padding = Length::new::<millimeter>(padding);
         self.traverse_controller.set_padding(padding);
-        self.emit_state();
     }
 
     pub fn traverse_goto_limit_inner(&mut self) {
         if self.can_go_in() {
             self.traverse_controller.goto_limit_inner();
         }
-        self.emit_state();
     }
 
     pub fn traverse_goto_limit_outer(&mut self) {
         if self.can_go_out() {
             self.traverse_controller.goto_limit_outer();
         }
-        self.emit_state();
     }
 
     pub fn traverse_goto_home(&mut self) {
         if self.can_go_home() {
             self.traverse_controller.goto_home();
         }
-        self.emit_state();
     }
 
-    pub fn get_live_values(&self) -> LiveValuesEvent {
-        let angle_deg = self.tension_arm.get_angle().unwrap().get::<degree>();
+    pub fn update_measurements(&mut self) {
+        let angle_deg = self.tension_arm.get_angle().unwrap();
 
         // Wrap [270;<360] to [-90; 0]
         // This is done to reduce flicker in the graphs around the zero point
-        let angle_deg = if angle_deg >= 270.0 {
-            angle_deg - 360.0
+        let angle_deg = if angle_deg >= Angle::new::<degree>(270.0) {
+            angle_deg - Angle::new::<degree>(360.0)
         } else {
             angle_deg
         };
@@ -201,127 +200,114 @@ impl Winder2 {
         let spool_rpm = self
             .spool_step_converter
             .steps_to_angular_velocity(spool_ref.get_speed(SPOOL_PORT) as f64)
-            .get::<revolution_per_minute>()
             .abs();
 
-        LiveValuesEvent {
-            traverse_position: self
-                .traverse_controller
-                .get_current_position()
-                .map(|x| x.get::<millimeter>()),
-            puller_speed: puller_speed.get::<meter_per_minute>().abs(),
-            spool_rpm,
-            tension_arm_angle: angle_deg,
-            spool_progress: self.spool_automatic_action.progress.get::<meter>(),
-        }
+        // --- write now ---
+        self.measurements
+            .traverse_position
+            .set(self.traverse_controller.get_current_position());
+
+        self.measurements.puller_speed.set(puller_speed.abs());
+        self.measurements.spool_rpm.set(spool_rpm);
+        self.measurements.tension_arm_angle.set(angle_deg);
+        self.measurements
+            .spool_progress
+            .set(self.spool_automatic_action.progress);
     }
 
-    pub fn emit_live_values(&mut self) {
-        let event = self.get_live_values().build();
-        self.namespace.emit(Winder2Events::LiveValues(event));
-    }
+    pub fn update_states(&mut self) {
+        // --- update traverse states ---
+        let s = &mut self.states.traverse_state;
 
-    pub fn build_state_event(&mut self) -> StateEvent {
-        StateEvent {
-            is_default_state: !std::mem::replace(&mut self.emitted_default_state, true),
-            traverse_state: TraverseState {
-                limit_inner: self
-                    .traverse_controller
-                    .get_limit_inner()
-                    .get::<millimeter>(),
-                limit_outer: self
-                    .traverse_controller
-                    .get_limit_outer()
-                    .get::<millimeter>(),
-                position_in: self
-                    .traverse_controller
-                    .get_limit_inner()
-                    .get::<millimeter>(),
-                position_out: self
-                    .traverse_controller
-                    .get_limit_outer()
-                    .get::<millimeter>(),
-                is_going_in: self.traverse_controller.is_going_in(),
-                is_going_out: self.traverse_controller.is_going_out(),
-                is_homed: self.traverse_controller.is_homed(),
-                is_going_home: self.traverse_controller.is_going_home(),
-                is_traversing: self.traverse_controller.is_traversing(),
-                laserpointer: self.laser_enabled,
-                step_size: self.traverse_controller.get_step_size().get::<millimeter>(),
-                padding: self.traverse_controller.get_padding().get::<millimeter>(),
-                can_go_in: self.can_go_in(),
-                can_go_out: self.can_go_out(),
-                can_go_home: self.can_go_home(),
-            },
-            puller_state: PullerState {
-                regulation: self.puller_speed_controller.regulation_mode.clone(),
-                target_speed: self
-                    .puller_speed_controller
-                    .target_speed
-                    .get::<meter_per_minute>(),
-                forward: self.puller_speed_controller.forward,
-                gear_ratio: self.puller_speed_controller.gear_ratio,
-                adaptive_speed_delta_max: self.puller_speed_controller.adaptive.speed_delta_max(),
-                adaptive_adjustment_distance: self
-                    .puller_speed_controller
-                    .adaptive
-                    .adjustment_distance()
-                    .get::<meter>(),
-                adaptive_change_per_step: self.puller_speed_controller.adaptive.increase_per_step(),
-                allowed_diameter_deviation: self
-                    .puller_speed_controller
-                    .adaptive
-                    .tolerance_limit()
-                    .get::<millimeter>(),
-                adaptive_reference_machine: match self.laser_ident {
-                    Some(ident) => Some(ident.into()),
-                    None => None,
-                },
-            },
-            mode_state: ModeState {
-                mode: self.mode.clone().into(),
-                can_wind: self.can_wind(),
-            },
-            tension_arm_state: TensionArmState {
-                zeroed: self.tension_arm.zeroed,
-            },
-            spool_speed_controller_state: SpoolSpeedControllerState {
-                regulation_mode: self.spool_speed_controller.get_type().clone(),
-                minmax_min_speed: self
-                    .spool_speed_controller
-                    .get_minmax_min_speed()
-                    .get::<revolution_per_minute>(),
-                minmax_max_speed: self
-                    .spool_speed_controller
-                    .get_minmax_max_speed()
-                    .get::<revolution_per_minute>(),
-                adaptive_tension_target: self.spool_speed_controller.get_adaptive_tension_target(),
-                adaptive_radius_learning_rate: self
-                    .spool_speed_controller
-                    .get_adaptive_radius_learning_rate(),
-                adaptive_max_speed_multiplier: self
-                    .spool_speed_controller
-                    .get_adaptive_max_speed_multiplier(),
-                adaptive_acceleration_factor: self
-                    .spool_speed_controller
-                    .get_adaptive_acceleration_factor(),
-                adaptive_deacceleration_urgency_multiplier: self
-                    .spool_speed_controller
-                    .get_adaptive_deacceleration_urgency_multiplier(),
-                forward: self.spool_speed_controller.get_forward(),
-            },
-            spool_automatic_action_state: SpoolAutomaticActionState {
-                spool_required_meters: self.spool_automatic_action.target_length.get::<meter>(),
-                spool_automatic_action_mode: self.spool_automatic_action.mode.clone(),
-            },
-            puller_reference_machine: None,
-        }
-    }
+        s.limit_inner
+            .set(self.traverse_controller.get_limit_inner());
+        s.limit_outer
+            .set(self.traverse_controller.get_limit_outer());
 
-    pub fn emit_state(&mut self) {
-        let state_event = self.build_state_event();
-        let event = state_event.build();
-        self.namespace.emit(Winder2Events::State(event));
+        s.is_going_in.set(self.traverse_controller.is_going_in());
+        s.is_going_out.set(self.traverse_controller.is_going_out());
+        s.is_homed.set(self.traverse_controller.is_homed());
+        s.is_traversing
+            .set(self.traverse_controller.is_traversing());
+        s.laserpointer.set(self.laser_enabled);
+        s.step_size.set(self.traverse_controller.get_step_size());
+        s.padding.set(self.traverse_controller.get_padding());
+
+        s.can_go_in.set(self.can_go_in());
+        s.can_go_out.set(self.can_go_out());
+        s.can_go_home.set(self.can_go_home());
+
+        // --- update puller state ---
+        let s = &mut self.states.puller_state;
+
+        s.regulation
+            .set(self.puller_speed_controller.regulation_mode.clone());
+
+        s.target_speed
+            .set(self.puller_speed_controller.target_speed);
+
+        s.forward.set(self.puller_speed_controller.forward);
+        s.gear_ratio.set(self.puller_speed_controller.gear_ratio);
+
+        s.adaptive_speed_delta_max
+            .set(self.puller_speed_controller.adaptive.speed_delta_max());
+
+        s.adaptive_adjustment_distance
+            .set(self.puller_speed_controller.adaptive.adjustment_distance());
+
+        s.adaptive_change_per_step
+            .set(self.puller_speed_controller.adaptive.increase_per_step());
+
+        s.allowed_diameter_deviation
+            .set(self.puller_speed_controller.adaptive.tolerance_limit());
+
+        // --- update mode state ---
+        let s = &mut self.states.mode_state;
+
+        // s.mode.set();
+        s.can_wind.set(self.can_wind());
+
+        // --- update tension arm state ---
+        let s = &mut self.states.tension_arm_state;
+        s.zeroed.set(self.tension_arm.zeroed);
+
+        // --- update spool speed controller state ---
+        let s = &mut self.states.spool_speed_controller_state;
+
+        s.regulation_mode
+            .set(self.spool_speed_controller.get_type().clone());
+
+        s.minmax_min_speed
+            .set(self.spool_speed_controller.get_minmax_min_speed());
+
+        s.minmax_max_speed
+            .set(self.spool_speed_controller.get_minmax_max_speed());
+
+        s.adaptive_tension_target.set(self.spool_speed_controller.get_adaptive_tension_target());
+
+        s.adaptive_radius_learning_rate.set(self
+                    .spool_speed_controller
+                    .get_adaptive_radius_learning_rate());
+
+        s.adaptive_max_speed_multiplier.set(self
+                    .spool_speed_controller
+                    .get_adaptive_max_speed_multiplier());
+
+        s.adaptive_acceleration_factor.set(self
+                    .spool_speed_controller
+                    .get_adaptive_acceleration_factor());
+
+        s.adaptive_deacceleration_urgency_multiplier.set(self
+                    .spool_speed_controller
+                    .get_adaptive_deacceleration_urgency_multiplier());
+
+        s.forward.set(self.spool_speed_controller.get_forward());
+
+        // --- update spool automatic action state --- 
+        let s = &mut self.states.spool_automatic_action_state;
+
+        s.spool_required_meters.set(self.spool_automatic_action.target_length);
+        s.spool_automatic_action_mode.set(self.spool_automatic_action.mode.clone());
     }
 
     /// Apply the mode changes to the spool
@@ -399,31 +385,24 @@ impl Winder2 {
 
         // Update the internal state
         self.traverse_mode = mode;
-        self.emit_state();
     }
 
     /// Implement Tension Arm
     pub fn tension_arm_zero(&mut self) {
         self.tension_arm.zero();
-        self.emit_live_values(); // For angle update
-        // For state update
-        self.emit_state();
     }
 
     pub fn set_spool_automatic_required_meters(&mut self, meters: f64) {
         self.spool_automatic_action.target_length = Length::new::<meter>(meters);
-        self.emit_state();
     }
 
     pub fn set_spool_automatic_mode(&mut self, mode: SpoolAutomaticActionMode) {
         self.spool_automatic_action.mode = mode;
-        self.emit_state();
     }
 
     pub fn puller_set_regulation(&mut self, puller_regulation_mode: PullerRegulationMode) {
         self.puller_speed_controller
             .set_regulation_mode(puller_regulation_mode);
-        self.emit_state();
     }
 
     /// Set target speed in m/min
@@ -431,19 +410,16 @@ impl Winder2 {
         // Convert m/min to velocity
         let target_speed = Velocity::new::<meter_per_minute>(target_speed);
         self.puller_speed_controller.set_target_speed(target_speed);
-        self.emit_state();
     }
 
     /// Set forward direction
     pub fn puller_set_forward(&mut self, forward: bool) {
         self.puller_speed_controller.set_forward(forward);
-        self.emit_state();
     }
 
     /// Set gear ratio for winding speed
     pub fn puller_set_gear_ratio(&mut self, gear_ratio: super::puller_speed_controller::GearRatio) {
         self.puller_speed_controller.set_gear_ratio(gear_ratio);
-        self.emit_state();
     }
 
     // Spool Speed Controller API methods
@@ -452,53 +428,46 @@ impl Winder2 {
         regulation_mode: spool_speed_controller::SpoolSpeedControllerType,
     ) {
         self.spool_speed_controller.set_type(regulation_mode);
-        self.emit_state();
     }
 
     /// Set minimum speed for minmax mode in RPM
     pub fn spool_set_minmax_min_speed(&mut self, min_speed_rpm: f64) {
         let min_speed = AngularVelocity::new::<revolution_per_minute>(min_speed_rpm);
-        if let Err(e) = self.spool_speed_controller.set_minmax_min_speed(min_speed) {
-            tracing::error!("Failed to set spool min speed: {:?}", e);
+        if let Err(_) = self.spool_speed_controller.set_minmax_min_speed(min_speed) {
+            // tracing::error!("Failed to set spool min speed: {:?}", e);
         }
-        self.emit_state();
     }
 
     /// Set maximum speed for minmax mode in RPM
     pub fn spool_set_minmax_max_speed(&mut self, max_speed_rpm: f64) {
         let max_speed = AngularVelocity::new::<revolution_per_minute>(max_speed_rpm);
-        if let Err(e) = self.spool_speed_controller.set_minmax_max_speed(max_speed) {
-            tracing::error!("Failed to set spool max speed: {:?}", e);
+        if let Err(_) = self.spool_speed_controller.set_minmax_max_speed(max_speed) {
+            // tracing::error!("Failed to set spool max speed: {:?}", e);
         }
-        self.emit_state();
     }
 
     /// Set tension target for adaptive mode (0.0-1.0)
     pub fn spool_set_adaptive_tension_target(&mut self, tension_target: f64) {
         self.spool_speed_controller
             .set_adaptive_tension_target(tension_target);
-        self.emit_state();
     }
 
     /// Set radius learning rate for adaptive mode
     pub fn spool_set_adaptive_radius_learning_rate(&mut self, radius_learning_rate: f64) {
         self.spool_speed_controller
             .set_adaptive_radius_learning_rate(radius_learning_rate);
-        self.emit_state();
     }
 
     /// Set max speed multiplier for adaptive mode
     pub fn spool_set_adaptive_max_speed_multiplier(&mut self, max_speed_multiplier: f64) {
         self.spool_speed_controller
             .set_adaptive_max_speed_multiplier(max_speed_multiplier);
-        self.emit_state();
     }
 
     /// Set acceleration factor for adaptive mode
     pub fn spool_set_adaptive_acceleration_factor(&mut self, acceleration_factor: f64) {
         self.spool_speed_controller
             .set_adaptive_acceleration_factor(acceleration_factor);
-        self.emit_state();
     }
 
     /// Set deacceleration urgency multiplier for adaptive mode
@@ -508,13 +477,11 @@ impl Winder2 {
     ) {
         self.spool_speed_controller
             .set_adaptive_deacceleration_urgency_multiplier(deacceleration_urgency_multiplier);
-        self.emit_state();
     }
 
     /// Set forward rotation direction
     pub fn spool_set_forward(&mut self, forward: bool) {
         self.spool_speed_controller.set_forward(forward);
-        self.emit_state();
     }
 }
 
@@ -525,43 +492,23 @@ impl Winder2 {
         self.puller_speed_controller
             .adaptive
             .set_speed_delta_max(value);
-        self.emit_state();
     }
 
     pub fn puller_set_adaptive_adjustment_interval_meters(&mut self, value: f64) {
         self.puller_speed_controller
             .adaptive
             .set_adjustment_distance(Length::new::<meter>(value));
-        self.emit_state();
     }
 
     pub fn puller_set_adaptive_step_percent(&mut self, value: f64) {
         self.puller_speed_controller
             .adaptive
             .set_increase_per_step(value);
-        self.emit_state();
     }
 
     pub fn puller_set_adaptive_accepted_difference(&mut self, value: f64) {
         self.puller_speed_controller
             .adaptive
             .set_tolerance_limit(Length::new::<millimeter>(value));
-        self.emit_state();
-    }
-
-    pub fn puller_set_adaptive_reference_machine(
-        &mut self,
-        machine_uid: Option<QiTechMachineIdentificationUnique>,
-    ) -> Result<(), anyhow::Error> {
-        let machine_uid = match machine_uid {
-            Some(muid) => muid,
-            None => {
-                self.emit_state();
-                return Ok(());
-            }
-        };
-        self.laser_ident = Some(machine_uid.into());
-        self.emit_state();
-        Ok(())
     }
 }

@@ -1,23 +1,18 @@
+use std::time::Instant;
+
+use qitech_framework::MachineIdentificationUnique;
+use qitech_framework::machine::Machine;
+use qitech_framework::machine::SubscribeContext;
+use qitech_framework::machine::error::ActResult;
+use qitech_framework::machine::error::SubscribeResult;
+
 use super::Winder2;
-use crate::{MachineApi, laser::LaserData};
-use qitech_lib::machines::{Machine, MachineError, MachineIdentificationUnique};
-use std::time::{Duration, Instant};
+use crate::machines::winder_v3::LaserSubscription;
 
 impl Machine for Winder2 {
-    fn get_identification(&self) -> MachineIdentificationUnique {
-        self.machine_identification_unique.clone()
-    }
+    fn act(&mut self) -> ActResult {
+        let now = Instant::now();
 
-    fn act(
-        &mut self,
-        _machine_data: Option<&mut qitech_lib::machines::MachineDataRegistry>,
-    ) -> Result<(), MachineError> {
-        let now = std::time::Instant::now();
-        let machine_message = self.api_receiver.try_recv();
-        match machine_message {
-            Ok(machine_message) => self.act_machine_message(machine_message),
-            Err(_e) => (),
-        };
         // sync the spool speed
         self.sync_spool_speed(now);
 
@@ -30,47 +25,30 @@ impl Machine for Winder2 {
         // automatically stops or pulls after N Meters if enabled
         self.stop_or_pull_spool(now);
 
-        if self.traverse_controller.did_change_state() {
-            self.emit_state();
-        }
+        // update the resources
+        self.update_states();
+        self.update_measurements();
 
-        // more than 33ms have passed since last emit (30 "fps" target)
-        if now.duration_since(self.last_measurement_emit) > Duration::from_secs_f64(1.0 / 30.0) {
-            self.emit_live_values();
-            self.last_measurement_emit = now;
-        }
         Ok(())
     }
 
-    fn react(&mut self, registry: &qitech_lib::machines::MachineDataRegistry) {
-        let laser_data: Result<LaserData, &'static str> = match self.laser_ident {
-            Some(ident) => registry.load(&ident),
-            None => {
-                return;
-            }
-        };
+    fn subscribe(&mut self, mut ctx: SubscribeContext) -> SubscribeResult<()> {
+        self.laser_subscription = Some(LaserSubscription {
+            ident: ctx.producer(),
+            current: ctx.subscribe_measurement("diameter")?,
+            target: ctx.subscribe_config("diameter.target")?,
+            upper: ctx.subscribe_config("diameter.tolerance.upper")?,
+            lower: ctx.subscribe_config("diameter.tolerance.lower")?,
+        });
 
-        match laser_data {
-            Ok(laser_data) => {
-                let current = laser_data.live_values.diameter;
-                let target = laser_data.state.laser_state.target_diameter;
-                let lower = laser_data.state.laser_state.lower_tolerance;
-                let upper = laser_data.state.laser_state.higher_tolerance;
-                let last_speed = self.puller_speed_controller.last_speed;
-                self.puller_speed_controller
-                    .adaptive
-                    .update_with_measurement(
-                        current,
-                        target,
-                        lower,
-                        upper,
-                        last_speed,
-                        Instant::now(),
-                    );
-            }
-            Err(_e) => {
-                self.laser_ident = None;
-            }
+        Ok(())
+    }
+
+    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
+        if let Some(sub) = &mut self.laser_subscription
+            && sub.ident == ident
+        {
+            self.laser_subscription = None;
         }
     }
 }

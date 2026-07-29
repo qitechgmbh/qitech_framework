@@ -1,22 +1,24 @@
-use crate::winder2::{
-    clamp_revolution::clamp_revolution_uom, filament_tension::FilamentTensionCalculator,
-    puller_speed_controller::PullerSpeedController,
-};
-
-use super::{clamp_revolution::Clamping, tension_arm::TensionArm};
-use control_core::{
-    controllers::first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController,
-    helpers::{interpolation::scale, moving_time_window::MovingTimeWindow},
-};
 use core::f64;
+use std::time::Instant;
+
 use qitech_lib::units::ConstZero;
 use qitech_lib::units::angle::degree;
 use qitech_lib::units::angular_acceleration::radian_per_second_squared;
-use qitech_lib::units::angular_velocity::{radian_per_second, revolution_per_minute};
+use qitech_lib::units::angular_velocity::radian_per_second;
+use qitech_lib::units::angular_velocity::revolution_per_minute;
 use qitech_lib::units::f64::*;
-use qitech_lib::units::length::{centimeter, meter};
+use qitech_lib::units::length::centimeter;
+use qitech_lib::units::length::meter;
 use qitech_lib::units::velocity::meter_per_second;
-use std::time::Instant;
+
+use super::clamp_revolution::Clamping;
+use super::clamp_revolution::clamp_revolution_uom;
+use super::filament_tension::FilamentTensionCalculator;
+use super::puller_speed_controller::PullerSpeedController;
+use super::tension_arm::TensionArm;
+use crate::controllers::first_degree_motion::angular_acceleration_speed_controller::AngularAccelerationSpeedController;
+use crate::utils::interpolation::scale;
+use crate::utils::moving_time_window::MovingTimeWindow;
 
 /// Adaptive spool speed controller that automatically adjusts to maintain optimal filament tension.
 ///

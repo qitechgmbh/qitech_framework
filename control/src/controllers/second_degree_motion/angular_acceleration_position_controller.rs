@@ -197,7 +197,7 @@ impl AngularAccelerationPositionController {
     ///
     /// # Example
     /// ```ignore
-    /// use control_core_legacy::controllers::second_degree_motion::angular_acceleration_position_controller::AngularAccelerationPositionController;
+    /// use crate_legacy::controllers::second_degree_motion::angular_acceleration_position_controller::AngularAccelerationPositionController;
     /// use units::f64::Angle;
     /// use units::angle::degree;
     ///

@@ -11,39 +11,47 @@ pub mod spool_speed_controller;
 pub mod tension_arm;
 pub mod traverse_controller;
 
-use crate::MACHINE_WINDER_V1_7031_0030_SPOOL;
-use crate::MachineMessage;
-use crate::QiTechMachine;
-use crate::{MACHINE_WINDER_V1, VENDOR_QITECH};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Instant;
+
 use api::SpoolAutomaticActionMode;
-use api::Winder2Namespace;
-use control_core::converters::angular_step_converter::AngularStepConverter;
-use new::{PullerSpeedController, SpoolSpeedController, TensionArm, TraverseController};
+use new::PullerSpeedController;
+use new::SpoolSpeedController;
+use new::TensionArm;
+use new::TraverseController;
+use qitech_framework::MachineIdentification;
+use qitech_framework::MachineIdentificationUnique;
+use qitech_framework::machine::MachineInterface;
+use qitech_framework::machine::SubscribedProperty;
+use qitech_framework::vendors;
+use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 #[cfg(not(feature = "mock-machine"))]
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
 use qitech_lib::units::ConstZero;
-use qitech_lib::{
-    ethercat_hal::io::digital_output::DigitalOutputDevice, machines::MachineIdentificationUnique,
-};
-use qitech_lib::{
-    machines::MachineIdentification,
-    units::{
-        Length,
-        length::{meter, millimeter},
-        velocity::meter_per_second,
-    },
-};
-use std::time::Instant;
-use std::{cell::RefCell, rc::Rc};
-#[cfg(not(feature = "mock-machine"))]
-use tokio::sync::mpsc::Receiver;
-use tokio::sync::mpsc::Sender;
+use qitech_lib::units::Length;
+use qitech_lib::units::length::meter;
+use qitech_lib::units::length::millimeter;
+use qitech_lib::units::velocity::meter_per_second;
+
+use crate::converters::angular_step_converter::AngularStepConverter;
+use crate::machines::machine_id;
+use crate::machines::winder_v3::api::Measurements;
+use crate::machines::winder_v3::api::States;
 
 pub const TRAVERSE_PORT: usize = 0;
 pub const LASER_PORT: usize = 0;
 pub const PULLER_PORT: usize = 0;
 pub const SPOOL_PORT: usize = 0;
 pub const TRAVERSE_END_STOP_PORT: usize = 0;
+
+pub struct LaserSubscription {
+    ident: MachineIdentificationUnique,
+    current: SubscribedProperty<Length>,
+    target: SubscribedProperty<Length>,
+    lower: SubscribedProperty<Length>,
+    upper: SubscribedProperty<Length>,
+}
 
 #[derive(Debug)]
 pub struct SpoolAutomaticAction {
@@ -64,11 +72,11 @@ impl Default for SpoolAutomaticAction {
     }
 }
 
-impl QiTechMachine for Winder2 {}
+impl MachineInterface for Winder2 {
+    const SCHEMA: &'static str = "lmao";
+}
 
 pub struct Winder2 {
-    api_receiver: Receiver<MachineMessage>,
-    api_sender: Sender<MachineMessage>,
     // drivers
     pub traverse: Rc<RefCell<dyn StepperVelocityEL70x1Device>>,
     pub puller: Rc<RefCell<dyn StepperVelocityEL70x1Device>>,
@@ -78,11 +86,6 @@ pub struct Winder2 {
     pub laser: Rc<RefCell<dyn DigitalOutputDevice>>,
     pub laser_enabled: bool,
     pub traverse_controller: TraverseController,
-
-    // socketio
-    namespace: Winder2Namespace,
-    last_measurement_emit: Instant,
-    pub machine_identification_unique: MachineIdentificationUnique,
 
     // mode
     pub mode: Winder2Mode,
@@ -99,21 +102,23 @@ pub struct Winder2 {
 
     // control circuit puller
     pub puller_speed_controller: PullerSpeedController,
-    /// Will be initialized as false and set to true by emit_state
-    /// This way we can signal to the client that the first state emission is a default state
-    emitted_default_state: bool,
-    laser_ident: Option<MachineIdentificationUnique>,
+
+    pub laser_subscription: Option<LaserSubscription>,
+
+    // --- resource migration ---
+    pub states: States,
+    pub measurements: Measurements,
 }
 
 impl Winder2 {
     pub const MACHINE_IDENTIFICATION: MachineIdentification = MachineIdentification {
-        vendor: VENDOR_QITECH,
-        machine: MACHINE_WINDER_V1,
+        vendor_id: vendors::QITECH.id,
+        machine_id: machine_id::WINDER_V1,
     };
 
     pub const MACHINE_IDENTIFICATION_7031_SPOOL: MachineIdentification = MachineIdentification {
-        vendor: VENDOR_QITECH,
-        machine: MACHINE_WINDER_V1_7031_0030_SPOOL,
+        vendor_id: vendors::QITECH.id,
+        machine_id: machine_id::WINDER_V1_7031_0030_SPOOL,
     };
 
     /// Validates that traverse limits maintain proper constraints:

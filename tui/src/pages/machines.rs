@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Add;
-use std::unreachable;
 
 use indexmap::IndexMap;
 use qitech_framework::MachineIdentification;
@@ -8,6 +6,7 @@ use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::ScalarValue;
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::MachinesReport;
+use qitech_framework_common::RuntimeRequestKind;
 use qitech_framework_common::schema::ConfigPropertyValue;
 use qitech_framework_common::schema::MeasurementValue;
 use qitech_framework_common::schema::Node;
@@ -33,8 +32,15 @@ use ratatui::widgets::Tabs;
 use crate::pages::Page;
 use crate::styles;
 
+#[derive(Debug, Clone)]
+pub struct Cursor {
+    pub machine: usize,
+    pub section: usize,
+    pub field: usize,
+}
+
 enum VerticalPosition {
-    None,
+    Outside,
     Tab,
     Config(usize),
     State(usize),
@@ -44,70 +50,119 @@ enum VerticalPosition {
 pub struct MachinesPage {
     schemas: HashMap<MachineIdentification, MachineSchema>,
     machines: Vec<MachineEntry>,
-    pos_h: usize,
-    pos_v: VerticalPosition,
+
+    cursor: Cursor,
+    editing: Option<String>,
 }
 
 impl Page for MachinesPage {
     fn up(&mut self) -> bool {
-        match self.pos_v {
-            VerticalPosition::None => {
-                unreachable!("Not allowed");
+        use VerticalPosition::*;
+
+        self.pos_v = match self.pos_v {
+            Outside => return true,
+
+            Tab => {
+                self.pos_v = Outside;
+                return true;
             }
 
-            VerticalPosition::Tab => {
-                if v == 0 {
-                    self.pos_v = VerticalPosition::None;
-                    true
+            Config(0) => Tab,
+
+            State(0) => {
+                let entry = self.selected_machine();
+
+                if !entry.config.is_empty() {
+                    Config(entry.config.len() - 1)
                 } else {
-                    self.pos_v = VerticalPosition::Root(v - 1);
-                    false
+                    Tab
                 }
             }
 
-            VerticalPosition::Config(v) => {
-                if v == 0 {
-                    self.pos_v = VerticalPosition::Root(1);
-                    true
+            Measurement(0) => {
+                let entry = self.selected_machine();
+
+                if !entry.state.is_empty() {
+                    State(entry.state.len() - 1)
+                } else if !entry.config.is_empty() {
+                    Config(entry.config.len() - 1)
                 } else {
-                    self.pos_v = VerticalPosition::Config(v - 1);
-                    false
+                    Tab
                 }
             }
 
-            VerticalPosition::State(v) => {
-                if v == 0 {
-                    self.pos_v = VerticalPosition::Root(2);
-                    true
-                } else {
-                    self.pos_v = VerticalPosition::State(v - 1);
-                    false
-                }
-            }
+            Config(i) => Config(i - 1),
+            State(i) => State(i - 1),
+            Measurement(i) => Measurement(i - 1),
+        };
 
-            VerticalPosition::Measurement(v) => {
-                if v == 0 {
-                    self.pos_v = VerticalPosition::Measurement(3);
-                    true
-                } else {
-                    self.pos_v = VerticalPosition::Measurement(v - 1);
-                    false
-                }
-            }
-        }
+        false
     }
 
     fn down(&mut self) {
-        self.pos_v = Some(match self.pos_v {
-            Some(v) => {
-                if self.machines.is_empty() {
-                    0
+        use VerticalPosition::*;
+        let entry = &mut self.machines[self.pos_h];
+
+        self.pos_v = match self.pos_v {
+            Outside => Tab,
+
+            Tab => {
+                if entry.config.is_empty() {
+                    if entry.state.is_empty() {
+                        if entry.measurements.is_empty() {
+                            Tab
+                        } else {
+                            Measurement(0)
+                        }
+                    } else {
+                        State(0)
+                    }
                 } else {
-                    v.add(1).min(3)
+                    Config(0)
                 }
             }
-            None => 0,
-        });
+
+            Config(i) if i + 1 < entry.config.len() => Config(i + 1),
+            Config(i) => {
+                if !entry.state.is_empty() {
+                    State(0)
+                } else if !entry.measurements.is_empty() {
+                    Measurement(0)
+                } else {
+                    Config(i)
+                }
+            }
+
+            State(i) if i + 1 < entry.state.len() => State(i + 1),
+
+            State(i) => {
+                if !entry.measurements.is_empty() {
+                    Measurement(0)
+                } else {
+                    State(i)
+                }
+            }
+
+            Measurement(i) if i + 1 < entry.measurements.len() => Measurement(i + 1),
+            Measurement(i) => Measurement(i),
+        };
+    }
+
+    fn can_edit(&self) -> bool {
+        matches!(self.pos_v, VerticalPosition::Config(_))
+    }
+
+    fn edit_to_request(&mut self, value: String) -> RuntimeRequestKind {
+        let VerticalPosition::Config(i) = self.pos_v else { unreachable!() };
+
+        let machine =  self.selected_machine();
+        let (resource, _) = machine.config.get_index(i).unwrap();
+
+        RuntimeRequestKind::SetMachineConfiguration { 
+            target: machine.ident,
+            resource: resource.clone(), 
+            value,
+        }
     }
 
     fn display(&self, frame: &mut Frame, chunk: Rect) {
@@ -134,19 +189,19 @@ impl Page for MachinesPage {
 
         self.draw_machine(frame, chunk, machine);
     }
-
-    fn can_go_down(&self) -> bool {
-        !self.machines.is_empty()
-    }
 }
 
 impl MachinesPage {
+    fn selected_machine(&mut self) -> &mut MachineEntry {
+        &mut self.machines[self.pos_h]
+    }
+
     pub fn new(schemas: HashMap<MachineIdentification, MachineSchema>) -> Self {
         Self {
             schemas,
             machines: Default::default(),
             pos_h: 0,
-            pos_v: None,
+            pos_v: VerticalPosition::Outside,
         }
     }
 
@@ -219,7 +274,7 @@ impl MachinesPage {
 
     fn draw_tabs(&self, frame: &mut Frame, chunk: Rect) {
         let style = match self.pos_v {
-            Some(0) => styles::on_hover(),
+            VerticalPosition::Tab => styles::on_hover(),
             _ => Style::default(),
         };
 
@@ -278,53 +333,28 @@ impl MachinesPage {
     }
 
     fn draw_config(&self, frame: &mut Frame, chunk: Rect, items: &IndexMap<String, ConfigField>) {
-        const VPOS: usize = 1;
         const TITLE: &str = " Config ";
 
         let style = match self.pos_v {
-            Some(v) if v == VPOS => styles::on_hover(),
+            VerticalPosition::Config(_) => styles::on_hover(),
             _ => Style::default(),
+        };
+
+        let selected = match self.pos_v {
+            VerticalPosition::Config(i) => Some(i),
+            _ => None,
         };
 
         let rows: Vec<Row> = items
             .iter()
-            .map(|(_, field)| {
-                let value = match &field.value {
-                    Some(v) => format!("{}", v.clone()),
-                    None => "N/A".to_string(),
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = if selected == Some(i) {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
                 };
 
-                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)])
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(style)
-                .title(TITLE),
-        );
-
-        frame.render_widget(table, chunk);
-    }
-
-    fn draw_state(&self, frame: &mut Frame, chunk: Rect, items: &IndexMap<String, StateField>) {
-        const VPOS: usize = 2;
-        const TITLE: &str = " State ";
-
-        let style = match self.pos_v {
-            Some(v) if v == VPOS => styles::on_hover(),
-            _ => Style::default(),
-        };
-
-        let rows: Vec<Row> = items
-            .iter()
-            .map(|(_, field)| {
-                let style = Style::default();
                 let value = match &field.value {
                     Some(v) => format!("{}", v.clone()),
                     None => "N/A".to_string(),
@@ -348,29 +378,89 @@ impl MachinesPage {
         frame.render_widget(table, chunk);
     }
 
+    fn draw_state(&self, frame: &mut Frame, chunk: Rect, items: &IndexMap<String, StateField>) {
+        const TITLE: &str = " State ";
+
+        let border_style = match self.pos_v {
+            VerticalPosition::State(_) => styles::on_hover(),
+            _ => Style::default(),
+        };
+
+        let selected = match self.pos_v {
+            VerticalPosition::State(i) => Some(i),
+            _ => None,
+        };
+
+        let rows: Vec<Row> = items
+            .iter()
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = if selected == Some(i) {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
+                };
+
+                let value = field
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "N/A".to_string());
+
+                Row::new(vec![
+                    Cell::from(field.label.clone()),
+                    Cell::from(value),
+                ])
+                .style(style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [Constraint::Percentage(60), Constraint::Percentage(40)],
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(TITLE),
+        );
+
+        frame.render_widget(table, chunk);
+    }
+
     fn draw_measurement(
         &self,
         frame: &mut Frame,
         chunk: Rect,
         items: &IndexMap<String, MeasurementField>,
     ) {
-        const VPOS: usize = 3;
         const TITLE: &str = " Measurements ";
 
         let style = match self.pos_v {
-            Some(v) if v == VPOS => styles::on_hover(),
+            VerticalPosition::Measurement(_) => styles::on_hover(),
             _ => Style::default(),
+        };
+
+        let selected = match self.pos_v {
+            VerticalPosition::Measurement(i) => Some(i),
+            _ => None,
         };
 
         // --- measurements ---
         let rows: Vec<Row> = items
             .iter()
-            .map(|(_, field)| {
-                let style = Style::default();
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = if selected == Some(i) {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
+                };
 
                 let value = match &field.value {
                     Some(v) => match v {
-                        Some(v) => format!("{v}"),
+                        Some(v) => format!("{v:.3}"),
                         None => "null".to_string(),
                     },
                     None => "N/A".to_string(),

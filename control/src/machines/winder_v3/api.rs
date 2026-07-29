@@ -1,27 +1,25 @@
 mod winder2_imports {
-    pub use super::super::puller_speed_controller::{GearRatio, PullerRegulationMode};
-    pub use super::super::{Winder2, Winder2Mode};
-    pub use control_core::socketio::{
-        event::{Event, GenericEvent},
-        namespace::{
-            CacheFn, CacheableEvents, Namespace, NamespaceCacheingLogic, cache_duration,
-            cache_first_and_last_event,
-        },
-    };
+    pub use std::time::Instant;
 
-    pub use serde::{Deserialize, Serialize};
-    pub use serde_json::Value;
-    pub use std::{
-        sync::Arc,
-        time::{Duration, Instant},
-    };
-    pub use tracing::instrument;
+    pub use serde::Deserialize;
+    pub use serde::Serialize;
+
+    pub use super::super::Winder2;
+    pub use super::super::Winder2Mode;
+    pub use super::super::puller_speed_controller::GearRatio;
+    pub use super::super::puller_speed_controller::PullerRegulationMode;
 }
-use crate::{
-    MachineApi, MachineMessage, MachineValues,
-    machine_identification::QiTechMachineIdentificationUnique,
-};
+
+use qitech_framework::machine::error::CommandExecuteResult;
+use qitech_framework::machine::resource::Measurement;
+use qitech_framework::machine::resource::StateProperty;
+use qitech_lib::units::Angle;
+use qitech_lib::units::AngularVelocity;
+use qitech_lib::units::Length;
+use qitech_lib::units::Velocity;
 pub use winder2_imports::*;
+
+use crate::machines::winder_v3::spool_speed_controller::SpoolSpeedControllerType;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum Mode {
@@ -112,32 +110,22 @@ pub enum Mutation {
     SetPullerAdaptiveStepPercent(f64),
     /// Inner deadzone: max deviation from target (mm) that requires no correction
     SetPullerAdaptiveAcceptedDifference(f64),
-    SetPullerAdaptiveReferenceMachine(Option<QiTechMachineIdentificationUnique>),
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
-pub struct LiveValuesEvent {
+pub struct Measurements {
     /// traverse position in mm
-    pub traverse_position: Option<f64>,
+    pub traverse_position: Measurement<Option<Length>>,
     /// puller speed in m/min
-    pub puller_speed: f64,
+    pub puller_speed: Measurement<Velocity>,
     /// spool rpm
-    pub spool_rpm: f64,
+    pub spool_rpm: Measurement<AngularVelocity>,
     /// tension arm angle in degrees
-    pub tension_arm_angle: f64,
+    pub tension_arm_angle: Measurement<Angle>,
     // spool progress in meters (pulled distance of filament)
-    pub spool_progress: f64,
+    pub spool_progress: Measurement<Length>,
 }
 
-impl LiveValuesEvent {
-    pub fn build(&self) -> Event<Self> {
-        Event::new("LiveValuesEvent", self.clone())
-    }
-}
-
-#[derive(Serialize, Debug, Clone)]
-pub struct StateEvent {
-    pub is_default_state: bool,
+pub struct States {
     /// traverse state
     pub traverse_state: TraverseState,
     /// puller state
@@ -151,69 +139,56 @@ pub struct StateEvent {
     /// spool speed controller state
     pub spool_speed_controller_state: SpoolSpeedControllerState,
     /// Is a Machine Connected?
-    pub puller_reference_machine: Option<QiTechMachineIdentificationUnique>,
+    pub puller_reference_machine: StateProperty<Option<u64>>,
 }
 
-impl StateEvent {
-    pub fn build(&self) -> Event<Self> {
-        Event::new("StateEvent", self.clone())
-    }
-}
-
-#[derive(Serialize, Debug, Clone, Default)]
 pub struct TraverseState {
     /// min position in mm
-    pub limit_inner: f64,
+    pub limit_inner: StateProperty<Length>,
     /// max position in mm
-    pub limit_outer: f64,
-    /// position in mm
-    pub position_in: f64,
-    /// position out in mm
-    pub position_out: f64,
+    pub limit_outer: StateProperty<Length>,
     /// is going to position in
-    pub is_going_in: bool,
+    pub is_going_in: StateProperty<bool>,
     /// is going to position out
-    pub is_going_out: bool,
+    pub is_going_out: StateProperty<bool>,
     /// if is homed
-    pub is_homed: bool,
+    pub is_homed: StateProperty<bool>,
     /// if is homing
-    pub is_going_home: bool,
+    pub is_going_home: StateProperty<bool>,
     /// if is traversing
-    pub is_traversing: bool,
+    pub is_traversing: StateProperty<bool>,
     /// laserpointer is on
-    pub laserpointer: bool,
+    pub laserpointer: StateProperty<bool>,
     /// step size in mm
-    pub step_size: f64,
+    pub step_size: StateProperty<Length>,
     /// padding in mm
-    pub padding: f64,
+    pub padding: StateProperty<Length>,
     /// can go in (to inner limit)
-    pub can_go_in: bool,
+    pub can_go_in: StateProperty<bool>,
     /// can go out (to outer limit)
-    pub can_go_out: bool,
+    pub can_go_out: StateProperty<bool>,
     /// can home
-    pub can_go_home: bool,
+    pub can_go_home: StateProperty<bool>,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
 pub struct PullerState {
     /// regulation type
-    pub regulation: PullerRegulationMode,
+    pub regulation: StateProperty<PullerRegulationMode>,
     /// target speed in m/min
-    pub target_speed: f64,
+    pub target_speed: StateProperty<Velocity>,
     /// forward rotation direction
-    pub forward: bool,
+    pub forward: StateProperty<bool>,
     /// gear ratio for winding speed
-    pub gear_ratio: GearRatio,
+    pub gear_ratio: StateProperty<GearRatio>,
 
     /// Maximum speed change as a percentage of base speed (0.0–100.0)
-    pub adaptive_speed_delta_max: f64,
+    pub adaptive_speed_delta_max: StateProperty<f64>,
     /// Minimum meters between consecutive adjustments
-    pub adaptive_adjustment_distance: f64,
+    pub adaptive_adjustment_distance: StateProperty<Length>,
     /// Step size per adjustment as a percentage of base speed (0.0–100.0)
-    pub adaptive_change_per_step: f64,
+    pub adaptive_change_per_step: StateProperty<f64>,
     /// Inner deadzone: max deviation from target (mm) that requires no correction
-    pub allowed_diameter_deviation: f64,
-    pub adaptive_reference_machine: Option<QiTechMachineIdentificationUnique>,
+    pub allowed_diameter_deviation: StateProperty<Length>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -224,94 +199,46 @@ pub enum SpoolAutomaticActionMode {
     Hold,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
 pub struct SpoolAutomaticActionState {
-    pub spool_required_meters: f64,
+    pub spool_required_meters: StateProperty<Length>,
     pub spool_automatic_action_mode: SpoolAutomaticActionMode,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
 pub struct ModeState {
     /// mode
     pub mode: Mode,
     /// can wind
-    pub can_wind: bool,
+    pub can_wind: StateProperty<bool>,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
 pub struct TensionArmState {
     /// is zeroed
-    pub zeroed: bool,
+    pub zeroed: StateProperty<bool>,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
 pub struct SpoolSpeedControllerState {
     /// regulation mode
-    pub regulation_mode: super::spool_speed_controller::SpoolSpeedControllerType,
+    pub regulation_mode: SpoolSpeedControllerType,
     /// min speed in rpm for minmax mode
-    pub minmax_min_speed: f64,
+    pub minmax_min_speed: StateProperty<AngularVelocity>,
     /// max speed in rpm for minmax mode
-    pub minmax_max_speed: f64,
+    pub minmax_max_speed: StateProperty<AngularVelocity>,
     /// tension target for adaptive mode (0.0-1.0)
-    pub adaptive_tension_target: f64,
+    pub adaptive_tension_target: StateProperty<f64>,
     /// radius learning rate for adaptive mode
-    pub adaptive_radius_learning_rate: f64,
+    pub adaptive_radius_learning_rate: StateProperty<f64>,
     /// max speed multiplier for adaptive mode
-    pub adaptive_max_speed_multiplier: f64,
+    pub adaptive_max_speed_multiplier: StateProperty<f64>,
     /// acceleration factor for adaptive mode
-    pub adaptive_acceleration_factor: f64,
+    pub adaptive_acceleration_factor: StateProperty<f64>,
     /// deacceleration urgency multiplier for adaptive mode
-    pub adaptive_deacceleration_urgency_multiplier: f64,
+    pub adaptive_deacceleration_urgency_multiplier: StateProperty<f64>,
     /// forward rotation direction
-    pub forward: bool,
+    pub forward: StateProperty<bool>,
 }
 
-pub enum Winder2Events {
-    LiveValues(Event<LiveValuesEvent>),
-    State(Event<StateEvent>),
-}
-
-#[derive(Debug)]
-pub struct Winder2Namespace {
-    pub namespace: Option<Namespace>,
-}
-
-impl NamespaceCacheingLogic<Winder2Events> for Winder2Namespace {
-    #[instrument(skip_all)]
-    fn emit(&mut self, events: Winder2Events) {
-        let event = Arc::new(events.event_value());
-        let buffer_fn = events.event_cache_fn();
-        match &mut self.namespace {
-            Some(ns) => ns.emit(event, &buffer_fn),
-            None => (),
-        }
-    }
-}
-
-impl CacheableEvents<Self> for Winder2Events {
-    fn event_value(&self) -> GenericEvent {
-        match self {
-            Self::LiveValues(event) => event.into(),
-            Self::State(event) => event.into(),
-        }
-    }
-
-    fn event_cache_fn(&self) -> CacheFn {
-        let cache_first_and_last = cache_first_and_last_event();
-        match self {
-            Self::LiveValues(_) => cache_first_and_last,
-            Self::State(_) => cache_first_and_last,
-        }
-    }
-}
-
-impl MachineApi for Winder2 {
-    fn get_api_sender(&self) -> tokio::sync::mpsc::Sender<MachineMessage> {
-        self.api_sender.clone()
-    }
-
-    fn api_mutate(&mut self, request_body: Value) -> Result<(), anyhow::Error> {
-        let mutation: Mutation = serde_json::from_value(request_body)?;
+impl Winder2 {
+    pub fn execute_mutation(&mut self, mutation: Mutation) -> CommandExecuteResult {
         match mutation {
             Mutation::EnableTraverseLaserpointer(enable) => self.set_laser(enable),
             Mutation::SetMode(mode) => self.set_mode(&mode.into()),
@@ -364,37 +291,8 @@ impl MachineApi for Winder2 {
             Mutation::SetPullerAdaptiveAcceptedDifference(v) => {
                 self.puller_set_adaptive_accepted_difference(v)
             }
-            Mutation::SetPullerAdaptiveReferenceMachine(v) => {
-                self.puller_set_adaptive_reference_machine(v)?
-            }
         }
+
         Ok(())
-    }
-
-    fn api_event_namespace(&mut self) -> Option<Namespace> {
-        self.namespace.namespace.clone()
-    }
-
-    fn act_machine_message(&mut self, msg: MachineMessage) {
-        match msg {
-            MachineMessage::SubscribeNamespace(namespace) => {
-                self.namespace.namespace = Some(namespace);
-                self.emit_state();
-            }
-            MachineMessage::UnsubscribeNamespace => self.namespace.namespace = None,
-            MachineMessage::HttpApiJsonRequest(value) => {
-                let _res = self.api_mutate(value);
-            }
-            MachineMessage::RequestValues(sender) => {
-                sender
-                    .send(MachineValues {
-                        state: serde_json::to_value(self.build_state_event())
-                            .expect("Failed to serialize state"),
-                        live_values: serde_json::to_value(self.get_live_values())
-                            .expect("Failed to serialize live values"),
-                    })
-                    .expect("Failed to send values");
-            }
-        }
     }
 }

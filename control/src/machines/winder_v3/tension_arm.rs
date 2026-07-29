@@ -1,10 +1,11 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use qitech_lib::ethercat_hal::io::analog_input::physical::AnalogInputValue;
 use qitech_lib::ethercat_hal::io::stepper_velocity_el70x1::StepperVelocityEL70x1Device;
 use qitech_lib::units::angle::revolution;
 use qitech_lib::units::electric_potential::volt;
 use qitech_lib::units::f64::*;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct TensionArm {
     pub analog_input: Rc<RefCell<dyn StepperVelocityEL70x1Device>>,
@@ -74,8 +75,8 @@ impl TensionArm {
                 self.zero = angle;
                 self.zeroed = true;
             }
-            Err(e) => {
-                tracing::error!("Failed to zero tension_arm angle {:?}", e)
+            Err(_) => {
+                // tracing::error!("Failed to zero tension_arm angle {:?}", e)
             }
         }
     }

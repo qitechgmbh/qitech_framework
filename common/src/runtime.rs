@@ -139,16 +139,18 @@ pub enum EtherCATState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeStateMutation {
     /// updated runtime state
-    pub state: RuntimeState,
+    pub state: RuntimeStatus,
 
     /// mutation timestamp
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeState {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum RuntimeStatus {
+    Offline,
     DiscoveringEtherCATInterface,
     InitializingEtherCAT,
+    InitializinhModbus,
     BuildingMachines,
     FinalizingEtherCAT,
     Initialized,
