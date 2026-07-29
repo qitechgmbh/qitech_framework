@@ -16,7 +16,6 @@ mod interface;
 mod machines;
 use machines::LaserV1;
 use machines::WinderV1;
-use qitech_framework::runtime::bridge::MockBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
 
@@ -32,7 +31,7 @@ pub fn main() -> anyhow::Result<()> {
 
     let config = RuntimeConfiguration::default()
         // .ethercat(ETHERCAT_CONFIG)
-        .export_interval(Duration::from_secs_f64(0.25))
+        .export_interval(Duration::from_secs_f64(1.0 / 4.0))
         .modbus_rtu_device("pci-0000_c6_00_0-usb-0_2_1_1_0", laser)
         .machine::<LaserV1>()
         .machine::<WinderV1>();
@@ -46,9 +45,7 @@ pub fn main() -> anyhow::Result<()> {
     });
 
     // --- start tui in main thread ---
-    let schemas = vec![
-        LaserV1::SCHEMA,
-    ];
+    let schemas = vec![LaserV1::SCHEMA];
 
     qitech_framework_tui::run(schemas, handle)
 }

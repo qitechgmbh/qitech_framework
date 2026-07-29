@@ -167,7 +167,7 @@ impl LaserV1 {
     /// Calculates if the current diameter is inside of the tolerance
     fn compute_in_tolerance(&mut self) -> bool {
         // const DIAMETER_EPSILON: f64 = 0.0001; // in mm
-        // 
+        //
         // // early return true if the diameter is 0 to prevent warning happening before start
         // if self.diameter.get_as::<millimeter>() < DIAMETER_EPSILON {
         //     return true;

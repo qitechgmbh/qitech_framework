@@ -41,9 +41,18 @@ impl<B: Bridge> Runtime<B> {
                 Ok(())
             }
 
-            RuntimeRequestKind::SetMachineConfiguration(..) => {
-                // self.resources.config_properties;
-                Ok(())
+            RuntimeRequestKind::SetMachineConfiguration {
+                target,
+                resource: path,
+                value,
+            } => {
+                self.resources
+                    .config_properties
+                    .api_write(
+                        0, // TODO: provide the real one
+                        target, &path, value,
+                    )
+                    .map_err(|e| format!("{e}"))
             }
 
             RuntimeRequestKind::InvokeMachineCommand {
@@ -57,17 +66,18 @@ impl<B: Bridge> Runtime<B> {
 
                 let machine_ref: &mut dyn Machine = &mut *machine;
 
-                let res = self.resources.commands.invoke(
-                    target,
-                    machine_ref,
-                    &resource,
-                    &arguments,
-                );
+                let res =
+                    self.resources
+                        .commands
+                        .invoke(target, machine_ref, &resource, &arguments);
 
                 res.map_err(|e| format!("{e}"))
             }
 
-            RuntimeRequestKind::MachineSubscribe { provider, subscriber } => {
+            RuntimeRequestKind::MachineSubscribe {
+                provider,
+                subscriber,
+            } => {
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
                     return Err("No Such Machine".to_string());
@@ -100,7 +110,10 @@ impl<B: Bridge> Runtime<B> {
                 Ok(())
             }
 
-            RuntimeRequestKind::MachineUnsubscribe { provider, subscriber } => {
+            RuntimeRequestKind::MachineUnsubscribe {
+                provider,
+                subscriber,
+            } => {
                 let Some(entry) = self.subscriptions.get_mut(&provider) else {
                     return Err("No such provider".to_string());
                 };

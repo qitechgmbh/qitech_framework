@@ -209,7 +209,7 @@ impl Manager {
             let info = unsafe { info.as_ref() };
             // we don't know what T is but how to extract it
             let value = unsafe { (info.metadata.extract)(bytes) };
-            
+
             let entry = MachineMeasurement {
                 machine: info.machine,
                 path: info.path.clone(),

@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -50,13 +51,16 @@ impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M>
 where
     K: PropertyKind,
 {
-    pub fn register<T: 'static>(
+    pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
         path: String,
         metadata: M,
         initial_value: T,
-    ) -> RegisterResult<PropertyHandle<T>> {
+    ) -> RegisterResult<PropertyHandle<T>>
+    where
+        T: Clone + 'static,
+    {
         const {
             assert!(size_of::<T>() <= size_of::<Storage<SLOT_SIZE>>());
             assert!(align_of::<T>() <= align_of::<Storage<SLOT_SIZE>>());
@@ -215,7 +219,7 @@ pub struct SlotInfo<Metadata> {
     pub metadata: Metadata,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct PropertyHandle<T> {
     generation: u64,
     p_generation: NonNull<u64>,
@@ -266,7 +270,6 @@ where
             self.index += 1;
 
             if self.manager.occupied[index] {
-
                 unsafe {
                     let info = self.manager.buf_info[index].as_mut_ptr();
                     let ptr = self.manager.buf_value[index].as_ptr() as *const u8;

@@ -82,12 +82,14 @@ impl Resources {
     }
 
     pub fn remove_subscription(
-        &mut self, 
+        &mut self,
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
     ) {
-        self.config_properties.remove_subscription(provider, subscriber);
-        self.state_properties.remove_subscription(provider, subscriber);
+        self.config_properties
+            .remove_subscription(provider, subscriber);
+        self.state_properties
+            .remove_subscription(provider, subscriber);
         self.measurements.remove_subscription(provider, subscriber);
         self.events.remove_subscription(provider, subscriber);
     }
@@ -105,7 +107,7 @@ impl Resources {
             report.measurements.push(entry);
         });
 
-                        /*
+        /*
         self.commands.drain_journal(|entry| {
             report.commands.push(entry);
         });

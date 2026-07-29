@@ -65,20 +65,17 @@ impl<B: Bridge> Runtime<B> {
         // --- initialize modbus rtu ---
         if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
             for (_, ident) in config.bindings {
+                let device: Rc<RefCell<LaserDevice>> = Rc::new(RefCell::new(
+                    LaserDevice::new("/dev/ttyUSB0".to_string(), 1, None).unwrap(),
+                ));
 
-                let device: Rc<RefCell<LaserDevice>> =
-                    Rc::new(RefCell::new(
-                        LaserDevice::new("/dev/ttyUSB0".to_string(), 
-                        1, 
-                        None).unwrap()
-                    ));
-
-                hardware_registry.insert(ident, vec![
-                    Hardware::ModbusRTU(ModbusRTUDeviceIdentified { 
-                        device, 
+                hardware_registry.insert(
+                    ident,
+                    vec![Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
+                        device,
                         path: "/dev/ttyUSB0".to_string(),
-                    })
-                ]);
+                    })],
+                );
             }
         }
 
@@ -148,6 +145,7 @@ impl<B: Bridge> Runtime<B> {
             let inner = match (build)(ctx) {
                 Ok(v) => v,
                 Err(e) => {
+                    _ = e;
                     // println!("Failed to build machine: {e}");
                     continue;
                 }

@@ -9,7 +9,6 @@ use crate::DeviceIdentification;
 use crate::LogRecord;
 use crate::MachineIdentificationUnique;
 use crate::MachinesReport;
-use crate::ScalarValue;
 
 // --- request ---
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,17 +30,16 @@ pub enum RuntimeRequestKind {
         subdevice_index: usize,
     },
 
-    MachineSubscribe {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
-    },
+    SetMachineConfiguration {
+        /// target machine
+        target: MachineIdentificationUnique,
 
-    MachineUnsubscribe {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
-    },
+        /// resource path
+        resource: String,
 
-    SetMachineConfiguration(SetMachineConfigurationRequest),
+        /// value to write
+        value: String,
+    },
 
     InvokeMachineCommand {
         /// target machine
@@ -53,18 +51,16 @@ pub enum RuntimeRequestKind {
         /// command arguments
         arguments: String,
     },
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetMachineConfigurationRequest {
-    /// target machine
-    target: MachineIdentificationUnique,
+    MachineSubscribe {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    },
 
-    /// configuration resource path
-    resource_path: String,
-
-    /// assigned value
-    value: ScalarValue,
+    MachineUnsubscribe {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    },
 }
 
 // --- report ---
@@ -82,19 +78,14 @@ pub struct RuntimeReport {
     /// machine activity
     pub machines: MachinesReport,
 
+    /// runtime events
+    pub events: Vec<RuntimeEvent>,
+
     /// runtime log records
     pub logs: Vec<LogRecord>,
 }
+
 // --- event ---
-#[derive(Debug, Clone)]
-pub struct RuntimeEvent<F> {
-    /// event kind
-    pub kind: RuntimeInitEvent<F>,
-
-    /// event timestamp
-    pub timestamp: DateTime<Utc>,
-}
-
 #[derive(Debug, Clone)]
 pub enum RuntimeInitEvent<FinishedPayload> {
     EtherCATStateUpdate(EtherCATState),
@@ -129,33 +120,9 @@ pub enum RuntimeInitEvent<FinishedPayload> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeEventKind {
-    EtherCATStateUpdate(EtherCATState),
-    EtherCATFinalizing,
-
-    // --- ether cat discovery ---
-    EtherCATDiscoveryStarted,
-    EtherCATDiscoveryCompleted {
-        interface: String,
-    },
-
-    // --- ether cat device ---
-    EtherCATInitializationStarted,
-    EtherCATDeviceInitializationFailed {
-        error: String,
-    },
-    EtherCATDeviceInitializationCompleted {
-        devices: Vec<EtherCATDeviceMetadata>,
-    },
-
-    // --- machine ---
-    BuildingMachines,
-    BuiltMachine {
-        ident: MachineIdentificationUnique,
-    },
-    FailedToBuildMachine {
-        ident: MachineIdentificationUnique,
-    },
+pub enum RuntimeEvent {
+    AddedMachine { ident: MachineIdentificationUnique },
+    RemovedMachine { ident: MachineIdentificationUnique },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -229,6 +196,22 @@ impl TimingsReport {
     fn take(&mut self) -> TimingsReport {
         std::mem::take(self)
     }
+}
+
+// --- stats ---
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct StatsReport {
+    /// Number of recorded machine configuration property mutations.
+    pub recorded_machine_config_property_mutations: u32,
+
+    /// Number of recorded machine state property mutations.
+    pub recorded_machine_state_property_mutations: u32,
+
+    /// Number of machine events emitted.
+    pub emitted_machine_events: u32,
+
+    /// Number of API requests processed.
+    pub processed_requests: u32,
 }
 
 // --- misc ---

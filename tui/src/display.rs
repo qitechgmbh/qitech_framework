@@ -1,160 +1,116 @@
 use ratatui::prelude::*;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
-use ratatui::widgets::Cell;
 use ratatui::widgets::Paragraph;
-use ratatui::widgets::Row;
-use ratatui::widgets::Table;
+use ratatui::widgets::Tabs;
 
 use crate::app::App;
 use crate::app::RuntimeStatus;
+use crate::app::TabPosition;
+use crate::app::VerticalPosition;
+use crate::pages::Page;
+use crate::styles;
 
 impl App {
     pub fn display(&self, frame: &mut Frame) {
-        let outer = Block::default()
-            .borders(Borders::ALL)
-            .title("QiTech Control (Terminal Edition)");
+        const TITLE: &str = " QiTech Control (Terminal Edition) ";
+
+        let outer = Block::default().borders(Borders::ALL).title(TITLE);
 
         let inner = outer.inner(frame.area());
-
         frame.render_widget(outer, frame.area());
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(2), // status bar
-                Constraint::Min(0),   // page content
+                Constraint::Length(3), // Info
+                Constraint::Length(3), // Tabs
+                Constraint::Min(0),    // Content
             ])
             .split(inner);
 
-        let status = match self.runtime_status {
+        self.draw_status(frame, chunks[0]);
+        self.draw_tabs(frame, chunks[1]);
+        self.draw_page(frame, chunks[2]);
+    }
+
+    fn draw_status(&self, frame: &mut Frame, chunk: Rect) {
+        let runtime_status = match self.runtime_status {
             RuntimeStatus::Offline => "🔴 Offline",
             RuntimeStatus::Starting => "🟡 Starting",
             RuntimeStatus::Running => "🟢 Running",
         };
 
-        let status = Paragraph::new(format!(
-            "Runtime Status: {}",
-            status
-        ))
-        .block(
+        let border_style = match self.pos_v {
+            VerticalPosition::Status => styles::on_hover(),
+            _ => Style::default(),
+        };
+
+        let info = Paragraph::new(format!("Runtime: {}", runtime_status,)).block(
             Block::default()
-                .borders(Borders::BOTTOM)
+                .title(" Status ")
+                .borders(Borders::ALL)
+                .border_style(border_style),
         );
 
-        frame.render_widget(status, chunks[0]);
+        frame.render_widget(info, chunk);
+    }
 
-        if self.pages.is_empty() {
-            let error = Paragraph::new("No Machines detected")
-                .alignment(Alignment::Center)
-                .block(Block::default());
+    fn draw_tabs(&self, frame: &mut Frame, chunk: Rect) {
+        const TITLE: &str = " Menu ";
 
-            let area = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Fill(1),
-                    Constraint::Length(1),
-                    Constraint::Fill(1),
-                ])
-                .split(chunks[1])[1];
+        let titles = Self::TABS
+            .iter()
+            .map(|t| Line::from(*t))
+            .collect::<Vec<_>>();
 
-            frame.render_widget(error, area);
-            return;
+        let style = match self.pos_v {
+            VerticalPosition::Tab => styles::on_hover(),
+            _ => Style::default(),
+        };
+
+        let tabs = Tabs::new(titles)
+            .select(self.pos_t as usize)
+            .block(
+                Block::default()
+                    .title(TITLE)
+                    .borders(Borders::ALL)
+                    .border_style(style),
+            )
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            );
+
+        frame.render_widget(tabs, chunk);
+    }
+
+    fn draw_page(&self, frame: &mut Frame, chunk: Rect) {
+        let title = match self.pos_v {
+            VerticalPosition::Status => " Status ",
+            VerticalPosition::Tab => " Tab ",
+            VerticalPosition::Page => " Page ",
+        };
+
+        let style = match self.pos_v {
+            VerticalPosition::Page => styles::on_hover(),
+            _ => Style::default(),
+        };
+
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(style);
+
+        let inner = block.inner(chunk);
+        frame.render_widget(block, chunk);
+
+        match self.pos_t {
+            TabPosition::Machines => {
+                self.page_machines.display(frame, inner)
+            }
+            _ => {},
         }
-
-        // has pages
-        // chunks[1]
-        let page = &self.pages.values().next().unwrap();
-
-        let page_chunks = Layout::vertical([
-            Constraint::Length(2 + page.config.len() as u16),
-            Constraint::Length(2 + page.state.len() as u16),
-            Constraint::Length(2 + page.measurements.len() as u16),
-        ])
-        .split(chunks[1]);
-
-        // --- config fields ---
-        let rows: Vec<Row> = page
-            .config
-            .iter()
-            .map(|(x, field)| {
-                let style = Style::default();
-                let value = match field.empty {
-                    true => "N/A".to_string(),
-                    false => format!("{}", field.value.clone()),
-                };
-
-                Row::new(
-                    vec![
-                        Cell::from(field.label.clone()), 
-                        Cell::from(value)],
-                ).style(style)
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .block(Block::default().borders(Borders::ALL).title("Config"));
-
-        frame.render_widget(table, page_chunks[0]);
-
-        // --- state ---
-        let rows: Vec<Row> = page
-            .state
-            .iter()
-            .map(|(x, field)| {
-                let style = Style::default();
-                let value = match field.empty {
-                    true => "N/A".to_string(),
-                    false => format!("{}", field.value.clone()),
-                };
-
-                Row::new(
-                    vec![
-                        Cell::from(field.label.clone()), 
-                        Cell::from(value)],
-                ).style(style)
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .block(Block::default().borders(Borders::ALL).title("State"));
-
-        frame.render_widget(table, page_chunks[1]);
-
-        // --- measurements ---
-        let rows: Vec<Row> = page
-            .measurements
-            .iter()
-            .map(|(x, field)| {
-                let style = Style::default();
-                let value = match field.empty {
-                    true => "N/A".to_string(),
-                    false => match field.value {
-                        Some(v) => format!("{v}"),
-                        None => "null".to_string(),
-                    },
-                };
-
-                Row::new(
-                    vec![
-                        Cell::from(field.label.clone()), 
-                        Cell::from(value)],
-                ).style(style)
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .block(Block::default().borders(Borders::ALL).title("Measurements"));
-
-        frame.render_widget(table, page_chunks[2]);
     }
 }

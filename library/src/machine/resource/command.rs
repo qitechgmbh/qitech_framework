@@ -52,6 +52,7 @@ impl Manager {
         path: &'static str,
         disabled: bool,
         execute: ExecuteFn,
+        /* can_execute: CanExecuteFn */
     ) -> RegisterResult<Handle> {
         let key = Key::from_str(ident, path);
 
@@ -140,23 +141,6 @@ struct Entry {
     enabled: Rc<RefCell<bool>>,
     execute: ExecuteFn,
 }
-
-// pub struct RegisterOptions<M, A> {
-//     pub disabled: bool,
-//
-//     #[allow(clippy::type_complexity)]
-//     pub execute: Option<IntoExecuteFn<M, A>>,
-// }
-
-// you piece of shit compiler too retarded to use the derive properly... FUCK. YOU.
-// impl<M, A> Default for RegisterOptions<M, A> {
-//     fn default() -> Self {
-//         Self {
-//             disabled: Default::default(),
-//             execute: Default::default(),
-//         }
-//     }
-// }
 
 // --- trait wank ---
 pub trait IntoExecuteFn {

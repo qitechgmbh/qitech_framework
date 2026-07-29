@@ -5,9 +5,9 @@ use qitech_framework_common::RuntimeRequest;
 use crate::runtime::error::BridgeBootstrapError;
 
 pub mod crossbeam;
+pub use crossbeam::Handle as CrossbeamHandle;
 pub use crossbeam::HelloHandle as CrossbeamHelloHandle;
 pub use crossbeam::InitHandle as CrossbeamInitHandle;
-pub use crossbeam::Handle as CrossbeamHandle;
 pub use crossbeam::RuntimeInitEvent as CrossbeamRuntimeInitEvent;
 
 pub trait BridgeBootstrap<B: Bridge> {
@@ -23,7 +23,7 @@ pub trait BridgeBootstrap<B: Bridge> {
     }
 
     fn submit_event(
-        &mut self, 
+        &mut self,
         state: RuntimeInitEvent<Self::FinishedPayload>,
     ) -> Result<(), BridgeBootstrapError> {
         _ = state;
@@ -48,7 +48,9 @@ pub struct MockBridge;
 
 impl BridgeBootstrap<MockBridge> for MockBridge {
     type FinishedPayload = ();
-    fn finish(self) -> Result<MockBridge, BridgeBootstrapError> { Ok(self) }
+    fn finish(self) -> Result<MockBridge, BridgeBootstrapError> {
+        Ok(self)
+    }
 }
 
 impl Bridge for MockBridge {

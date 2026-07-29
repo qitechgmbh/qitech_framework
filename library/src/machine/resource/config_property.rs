@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+use std::fmt::Debug;
+
 use chrono::Utc;
 use qitech_framework_common::MachineConfigMutation;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::OperationOrigin;
 use qitech_framework_common::OperationResult;
+use qitech_framework_common::ScalarValue;
 use qitech_framework_common::with_uom_quantities;
 use thiserror::Error;
 
@@ -10,6 +14,7 @@ use super::PropertyHandle;
 use crate::machine::TypeWrapper;
 use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
+use crate::machine::resource::Key;
 use crate::machine::resource::PropertyManager;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::error::RegisterResult;
@@ -24,7 +29,7 @@ pub struct ConfigProperty<T: Clone> {
 
 impl<T: Clone> ConfigProperty<T> {
     pub fn set(&mut self, value: T) -> Result<(), WriteError> {
-        (self.write)(&mut self.handle, value)
+        (self.write)(self.handle.clone(), value)
     }
 
     /// reset property back to default value
@@ -87,12 +92,12 @@ with_uom_quantities!(impl_uom);
 const SLOT_SIZE: usize = 32;
 const MAX_ITEMS: usize = 512;
 type Kind = super::property_kind::ConfigProperty;
-type Metadata = WriteApiFn;
 
 #[derive(Default)]
 pub struct Manager {
-    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
+    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, ()>,
     journal: Journal<MachineConfigMutation>,
+    writers: HashMap<Key<'static>, WriteApiFn>,
 }
 
 impl Manager {
@@ -106,11 +111,18 @@ impl Manager {
         T: TypeWrapper + 'static,
         T::Type: Clone + BoundedMeta,
     {
+        // --- create handle ---
+        let default = options.default.clone();
+        let handle =
+            self.inner
+                .register::<T::Type>(machine, path.to_string(), (), default.clone())?;
+
+        // --- internal writer ---
         let opts = options.clone();
         let journal = self.journal.new_handle();
 
         let write = Box::new(
-            move |handle: &mut PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
+            move |handle: PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
                 let mut entry = MachineConfigMutation {
                     machine,
                     path: path.to_string(),
@@ -132,16 +144,16 @@ impl Manager {
             },
         );
 
+        // --- api writer ---
         let opts = options.clone();
         let journal = self.journal.new_handle();
 
+        let handle_api = handle.clone();
         let write_api = Box::new(
             move |request_id: u64,
-                  bytes: *mut u8,
                   raw: &str|
                   -> Result<Result<(), WriteError>, serde_json::Error> {
                 let value: T::Type = T::deserialize_json(raw)?;
-                let out = unsafe { &mut *(bytes as *mut T::Type) };
 
                 let mut entry = MachineConfigMutation {
                     machine,
@@ -160,19 +172,16 @@ impl Manager {
                 entry.result = OperationResult::Success;
                 journal.append(entry);
 
-                *out = value;
+                handle_api.write(value);
                 Ok(Ok(()))
             },
         );
 
-        let default = options.default;
-        let handle = self.inner.register::<T::Type>(
-            machine,
-            path.to_string(),
-            write_api,
-            default.clone(),
-        )?;
+        // --- store the api writer ---
+        let key = Key::from_str(machine, path);
+        self.writers.insert(key, write_api);
 
+        // --- create property ---
         let mut property = ConfigProperty {
             handle,
             write,
@@ -185,7 +194,11 @@ impl Manager {
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
-        self.inner.unregister_machine(ident)
+        // --- remove property resources associated with machine ---
+        self.inner.unregister_machine(ident);
+
+        // --- remove api writers associated with machine ---
+        self.writers.retain(|key, _| key.ident != ident);
     }
 
     // --- subscription ---
@@ -208,6 +221,32 @@ impl Manager {
 
     pub fn sync_cache(&mut self) {
         self.inner.sync_cache();
+    }
+
+    // --- api ---
+    pub fn api_write(
+        &mut self,
+        transaction_id: u64,
+        target: MachineIdentificationUnique,
+        path: &str,
+        value: String,
+    ) -> Result<(), ApiWriteError> {
+        let key = Key::from_str(target, path);
+
+        let Some(write) = self.writers.get(&key) else {
+            return Err(ApiWriteError::NotFound);
+        };
+
+        let result = (write)(transaction_id, &value).map_err(ApiWriteError::ParseError)?;
+
+        if let Err(e) = result {
+            return Err(match e {
+                WriteError::OutOfBounds(e) => ApiWriteError::OutOfBounds(e),
+                WriteError::Validate(e) => ApiWriteError::Validate(e),
+            });
+        }
+
+        Ok(())
     }
 
     // --- reporting ---
@@ -244,14 +283,27 @@ fn check<T: BoundedMeta>(value: &T, options: &RegisterOptions<T>) -> Result<(), 
 }
 
 // --- types ---
-pub type WriteFn<T> = Box<dyn Fn(&mut PropertyHandle<T>, T) -> Result<(), WriteError>>;
-
-pub type WriteApiFn =
-    Box<dyn Fn(u64, *mut u8, &str) -> Result<Result<(), WriteError>, serde_json::Error>>;
+pub type WriteFn<T> = Box<dyn Fn(PropertyHandle<T>, T) -> Result<(), WriteError>>;
+pub type WriteApiFn = Box<dyn Fn(u64, &str) -> Result<Result<(), WriteError>, serde_json::Error>>;
 
 // --- errors ---
 #[derive(Error, Debug)]
 pub enum WriteError {
+    #[error("value out of bounds: {0}")]
+    OutOfBounds(BoundsError),
+
+    #[error("validation failed: {0}")]
+    Validate(String),
+}
+
+#[derive(Error, Debug)]
+pub enum ApiWriteError {
+    #[error("resource not found for machine")]
+    NotFound,
+
+    #[error("failed to parse value: {0}")]
+    ParseError(#[from] serde_json::Error),
+
     #[error("value out of bounds: {0}")]
     OutOfBounds(BoundsError),
 

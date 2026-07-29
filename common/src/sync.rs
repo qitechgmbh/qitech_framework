@@ -29,10 +29,7 @@ impl Default for Hello {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "T: Serialize",
-    deserialize = "T: DeserializeOwned"
-))]
+#[serde(bound(serialize = "T: Serialize", deserialize = "T: DeserializeOwned"))]
 pub enum HelloAck<T> {
     Accepted(T),
     Rejected,

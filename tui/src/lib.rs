@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io;
-use std::thread;
 use std::time::Duration;
 
 use crossterm::event::EnableMouseCapture;
@@ -17,15 +16,13 @@ use ratatui::backend::CrosstermBackend;
 
 mod app;
 use app::App;
-
-use crate::app::RuntimeStatus;
+use app::RuntimeStatus;
 
 mod display;
+mod pages;
+mod styles;
 
-pub fn run(
-    schemas: Vec<&str>,
-    handle: CrossbeamHelloHandle,
-) -> anyhow::Result<()> {
+pub fn run(schemas: Vec<&str>, handle: CrossbeamHelloHandle) -> anyhow::Result<()> {
     let mut schemas_parsed = HashMap::new();
     for yaml_str in schemas {
         let schema = MachineSchema::from_yaml_str(yaml_str)?;
@@ -43,11 +40,9 @@ pub fn run(
     // --- init stage ---
     let mut app = App::new(schemas_parsed);
     terminal.draw(|frame| app.display(frame))?;
-    thread::sleep(Duration::from_secs_f64(0.2));
 
     let mut handle = handle.handle_hello().unwrap();
     terminal.draw(|frame| app.display(frame))?;
-    thread::sleep(Duration::from_secs_f64(0.2));
 
     app.runtime_status = RuntimeStatus::Starting;
 
@@ -59,20 +54,16 @@ pub fn run(
 
         app.handle_init_event(event);
         terminal.draw(|frame| app.display(frame))?;
-        
-        thread::sleep(Duration::from_secs_f64(0.2));
     };
 
     app.runtime_status = RuntimeStatus::Running;
 
     // --- run stage ---
     while app.running() {
-        if event::poll(Duration::from_millis(50))? {
-            match event::read()? {
-                Event::Key(key) => app.handle_key(key.code, &mut handle),
-                Event::Mouse(mouse) => app.handle_mouse(mouse, &mut handle),
-                _ => {}
-            }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+        {
+            app.handle_key(key.code, &mut handle)
         }
 
         while let Some(report) = handle.recv() {

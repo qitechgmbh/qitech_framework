@@ -7,9 +7,9 @@ use serde::Serialize;
 use soa_derive::StructOfArray;
 
 use crate::MachineIdentificationUnique;
+use crate::ScalarValue;
 use crate::types::OperationOrigin;
 use crate::types::OperationResult;
-use crate::types::ScalarValue;
 
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -1,7 +1,15 @@
-use crossbeam::channel::{Receiver, Sender, TryRecvError};
-use qitech_framework_common::{Hello, RuntimeReport, RuntimeRequest, sync::HelloAck};
+use crossbeam::channel::Receiver;
+use crossbeam::channel::Sender;
+use crossbeam::channel::TryRecvError;
+use crossbeam::channel::{self};
+use qitech_framework_common::Hello;
+use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::RuntimeRequest;
+use qitech_framework_common::sync::HelloAck;
 
-use crate::runtime::{bridge::{Bridge, BridgeBootstrap}, error::BridgeBootstrapError};
+use crate::runtime::bridge::Bridge;
+use crate::runtime::bridge::BridgeBootstrap;
+use crate::runtime::error::BridgeBootstrapError;
 
 // --- payload ---
 type HelloAckPayload = HelloAck<Sender<RuntimeInitEvent>>;
@@ -17,13 +25,13 @@ pub struct HelloHandle {
 impl HelloHandle {
     pub fn handle_hello(self) -> Result<InitHandle, HelloHandle> {
         let hello = self.hello_rx.recv().unwrap();
-        
+
         if hello != Hello::new() {
             self.ack_tx.send(HelloAck::Rejected).unwrap();
             return Err(self);
         }
 
-        let (event_tx, event_rx) = crossbeam::channel::unbounded();
+        let (event_tx, event_rx) = channel::unbounded();
         self.ack_tx.send(HelloAck::Accepted(event_tx)).unwrap();
 
         Ok(InitHandle { event_rx })
@@ -31,7 +39,7 @@ impl HelloHandle {
 }
 
 #[derive(Debug)]
-pub struct InitHandle { 
+pub struct InitHandle {
     event_rx: Receiver<RuntimeInitEvent>,
 }
 
@@ -64,12 +72,12 @@ pub enum CrossbeamBridgeBootstrap {
         ack_rx: Receiver<HelloAckPayload>,
     },
     Initialize {
-        event_tx: Sender<RuntimeInitEvent>
+        event_tx: Sender<RuntimeInitEvent>,
     },
     Running {
         request_rx: Receiver<RuntimeRequest>,
         report_tx: Sender<RuntimeReport>,
-    }
+    },
 }
 
 impl CrossbeamBridgeBootstrap {
@@ -98,7 +106,7 @@ impl BridgeBootstrap<CrossbeamBridge> for CrossbeamBridgeBootstrap {
             HelloAck::Accepted(event_tx) => {
                 *self = CrossbeamBridgeBootstrap::Initialize { event_tx };
                 Ok(())
-            },
+            }
             HelloAck::Rejected => panic!("not accepted sadge"),
         }
     }
@@ -117,18 +125,19 @@ impl BridgeBootstrap<CrossbeamBridge> for CrossbeamBridgeBootstrap {
             panic!("Not in initialize state");
         };
 
-        let (request_tx, request_rx) = crossbeam::channel::unbounded();
-        let (report_tx, report_rx) = crossbeam::channel::unbounded();
+        let (request_tx, request_rx) = channel::unbounded();
+        let (report_tx, report_rx) = channel::unbounded();
 
-        let handle = Handle { request_tx, report_rx };
+        let handle = Handle {
+            request_tx,
+            report_rx,
+        };
 
         event_tx.send(RuntimeInitEvent::Finished(handle)).unwrap();
-        Ok(CrossbeamBridge { request_rx, report_tx })
-    }
-    
-    fn sync_machine(&mut self, schema: &str) -> Result<(), BridgeBootstrapError> {
-        _ = schema;
-        Ok(())
+        Ok(CrossbeamBridge {
+            request_rx,
+            report_tx,
+        })
     }
 }
 
