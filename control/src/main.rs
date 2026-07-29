@@ -16,6 +16,7 @@ mod interface;
 mod machines;
 use machines::LaserV1;
 use machines::WinderV1;
+use qitech_framework::runtime::bridge::MockBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
 
@@ -36,6 +37,11 @@ pub fn main() -> anyhow::Result<()> {
         .machine::<LaserV1>()
         .machine::<WinderV1>();
 
+    let rt = Runtime::<MockBridge>::init(config, MockBridge).unwrap();
+    rt.run();
+    Ok(())
+
+    /* 
     let (bridge, handle) = CrossbeamBridgeBootstrap::new();
 
     // --- start runtime in new thread ---
@@ -48,6 +54,7 @@ pub fn main() -> anyhow::Result<()> {
     let schemas = vec![LaserV1::SCHEMA];
 
     qitech_framework_tui::run(schemas, handle)
+    */
 }
 
 /*
