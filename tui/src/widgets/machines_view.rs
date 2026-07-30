@@ -22,10 +22,19 @@ struct Context {
 }
 
 pub struct MachinesView {
-    focus: Focus,
     cursor: VerticalCursor,
     drop_down: DropDown,
     machines: TabView<Context>,
+}
+
+impl MachinesView {
+    pub fn new() -> Self {
+        Self { 
+            cursor: VerticalCursor::new(),
+            drop_down: (),
+            machines: (),
+        }
+    }
 }
 
 impl Widget<AppContext> for MachinesView {

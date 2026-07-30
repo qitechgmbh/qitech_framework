@@ -5,6 +5,10 @@ pub struct VerticalCursor {
 }
 
 impl VerticalCursor {
+    pub fn new() -> Self {
+        Self { position: 0 }
+    }
+
     pub fn up(&mut self) -> Result<(), CursorMoveError> {
         if self.position == 0 {
             return Err(CursorMoveError);

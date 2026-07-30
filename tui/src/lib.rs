@@ -28,7 +28,6 @@ mod types;
 use types::*;
 
 mod utils;
-use utils::
 
 mod widgets;
 use widgets::StatusWidget;
