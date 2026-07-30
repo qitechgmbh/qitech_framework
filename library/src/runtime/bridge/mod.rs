@@ -53,12 +53,11 @@ impl BridgeBootstrap<MockBridge> for MockBridge {
     fn finish(self) -> Result<MockBridge, BridgeBootstrapError> {
         Ok(self)
     }
-    
+
     fn submit_event(
         &mut self,
         state: RuntimeInitEvent<Self::FinishedPayload>,
-    ) -> Result<(), BridgeBootstrapError>
-    {
+    ) -> Result<(), BridgeBootstrapError> {
         println!("sending event: {state:#?}");
         Ok(())
     }

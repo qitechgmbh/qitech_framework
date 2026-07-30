@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::println;
 use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
@@ -12,6 +13,7 @@ use qitech_framework::machine::error::ActError;
 use qitech_framework::machine::error::ActErrorKind;
 use qitech_framework::machine::error::ActResult;
 use qitech_framework::machine::error::BuildError;
+use qitech_framework::machine::error::CommandExecuteResult;
 use qitech_framework::machine::resource::ConfigProperty;
 use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;

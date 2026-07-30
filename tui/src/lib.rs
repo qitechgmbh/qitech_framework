@@ -20,9 +20,6 @@ use qitech_framework_common::schema::Node;
 use qitech_framework_common::schema::NodeKind;
 use qitech_framework_common::schema::StatePropertyValue;
 use ratatui::Frame;
-use ratatui::layout::Constraint;
-use ratatui::layout::Direction;
-use ratatui::layout::Layout;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 pub use run::run;
@@ -30,14 +27,15 @@ pub use run::run;
 mod types;
 use types::*;
 
-mod status;
-use status::StatusWidget;
+mod utils;
+use utils::
 
-mod menu;
-use menu::MenuWidget;
+mod widgets;
+use widgets::StatusWidget;
+use widgets::TabView;
+use widgets::WidgetManager;
 
 mod pages;
-use pages::ContentManager;
 
 pub struct App {
     // --- state ---
@@ -47,11 +45,8 @@ pub struct App {
     schemas: HashMap<MachineIdentification, MachineSchema>,
     machines: Vec<MachineEntry>,
 
-    // --- components ---
-    wg_status: StatusWidget,
-    wg_menu: MenuWidget,
-
-    content: ContentManager,
+    // --- widgets ---
+    widgets: WidgetManager<AppContext>,
 }
 
 impl App {
@@ -62,9 +57,10 @@ impl App {
             schemas,
             machines: Default::default(),
             rt_status: RuntimeStatus::Offline,
-            wg_status: StatusWidget,
-            wg_menu: MenuWidget,
-            content: ContentManager::new(),
+            widgets: WidgetManager::new(vec![
+                Box::new(StatusWidget),
+                Box::new(ContentWidget::new()),
+            ]),
         }
     }
 
@@ -79,79 +75,21 @@ impl App {
         frame.render_widget(&outer, frame.area());
 
         let inner = outer.inner(frame.area());
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3), // Info
-                Constraint::Length(3), // Menu
-                Constraint::Min(0),    // Content
-            ])
-            .split(inner);
+        self.widgets.render(frame, inner, self.as_context());
+    }
 
-        let ctx = &AppContext {
+    fn as_context(&self) -> AppContext {
+        AppContext {
             focus: self.focus,
-            page: self.content.selected_id(),
             rt_status: self.rt_status,
-            schemas: &self.schemas,
-            machines: &self.machines,
-        };
-
-        self.wg_status.render(frame, chunks[0], ctx);
-        self.wg_menu.render(frame, chunks[1], ctx);
-        self.content.render(frame, chunks[2], ctx);
+            schemas: &self.schemas as *const HashMap<MachineIdentification, MachineSchema>,
+            machines: self.machines.as_slice() as *const [MachineEntry],
+        }
     }
 
     pub fn on_key_event(&mut self, code: KeyCode, handle: &mut CrossbeamHandle) {
-        let ctx = &AppContext {
-            focus: self.focus,
-            page: self.content.selected_id(),
-            rt_status: self.rt_status,
-            schemas: &self.schemas,
-            machines: &self.machines,
-        };
-
-        let action = match self.focus {
-            Focus::Status => match code {
-                KeyCode::Down => {
-                    self.focus = Focus::Menu;
-                    AppAction::NoAction
-                }
-
-                _ => AppAction::NoAction,
-            },
-
-            Focus::Menu => match code {
-                KeyCode::Up => {
-                    self.focus = Focus::Status;
-                    AppAction::NoAction
-                }
-
-                KeyCode::Down => {
-                    self.focus = Focus::Content;
-                    AppAction::NoAction
-                }
-
-                _ => self.wg_menu.on_key_event(code, ctx),
-            },
-
-            Focus::Content => match code {
-                KeyCode::Up => {
-                    if self.content.at_top() {
-                        self.focus = Focus::Menu;
-                    } else {
-                        self.content.on_key_event(code, ctx);
-                    }
-
-                    AppAction::NoAction
-                }
-
-                _ => self.content.on_key_event(code, ctx),
-            },
-        };
-
-        match action {
+        match self.widgets.on_key_event(code, self.as_context()) {
             AppAction::NoAction => {}
-            AppAction::GotoPage(page) => self.content.goto_page(page),
             AppAction::SetConfig {
                 machine,
                 resource,
