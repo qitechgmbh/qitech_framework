@@ -1,6 +1,5 @@
 use crossterm::event::KeyCode;
 use ratatui::Frame;
-use ratatui::layout::Constraint;
 use ratatui::layout::Offset;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
@@ -11,68 +10,70 @@ use ratatui::text::Line;
 use ratatui::widgets::Block;
 use ratatui::widgets::Tabs;
 
-use crate::pages::TabAction;
-use crate::pages::TabEntry;
-use crate::pages::TabManager;
-use crate::types::AppContext;
-use crate::widgets::Widget;
-use crate::widgets::WidgetAction;
+use crate::types::AppAction;
 
 pub struct TabView<Ctx: Copy> {
-    manager: TabManager<Ctx>,
-    in_tab: bool,
+    tabs: Vec<TabEntry<Ctx>>,
+    focus: Focus,
+    selected_tab: usize,
 }
 
 impl<Ctx: Copy> TabView<Ctx> {
-    pub fn new(pages: Vec<TabEntry<Ctx>>) -> Self {
+    pub fn new(tabs: Vec<TabEntry<Ctx>>) -> Self {
         Self {
-            manager: TabManager::new(pages),
-            in_tab: false,
+            tabs,
+            focus: Focus::Tabs,
+            selected_tab: 0,
         }
     }
 }
 
-impl<Ctx: Copy> Widget<Ctx> for TabView<Ctx> {
-    fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> WidgetAction {
-        _ = ctx;
+impl<Ctx: Copy> TabView<Ctx> {
+    pub fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> Result<AppAction, KeyCode> {
+        if self.tabs.is_empty() {
+            return Err(code);
+        }
 
-        if self.in_tab {
-            match self.manager.on_key(code, ctx) {
-                TabAction::Exit => {
-                    self.in_tab = false;
-                    WidgetAction::NoAction
+        if self.focus == Focus::Tabs {
+            return match code {
+                KeyCode::Left if self.selected_tab > 0 => {
+                    self.selected_tab -= 1;
+                    Ok(AppAction::NoAction)
                 }
-                TabAction::AppAction(action) => WidgetAction::AppAction(action),
-            }
-        } else {
-            match code {
-                KeyCode::Left => {
-                    self.manager.goto_prev();
-                    WidgetAction::NoAction
+
+                KeyCode::Right if self.selected_tab < (self.tabs.len() - 1) => {
+                    self.selected_tab += 1;
+                    Ok(AppAction::NoAction)
                 }
-                KeyCode::Right => {
-                    self.manager.goto_next();
-                    WidgetAction::NoAction
-                }
-                KeyCode::Up => WidgetAction::GotoPrev,
+
                 KeyCode::Down => {
-                    if self.manager.can_enter() {
-                        self.in_tab = true;
-                        WidgetAction::NoAction
-                    } else {
-                        WidgetAction::GotoNext
-                    }
+                    self.focus = Focus::Content;
+                    return Ok(AppAction::NoAction);
                 }
-                _ => WidgetAction::NoAction,
-            }
+
+                _ => Err(code),
+            };
+        }
+
+        // focus on content
+        match self.tabs[self.selected_tab].item.on_key(code, ctx) {
+            Ok(v) => return Ok(v),
+            Err(k) => match k {
+                KeyCode::Up => {
+                    self.focus = Focus::Tabs;
+                    Ok(AppAction::NoAction)
+                }
+
+                _ => Err(k),
+            },
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: Ctx, in_focus: bool) {
-        let border_style = if in_focus && !self.in_tab {
-            Style::default().fg(Color::Blue)
+    pub fn render(&self, frame: &mut Frame, area: Rect, ctx: Ctx, in_focus: bool) {
+        let border_style = if in_focus && self.focus == Focus::Tabs {
+            Style::reset().fg(Color::Blue)
         } else {
-            Style::default()
+            Style::reset()
         };
 
         // --- draw border ---
@@ -80,35 +81,52 @@ impl<Ctx: Copy> Widget<Ctx> for TabView<Ctx> {
         let inner = block.inner(area);
         frame.render_widget(block, area);
 
+        if self.tabs.is_empty() {
+            frame.render_widget(Line::from("No tabs available"), inner);
+            return;
+        }
+
         // --- draw tabs ---
         let titles = self
-            .manager
+            .tabs
             .iter()
             .map(|t| Line::from(t.title))
             .collect::<Vec<_>>();
 
         let tabs = Tabs::new(titles)
             .highlight_style(
-                Style::default()
+                Style::reset()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD),
             )
-            .select(self.manager.selected_page_pos())
+            .select(self.selected_tab)
             .divider(symbols::DOT)
             .padding(" ", " ")
             .style(border_style);
 
         frame.render_widget(tabs, area + Offset::new(1, 0));
 
-        self.manager
-            .render(frame, inner, ctx, in_focus && self.in_tab);
-    }
-
-    fn constraint(&self) -> Constraint {
-        Constraint::Min(0)
+        self.tabs[self.selected_tab].item.render(
+            frame,
+            inner,
+            ctx,
+            in_focus && self.focus == Focus::Content,
+        );
     }
 }
 
-pub struct ContentWidgetContext {
-    app: *const AppContext,
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Focus {
+    Tabs,
+    Content,
+}
+
+pub struct TabEntry<Ctx> {
+    pub title: &'static str,
+    pub item: Box<dyn TabItem<Ctx>>,
+}
+
+pub trait TabItem<Ctx> {
+    fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> Result<AppAction, KeyCode>;
+    fn render(&self, frame: &mut Frame, area: Rect, ctx: Ctx, in_focus: bool);
 }

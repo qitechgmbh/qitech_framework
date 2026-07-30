@@ -9,92 +9,80 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 
+use crate::MachineEntry;
+use crate::controls::DropDown;
+use crate::types::AppAction;
 use crate::types::AppContext;
-use crate::utils::VerticalCursor;
-use crate::widgets::DropDown;
 use crate::widgets::TabView;
 use crate::widgets::Widget;
-use crate::widgets::WidgetAction;
 
 #[derive(Clone, Copy)]
 struct Context {
     machine: *const MachineEntry,
 }
 
+enum Focus {
+    MachineSelect,
+    MachineTabs,
+}
+
 pub struct MachinesView {
-    cursor: VerticalCursor,
+    focus: Focus,
     drop_down: DropDown,
     machines: TabView<Context>,
 }
 
 impl MachinesView {
     pub fn new() -> Self {
-        Self { 
-            cursor: VerticalCursor::new(),
-            drop_down: (),
-            machines: (),
+        Self {
+            focus: Focus::MachineSelect,
+            drop_down: DropDown::new("machine"),
+            machines: TabView::new(Vec::new()),
         }
     }
 }
 
 impl Widget<AppContext> for MachinesView {
-    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> WidgetAction {
-        _ = ctx;
+    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
+        let machines: &[MachineEntry] = unsafe { &*ctx.machines };
 
-        match code {
-            KeyCode::Up => {
-                if self.cursor.up().is_err() {
-                    // already at top
-                    return WidgetAction::GotoPrev;
+        if machines.is_empty() {
+            return Err(code);
+        }
+
+        match self.focus {
+            Focus::MachineSelect => {
+                let limit = machines.len().saturating_sub(1);
+
+                match self.drop_down.on_key(code, limit) {
+                    Ok(()) => Ok(AppAction::NoAction),
+
+                    Err(KeyCode::Down) => {
+                        self.focus = Focus::MachineTabs;
+                        Ok(AppAction::NoAction)
+                    }
+
+                    Err(k) => Err(k),
                 }
-
-                WidgetAction::NoAction
             }
 
-            KeyCode::Left => WidgetAction::GotoPrev,
-            KeyCode::Right => WidgetAction::GotoNext,
-            _ => WidgetAction::NoAction,
+            Focus::MachineTabs => {
+                let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
+                let ctx = Context { machine };
+
+                match self.machines.on_key(code, ctx) {
+                    Ok(action) => Ok(action),
+
+                    Err(KeyCode::Up) => {
+                        self.focus = Focus::MachineSelect;
+                        Ok(AppAction::NoAction)
+                    }
+
+                    Err(k) => Err(k),
+                }
+            }
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
-        const TITLE: &str = "Status";
-
-        let status = match ctx.rt_status {
-            RuntimeStatus::Offline => "🔴 Offline",
-            RuntimeStatus::DiscoveringEtherCATInterface => "🟡 Discovering EtherCAT Interface",
-            RuntimeStatus::InitializingEtherCAT => "🟡 Initializing EtherCAT",
-            RuntimeStatus::DiscoveringModbusDevices => "🟡 Discovering Modbus RTU Devices",
-            RuntimeStatus::BuildingMachines => "🟡 Building Machines",
-            RuntimeStatus::FinalizingEtherCAT => "🟡 Finalizing EtherCAT",
-            RuntimeStatus::Initialized => "🟢 Initialized",
-            RuntimeStatus::Running { in_pre_op } => {
-                if in_pre_op {
-                    "🔵 Running (Pre-Op)"
-                } else {
-                    "🟢 Running"
-                }
-            }
-        };
-
-        let style = if in_focus {
-            Style::default().fg(Color::Blue)
-        } else {
-            Style::default()
-        };
-
-        let text = format!("Runtime: {}", status);
-        let info = Paragraph::new(text).block(
-            Block::default()
-                .title(TITLE)
-                .borders(Borders::ALL)
-                .border_style(style),
-        );
-
-        frame.render_widget(info, area);
-    }
-
-    fn constraint(&self) -> Constraint {
-        Constraint::Fill(1)
-    }
+    fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {}
 }

@@ -15,10 +15,15 @@ pub enum Focus {
 
 #[derive(Clone, Copy)]
 pub struct AppContext {
-    pub focus: Focus,
     pub rt_status: RuntimeStatus,
     pub schemas: *const HashMap<MachineIdentification, MachineSchema>,
     pub machines: *const [MachineEntry],
+}
+
+impl AppContext {
+    pub fn machines(&self) -> &[MachineEntry] {
+        unsafe { &*self.machines }
+    }
 }
 
 pub enum AppAction {

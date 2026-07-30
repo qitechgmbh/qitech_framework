@@ -12,6 +12,11 @@ pub use crossbeam::HelloHandle as CrossbeamHelloHandle;
 pub use crossbeam::InitHandle as CrossbeamInitHandle;
 pub use crossbeam::RuntimeInitEvent as CrossbeamRuntimeInitEvent;
 
+pub trait RuntimeClient {
+    fn on_event(&mut self, event: RuntimeEvent);
+    fn request(&mut self) -> Option<RuntimeRequest>;
+}
+
 pub trait BridgeBootstrap<B: Bridge> {
     type FinishedPayload;
 
@@ -38,10 +43,10 @@ pub trait BridgeBootstrap<B: Bridge> {
 pub trait Bridge: Sized {
     type Bootstrap: BridgeBootstrap<Self>;
 
-    /// Drains up to `max` currently-buffered requests without blocking.
+    /// Retrieves the next request from the bridge buffer if any
     fn get_request(&mut self) -> Option<RuntimeRequest>;
 
-    /// exports the latest report to the hub
+    /// exports the latest report over the bridge
     fn export(&mut self, data: &RuntimeReport);
 }
 

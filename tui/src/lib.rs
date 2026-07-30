@@ -27,39 +27,51 @@ pub use run::run;
 mod types;
 use types::*;
 
+mod controls;
 mod utils;
 
 mod widgets;
-use widgets::StatusWidget;
-use widgets::TabView;
-use widgets::WidgetManager;
+use widgets::StatusDisplay;
+
+use crate::widgets::TabView;
 
 mod pages;
 
 pub struct App {
     // --- state ---
-    focus: Focus,
+    finished: bool,
+    handle: CrossbeamHandle,
 
     rt_status: RuntimeStatus,
     schemas: HashMap<MachineIdentification, MachineSchema>,
     machines: Vec<MachineEntry>,
 
-    // --- widgets ---
-    widgets: WidgetManager<AppContext>,
+    // --- ui ---
+    focus: Focus,
+    status: StatusDisplay,
+    content: TabView<AppContext>,
 }
 
 impl App {
-    #[allow(clippy::new_without_default)]
-    pub fn new(schemas: HashMap<MachineIdentification, MachineSchema>) -> Self {
+    pub fn init() {
+        
+    }
+
+    pub fn new(
+        schemas: HashMap<MachineIdentification, MachineSchema>,
+        handle: CrossbeamHandle,
+    ) -> Self {
         Self {
-            focus: Focus::Status,
+            handle,
+            finished: false,
             schemas,
             machines: Default::default(),
             rt_status: RuntimeStatus::Offline,
-            widgets: WidgetManager::new(vec![
-                Box::new(StatusWidget),
-                Box::new(ContentWidget::new()),
-            ]),
+
+            // --- ui ---
+            focus: Focus::Status,
+            status: StatusDisplay,
+            content: TabView::new(Vec::new()),
         }
     }
 
@@ -77,24 +89,26 @@ impl App {
         self.widgets.render(frame, inner, self.as_context());
     }
 
-    fn as_context(&self) -> AppContext {
-        AppContext {
-            focus: self.focus,
-            rt_status: self.rt_status,
-            schemas: &self.schemas as *const HashMap<MachineIdentification, MachineSchema>,
-            machines: self.machines.as_slice() as *const [MachineEntry],
+    pub fn on_key(&mut self, code: KeyCode) {
+        if self.focus != Focus::Content {
+            return;
         }
-    }
 
-    pub fn on_key_event(&mut self, code: KeyCode, handle: &mut CrossbeamHandle) {
-        match self.widgets.on_key_event(code, self.as_context()) {
+        let action = match self.content.on_key(code, self.as_context()) {
+            Ok(a) => a,
+            Err(code) => {
+                if code == KeyCode::Char('q') {
+                    self.finished = true;
+                }
+
+                return;
+            }
+        };
+
+        match action {
             AppAction::NoAction => {}
-            AppAction::SetConfig {
-                machine,
-                resource,
-                value,
-            } => {
-                handle.send(RuntimeRequest {
+            AppAction::SetConfig { machine, resource, value } => {
+                self.handle.send(RuntimeRequest {
                     transaction_id: 0,
                     kind: RuntimeRequestKind::SetMachineConfiguration {
                         target: machine,
@@ -192,6 +206,14 @@ impl App {
         ident: MachineIdentificationUnique,
     ) -> Option<&mut MachineEntry> {
         self.machines.iter_mut().find(|m| m.ident == ident)
+    }
+
+    fn as_context(&self) -> AppContext {
+        AppContext {
+            rt_status: self.rt_status,
+            schemas: &self.schemas as *const HashMap<MachineIdentification, MachineSchema>,
+            machines: self.machines.as_slice() as *const [MachineEntry],
+        }
     }
 }
 

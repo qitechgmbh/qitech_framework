@@ -77,7 +77,7 @@ pub fn run(schemas: Vec<&str>, handle: CrossbeamHelloHandle) -> anyhow::Result<(
                 break;
             }
 
-            app.on_key_event(key.code, &mut handle);
+            app.on_key(key.code, &mut handle);
         }
 
         while let Some(report) = handle.recv() {

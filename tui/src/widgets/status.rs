@@ -1,7 +1,6 @@
 use crossterm::event::KeyCode;
 use qitech_framework_common::RuntimeStatus;
 use ratatui::Frame;
-use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Style;
@@ -9,21 +8,18 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 
+use crate::types::AppAction;
 use crate::types::AppContext;
 use crate::widgets::Widget;
-use crate::widgets::WidgetAction;
 
-pub struct StatusWidget;
+pub struct StatusDisplay;
 
-impl Widget<AppContext> for StatusWidget {
-    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> WidgetAction {
+impl Widget<AppContext> for StatusDisplay {
+    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
         _ = ctx;
 
-        match code {
-            KeyCode::Up => WidgetAction::GotoPrev,
-            KeyCode::Down => WidgetAction::GotoNext,
-            _ => WidgetAction::NoAction,
-        }
+        // forward all events
+        Err(code)
     }
 
     fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
@@ -61,9 +57,5 @@ impl Widget<AppContext> for StatusWidget {
         );
 
         frame.render_widget(info, area);
-    }
-
-    fn constraint(&self) -> Constraint {
-        Constraint::Length(3)
     }
 }

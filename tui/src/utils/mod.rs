@@ -18,8 +18,13 @@ impl VerticalCursor {
         return Ok(());
     }
 
-    pub fn down(&mut self, limit: usize) {
-        self.position = (self.position + 1).min(limit);
+    pub fn down(&mut self, limit: usize) -> Result<(), CursorMoveError> {
+        if self.position + 1 > limit {
+            return Err(CursorMoveError);
+        }
+
+        self.position = self.position + 1;
+        Ok(())
     }
 
     pub fn position(&self) -> usize {

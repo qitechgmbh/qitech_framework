@@ -10,91 +10,91 @@ use ratatui::widgets::List;
 use ratatui::widgets::ListItem;
 use ratatui::widgets::ListState;
 
+#[derive(Clone, Copy)]
+enum State {
+    Closed,
+    Open(usize),
+}
+
 pub struct DropDown {
-    title: String,
+    state: State,
+    title: &'static str,
     selected: usize,
-    selection: Option<usize>,
 }
 
 impl DropDown {
-    pub fn new(title: String) -> Self {
-        Self { title, selected: 0, selection: None }
+    pub fn new(title: &'static str) -> Self {
+        Self {
+            title,
+            state: State::Closed,
+            selected: 0,
+        }
     }
 
     pub fn selected(&self) -> usize {
         self.selected
     }
 
-    pub fn select(&self) -> usize {
-        self.selected
-    }
-
-    fn on_key(&mut self, code: KeyCode, limit: usize) -> Result<(), KeyCode> {
-        match code {
-            KeyCode::Up => {
-                if let Some(v) = self.selection {
-                    self.selection = Some((v + 1).min(limit));
+    pub fn on_key(&mut self, code: KeyCode, limit: usize) -> Result<(), KeyCode> {
+        let pos = match self.state {
+            State::Closed => {
+                return if let KeyCode::Enter = code {
+                    self.state = State::Open(self.selected);
                     Ok(())
                 } else {
                     Err(code)
-                }
+                };
+            }
+            State::Open(v) => v,
+        };
+
+        match code {
+            KeyCode::Up => {
+                self.state = State::Open((pos + 1).min(limit));
             }
 
             KeyCode::Down => {
-                if let Some(v) = self.selection {
-                    self.selection = Some(v.saturating_sub(1));
-                    Ok(())
-                } else {
-                    Err(code)
-                }
+                self.state = State::Open(pos.saturating_sub(1));
             }
 
             KeyCode::Enter => {
-                match self.selection {
-                    Some(v) => self.selected = v,
-                    None => self.selection = Some(self.selected),
-                }
-
-                Ok(())
+                self.selected = pos;
+                self.state = State::Closed;
             }
 
-            _ => Err(code),
+            _ => return Err(code),
         }
+
+        Ok(())
     }
 
-    fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        in_focus: bool,
-        variants: Vec<ListItem>,
-    ) {
+    pub fn render(&self, frame: &mut Frame, area: Rect, in_focus: bool, variants: &[ListItem<'_>]) {
         let border_style = if in_focus {
             Style::default().fg(Color::Blue)
         } else {
             Style::default().fg(Color::White)
         };
 
-        if let Some(selection) = self.selection {
+        if let State::Open(selection) = self.state {
             let items: Vec<ListItem> = variants
-                .into_iter()
+                .iter()
                 .enumerate()
                 .map(|(i, item)| {
                     if i == selection {
-                        item.style(
+                        item.clone().style(
                             Style::default()
                                 .fg(Color::Yellow)
                                 .add_modifier(Modifier::BOLD),
                         )
                     } else {
-                        item
+                        item.clone()
                     }
                 })
                 .collect();
 
             let list = List::new(items).block(
                 Block::default()
-                    .title(self.title.clone())
+                    .title(self.title)
                     .borders(Borders::ALL)
                     .border_style(border_style),
             );
