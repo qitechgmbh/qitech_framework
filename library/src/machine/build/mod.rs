@@ -43,7 +43,7 @@ pub type BuildResult<T> = Result<T, BuildError>;
 pub enum BuildError {
     // --- machine errors ---
     #[error("machine required a valid ethercat interface")]
-    UnexpectedMachineIdentification(),
+    UnexpectedMachineIdentification,
 
     // --- hardware errors ---
     #[error("machine required a valid ethercat interface")]

@@ -22,3 +22,9 @@ udev = "0.9.3"
 euclid = "0.22.13"
 bitvec = "1.1.1"
 libc = "0.2.186"
+
+[dev-dependencies]
+approx = "0.5.1"
+
+[features]
+mock-machine = []

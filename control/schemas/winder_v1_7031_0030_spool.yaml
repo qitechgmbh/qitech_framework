@@ -23,13 +23,11 @@ state:
     can_go_home: !boolean
 
   puller:
-    regulation: !enum [speed, diameter]
+    regulation: !enum
       variants: [speed, diameter]
 
     target_speed: !meter_per_minute
     forward: !boolean
-
-    gear_ratio: !?enum [one_to_one, one_to_five, one_to_ten]
 
     gear_ratio: !enum 
       variants: [one_to_one, one_to_five, one_to_ten]
@@ -71,8 +69,6 @@ measurements:
     position: !millimeter
       nullable: true
 
-    position: !?millimeter
-
   puller: 
     speed: !meter_per_minute
       
@@ -83,3 +79,9 @@ measurements:
 
   tension_arm: 
     angle: !degree
+
+commands:
+  traverse:
+    laserpointer:
+      set_enabled: !command
+        enabled: !boolean

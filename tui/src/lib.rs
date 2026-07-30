@@ -13,6 +13,7 @@ use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeRequest;
 use qitech_framework_common::RuntimeRequestKind;
 use qitech_framework_common::RuntimeStatus;
+use qitech_framework_common::schema;
 use qitech_framework_common::schema::ConfigPropertyValue;
 use qitech_framework_common::schema::MeasurementValue;
 use qitech_framework_common::schema::Node;
@@ -91,6 +92,7 @@ impl App {
             focus: self.focus,
             page: self.content.selected_id(),
             rt_status: self.rt_status,
+            schemas: &self.schemas,
             machines: &self.machines,
         };
 
@@ -104,6 +106,7 @@ impl App {
             focus: self.focus,
             page: self.content.selected_id(),
             rt_status: self.rt_status,
+            schemas: &self.schemas,
             machines: &self.machines,
         };
 
@@ -270,12 +273,16 @@ impl App {
         let mut measurements = IndexMap::new();
         collect_measurement_fields("", &schema.measurements, &mut measurements);
 
+        let mut commands = IndexMap::new();
+        collect_command_fields("", &schema.commands, &mut commands);
+
         self.machines.push(MachineEntry {
             title: schema.name.clone(),
             ident: ident_unique,
             config,
             state,
             measurements,
+            commands,
         });
     }
 
@@ -293,6 +300,7 @@ pub struct MachineEntry {
     pub config: IndexMap<String, ConfigField>,
     pub state: IndexMap<String, StateField>,
     pub measurements: IndexMap<String, MeasurementField>,
+    pub commands: IndexMap<String, CommandField>,
 }
 
 pub struct ConfigField {
@@ -308,6 +316,11 @@ pub struct StateField {
 pub struct MeasurementField {
     pub label: String,
     pub value: Option<Option<f64>>,
+}
+
+pub struct CommandField {
+    pub label: String,
+    pub enabled: bool,
 }
 
 // --- utils ---
@@ -394,6 +407,36 @@ fn collect_measurement_fields(
                     MeasurementField {
                         label: path.clone(),
                         value: None,
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn collect_command_fields(
+    prefix: &str,
+    properties: &IndexMap<String, Node<schema::Command>>,
+    fields: &mut IndexMap<String, CommandField>,
+) {
+    for (name, node) in properties {
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}.{name}")
+        };
+
+        match &node.kind {
+            NodeKind::Branch(children) => {
+                collect_command_fields(&path, children, fields);
+            }
+
+            NodeKind::Leaf(_) => {
+                fields.insert(
+                    path.clone(),
+                    CommandField {
+                        label: path.to_string(),
+                        enabled: true,
                     },
                 );
             }

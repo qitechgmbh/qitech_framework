@@ -6,10 +6,10 @@ use qitech_framework::machine::SubscribeContext;
 use qitech_framework::machine::error::ActResult;
 use qitech_framework::machine::error::SubscribeResult;
 
-use super::Winder2;
+use super::Winder_V1;
 use crate::machines::winder_v3::LaserSubscription;
 
-impl Machine for Winder2 {
+impl Machine for Winder_V1 {
     fn act(&mut self) -> ActResult {
         let now = Instant::now();
 

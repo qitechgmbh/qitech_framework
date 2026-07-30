@@ -2,17 +2,17 @@ mod winder2_imports {
     pub use std::time::Instant;
 
     pub use qitech_lib::ethercat_hal::coe::ConfigurableDevice;
-    pub use qitech_lib::ethercat_hal::devices::ek1100::EK1100;
-    pub use qitech_lib::ethercat_hal::devices::el2002::EL2002;
-    pub use qitech_lib::ethercat_hal::devices::el7031::EL7031;
-    pub use qitech_lib::ethercat_hal::devices::el7031::coe::EL7031Configuration;
-    pub use qitech_lib::ethercat_hal::devices::el7031::pdo::EL7031PredefinedPdoAssignment;
-    pub use qitech_lib::ethercat_hal::devices::el7031_0030::EL7031_0030;
-    pub use qitech_lib::ethercat_hal::devices::el7031_0030::coe::EL7031_0030Configuration;
-    pub use qitech_lib::ethercat_hal::devices::el7031_0030::pdo::EL7031_0030PredefinedPdoAssignment;
-    pub use qitech_lib::ethercat_hal::devices::el7031_0030::{self};
-    pub use qitech_lib::ethercat_hal::devices::el7041_0052::EL7041_0052;
-    pub use qitech_lib::ethercat_hal::devices::el7041_0052::coe::EL7041_0052Configuration;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::ek1100::EK1100;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el2002::EL2002;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031::EL7031;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031::coe::EL7031Configuration;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031::pdo::EL7031PredefinedPdoAssignment;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031_0030::EL7031_0030;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031_0030::coe::EL7031_0030Configuration;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031_0030::pdo::EL7031_0030PredefinedPdoAssignment;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7031_0030::{self};
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7041_0052::EL7041_0052;
+    pub use qitech_lib::ethercat_hal::devices::beckhoff_modules::el7041_0052::coe::EL7041_0052Configuration;
     pub use qitech_lib::ethercat_hal::shared_config;
     pub use qitech_lib::ethercat_hal::shared_config::el70x1::EL70x1OperationMode;
     pub use qitech_lib::ethercat_hal::shared_config::el70x1::StmMotorConfiguration;
@@ -23,7 +23,7 @@ mod winder2_imports {
     pub use qitech_lib::units::length::millimeter;
     pub use qitech_lib::units::velocity::meter_per_minute;
 
-    pub use super::super::Winder2;
+    pub use super::super::Winder_V1;
     pub use super::super::Winder2Mode;
     pub use super::super::puller_speed_controller::PullerSpeedController;
     pub use super::super::spool_speed_controller::SpoolSpeedController;
@@ -35,6 +35,7 @@ mod winder2_imports {
 
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::MachineBuild;
+use qitech_framework::machine::error::BuildError;
 use qitech_framework::machine::error::BuildResult;
 use qitech_lib::units::angle::degree;
 use qitech_lib::units::angular_velocity::revolution_per_minute;
@@ -44,6 +45,7 @@ use crate::machines::winder_v3::api::GearRatio;
 use crate::machines::winder_v3::api::Measurements;
 use crate::machines::winder_v3::api::Mode;
 use crate::machines::winder_v3::api::ModeState;
+use crate::machines::winder_v3::api::Mutation;
 use crate::machines::winder_v3::api::PullerRegulationMode;
 use crate::machines::winder_v3::api::PullerState;
 use crate::machines::winder_v3::api::SpoolAutomaticActionMode;
@@ -54,25 +56,21 @@ use crate::machines::winder_v3::api::TensionArmState;
 use crate::machines::winder_v3::api::TraverseState;
 use crate::machines::winder_v3::spool_speed_controller::SpoolSpeedControllerType;
 
-impl MachineBuild for Winder2 {
+impl MachineBuild for Winder_V1 {
     fn build(ctx: BuildContext) -> BuildResult<Self> {
         let ident = ctx.ident_unique().identification;
 
-        if ident == Winder2::MACHINE_IDENTIFICATION {
+        if ident == Winder_V1::MACHINE_IDENTIFICATION {
             Self::new_normal(ctx)
-        } else if ident == Winder2::MACHINE_IDENTIFICATION_7031_SPOOL {
+        } else if ident == Winder_V1::MACHINE_IDENTIFICATION_7031_SPOOL {
             Self::new_winder_spool_7031(ctx)
         } else {
-            // Err(anyhow::anyhow!(
-            //     "Winder2: Unexpected MachineIdentification {:?}!",
-            //     ctx.identification.machine_ident
-            // ))
-            todo!()
+            Err(BuildError::UnexpectedMachineIdentification)
         }
     }
 }
 
-impl Winder2 {
+impl Winder_V1 {
     fn new_normal(mut ctx: BuildContext) -> BuildResult<Self> {
         let _ek1100 = ctx.find_ethercat_device_and_addr::<EK1100>(0)?;
         let el2002 = ctx.find_ethercat_device_and_addr::<EL2002>(1)?;
@@ -99,7 +97,7 @@ impl Winder2 {
         };
 
         let mut b = el7031_0030.0.borrow_mut();
-        (&mut *b).write_config(interface.clone(), el7031_0030.1, &el7031_0030_config)?;
+        (*b).write_config(interface.clone(), el7031_0030.1, &el7031_0030_config)?;
         drop(b);
         interface.enable_dc_sync0(el7031_0030.1)?;
 
@@ -118,7 +116,7 @@ impl Winder2 {
             ..Default::default()
         };
         let mut b = el7031.0.borrow_mut();
-        (&mut *b).write_config(interface.clone(), el7031.1, &el7031_config)?;
+        (*b).write_config(interface.clone(), el7031.1, &el7031_config)?;
         drop(b);
         interface.enable_dc_sync0(el7031.1)?;
 
@@ -135,11 +133,11 @@ impl Winder2 {
             ..Default::default()
         };
         let mut b = el7041.0.borrow_mut();
-        (&mut *b).write_config(interface.clone(), el7041.1, &el7041_config)?;
+        (*b).write_config(interface.clone(), el7041.1, &el7041_config)?;
         drop(b);
         interface.enable_dc_sync0(el7041.1)?;
 
-        let mut new = Self {
+        Ok(Self {
             traverse: el7031.0,
             puller: el7031_0030.0.clone(),
             spool: el7041.0,
@@ -174,10 +172,7 @@ impl Winder2 {
 
             measurements: init_measurements(&mut ctx)?,
             states: init_states(&mut ctx)?,
-        };
-
-        // initialize events
-        Ok(new)
+        })
     }
 
     fn new_winder_spool_7031(mut ctx: BuildContext) -> BuildResult<Self> {
@@ -205,7 +200,7 @@ impl Winder2 {
             ..Default::default()
         };
         let mut b = el7031_0030.0.borrow_mut();
-        (&mut *b).write_config(interface.clone(), el7031_0030.1, &el7031_0030_config)?;
+        (*b).write_config(interface.clone(), el7031_0030.1, &el7031_0030_config)?;
         drop(b);
         interface.enable_dc_sync0(el7031_0030.1)?;
 
@@ -224,7 +219,7 @@ impl Winder2 {
             ..Default::default()
         };
         let mut b = el7031.0.borrow_mut();
-        (&mut *b).write_config(interface.clone(), el7031.1, &el7031_config)?;
+        (*b).write_config(interface.clone(), el7031.1, &el7031_config)?;
         drop(b);
         interface.enable_dc_sync0(el7031.1)?;
 
@@ -243,7 +238,7 @@ impl Winder2 {
             ..Default::default()
         };
         let mut b = el7031_0030_spool.0.borrow_mut();
-        (&mut *b).write_config(
+        (*b).write_config(
             interface.clone(),
             el7031_0030_spool.1,
             &el7031_0030_spool_config,
@@ -251,7 +246,10 @@ impl Winder2 {
         drop(b);
         interface.enable_dc_sync0(el7031_0030_spool.1)?;
 
-        let mut new = Self {
+        // --- register commands ---
+        init_commands(&mut ctx)?;
+
+        Ok(Self {
             traverse: el7031.0,
             puller: el7031_0030.0.clone(),
             spool: el7031_0030_spool.0,
@@ -286,10 +284,7 @@ impl Winder2 {
 
             measurements: init_measurements(&mut ctx)?,
             states: init_states(&mut ctx)?,
-        };
-
-        // initialize events
-        Ok(new)
+        })
     }
 }
 
@@ -404,4 +399,16 @@ fn init_states(ctx: &mut BuildContext) -> BuildResult<States> {
                 .register()?,
         },
     })
+}
+
+fn init_commands(ctx: &mut BuildContext) -> BuildResult<()> {
+    // ctx.command("execute")
+    //     .execute_args(Winder_V1::execute_mutation)
+    //     .register()?;
+
+    ctx.command("traverse.laserpointer.set_enabled")
+        .execute_args(Winder_V1::cmd_enable_traverse_laserpointer)
+        .register()?;
+
+    Ok(())
 }

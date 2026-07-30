@@ -1,3 +1,5 @@
+use std::unreachable;
+
 use crossterm::event::KeyCode;
 use indexmap::IndexMap;
 use ratatui::Frame;
@@ -17,11 +19,13 @@ use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 use ratatui::widgets::Tabs;
 
+use crate::CommandField;
 use crate::ConfigField;
 use crate::MachineEntry;
 use crate::MeasurementField;
 use crate::StateField;
 use crate::pages::Page;
+use crate::pages::machines::execute::CommandArgField;
 use crate::types::AppAction;
 use crate::types::AppContext;
 use crate::types::Focus;
@@ -29,9 +33,17 @@ use crate::types::Focus;
 mod nav;
 use nav::Cursor;
 
+mod config;
+
+mod execute;
+
 enum Mode {
     Navigate,
     Edit { value: String, dirty: bool },
+    Execute { 
+        index: usize,
+        fields: IndexMap<String, CommandArgField>,
+    },
 }
 
 pub struct MachinesPage {
@@ -54,6 +66,17 @@ impl Page for MachinesPage {
 
         self.machine = Some(idx);
         let machine = &ctx.machines[idx];
+
+        // ... execute mode ---
+        if let Mode::Execute { .. } = &mut self.mode {
+            return match code {
+                KeyCode::Esc => {
+                    self.mode = Mode::Navigate;
+                    AppAction::NoAction
+                }
+                _ => AppAction::NoAction
+            }
+        }
 
         // --- edit mode ---
         if let Mode::Edit { value, dirty } = &mut self.mode {
@@ -153,6 +176,21 @@ impl Page for MachinesPage {
                     };
                 }
 
+                if let Cursor::Commands { field } = self.cursor {
+                    let (_, field) = machine.commands.get_index(field).unwrap();
+
+                    let schema = ctx.schemas.get(&machine.ident.identification).expect("msg");
+                    let command = schema.find_command(&field.label).expect("msg");
+
+                    let mut fields = IndexMap::new();
+
+                    for (name, _) in &command.fields {
+                        fields.insert(name.clone(), CommandArgField::Unset);
+                    }
+
+                    self.mode = Mode::Execute { index: 0, fields };
+                }
+
                 AppAction::NoAction
             }
             _ => AppAction::NoAction,
@@ -190,11 +228,69 @@ impl Page for MachinesPage {
             return;
         };
 
-        self.render_machine(frame, chunks[1], ctx, &ctx.machines[idx]);
+        if let Mode::Execute { index, fields } = &self.mode {
+            self.render_command_editor(frame, chunks[1], ctx, *index, fields);
+        } else {
+            self.render_machine(frame, chunks[1], ctx, &ctx.machines[idx]);
+        }
     }
 }
 
 impl MachinesPage {
+    fn render_command_editor(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        ctx: &AppContext,
+        index: usize,
+        fields: &IndexMap<String, CommandArgField>,
+    ) {
+        let Cursor::Commands { field } = self.cursor else {
+            unreachable!()
+        };
+
+        let (_, command) = ctx.machines[field]
+            .commands
+            .get_index(field)
+            .unwrap();
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Magenta))
+            .title(format!(" Parameters: {} ", command.label));
+
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+
+        let rows: Vec<Row> = fields
+            .iter()
+            .enumerate()
+            .map(|(i, (name, value))| {
+                let style = if i == index {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
+                };
+
+                Row::new(vec![
+                    Cell::from(name.clone()),
+                    Cell::from(format!("{value}")),
+                ])
+                .style(style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ],
+        );
+
+        frame.render_widget(table, inner);
+    }
+
     pub fn new() -> Self {
         Self {
             machine: None,
@@ -268,16 +364,79 @@ impl MachinesPage {
         ctx: &AppContext,
         page: &MachineEntry,
     ) {
-        let chunks = Layout::vertical([
-            Constraint::Length(2 + page.config.len() as u16),
-            Constraint::Length(2 + page.state.len() as u16),
-            Constraint::Length(2 + page.measurements.len() as u16),
-        ])
-        .split(chunk);
+        let sections = [
+            ("config", page.config.len()),
+            ("state", page.state.len()),
+            ("measurements", page.measurements.len()),
+            ("commands", page.commands.len()),
+        ];
 
-        self.render_config(frame, chunks[0], ctx, &page.config);
-        self.render_state(frame, chunks[1], ctx, &page.state);
-        self.render_measurement(frame, chunks[2], ctx, &page.measurements);
+        let visible: Vec<_> = sections
+            .iter()
+            .filter(|(_, len)| *len > 0)
+            .collect();
+
+        if visible.is_empty() {
+            return;
+        }
+
+        // First try natural sizes
+        let required: u16 = visible
+            .iter()
+            .map(|(_, len)| *len as u16 + 2) // borders
+            .sum();
+
+        let min_height = 3u16;
+
+        let constraints: Vec<Constraint> = if required <= chunk.height {
+            visible
+                .iter()
+                .map(|(_, len)| Constraint::Length(*len as u16 + 2))
+                .collect()
+        } else {
+            let count = visible.len() as u16;
+
+            // Reserve minimum space for every section
+            let remaining = chunk.height.saturating_sub(min_height * count);
+
+            let total_items: usize = visible.iter().map(|(_, len)| *len).sum();
+
+            visible
+                .iter()
+                .map(|(_, len)| {
+                    let extra = if remaining > 0 {
+                        ((remaining as usize * *len) / total_items) as u16
+                    } else {
+                        0
+                    };
+
+                    Constraint::Length(min_height + extra)
+                })
+                .collect()
+        };
+
+        let chunks = Layout::vertical(constraints).split(chunk);
+
+        let mut i = 0;
+
+        if !page.config.is_empty() {
+            self.render_config(frame, chunks[i], ctx, &page.config);
+            i += 1;
+        }
+
+        if !page.state.is_empty() {
+            self.render_state(frame, chunks[i], ctx, &page.state);
+            i += 1;
+        }
+
+        if !page.measurements.is_empty() {
+            self.render_measurement(frame, chunks[i], ctx, &page.measurements);
+            i += 1;
+        }
+
+        if !page.commands.is_empty() {
+            self.render_commands(frame, chunks[i], ctx, &page.commands);
+        }
     }
 
     fn render_config(
@@ -357,13 +516,31 @@ impl MachinesPage {
             _ => Style::default(),
         };
 
+        let selected = match self.cursor {
+            Cursor::State { field } => field,
+            _ => 0,
+        };
+
+        // Account for borders
+        let visible_rows = chunk.height.saturating_sub(2) as usize;
+
+        // Keep selected item near the middle while scrolling
+        let total_rows = items.len();
+
+        let scroll = selected
+            .saturating_sub(visible_rows / 2)
+            .min(total_rows.saturating_sub(visible_rows));
+
         let rows: Vec<Row> = items
             .iter()
             .enumerate()
+            .skip(scroll)
+            .take(visible_rows)
             .map(|(i, (_, field))| {
-                let style = match self.cursor {
-                    Cursor::State { field } if field == i => Style::default().fg(Color::LightBlue),
-                    _ => Style::default(),
+                let style = if selected == i {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
                 };
 
                 let value = field
@@ -372,7 +549,11 @@ impl MachinesPage {
                     .map(|v| v.to_string())
                     .unwrap_or_else(|| "N/A".to_string());
 
-                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
+                Row::new(vec![
+                    Cell::from(field.label.clone()),
+                    Cell::from(value),
+                ])
+                .style(style)
             })
             .collect();
 
@@ -400,20 +581,37 @@ impl MachinesPage {
         const TITLE: &str = " Measurements ";
 
         let border_style = match ctx.focus {
-            Focus::Content if self.cursor.is_measurement() => Style::default().fg(Color::LightBlue),
+            Focus::Content if self.cursor.is_measurement() => {
+                Style::default().fg(Color::LightBlue)
+            }
             _ => Style::default(),
         };
 
-        // --- measurements ---
+        let selected = match self.cursor {
+            Cursor::Measurement { field } => field,
+            _ => 0,
+        };
+
+        // Account for borders
+        let visible_rows = chunk.height.saturating_sub(2) as usize;
+
+        // Keep selected item near the middle while scrolling
+        let total_rows = items.len();
+
+        let scroll = selected
+            .saturating_sub(visible_rows / 2)
+            .min(total_rows.saturating_sub(visible_rows));
+
         let rows: Vec<Row> = items
             .iter()
             .enumerate()
+            .skip(scroll)
+            .take(visible_rows)
             .map(|(i, (_, field))| {
-                let style = match self.cursor {
-                    Cursor::Measurement { field } if field == i => {
-                        Style::default().fg(Color::LightBlue)
-                    }
-                    _ => Style::default(),
+                let style = if selected == i {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default()
                 };
 
                 let value = match &field.value {
@@ -424,7 +622,55 @@ impl MachinesPage {
                     None => "N/A".to_string(),
                 };
 
-                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
+                Row::new(vec![
+                    Cell::from(field.label.clone()),
+                    Cell::from(value),
+                ])
+                .style(style)
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [Constraint::Percentage(60), Constraint::Percentage(40)],
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style)
+                .title(TITLE),
+        );
+
+        frame.render_widget(table, chunk);
+    }
+
+    fn render_commands(
+        &self,
+        frame: &mut Frame,
+        chunk: Rect,
+        ctx: &AppContext,
+        items: &IndexMap<String, CommandField>,
+    ) {
+        const TITLE: &str = " Commands ";
+
+        let border_style = match ctx.focus {
+            Focus::Content if self.cursor.is_commands() => Style::default().fg(Color::LightBlue),
+            _ => Style::default(),
+        };
+
+        // --- measurements ---
+        let rows: Vec<Row> = items
+            .iter()
+            .enumerate()
+            .map(|(i, (_, field))| {
+                let style = match self.cursor {
+                    Cursor::Commands { field } if field == i => {
+                        Style::default().fg(Color::LightBlue)
+                    }
+                    _ => Style::default(),
+                };
+
+                Row::new(vec![Cell::from(field.label.clone())]).style(style)
             })
             .collect();
 

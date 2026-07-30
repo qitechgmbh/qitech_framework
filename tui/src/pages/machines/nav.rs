@@ -5,6 +5,7 @@ pub enum Cursor {
     Config { field: usize },
     State { field: usize },
     Measurement { field: usize },
+    Commands { field: usize },
 }
 
 impl Cursor {
@@ -18,6 +19,10 @@ impl Cursor {
 
     pub fn is_measurement(&self) -> bool {
         matches!(self, Cursor::Measurement { .. })
+    }
+
+    pub fn is_commands(&self) -> bool {
+        matches!(self, Cursor::Commands { .. })
     }
 
     pub fn up(&mut self, machine: &MachineEntry) -> bool {
@@ -59,6 +64,26 @@ impl Cursor {
                     *self = Cursor::Tab;
                 }
             }
+
+            Cursor::Commands { field } => {
+                if *field > 0 {
+                    *field -= 1;
+                } else if !machine.measurements.is_empty() {
+                    *self = Cursor::Measurement {
+                        field: machine.measurements.len() - 1,
+                    };
+                } else if !machine.state.is_empty() {
+                    *self = Cursor::State {
+                        field: machine.state.len() - 1,
+                    };
+                } else if !machine.config.is_empty() {
+                    *self = Cursor::Config {
+                        field: machine.config.len() - 1,
+                    };
+                } else {
+                    *self = Cursor::Tab;
+                }
+            }
         }
 
         false
@@ -73,6 +98,8 @@ impl Cursor {
                     *self = Cursor::State { field: 0 };
                 } else if !machine.measurements.is_empty() {
                     *self = Cursor::Measurement { field: 0 };
+                } else if !machine.commands.is_empty() {
+                    *self = Cursor::Commands { field: 0 };
                 }
             }
 
@@ -83,6 +110,8 @@ impl Cursor {
                     *self = Cursor::State { field: 0 };
                 } else if !machine.measurements.is_empty() {
                     *self = Cursor::Measurement { field: 0 };
+                } else if !machine.commands.is_empty() {
+                    *self = Cursor::Commands { field: 0 };
                 }
             }
 
@@ -91,11 +120,21 @@ impl Cursor {
                     *field += 1;
                 } else if !machine.measurements.is_empty() {
                     *self = Cursor::Measurement { field: 0 };
+                } else if !machine.commands.is_empty() {
+                    *self = Cursor::Commands { field: 0 };
                 }
             }
 
             Cursor::Measurement { field } => {
                 if *field + 1 < machine.measurements.len() {
+                    *field += 1;
+                } else if !machine.commands.is_empty() {
+                    *self = Cursor::Commands { field: 0 };
+                }
+            }
+
+            Cursor::Commands { field } => {
+                if *field + 1 < machine.commands.len() {
                     *field += 1;
                 }
             }

@@ -1,3 +1,5 @@
+use std::println;
+
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeRequest;
@@ -50,6 +52,15 @@ impl BridgeBootstrap<MockBridge> for MockBridge {
     type FinishedPayload = ();
     fn finish(self) -> Result<MockBridge, BridgeBootstrapError> {
         Ok(self)
+    }
+    
+    fn submit_event(
+        &mut self,
+        state: RuntimeInitEvent<Self::FinishedPayload>,
+    ) -> Result<(), BridgeBootstrapError>
+    {
+        println!("sending event: {state:#?}");
+        Ok(())
     }
 }
 

@@ -16,7 +16,7 @@ mod interface;
 
 mod machines;
 use machines::LaserV1;
-use machines::Winder2;
+use machines::Winder_V1;
 use qitech_framework::runtime::bridge::MockBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
@@ -40,10 +40,10 @@ pub fn main() -> anyhow::Result<()> {
         .requests_per_cycle_max(10)
         .export_interval(Duration::from_secs_f64(1.0 / 4.0))
         .ethercat(ETHERCAT_CONFIG)
-        .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0", laser_ident(1))
-        .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0", laser_ident(2))
+        // .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0", laser_ident(1))
+        // .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0", laser_ident(2))
         .machine::<LaserV1>()
-        .machine::<Winder2>();
+        .machine::<Winder_V1>();
 
     run_tui(config)
 }
@@ -58,7 +58,7 @@ fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
     });
 
     // --- start tui in main thread ---
-    let schemas = vec![LaserV1::SCHEMA, Winder2::SCHEMA];
+    let schemas = vec![LaserV1::SCHEMA, Winder_V1::SCHEMA];
     qitech_framework_tui::run(schemas, handle)
 }
 
@@ -71,14 +71,14 @@ fn run_cli(config: RuntimeConfiguration) -> anyhow::Result<()> {
 const ETHERCAT_CONFIG: EtherCATConfig = {
     let target_cycle_time_us: u64 = 1000;
 
-    let dc_config = DcConfiguration {
+    let dc_config: DcConfiguration = DcConfiguration {
         start_delay: Duration::from_millis(100),
         sync0_period: Duration::from_micros(target_cycle_time_us),
         sync0_shift: Duration::from_micros(target_cycle_time_us / 2),
         target_dc_tick: 500,
     };
 
-    let opt_config = RtOptimizationConfig {
+    let opt_config: RtOptimizationConfig = RtOptimizationConfig {
         ethercat_loop_thread_core: 3,
         ethercat_loop_thread_priority: 99,
         ethercat_io_thread_core: 3,
@@ -87,9 +87,9 @@ const ETHERCAT_CONFIG: EtherCATConfig = {
         lock_memory: true,
     };
 
-    let master_config = MasterConfiguration {
+    let master_config: MasterConfiguration = MasterConfiguration {
         target_cycle_time_us: target_cycle_time_us as usize,
-        tx_rx_config: MasterTxRxConfig::TxRxIoUring,
+        tx_rx_config: qitech_lib::ethercat_hal::MasterTxRxConfig::TxRxIoUring,
         realtime_optimizations: Some(opt_config),
         dc_config,
         wkc_mismatch_threshold: 5,

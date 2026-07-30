@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::println;
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -137,7 +138,6 @@ impl<B: Bridge> Runtime<B> {
             let Some(build) = machine_registry.get(&ident) else {
                 println!("Failed to build machine `{ident_unique}`. No entry");
                 continue;
-                todo!()
                 // bail!("Failed to find registry entry for machine {{{ident}}}");
             };
 

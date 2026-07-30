@@ -20,13 +20,14 @@ use super::PULLER_PORT;
 use super::SPOOL_PORT;
 use super::TRAVERSE_PORT;
 use super::TraverseMode;
-use super::Winder2;
+use super::Winder_V1;
 use super::Winder2Mode;
 use super::api::PullerRegulationMode;
 pub use super::api::SpoolAutomaticActionMode;
+use crate::machines::winder_v3::api::GearRatio;
 use crate::machines::winder_v3::spool_speed_controller;
 
-impl Winder2 {
+impl Winder_V1 {
     /// Implement Spool
     /// called by `act`
     pub fn sync_spool_speed(&mut self, t: Instant) {
@@ -162,72 +163,6 @@ impl Winder2 {
         }
     }
 
-    pub fn update_measurements(&mut self) {
-        let angle_deg = self.tension_arm.get_angle().unwrap();
-
-        // Wrap [270;<360] to [-90; 0]
-        // This is done to reduce flicker in the graphs around the zero point
-        let angle_deg = if angle_deg >= Angle::new::<degree>(270.0) {
-            angle_deg - Angle::new::<degree>(360.0)
-        } else {
-            angle_deg
-        };
-
-        let puller_ref = &mut *self.puller.borrow_mut();
-
-        // Calculate puller speed from current motor steps
-        let steps_per_second = puller_ref.get_speed(PULLER_PORT);
-        let angular_velocity = self
-            .puller_speed_controller
-            .converter
-            .steps_to_angular_velocity(steps_per_second as f64);
-        let motor_speed = self
-            .puller_speed_controller
-            .angular_velocity_to_speed(angular_velocity);
-
-        // Divide by gear ratio to get actual puller/material speed
-        let puller_speed = motor_speed / self.puller_speed_controller.get_gear_ratio().multiplier();
-        let spool_ref = &mut *self.spool.borrow_mut();
-        // Calculate spool RPM from current motor steps (always positive regardless of direction)
-        let spool_rpm = self
-            .spool_step_converter
-            .steps_to_angular_velocity(spool_ref.get_speed(SPOOL_PORT) as f64)
-            .abs();
-
-        // --- write now ---
-        self.measurements
-            .traverse_position
-            .set(self.traverse_controller.get_current_position());
-
-        self.measurements.puller_speed.set(puller_speed.abs());
-        self.measurements.spool_rpm.set(spool_rpm);
-        self.measurements.tension_arm_angle.set(angle_deg);
-        self.measurements
-            .spool_progress
-            .set(self.spool_automatic_action.progress);
-    }
-
-    pub fn update_states(&mut self) {
-        self.update_state_traverse();
-        self.update_state_puller();
-
-        // --- update mode state ---
-        self.states.mode_state.mode.set(self.mode.clone().into());
-        self.states.mode_state.can_wind.set(self.can_wind());
-
-        // --- update tension arm state ---
-        self.states
-            .tension_arm_state
-            .zeroed
-            .set(self.tension_arm.zeroed);
-
-        // --- update spool speed controller state ---
-        self.update_state_spool_speed_controller();
-
-        // --- update spool automatic action state ---
-        self.update_state_spool_automatic_action_state();
-    }
-
     /// Apply the mode changes to the spool
     ///
     /// It contains a transition matrix for atomic changes.
@@ -336,7 +271,7 @@ impl Winder2 {
     }
 
     /// Set gear ratio for winding speed
-    pub fn puller_set_gear_ratio(&mut self, gear_ratio: super::puller_speed_controller::GearRatio) {
+    pub fn puller_set_gear_ratio(&mut self, gear_ratio: GearRatio) {
         self.puller_speed_controller.set_gear_ratio(gear_ratio);
     }
 
@@ -403,140 +338,9 @@ impl Winder2 {
     }
 }
 
-// --- state updates
-impl Winder2 {
-    fn update_state_traverse(&mut self) {
-        // --- precompute traverse state ---
-        let limit_inner = self.traverse_controller.get_limit_inner();
-        let limit_outer = self.traverse_controller.get_limit_outer();
-
-        let is_going_in = self.traverse_controller.is_going_in();
-        let is_going_out = self.traverse_controller.is_going_out();
-        let is_homed = self.traverse_controller.is_homed();
-        let is_traversing = self.traverse_controller.is_traversing();
-
-        let laserpointer = self.laser_enabled;
-        let step_size = self.traverse_controller.get_step_size();
-        let padding = self.traverse_controller.get_padding();
-
-        let can_go_in = self.can_go_in();
-        let can_go_out = self.can_go_out();
-        let can_go_home = self.can_go_home();
-
-        // --- update traverse states ---
-        let s = &mut self.states.traverse_state;
-
-        s.limit_inner.set(limit_inner);
-        s.limit_outer.set(limit_outer);
-
-        s.is_going_in.set(is_going_in);
-        s.is_going_out.set(is_going_out);
-        s.is_homed.set(is_homed);
-        s.is_traversing.set(is_traversing);
-
-        s.laserpointer.set(laserpointer);
-        s.step_size.set(step_size);
-        s.padding.set(padding);
-
-        s.can_go_in.set(can_go_in);
-        s.can_go_out.set(can_go_out);
-        s.can_go_home.set(can_go_home);
-    }
-
-    fn update_state_puller(&mut self) {
-        // --- precompute puller state ---
-        let regulation = self.puller_speed_controller.regulation_mode.clone();
-        let target_speed = self.puller_speed_controller.target_speed;
-        let forward = self.puller_speed_controller.forward;
-        let gear_ratio = self.puller_speed_controller.gear_ratio;
-
-        let adaptive_speed_delta_max = self.puller_speed_controller.adaptive.speed_delta_max();
-        let adaptive_adjustment_distance =
-            self.puller_speed_controller.adaptive.adjustment_distance();
-        let adaptive_change_per_step = self.puller_speed_controller.adaptive.increase_per_step();
-        let allowed_diameter_deviation = self.puller_speed_controller.adaptive.tolerance_limit();
-
-        // --- update puller state ---
-        let s = &mut self.states.puller_state;
-
-        s.regulation.set(regulation);
-        s.target_speed.set(target_speed);
-        s.forward.set(forward);
-        s.gear_ratio.set(gear_ratio);
-
-        s.adaptive_speed_delta_max.set(adaptive_speed_delta_max);
-
-        s.adaptive_adjustment_distance
-            .set(adaptive_adjustment_distance);
-
-        s.adaptive_change_per_step.set(adaptive_change_per_step);
-
-        s.allowed_diameter_deviation.set(allowed_diameter_deviation);
-    }
-
-    fn update_state_spool_speed_controller(&mut self) {
-        // --- precompute spool speed controller state ---
-        let regulation_mode = self.spool_speed_controller.get_type().clone();
-        let minmax_min_speed = self.spool_speed_controller.get_minmax_min_speed();
-        let minmax_max_speed = self.spool_speed_controller.get_minmax_max_speed();
-
-        let adaptive_tension_target = self.spool_speed_controller.get_adaptive_tension_target();
-
-        let adaptive_radius_learning_rate = self
-            .spool_speed_controller
-            .get_adaptive_radius_learning_rate();
-
-        let adaptive_max_speed_multiplier = self
-            .spool_speed_controller
-            .get_adaptive_max_speed_multiplier();
-
-        let adaptive_acceleration_factor = self
-            .spool_speed_controller
-            .get_adaptive_acceleration_factor();
-
-        let adaptive_deacceleration_urgency_multiplier = self
-            .spool_speed_controller
-            .get_adaptive_deacceleration_urgency_multiplier();
-
-        // --- update spool speed controller state ---
-        let s = &mut self.states.spool_speed_controller_state;
-
-        s.regulation_mode.set(regulation_mode);
-        s.minmax_min_speed.set(minmax_min_speed);
-        s.minmax_max_speed.set(minmax_max_speed);
-
-        s.adaptive_tension_target.set(adaptive_tension_target);
-
-        s.adaptive_radius_learning_rate
-            .set(adaptive_radius_learning_rate);
-
-        s.adaptive_max_speed_multiplier
-            .set(adaptive_max_speed_multiplier);
-
-        s.adaptive_acceleration_factor
-            .set(adaptive_acceleration_factor);
-
-        s.adaptive_deacceleration_urgency_multiplier
-            .set(adaptive_deacceleration_urgency_multiplier);
-    }
-
-    fn update_state_spool_automatic_action_state(&mut self) {
-        // --- precompute spool automatic action state ---
-        let spool_required_meters = self.spool_automatic_action.target_length;
-        let spool_automatic_action_mode = self.spool_automatic_action.mode.clone();
-
-        // --- update spool automatic action state ---
-        let s = &mut self.states.spool_automatic_action_state;
-
-        s.spool_required_meters.set(spool_required_meters);
-        s.spool_automatic_action_mode
-            .set(spool_automatic_action_mode);
-    }
-}
-
 // Winder2 Extension
 #[cfg(not(feature = "mock-machine"))]
-impl Winder2 {
+impl Winder_V1 {
     pub fn puller_set_adaptive_max_speed_change_percent(&mut self, value: f64) {
         self.puller_speed_controller
             .adaptive
