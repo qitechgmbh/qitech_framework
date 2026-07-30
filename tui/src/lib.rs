@@ -168,9 +168,7 @@ impl App {
 
     pub fn on_init_event_received<T>(&mut self, event: RuntimeInitEvent<T>) {
         match event {
-            RuntimeInitEvent::EtherCATStateUpdate(_) => {
-
-            }
+            RuntimeInitEvent::EtherCATStateUpdate(_) => {}
             RuntimeInitEvent::EtherCATFinalizing => {
                 self.rt_status = RuntimeStatus::FinalizingEtherCAT;
             }

@@ -10,6 +10,8 @@ mod winder2_imports {
     pub use super::super::puller_speed_controller::PullerRegulationMode;
 }
 
+use qitech_framework::ScalarValue;
+use qitech_framework::machine::TypeWrapper;
 use qitech_framework::machine::error::CommandExecuteResult;
 use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;
@@ -21,13 +23,38 @@ pub use winder2_imports::*;
 
 use crate::machines::winder_v3::spool_speed_controller::SpoolSpeedControllerType;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub enum Mode {
     #[default]
     Standby,
     Hold,
     Pull,
     Wind,
+}
+
+impl TypeWrapper for Mode {
+    type Type = Mode;
+    type Input = Mode;
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Enum(Some(
+            match value {
+                Mode::Standby => "standby",
+                Mode::Pull => "pull",
+                Mode::Hold => "hold",
+                Mode::Wind => "wind",
+            }
+            .to_string(),
+        ))
+    }
+
+    fn convert_input(input: Self::Input) -> Self::Type {
+        input
+    }
+
+    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+        serde_json::from_str(raw)
+    }
 }
 
 impl From<Winder2Mode> for Mode {
@@ -52,7 +79,7 @@ impl From<Mode> for Winder2Mode {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub enum Mutation {
     // Traverse
     /// Position in mm from home point
@@ -138,8 +165,6 @@ pub struct States {
     pub tension_arm_state: TensionArmState,
     /// spool speed controller state
     pub spool_speed_controller_state: SpoolSpeedControllerState,
-    /// Is a Machine Connected?
-    pub puller_reference_machine: StateProperty<Option<u64>>,
 }
 
 pub struct TraverseState {
@@ -191,7 +216,7 @@ pub struct PullerState {
     pub allowed_diameter_deviation: StateProperty<Length>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
 pub enum SpoolAutomaticActionMode {
     #[default]
     NoAction,
@@ -199,14 +224,38 @@ pub enum SpoolAutomaticActionMode {
     Hold,
 }
 
+impl TypeWrapper for SpoolAutomaticActionMode {
+    type Type = SpoolAutomaticActionMode;
+    type Input = SpoolAutomaticActionMode;
+
+    fn into_scalar(value: &Self::Type) -> ScalarValue {
+        ScalarValue::Enum(Some(
+            match value {
+                SpoolAutomaticActionMode::NoAction => "no_action",
+                SpoolAutomaticActionMode::Pull => "pull",
+                SpoolAutomaticActionMode::Hold => "hold",
+            }
+            .to_string(),
+        ))
+    }
+
+    fn convert_input(input: Self::Input) -> Self::Type {
+        input
+    }
+
+    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
+        serde_json::from_str(raw)
+    }
+}
+
 pub struct SpoolAutomaticActionState {
     pub spool_required_meters: StateProperty<Length>,
-    pub spool_automatic_action_mode: SpoolAutomaticActionMode,
+    pub spool_automatic_action_mode: StateProperty<SpoolAutomaticActionMode>,
 }
 
 pub struct ModeState {
     /// mode
-    pub mode: Mode,
+    pub mode: StateProperty<Mode>,
     /// can wind
     pub can_wind: StateProperty<bool>,
 }
@@ -218,7 +267,7 @@ pub struct TensionArmState {
 
 pub struct SpoolSpeedControllerState {
     /// regulation mode
-    pub regulation_mode: SpoolSpeedControllerType,
+    pub regulation_mode: StateProperty<SpoolSpeedControllerType>,
     /// min speed in rpm for minmax mode
     pub minmax_min_speed: StateProperty<AngularVelocity>,
     /// max speed in rpm for minmax mode

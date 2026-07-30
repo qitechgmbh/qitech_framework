@@ -1,5 +1,3 @@
-use std::matches;
-
 use crossterm::event::KeyCode;
 use indexmap::IndexMap;
 use ratatui::Frame;

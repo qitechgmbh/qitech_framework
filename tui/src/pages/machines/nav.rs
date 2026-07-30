@@ -8,10 +8,6 @@ pub enum Cursor {
 }
 
 impl Cursor {
-    pub fn is_tab(&self) -> bool {
-        matches!(self, Cursor::Tab)
-    }
-
     pub fn is_config(&self) -> bool {
         matches!(self, Cursor::Config { .. })
     }
@@ -22,15 +18,6 @@ impl Cursor {
 
     pub fn is_measurement(&self) -> bool {
         matches!(self, Cursor::Measurement { .. })
-    }
-
-    pub fn section_id(&self) -> usize {
-        match self {
-            Cursor::Tab => 0,
-            Cursor::Config { .. } => 1,
-            Cursor::State { .. } => 2,
-            Cursor::Measurement { .. } => 3,
-        }
     }
 
     pub fn up(&mut self, machine: &MachineEntry) -> bool {

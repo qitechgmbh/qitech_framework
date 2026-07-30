@@ -4,6 +4,7 @@ use std::time::Duration;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::Runtime;
 use qitech_framework::machine::MachineInterface;
+use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
 
 mod types;
@@ -15,15 +16,19 @@ mod interface;
 
 mod machines;
 use machines::LaserV1;
-// use machines::WinderV1;
+use machines::Winder2;
 use qitech_framework::runtime::bridge::MockBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
+use qitech_lib::ethercat_hal::DcConfiguration;
+use qitech_lib::ethercat_hal::MasterConfiguration;
+use qitech_lib::ethercat_hal::MasterTxRxConfig;
+use qitech_lib::ethercat_hal::RtOptimizationConfig;
 
 // udevadm info --query=property --name=/dev/ttyUSB0 | grep ID_PATH_TAG
 
 pub fn main() -> anyhow::Result<()> {
-    // interface::bring_up_all_ethernet();
+    interface::bring_up_all_ethernet();
 
     let laser_ident = |serial: u16| MachineIdentificationUnique {
         identification: LaserV1::IDENTIFICATION,
@@ -34,10 +39,16 @@ pub fn main() -> anyhow::Result<()> {
     let config = RuntimeConfiguration::new()
         .requests_per_cycle_max(10)
         .export_interval(Duration::from_secs_f64(1.0 / 4.0))
+        .ethercat(ETHERCAT_CONFIG)
         .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0", laser_ident(1))
         .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0", laser_ident(2))
-        .machine::<LaserV1>();
+        .machine::<LaserV1>()
+        .machine::<Winder2>();
 
+    run_tui(config)
+}
+
+fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
     let (bridge, handle) = CrossbeamBridgeBootstrap::new();
 
     // --- start runtime in new thread ---
@@ -47,11 +58,16 @@ pub fn main() -> anyhow::Result<()> {
     });
 
     // --- start tui in main thread ---
-    let schemas = vec![LaserV1::SCHEMA];
+    let schemas = vec![LaserV1::SCHEMA, Winder2::SCHEMA];
     qitech_framework_tui::run(schemas, handle)
 }
 
-/*
+fn run_cli(config: RuntimeConfiguration) -> anyhow::Result<()> {
+    let rt = Runtime::<MockBridge>::init(config, MockBridge).unwrap();
+    rt.run();
+    Ok(())
+}
+
 const ETHERCAT_CONFIG: EtherCATConfig = {
     let target_cycle_time_us: u64 = 1000;
 
@@ -86,4 +102,3 @@ const ETHERCAT_CONFIG: EtherCATConfig = {
         stay_in_preop: false,
     }
 };
-*/

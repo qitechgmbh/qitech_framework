@@ -35,7 +35,6 @@ use qitech_lib::units::length::millimeter;
 use qitech_lib::units::velocity::meter_per_second;
 
 use crate::converters::angular_step_converter::AngularStepConverter;
-use crate::machines::machine_id;
 use crate::machines::winder_v3::api::Measurements;
 use crate::machines::winder_v3::api::States;
 
@@ -73,7 +72,7 @@ impl Default for SpoolAutomaticAction {
 }
 
 impl MachineInterface for Winder2 {
-    const SCHEMA: &'static str = "lmao";
+    const SCHEMA: &'static str = include_str!("../../../schemas/winder_v1_7031_0030_spool.yaml");
 }
 
 pub struct Winder2 {
@@ -113,12 +112,12 @@ pub struct Winder2 {
 impl Winder2 {
     pub const MACHINE_IDENTIFICATION: MachineIdentification = MachineIdentification {
         vendor_id: vendors::QITECH.id,
-        machine_id: machine_id::WINDER_V1,
+        machine_id: 6,
     };
 
     pub const MACHINE_IDENTIFICATION_7031_SPOOL: MachineIdentification = MachineIdentification {
         vendor_id: vendors::QITECH.id,
-        machine_id: machine_id::WINDER_V1_7031_0030_SPOOL,
+        machine_id: 98,
     };
 
     /// Validates that traverse limits maintain proper constraints:

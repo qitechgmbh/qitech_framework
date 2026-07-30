@@ -1,4 +1,5 @@
-use std::{fs, path::Path};
+use std::fs;
+use std::path::Path;
 
 pub fn resolve_serial_by_path(binding: &str) -> Option<String> {
     let base = Path::new("/dev/serial/by-path");

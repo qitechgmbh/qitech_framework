@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::println;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -118,11 +119,17 @@ where
     }
 
     pub fn register(self) -> BuildResult<StateProperty<T::Type>> {
-        Ok(self.root.resources.state_properties.register::<T>(
+        let res = self.root.resources.state_properties.register::<T>(
             self.root.ident,
-            self.path,
+            self.path.clone(),
             self.initial,
-        )?)
+        );
+
+        if let Err(e) = &res {
+            println!("e: {e} | {}", self.path);
+        }
+
+        Ok(res?)
     }
 }
 

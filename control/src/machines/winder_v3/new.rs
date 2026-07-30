@@ -40,15 +40,19 @@ use qitech_lib::units::angle::degree;
 use qitech_lib::units::angular_velocity::revolution_per_minute;
 pub use winder2_imports::*;
 
+use crate::machines::winder_v3::api::GearRatio;
 use crate::machines::winder_v3::api::Measurements;
+use crate::machines::winder_v3::api::Mode;
 use crate::machines::winder_v3::api::ModeState;
 use crate::machines::winder_v3::api::PullerRegulationMode;
 use crate::machines::winder_v3::api::PullerState;
+use crate::machines::winder_v3::api::SpoolAutomaticActionMode;
 use crate::machines::winder_v3::api::SpoolAutomaticActionState;
 use crate::machines::winder_v3::api::SpoolSpeedControllerState;
 use crate::machines::winder_v3::api::States;
 use crate::machines::winder_v3::api::TensionArmState;
 use crate::machines::winder_v3::api::TraverseState;
+use crate::machines::winder_v3::spool_speed_controller::SpoolSpeedControllerType;
 
 impl MachineBuild for Winder2 {
     fn build(ctx: BuildContext) -> BuildResult<Self> {
@@ -69,7 +73,7 @@ impl MachineBuild for Winder2 {
 }
 
 impl Winder2 {
-    fn new_normal(ctx: BuildContext) -> BuildResult<Self> {
+    fn new_normal(mut ctx: BuildContext) -> BuildResult<Self> {
         let _ek1100 = ctx.find_ethercat_device_and_addr::<EK1100>(0)?;
         let el2002 = ctx.find_ethercat_device_and_addr::<EL2002>(1)?;
         let el7041 = ctx.find_ethercat_device_and_addr::<EL7041_0052>(2)?;
@@ -169,14 +173,14 @@ impl Winder2 {
             laser_subscription: None,
 
             measurements: init_measurements(&mut ctx)?,
-
+            states: init_states(&mut ctx)?,
         };
 
         // initialize events
         Ok(new)
     }
 
-    fn new_winder_spool_7031(ctx: BuildContext) -> BuildResult<Self> {
+    fn new_winder_spool_7031(mut ctx: BuildContext) -> BuildResult<Self> {
         let _ek1100 = ctx.find_ethercat_device_and_addr::<EK1100>(0)?;
         let el2002 = ctx.find_ethercat_device_and_addr::<EL2002>(1)?;
         let el7031_0030_spool = ctx.find_ethercat_device_and_addr::<EL7031_0030>(2)?;
@@ -281,43 +285,7 @@ impl Winder2 {
             laser_subscription: None,
 
             measurements: init_measurements(&mut ctx)?,
-
-            states: States { 
-                traverse_state: TraverseState {
-                    limit_inner: todo!(),
-                    limit_outer: todo!(),
-                    is_going_in: todo!(),
-                    is_going_out: todo!(),
-                    is_homed: todo!(),
-                    is_going_home: todo!(),
-                    is_traversing: todo!(),
-                    laserpointer: todo!(),
-                    step_size: todo!(),
-                    padding: todo!(),
-                    can_go_in: todo!(),
-                    can_go_out: todo!(),
-                    can_go_home: todo!(),
-                },
-                puller_state: PullerState {
-
-                },
-                spool_automatic_action_state: SpoolAutomaticActionState {
-
-                },
-                mode_state: ModeState {
-
-                },
-                tension_arm_state: TensionArmState {
-
-                },
-                spool_speed_controller_state: SpoolSpeedControllerState {
-
-                },
-
-                puller_reference_machine: ctx
-                    .state("puller_reference_machine")
-                    .register()?,
-            }
+            states: init_states(&mut ctx)?,
         };
 
         // initialize events
@@ -325,106 +293,115 @@ impl Winder2 {
     }
 }
 
-fn init_measurements(ctx: &mut BuildContext) -> BuildResult<Measurements> { 
+fn init_measurements(ctx: &mut BuildContext) -> BuildResult<Measurements> {
     Ok(Measurements {
         traverse_position: ctx
-            .measurement::<Option<millimeter>>("traverse_position")
+            .measurement::<Option<millimeter>>("traverse.position")
             .register()?,
 
         puller_speed: ctx
-            .measurement::<meter_per_minute>("puller_speed")
+            .measurement::<meter_per_minute>("puller.speed")
             .register()?,
 
         spool_rpm: ctx
-            .measurement::<revolution_per_minute>("spool_rpm")
+            .measurement::<revolution_per_minute>("spool.rpm")
             .register()?,
 
-        tension_arm_angle: ctx
-            .measurement::<degree>("tension_arm_angle")
-            .register()?,
+        tension_arm_angle: ctx.measurement::<degree>("tension_arm.angle").register()?,
 
-        spool_progress: ctx
-            .measurement::<meter>("spool_progress")
-            .register()?,
+        spool_progress: ctx.measurement::<meter>("spool.progress").register()?,
     })
 }
 
-fn init_states(ctx: &mut BuildContext) -> BuildResult<States> { 
-    Ok(States { 
+fn init_states(ctx: &mut BuildContext) -> BuildResult<States> {
+    Ok(States {
         traverse_state: TraverseState {
-            limit_inner: ctx.state::<millimeter>("limit_inner").register()?,
-            limit_outer: ctx.state::<millimeter>("limit_outer").register()?,
-            is_going_in: ctx.state::<bool>("is_going_in").register()?,
-            is_going_out: ctx.state::<bool>("is_going_out").register()?,
-            is_homed: ctx.state::<bool>("is_homed").register()?,
-            is_going_home: ctx.state::<bool>("is_going_home").register()?,
-            is_traversing: ctx.state::<bool>("is_traversing").register()?,
-            laserpointer: ctx.state::<bool>("laserpointer").register()?,
-            step_size: ctx.state::<millimeter>("step_size").register()?,
-            padding: ctx.state::<millimeter>("padding").register()?,
-            can_go_in: ctx.state::<bool>("can_go_in").register()?,
-            can_go_out: ctx.state::<bool>("can_go_out").register()?,
-            can_go_home: ctx.state::<bool>("can_go_home").register()?,
-        },
-        puller_state: PullerState {
-            regulation: ctx.state::<PullerRegulationMode>("regulation").register()?,
-            target_speed: ctx.state::<meter_per_minute>("target_speed").register()?,
-            forward: ctx.state::<bool>("forward").register()?,
-            gear_ratio: ctx.state::<GearRatio>("gear_ratio").register()?,
-            adaptive_speed_delta_max: ctx.state::<f64>("adaptive_speed_delta_max").register()?,
-            adaptive_adjustment_distance: ctx
-                .state::<millimeter>("adaptive_adjustment_distance")
-                .register()?,
-            adaptive_change_per_step: ctx.state::<f64>("adaptive_change_per_step").register()?,
-            allowed_diameter_deviation: ctx
-                .state::<millimeter>("allowed_diameter_deviation")
-                .register()?,
-        },
-        spool_automatic_action_state: SpoolAutomaticActionState {
-            spool_required_meters: ctx
-                .state::<meter>("spool_required_meters")
-                .register()?,
-            spool_automatic_action_mode: ctx
-                .state::<SpoolAutomaticActionMode>("spool_automatic_action_mode")
-                .register()?,
-        },
-        mode_state: ModeState {
-            mode: ctx.state::<Mode>("mode").register()?,
-            can_wind: ctx.state::<bool>("can_wind").register()?,
-        },
-        tension_arm_state: TensionArmState {
-            zeroed: ctx.state::<bool>("zeroed").register()?,
-        },
-        spool_speed_controller_state: SpoolSpeedControllerState {
-            regulation_mode: ctx
-                .state::<SpoolSpeedControllerType>("regulation_mode")
-                .register()?,
-            minmax_min_speed: ctx
-                .state::<revolution_per_minute>("minmax_min_speed")
-                .register()?,
-            minmax_max_speed: ctx
-                .state::<revolution_per_minute>("minmax_max_speed")
-                .register()?,
-            adaptive_tension_target: ctx
-                .state::<f64>("adaptive_tension_target")
-                .register()?,
-            adaptive_radius_learning_rate: ctx
-                .state::<f64>("adaptive_radius_learning_rate")
-                .register()?,
-            adaptive_max_speed_multiplier: ctx
-                .state::<f64>("adaptive_max_speed_multiplier")
-                .register()?,
-            adaptive_acceleration_factor: ctx
-                .state::<f64>("adaptive_acceleration_factor")
-                .register()?,
-            adaptive_deacceleration_urgency_multiplier: ctx
-                .state::<f64>("adaptive_deacceleration_urgency_multiplier")
-                .register()?,
-            forward: ctx.state::<bool>("forward").register()?,
+            limit_inner: ctx.state::<millimeter>("traverse.limit_inner").register()?,
+            limit_outer: ctx.state::<millimeter>("traverse.limit_outer").register()?,
+            is_going_in: ctx.state::<bool>("traverse.is_going_in").register()?,
+            is_going_out: ctx.state::<bool>("traverse.is_going_out").register()?,
+            is_homed: ctx.state::<bool>("traverse.is_homed").register()?,
+            is_going_home: ctx.state::<bool>("traverse.is_going_home").register()?,
+            is_traversing: ctx.state::<bool>("traverse.is_traversing").register()?,
+            laserpointer: ctx.state::<bool>("traverse.laserpointer").register()?,
+            step_size: ctx.state::<millimeter>("traverse.step_size").register()?,
+            padding: ctx.state::<millimeter>("traverse.padding").register()?,
+            can_go_in: ctx.state::<bool>("traverse.can_go_in").register()?,
+            can_go_out: ctx.state::<bool>("traverse.can_go_out").register()?,
+            can_go_home: ctx.state::<bool>("traverse.can_go_home").register()?,
         },
 
-        puller_reference_machine: ctx
-            .state("puller_reference_machine")
-            .register()?,
+        puller_state: PullerState {
+            regulation: ctx
+                .state::<PullerRegulationMode>("puller.regulation")
+                .register()?,
+            target_speed: ctx
+                .state::<meter_per_minute>("puller.target_speed")
+                .register()?,
+            forward: ctx.state::<bool>("puller.forward").register()?,
+            gear_ratio: ctx.state::<GearRatio>("puller.gear_ratio").register()?,
+            adaptive_speed_delta_max: ctx
+                .state::<f64>("puller.adaptive_speed_delta_max")
+                .register()?,
+            adaptive_adjustment_distance: ctx
+                .state::<millimeter>("puller.adaptive_adjustment_distance")
+                .register()?,
+            adaptive_change_per_step: ctx
+                .state::<f64>("puller.adaptive_change_per_step")
+                .register()?,
+            allowed_diameter_deviation: ctx
+                .state::<millimeter>("puller.allowed_diameter_deviation")
+                .register()?,
+        },
+
+        spool_automatic_action_state: SpoolAutomaticActionState {
+            spool_required_meters: ctx
+                .state::<meter>("spool_automatic_action.spool_required_meters")
+                .register()?,
+            spool_automatic_action_mode: ctx
+                .state::<SpoolAutomaticActionMode>(
+                    "spool_automatic_action.spool_automatic_action_mode",
+                )
+                .register()?,
+        },
+
+        mode_state: ModeState {
+            mode: ctx.state::<Mode>("mode.mode").register()?,
+            can_wind: ctx.state::<bool>("mode.can_wind").register()?,
+        },
+
+        tension_arm_state: TensionArmState {
+            zeroed: ctx.state::<bool>("tension_arm.zeroed").register()?,
+        },
+
+        spool_speed_controller_state: SpoolSpeedControllerState {
+            regulation_mode: ctx
+                .state::<SpoolSpeedControllerType>("spool_speed_controller.regulation_mode")
+                .register()?,
+            minmax_min_speed: ctx
+                .state::<revolution_per_minute>("spool_speed_controller.minmax_min_speed")
+                .register()?,
+            minmax_max_speed: ctx
+                .state::<revolution_per_minute>("spool_speed_controller.minmax_max_speed")
+                .register()?,
+            adaptive_tension_target: ctx
+                .state::<f64>("spool_speed_controller.adaptive_tension_target")
+                .register()?,
+            adaptive_radius_learning_rate: ctx
+                .state::<f64>("spool_speed_controller.adaptive_radius_learning_rate")
+                .register()?,
+            adaptive_max_speed_multiplier: ctx
+                .state::<f64>("spool_speed_controller.adaptive_max_speed_multiplier")
+                .register()?,
+            adaptive_acceleration_factor: ctx
+                .state::<f64>("spool_speed_controller.adaptive_acceleration_factor")
+                .register()?,
+            adaptive_deacceleration_urgency_multiplier: ctx
+                .state::<f64>("spool_speed_controller.adaptive_deacceleration_urgency_multiplier")
+                .register()?,
+            forward: ctx
+                .state::<bool>("spool_speed_controller.forward")
+                .register()?,
+        },
     })
 }

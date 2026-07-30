@@ -135,6 +135,8 @@ impl<B: Bridge> Runtime<B> {
             let ident = ident_unique.identification;
 
             let Some(build) = machine_registry.get(&ident) else {
+                println!("Failed to build machine `{ident_unique}`. No entry");
+                continue;
                 todo!()
                 // bail!("Failed to find registry entry for machine {{{ident}}}");
             };
@@ -146,13 +148,13 @@ impl<B: Bridge> Runtime<B> {
                 hardware.clone(),
             );
 
-            // println!("Building machine `{ident_unique}`");
+            println!("Building machine `{ident_unique}`");
 
             let inner = match (build)(ctx) {
                 Ok(v) => v,
                 Err(e) => {
                     _ = e;
-                    // println!("Failed to build machine: {e}");
+                    println!("Failed to build machine: {e}");
                     continue;
                 }
             };
