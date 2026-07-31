@@ -3,10 +3,12 @@ use std::println;
 use std::rc::Rc;
 use std::time::Instant;
 
+use qitech_framework_common::EtherCATState;
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::link::RuntimeTransport;
 use qitech_framework_common::link::runtime::session;
+use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
@@ -103,10 +105,29 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
+            let state = match controller.app_handle.get_state() {
+                ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
+                ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
+                ethercat_hal::EtherCATState::Init => EtherCATState::Init,
+                ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
+                ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
+                ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+            };
+            session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
+
             session.send_event(RuntimeInitEvent::EtherCATFinalizing)?;
             ethercat::finalize(controller, &mut sub_devices)?;
-        }
 
+            let state = match controller.app_handle.get_state() {
+                ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
+                ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
+                ethercat_hal::EtherCATState::Init => EtherCATState::Init,
+                ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
+                ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
+                ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+            };
+            session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
+        }
         // --- return initialized runtime ---
         session.send_event(RuntimeInitEvent::Finished)?;
 

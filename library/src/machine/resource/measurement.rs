@@ -204,7 +204,7 @@ impl Manager {
 
     // --- export data ---
     // TODO: reset measurements somehow
-    pub fn drain_measurements(&mut self, mut f: impl FnMut(MachineMeasurement)) {
+    pub fn iter(&mut self, mut f: impl FnMut(MachineMeasurement)) {
         for (info, bytes) in self.inner.iter_mut() {
             let info = unsafe { info.as_ref() };
             // we don't know what T is but how to extract it

@@ -1,48 +1,63 @@
 use crossterm::event::KeyCode;
-use qitech_framework_common::RuntimeStatus;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::style::Style;
-use ratatui::widgets::Block;
-use ratatui::widgets::Borders;
-use ratatui::widgets::Paragraph;
 
 use crate::controls::DropDown;
 use crate::types::AppAction;
 use crate::types::AppContext;
 use crate::types::MachineEntry;
 use crate::widgets::TabView;
-use crate::widgets::Widget;
+use crate::widgets::config::ConfigPage;
+use crate::widgets::measurements::MeasurementsPage;
+use crate::widgets::state::StatePage;
+use crate::widgets::tab_view::TabEntry;
+use crate::widgets::tab_view::TabItem;
 
 #[derive(Clone, Copy)]
-struct Context {
-    machine: *const MachineEntry,
+pub struct MachinesContext {
+    pub machine: *const MachineEntry,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Focus {
-    MachineSelect,
-    MachineTabs,
+    Picker,
+    Tabs,
 }
 
 pub struct MachinesView {
     focus: Focus,
     drop_down: DropDown,
-    machines: TabView<Context>,
+    machines: TabView<MachinesContext>,
 }
 
 impl MachinesView {
     pub fn new() -> Self {
+        let config = TabEntry {
+            title: "Config",
+            item: Box::new(ConfigPage::default()),
+        };
+
+        let state = TabEntry {
+            title: "State",
+            item: Box::new(StatePage::default()),
+        };
+
+        let measurements = TabEntry {
+            title: "Measurements",
+            item: Box::new(MeasurementsPage::default()),
+        };
+
         Self {
-            focus: Focus::MachineSelect,
+            focus: Focus::Picker,
             drop_down: DropDown::new("machine"),
-            machines: TabView::new(Vec::new()),
+            machines: TabView::new(true, vec![config, state, measurements]),
         }
     }
 }
 
-impl Widget<AppContext> for MachinesView {
+impl TabItem<AppContext> for MachinesView {
     fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
         let machines: &[MachineEntry] = unsafe { &*ctx.machines };
 
@@ -51,14 +66,14 @@ impl Widget<AppContext> for MachinesView {
         }
 
         match self.focus {
-            Focus::MachineSelect => {
+            Focus::Picker => {
                 let limit = machines.len().saturating_sub(1);
 
                 match self.drop_down.on_key(code, limit) {
                     Ok(()) => Ok(AppAction::NoAction),
 
                     Err(KeyCode::Down) => {
-                        self.focus = Focus::MachineTabs;
+                        self.focus = Focus::Tabs;
                         Ok(AppAction::NoAction)
                     }
 
@@ -66,15 +81,15 @@ impl Widget<AppContext> for MachinesView {
                 }
             }
 
-            Focus::MachineTabs => {
+            Focus::Tabs => {
                 let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
-                let ctx = Context { machine };
+                let ctx = MachinesContext { machine };
 
                 match self.machines.on_key(code, ctx) {
                     Ok(action) => Ok(action),
 
                     Err(KeyCode::Up) => {
-                        self.focus = Focus::MachineSelect;
+                        self.focus = Focus::Picker;
                         Ok(AppAction::NoAction)
                     }
 
@@ -84,5 +99,43 @@ impl Widget<AppContext> for MachinesView {
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {}
+    fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
+        let machines = unsafe { &*ctx.machines };
+
+        let items: Vec<String> = machines
+            .iter()
+            .map(|machine| format!("{} ({})", machine.title.as_str(), machine.ident.serial))
+            .collect();
+
+        let drop_down_height = self.drop_down.rendered_height(&items);
+
+        let chunks = Layout::vertical([
+            Constraint::Length(drop_down_height as u16),
+            Constraint::Min(0),
+        ])
+        .split(area);
+
+        // Render dropdown
+        self.drop_down.render(
+            frame,
+            chunks[0],
+            in_focus && self.focus == Focus::Picker,
+            &items,
+        );
+
+        if machines.is_empty() {
+            return;
+        }
+
+        let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
+        let machines_ctx = MachinesContext { machine };
+
+        // Render remaining area
+        self.machines.render(
+            frame,
+            chunks[1],
+            machines_ctx,
+            in_focus && self.focus == Focus::Tabs,
+        );
+    }
 }

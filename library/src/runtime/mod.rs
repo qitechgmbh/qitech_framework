@@ -115,9 +115,14 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- export report ---
         self.session.send_report(self.report.clone()).unwrap();
 
-        // --- reset buffers ---
+        // --- clear buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
+        self.report.machines.config_mutations.clear();
+        self.report.machines.state_mutations.clear();
+        self.report.machines.measurements.clear();
+        self.report.machines.events.clear();
+        self.report.machines.commands.clear();
 
         // --- reset timer ---
         self.last_export_ts = now;

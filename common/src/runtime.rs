@@ -158,7 +158,9 @@ pub enum RuntimeStatus {
     BuildingMachines,
     FinalizingEtherCAT,
     Initialized,
-    Running { in_pre_op: bool },
+    Running {
+        in_pre_op: bool,
+    },
 }
 
 // --- timing ---

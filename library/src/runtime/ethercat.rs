@@ -9,6 +9,7 @@ use qitech_framework_common::DeviceHardwareIdentificationEthercat;
 use qitech_framework_common::DeviceIdentification;
 use qitech_framework_common::DeviceMachineIdentification;
 use qitech_framework_common::EtherCATDeviceMetadata;
+use qitech_framework_common::EtherCATState;
 use qitech_framework_common::MachineIdentification;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeInitEvent;
@@ -16,7 +17,6 @@ use qitech_framework_common::link::RuntimeTransport;
 use qitech_framework_common::link::runtime::session;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
-use qitech_lib::ethercat_hal::EtherCATState;
 use qitech_lib::ethercat_hal::MetaSubdevice;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use qitech_lib::ethercat_hal::devices::device_from_subdevice_identity_rc;
@@ -52,8 +52,28 @@ pub fn init<T: RuntimeTransport>(
 
     let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
 
+    let state = match controller.app_handle.get_state() {
+        ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
+        ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
+        ethercat_hal::EtherCATState::Init => EtherCATState::Init,
+        ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
+        ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
+        ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+    };
+
+    session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
     session.send_event(RuntimeInitEvent::EtherCATInitializationStarted)?;
     let sub_devices = setup(&controller)?;
+
+    let state = match controller.app_handle.get_state() {
+        ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
+        ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
+        ethercat_hal::EtherCATState::Init => EtherCATState::Init,
+        ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
+        ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
+        ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+    };
+    session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
 
     let devices = read_and_register_identifications(&controller, &sub_devices, hardware_registry);
 
@@ -103,7 +123,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
     // switch into pre op mode
     controller
         .channel
-        .request_state_change(EtherCATState::PreOp)
+        .request_state_change(ethercat_hal::EtherCATState::PreOp)
         .map_err(EtherCATInitializeError::FailedToRequestStateChange)?;
 
     // Require 2 consecutive stable polls (~100 ms) in PreOp before proceeding.
@@ -119,7 +139,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
 
         thread::sleep(Duration::from_millis(50));
 
-        let preop_ready = controller.app_handle.get_state() == EtherCATState::PreOp
+        let preop_ready = controller.app_handle.get_state() == ethercat_hal::EtherCATState::PreOp
             && controller.app_handle.get_subdevice_count() > 0;
 
         if preop_ready {
@@ -170,7 +190,7 @@ pub fn finalize(
     // go into op mode
     controller
         .channel
-        .request_state_change(EtherCATState::Op)
+        .request_state_change(ethercat_hal::EtherCATState::Op)
         .map_err(EtherCATInitializeError::FailedToRequestStateChange)?;
 
     wait_for_op_state(controller)?;

@@ -5,12 +5,17 @@ use ratatui::layout::Rect;
 mod status;
 pub use status::StatusDisplay;
 
-mod tab_view;
+pub mod tab_view;
 pub use tab_view::TabView;
+
+pub mod config;
+pub mod measurements;
+pub mod state;
 
 use crate::types::AppAction;
 
 mod machines_view;
+pub use machines_view::MachinesView;
 
 pub trait Widget<Ctx> {
     fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> Result<AppAction, KeyCode>;

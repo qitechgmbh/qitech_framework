@@ -29,6 +29,7 @@ pub use machine::MachinesReport;
 
 mod runtime;
 pub use runtime::EtherCATDeviceMetadata;
+pub use runtime::EtherCATState;
 pub use runtime::RuntimeEvent;
 pub use runtime::RuntimeInitEvent;
 pub use runtime::RuntimeReport;

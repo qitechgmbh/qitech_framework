@@ -1,4 +1,5 @@
 use crossterm::event::KeyCode;
+use qitech_framework_common::EtherCATState;
 use qitech_framework_common::RuntimeStatus;
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -25,7 +26,7 @@ impl Widget<AppContext> for StatusDisplay {
     fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
         const TITLE: &str = "Status";
 
-        let status = match ctx.rt_status {
+        let runtime = match ctx.rt_status {
             RuntimeStatus::Offline => "🔴 Offline",
             RuntimeStatus::DiscoveringEtherCATInterface => "🟡 Discovering EtherCAT Interface",
             RuntimeStatus::InitializingEtherCAT => "🟡 Initializing EtherCAT",
@@ -42,13 +43,23 @@ impl Widget<AppContext> for StatusDisplay {
             }
         };
 
+        let ethercat = match ctx.ecat_status {
+            EtherCATState::NoInterface => "🔴 No Interface",
+            EtherCATState::Boot => "🟡 Boot",
+            EtherCATState::Init => "🟡 Init",
+            EtherCATState::PreOp => "🔵 PreOp",
+            EtherCATState::PreopPdi => "🟡 PreopPdi",
+            EtherCATState::Op => "🟢 Op",
+        };
+
         let style = if in_focus {
             Style::default().fg(Color::Blue)
         } else {
             Style::default()
         };
 
-        let text = format!("Runtime: {}", status);
+        let text = format!("Runtime:  {}\nEtherCAT: {}", runtime, ethercat);
+
         let info = Paragraph::new(text).block(
             Block::default()
                 .title(TITLE)

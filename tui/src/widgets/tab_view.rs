@@ -16,14 +16,16 @@ pub struct TabView<Ctx: Copy> {
     tabs: Vec<TabEntry<Ctx>>,
     focus: Focus,
     selected_tab: usize,
+    always_switch: bool,
 }
 
 impl<Ctx: Copy> TabView<Ctx> {
-    pub fn new(tabs: Vec<TabEntry<Ctx>>) -> Self {
+    pub fn new(always_switch: bool, tabs: Vec<TabEntry<Ctx>>) -> Self {
         Self {
             tabs,
             focus: Focus::Tabs,
             selected_tab: 0,
+            always_switch,
         }
     }
 }
@@ -57,10 +59,20 @@ impl<Ctx: Copy> TabView<Ctx> {
 
         // focus on content
         match self.tabs[self.selected_tab].item.on_key(code, ctx) {
-            Ok(v) => return Ok(v),
+            Ok(v) => Ok(v),
             Err(k) => match k {
                 KeyCode::Up => {
                     self.focus = Focus::Tabs;
+                    Ok(AppAction::NoAction)
+                }
+
+                KeyCode::Left if self.always_switch && self.selected_tab > 0 => {
+                    self.selected_tab -= 1;
+                    Ok(AppAction::NoAction)
+                }
+
+                KeyCode::Right if self.always_switch && self.selected_tab + 1 < self.tabs.len() => {
+                    self.selected_tab += 1;
                     Ok(AppAction::NoAction)
                 }
 
@@ -101,8 +113,7 @@ impl<Ctx: Copy> TabView<Ctx> {
             )
             .select(self.selected_tab)
             .divider(symbols::DOT)
-            .padding(" ", " ")
-            .style(border_style);
+            .padding(" ", " ");
 
         frame.render_widget(tabs, area + Offset::new(1, 0));
 

@@ -1,13 +1,10 @@
-use std::collections::HashMap;
 use std::io;
 use std::io::Stdout;
 use std::panic;
-use std::println;
 use std::thread;
 use std::time::Duration;
 
-use crossbeam::channel::Receiver;
-use crossbeam::channel::Sender;
+use chrono::Utc;
 use crossbeam::channel::TryRecvError;
 use crossterm::event;
 use crossterm::event::DisableMouseCapture;
@@ -19,33 +16,18 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
-use indexmap::IndexMap;
-use qitech_framework::MachineIdentification;
 use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::ScalarValue;
 use qitech_framework::link::session::handle::ReceiveHello;
-use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
-use qitech_framework_common::RuntimeRequest;
-use qitech_framework_common::RuntimeRequestKind;
 use qitech_framework_common::RuntimeStatus;
 use qitech_framework_common::link::HandleTransport;
-use qitech_framework_common::schema;
-use qitech_framework_common::schema::ConfigPropertyValue;
-use qitech_framework_common::schema::MeasurementValue;
-use qitech_framework_common::schema::Node;
-use qitech_framework_common::schema::NodeKind;
-use qitech_framework_common::schema::StatePropertyValue;
-use ratatui::Frame;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use ratatui::widgets::Block;
-use ratatui::widgets::Borders;
-
-mod types;
 
 mod session;
+mod types;
+mod utils;
 
 mod root;
 use root::UIRoot;
@@ -53,9 +35,7 @@ use root::UIRoot;
 mod controls;
 mod widgets;
 
-
 use crate::session::SessionMessage;
-use crate::types::AppContext;
 use crate::types::AppState;
 use crate::types::MachineEntry;
 
@@ -83,7 +63,6 @@ impl Default for TuiConfiguration {
 }
 
 pub struct Tui {
-    schemas: HashMap<MachineIdentification, MachineSchema>,
     terminal: Terminal<CrosstermBackend<Stdout>>,
     config: TuiConfiguration,
     state: AppState,
@@ -111,10 +90,9 @@ impl Tui {
         let terminal = Terminal::new(backend)?;
 
         Ok(Self {
-            schemas: Default::default(),
             terminal,
             config,
-            state: AppState::default(),
+            state: AppState::new(),
             root: UIRoot::new(),
         })
     }
@@ -125,18 +103,17 @@ impl Tui {
     {
         let (tx, rx) = crossbeam::channel::bounded(128);
 
-        thread::spawn(move || { 
-            session::run(session, tx) 
-        });
+        thread::spawn(move || session::run(session, tx));
 
-        self.terminal.draw(|frame| self.root.render(frame, self.state.as_ctx()))?;
+        self.terminal
+            .draw(|frame| self.root.render(frame, self.state.as_ctx()))?;
 
         loop {
             #[allow(clippy::collapsible_if)]
             if event::poll(Duration::from_millis(50))?
                 && let Event::Key(key) = event::read()?
             {
-                if self.root.on_key(key).is_err() {
+                if self.root.on_key(key, self.state.as_ctx()).is_err() {
                     if key.code == KeyCode::Char('q') {
                         return Ok(());
                     }
@@ -146,36 +123,33 @@ impl Tui {
             match rx.try_recv() {
                 Ok(msg) => match msg {
                     SessionMessage::Schemas(schemas) => {
-                        self.schemas = schemas;
-                    },
+                        self.state.schemas = schemas;
+                    }
                     SessionMessage::InitEvent(event) => {
                         self.on_init_event(event);
-                    },
-                    SessionMessage::Finished => {
-                        
-                    },
-                    SessionMessage::Running => {
-
-                    },
+                    }
+                    SessionMessage::Finished => {}
+                    SessionMessage::Running => {}
                     SessionMessage::Report(report) => {
-                        self.on_report(report);
-                    },
-                    SessionMessage::Disconnected => {
-
-                    },
+                        self.on_report(*report);
+                    }
+                    SessionMessage::Disconnected => {}
                 },
-                Err(TryRecvError::Empty) => {},
+                Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => return Ok(()),
             }
 
             // --- draw ---
-            self.terminal.draw(|frame| self.root.render(frame, self.state.as_ctx()))?;
+            self.terminal
+                .draw(|frame| self.root.render(frame, self.state.as_ctx()))?;
         }
     }
 
     pub fn on_init_event(&mut self, event: RuntimeInitEvent) {
         match event {
-            RuntimeInitEvent::EtherCATStateUpdate(_) => {}
+            RuntimeInitEvent::EtherCATStateUpdate(status) => {
+                self.state.ecat_status = status;
+            }
             RuntimeInitEvent::EtherCATFinalizing => {
                 self.state.rt_status = RuntimeStatus::FinalizingEtherCAT;
             }
@@ -198,7 +172,7 @@ impl Tui {
                 self.state.rt_status = RuntimeStatus::BuildingMachines;
             }
             RuntimeInitEvent::BuiltMachine { ident } => {
-                // self.add_machine(ident);
+                self.state.add_machine(ident);
             }
             RuntimeInitEvent::FailedToBuildMachine { .. } => {}
 
@@ -209,12 +183,13 @@ impl Tui {
             RuntimeInitEvent::Finished => {
                 self.state.rt_status = RuntimeStatus::Initialized;
             }
-
-            _ => {}
         }
     }
 
     pub fn on_report(&mut self, report: RuntimeReport) {
+        self.state.rt_status = RuntimeStatus::Running { in_pre_op: false };
+
+        let timestamp = report.timestamp;
         let report = report.machines;
 
         for mutation in &report.config_mutations {
@@ -250,7 +225,7 @@ impl Tui {
                 continue;
             };
 
-            item.value = Some(*measurement.value);
+            item.values.push(timestamp, *measurement.value);
         }
     }
 

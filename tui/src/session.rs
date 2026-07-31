@@ -13,7 +13,7 @@ pub enum SessionMessage {
     InitEvent(RuntimeInitEvent),
     Finished,
     Running,
-    Report(RuntimeReport),
+    Report(Box<RuntimeReport>),
     Disconnected,
 }
 
@@ -52,7 +52,7 @@ fn wrapped_run<T: HandleTransport>(
     // --- exchange events and keep ui thread free ---
     loop {
         let report = session.recv_report()?;
-        tx.send(SessionMessage::Report(report))
+        tx.send(SessionMessage::Report(Box::new(report)))
             .expect("should not outlive main thread");
     }
 }

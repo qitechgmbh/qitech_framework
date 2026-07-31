@@ -103,7 +103,7 @@ impl Resources {
             report.state_mutations.push(entry);
         });
 
-        self.measurements.drain_measurements(|entry| {
+        self.measurements.iter(|entry| {
             report.measurements.push(entry);
         });
 

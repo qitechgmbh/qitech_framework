@@ -43,6 +43,12 @@ impl Hello {
     }
 }
 
+impl Default for Hello {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum HelloAck {
     Accepted,
