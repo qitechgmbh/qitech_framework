@@ -87,7 +87,7 @@ pub struct RuntimeReport {
 
 // --- event ---
 #[derive(Debug, Clone)]
-pub enum RuntimeInitEvent<FinishedPayload> {
+pub enum RuntimeInitEvent {
     EtherCATStateUpdate(EtherCATState),
     EtherCATFinalizing,
 
@@ -119,7 +119,7 @@ pub enum RuntimeInitEvent<FinishedPayload> {
     },
 
     // --- finished ---
-    Finished(FinishedPayload),
+    Finished,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -52,6 +52,8 @@ pub mod sync;
 pub use sync::HandshakeMessage;
 pub use sync::Hello;
 
+mod link;
+
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
 

@@ -14,11 +14,11 @@ use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::Resources;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
-use crate::runtime::Bridge;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
+use crate::runtime::RuntimeSession;
 use crate::runtime::RuntimeStatus;
-use crate::runtime::bridge::BridgeBootstrap;
+use crate::runtime::bridge::RuntimeSessionHandshake;
 use crate::runtime::config::EtherCATMode;
 use crate::runtime::config::ModbusRtuMode;
 use crate::runtime::error::RuntimeInitializeError;
@@ -28,13 +28,13 @@ use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
 
-impl<B: Bridge> Runtime<B> {
+impl<S: RuntimeSession> Runtime<S> {
     pub fn init(
         config: RuntimeConfiguration,
-        mut bootstrap: B::Bootstrap,
+        mut handshake: S::Handshake,
     ) -> RuntimeInitializeResult<Self> {
         // --- send hello ---
-        bootstrap.send_hello()?;
+        handshake.send_hello()?;
 
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
@@ -51,7 +51,7 @@ impl<B: Bridge> Runtime<B> {
                 ));
             }
 
-            bootstrap.sync_machine(schema_str)?;
+            handshake.sync_machine(schema_str)?;
         }
 
         // --- initialize ethercat ---
@@ -59,14 +59,14 @@ impl<B: Bridge> Runtime<B> {
 
         let (ecat_controller, mut sub_devices) =
             if let EtherCATMode::Enabled(config) = config.ethercat_mode {
-                ethercat::init::<B>(config, &mut bootstrap, &mut hardware_registry)?
+                ethercat::init::<S>(config, &mut handshake, &mut hardware_registry)?
             } else {
                 (None, Default::default())
             };
 
         // --- initialize modbus rtu ---
         if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
-            bootstrap.submit_event(RuntimeInitEvent::ModbusDiscoveryStarted)?;
+            handshake.submit_event(RuntimeInitEvent::ModbusDiscoveryStarted)?;
 
             for (path, ident) in config.bindings {
                 let Some(path) = modbus_rtu::resolve_serial_by_path(&path) else {
@@ -89,11 +89,11 @@ impl<B: Bridge> Runtime<B> {
         }
 
         // --- build machines ---
-        bootstrap.submit_event(RuntimeInitEvent::BuildingMachines)?;
+        handshake.submit_event(RuntimeInitEvent::BuildingMachines)?;
 
         let mut resources = Box::new(Resources::default());
         let machines = Self::init_machines(
-            &mut bootstrap,
+            &mut handshake,
             &machine_registry,
             &hardware_registry,
             ecat_controller.as_ref().map(|v| v.channel.clone()),
@@ -102,7 +102,7 @@ impl<B: Bridge> Runtime<B> {
 
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
-            bootstrap.submit_event(RuntimeInitEvent::EtherCATFinalizing)?;
+            handshake.submit_event(RuntimeInitEvent::EtherCATFinalizing)?;
             ethercat::finalize(controller, &mut sub_devices)?;
         }
 
@@ -117,14 +117,14 @@ impl<B: Bridge> Runtime<B> {
             sub_devices,
             ecat_controller,
             config: config.config,
-            bridge: bootstrap.finish()?,
+            bridge: handshake.complete()?,
             last_export_ts: Instant::now(),
             subscriptions: Default::default(),
         })
     }
 
     fn init_machines(
-        bridge: &mut B::Bootstrap,
+        bridge: &mut S::Handshake,
         machine_registry: &MachineRegistry,
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,

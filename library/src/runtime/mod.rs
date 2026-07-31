@@ -32,9 +32,9 @@ pub use config::RuntimeConfiguration;
 mod request;
 
 pub mod bridge;
-use bridge::Bridge;
+use bridge::RuntimeSession;
 
-pub struct Runtime<B: Bridge> {
+pub struct Runtime<B: RuntimeSession> {
     status: RuntimeStatus,
 
     // // --- registries ---
@@ -57,7 +57,7 @@ pub struct Runtime<B: Bridge> {
     last_export_ts: Instant,
 }
 
-impl<B: Bridge> Runtime<B> {
+impl<B: RuntimeSession> Runtime<B> {
     pub fn run(mut self) {
         loop {
             let now = Instant::now();

@@ -29,17 +29,17 @@ use super::error::RuntimeInitializeError;
 use super::error::RuntimeInitializeResult;
 use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
-use crate::runtime::Bridge;
 use crate::runtime::EtherCATConfig;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
-use crate::runtime::bridge::BridgeBootstrap;
+use crate::runtime::RuntimeSession;
+use crate::runtime::bridge::RuntimeSessionHandshake;
 use crate::runtime::types::HardwareRegistry;
 
 #[tracing::instrument(skip_all)]
-pub fn init<B: Bridge>(
+pub fn init<B: RuntimeSession>(
     config: EtherCATConfig,
-    bootstrap: &mut B::Bootstrap,
+    bootstrap: &mut B::Handshake,
     hardware_registry: &mut HardwareRegistry,
 ) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
     bootstrap.submit_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;

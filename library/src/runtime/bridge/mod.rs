@@ -12,12 +12,24 @@ pub use crossbeam::HelloHandle as CrossbeamHelloHandle;
 pub use crossbeam::InitHandle as CrossbeamInitHandle;
 pub use crossbeam::RuntimeInitEvent as CrossbeamRuntimeInitEvent;
 
-pub trait RuntimeClient {
-    fn on_event(&mut self, event: RuntimeEvent);
-    fn request(&mut self) -> Option<RuntimeRequest>;
+pub trait RuntimeHandle: Sized {
+    type Handshake: RuntimeHandleHandshake<Self>;
+
+    fn submit_request(&mut self, request: RuntimeRequest);
+    fn recv_report(&mut self) -> Option<RuntimeReport>;
 }
 
-pub trait BridgeBootstrap<B: Bridge> {
+pub trait RuntimeHandleHandshake<H: RuntimeHandle> {
+    fn send_hello(&mut self) -> Result<(), RuntimeHandleHandshakeError>;
+
+    fn recv_schema(&mut self, schema: &str) -> Result<(), RuntimeHandleHandshakeError>;
+
+    fn recv_event(&mut self, event: RuntimeInitEvent) -> Result<(), RuntimeHandleHandshakeError>;
+
+    fn complete(self) -> Result<H, RuntimeHandleHandshakeError>;
+}
+
+pub trait RuntimeSessionHandshake<B: RuntimeSession> {
     type FinishedPayload;
 
     fn send_hello(&mut self) -> Result<(), BridgeBootstrapError> {
@@ -37,11 +49,11 @@ pub trait BridgeBootstrap<B: Bridge> {
         Ok(())
     }
 
-    fn finish(self) -> Result<B, BridgeBootstrapError>;
+    fn complete(self) -> Result<B, BridgeBootstrapError>;
 }
 
-pub trait Bridge: Sized {
-    type Bootstrap: BridgeBootstrap<Self>;
+pub trait RuntimeSession: Sized {
+    type Handshake: RuntimeSessionHandshake<Self>;
 
     /// Retrieves the next request from the bridge buffer if any
     fn get_request(&mut self) -> Option<RuntimeRequest>;
@@ -51,11 +63,11 @@ pub trait Bridge: Sized {
 }
 
 // --- mock ---
-pub struct MockBridge;
+pub struct MockSession;
 
-impl BridgeBootstrap<MockBridge> for MockBridge {
+impl RuntimeSessionHandshake<MockSession> for MockSession {
     type FinishedPayload = ();
-    fn finish(self) -> Result<MockBridge, BridgeBootstrapError> {
+    fn complete(self) -> Result<MockSession, BridgeBootstrapError> {
         Ok(self)
     }
 
@@ -68,8 +80,8 @@ impl BridgeBootstrap<MockBridge> for MockBridge {
     }
 }
 
-impl Bridge for MockBridge {
-    type Bootstrap = MockBridge;
+impl RuntimeSession for MockSession {
+    type Handshake = MockSession;
 
     fn get_request(&mut self) -> Option<RuntimeRequest> {
         None

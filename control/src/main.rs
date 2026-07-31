@@ -17,7 +17,7 @@ mod interface;
 mod machines;
 use machines::LaserV1;
 use machines::Winder_V1;
-use qitech_framework::runtime::bridge::MockBridge;
+use qitech_framework::runtime::bridge::MockSession;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
 use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
 use qitech_lib::ethercat_hal::DcConfiguration;
@@ -63,7 +63,7 @@ fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
 }
 
 fn run_cli(config: RuntimeConfiguration) -> anyhow::Result<()> {
-    let rt = Runtime::<MockBridge>::init(config, MockBridge).unwrap();
+    let rt = Runtime::<MockSession>::init(config, MockSession).unwrap();
     rt.run();
     Ok(())
 }

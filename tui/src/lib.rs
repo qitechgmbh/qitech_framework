@@ -7,6 +7,7 @@ use qitech_framework::MachineIdentification;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::ScalarValue;
 use qitech_framework::runtime::bridge::CrossbeamHandle;
+use qitech_framework::runtime::bridge::CrossbeamHelloHandle;
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
@@ -37,10 +38,14 @@ use crate::widgets::TabView;
 
 mod pages;
 
+pub enum AppState {
+    AwaitingHello(CrossbeamHelloHandle),
+    AwaitingSchema(),
+}
+
 pub struct App {
     // --- state ---
     finished: bool,
-    handle: CrossbeamHandle,
 
     rt_status: RuntimeStatus,
     schemas: HashMap<MachineIdentification, MachineSchema>,
@@ -53,16 +58,11 @@ pub struct App {
 }
 
 impl App {
-    pub fn init() {
-        
-    }
-
     pub fn new(
-        schemas: HashMap<MachineIdentification, MachineSchema>,
-        handle: CrossbeamHandle,
+        handle: CrossbeamHelloHandle,
+        // schemas: HashMap<MachineIdentification, MachineSchema>,
     ) -> Self {
         Self {
-            handle,
             finished: false,
             schemas,
             machines: Default::default(),
@@ -107,7 +107,11 @@ impl App {
 
         match action {
             AppAction::NoAction => {}
-            AppAction::SetConfig { machine, resource, value } => {
+            AppAction::SetConfig {
+                machine,
+                resource,
+                value,
+            } => {
                 self.handle.send(RuntimeRequest {
                     transaction_id: 0,
                     kind: RuntimeRequestKind::SetMachineConfiguration {

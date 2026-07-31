@@ -7,8 +7,8 @@ use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeRequest;
 use qitech_framework_common::sync::HelloAck;
 
-use crate::runtime::bridge::Bridge;
-use crate::runtime::bridge::BridgeBootstrap;
+use crate::runtime::bridge::RuntimeSession;
+use crate::runtime::bridge::RuntimeSessionHandshake;
 use crate::runtime::error::BridgeBootstrapError;
 
 // --- payload ---
@@ -35,6 +35,17 @@ impl HelloHandle {
         self.ack_tx.send(HelloAck::Accepted(event_tx)).unwrap();
 
         Ok(InitHandle { event_rx })
+    }
+}
+
+#[derive(Debug)]
+pub struct SyncSchemasHandle {
+    event_rx: Receiver<RuntimeInitEvent>,
+}
+
+impl SyncSchemasHandle {
+    pub fn recv(&mut self) -> RuntimeInitEvent {
+        self.event_rx.recv().unwrap()
     }
 }
 
@@ -67,12 +78,14 @@ impl Handle {
 
 // --- bridge ---
 pub enum CrossbeamBridgeBootstrap {
-    Hello {
-        hello_tx: Sender<Hello>,
-        ack_rx: Receiver<HelloAckPayload>,
-    },
     Initialize {
+        hello_tx: Sender<Hello>,
+        hello_ack_rx: Receiver<HelloAckPayload>,
+
+        schema_tx: Sender<String>,
         event_tx: Sender<RuntimeInitEvent>,
+
+        finish_tx: Sender,
     },
     Running {
         request_rx: Receiver<RuntimeRequest>,
@@ -83,20 +96,30 @@ pub enum CrossbeamBridgeBootstrap {
 impl CrossbeamBridgeBootstrap {
     pub fn new() -> (Self, HelloHandle) {
         let (hello_tx, hello_rx) = crossbeam::channel::unbounded();
-        let (ack_tx, ack_rx) = crossbeam::channel::unbounded();
+        let (hello_ack_tx, hello_ack_rx) = crossbeam::channel::unbounded();
 
-        let bridge = Self::Hello { hello_tx, ack_rx };
-        let handle = HelloHandle { hello_rx, ack_tx };
+        let bridge = Self::Initialize {
+            hello_tx,
+            hello_ack_rx,
+        };
+        let handle = HelloHandle {
+            hello_rx,
+            ack_tx: hello_ack_tx,
+        };
 
         (bridge, handle)
     }
 }
 
-impl BridgeBootstrap<CrossbeamBridge> for CrossbeamBridgeBootstrap {
+impl RuntimeSessionHandshake<CrossbeamBridge> for CrossbeamBridgeBootstrap {
     type FinishedPayload = Handle;
 
     fn send_hello(&mut self) -> Result<(), BridgeBootstrapError> {
-        let CrossbeamBridgeBootstrap::Hello { hello_tx, ack_rx } = self else {
+        let CrossbeamBridgeBootstrap::Initialize {
+            hello_tx,
+            hello_ack_rx: ack_rx,
+        } = self
+        else {
             panic!("Not in hello state anymore");
         };
 
@@ -120,7 +143,7 @@ impl BridgeBootstrap<CrossbeamBridge> for CrossbeamBridgeBootstrap {
         Ok(())
     }
 
-    fn finish(self) -> Result<CrossbeamBridge, BridgeBootstrapError> {
+    fn complete(self) -> Result<CrossbeamBridge, BridgeBootstrapError> {
         let CrossbeamBridgeBootstrap::Initialize { event_tx } = self else {
             panic!("Not in initialize state");
         };
@@ -147,8 +170,8 @@ pub struct CrossbeamBridge {
     report_tx: Sender<RuntimeReport>,
 }
 
-impl Bridge for CrossbeamBridge {
-    type Bootstrap = CrossbeamBridgeBootstrap;
+impl RuntimeSession for CrossbeamBridge {
+    type Handshake = CrossbeamBridgeBootstrap;
 
     fn get_request(&mut self) -> Option<RuntimeRequest> {
         match self.request_rx.try_recv() {

@@ -17,6 +17,8 @@ yaml_serde = { version = "0.10.4", default-features = false, optional = true }
 indexmap = { version = "2", default-features = false, features = ["serde"], optional = true }
 unic-langid = { version = "0.9.6", default-features = false, features = ["serde"], optional = true }
 
+crossbeam = "0.8.4"
+
 [build-dependencies]
 serde = { workspace = true }
 toml = "1.1.2"

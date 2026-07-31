@@ -2041,6 +2041,7 @@ name = "qitech_framework_common"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "crossbeam",
  "indexmap",
  "serde",
  "serde_json",

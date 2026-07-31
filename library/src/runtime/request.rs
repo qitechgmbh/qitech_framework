@@ -3,11 +3,11 @@ use qitech_framework_common::RuntimeRequestKind;
 use crate::Runtime;
 use crate::machine::Machine;
 use crate::machine::SubscribeContext;
-use crate::runtime::Bridge;
+use crate::runtime::RuntimeSession;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 
-impl<B: Bridge> Runtime<B> {
+impl<B: RuntimeSession> Runtime<B> {
     pub fn process_requests(&mut self) {
         for _ in 0..self.config.requests_per_cycle_max {
             let Some(req) = self.bridge.get_request() else {
