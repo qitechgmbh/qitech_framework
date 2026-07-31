@@ -1,7 +1,9 @@
+use std::thread;
 use std::time::Duration;
 
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::Runtime;
+use qitech_framework::link::session;
 use qitech_framework::link::transport::DebugRuntimeTransport;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
@@ -16,6 +18,8 @@ mod interface;
 mod machines;
 use machines::LaserV1;
 use machines::Winder_V1;
+use qitech_framework_tui::Tui;
+use qitech_framework_tui::TuiConfiguration;
 use qitech_lib::ethercat_hal::DcConfiguration;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::ethercat_hal::RtOptimizationConfig;
@@ -28,6 +32,8 @@ pub fn main() -> anyhow::Result<()> {
         serial,
     };
 
+    // TODO: modbus_rtu_device accepts type of modbus device
+
     // --- configure runtime ---
     let config = RuntimeConfiguration::new()
         .requests_per_cycle_max(10)
@@ -38,26 +44,24 @@ pub fn main() -> anyhow::Result<()> {
         .machine::<LaserV1>()
         .machine::<Winder_V1>();
 
-    run_cli(config)
+    run_tui(config)
 }
 
 fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
-    /*
-    let (bridge, handle) = CrossbeamBridgeBootstrap::new();
+    let (session_rt, session_tui) = session::crossbeam::new(64);
 
-    // --- start runtime in new thread ---
     thread::spawn(move || {
-        let rt = Runtime::<CrossbeamBridge>::init(config, bridge).unwrap();
+        let rt = Runtime::init(config, session_rt).unwrap();
         rt.run();
     });
 
-    // --- start tui in main thread ---
-    let schemas = vec![LaserV1::SCHEMA, Winder_V1::SCHEMA];
-    qitech_framework_tui::run(schemas, handle)
-    */
+    let config = TuiConfiguration::new().cycle_time(Duration::from_secs(1));
+
+    let app = Tui::create(config)?;
+    app.run(session_tui)
 }
 
-fn run_cli(config: RuntimeConfiguration) -> anyhow::Result<()> {
+fn run_headless(config: RuntimeConfiguration) -> anyhow::Result<()> {
     let session = DebugRuntimeTransport::start_session();
     let rt = Runtime::init(config, session).unwrap();
     rt.run();

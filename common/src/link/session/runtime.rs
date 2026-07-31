@@ -52,7 +52,8 @@ where
     T: RuntimeTransport,
 {
     pub fn sync_schema(&mut self, schema: MachineSchema) -> Result<(), HandshakeError> {
-        self.transport.send(RuntimeMessage::Schema(Box::new(schema)))?;
+        self.transport
+            .send(RuntimeMessage::Schema(Box::new(schema)))?;
 
         match self.transport.recv()? {
             HandleMessage::SchemaAck => Ok(()),
@@ -63,10 +64,12 @@ where
         }
     }
 
-    pub fn complete(self) -> Initializing<T> {
-        Initializing {
+    pub fn complete(mut self) -> Result<Initializing<T>, HandshakeError> {
+        self.transport.send(RuntimeMessage::Finished)?;
+
+        Ok(Initializing {
             transport: self.transport,
-        }
+        })
     }
 }
 

@@ -1,7 +1,7 @@
 // mod crossbeam;
 pub mod error;
 mod protocol;
-mod session;
+pub mod session;
 
 pub mod transport;
 pub use transport::AsyncTransport;

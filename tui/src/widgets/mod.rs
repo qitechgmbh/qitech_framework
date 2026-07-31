@@ -2,13 +2,13 @@ use crossterm::event::KeyCode;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 
-use crate::types::AppAction;
-
 mod status;
 pub use status::StatusDisplay;
 
 mod tab_view;
 pub use tab_view::TabView;
+
+use crate::types::AppAction;
 
 mod machines_view;
 

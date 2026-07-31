@@ -148,8 +148,9 @@ pub struct RuntimeStateMutation {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum RuntimeStatus {
+    #[default]
     Offline,
     DiscoveringEtherCATInterface,
     InitializingEtherCAT,

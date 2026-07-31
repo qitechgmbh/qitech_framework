@@ -138,17 +138,16 @@ impl Transport for DebugRuntimeTransport {
     }
 
     fn send(&mut self, msg: Self::Out) -> Result<(), TransportError> {
-
         match msg {
             RuntimeMessage::Hello(hello) => println!("{hello:#?}"),
             RuntimeMessage::Schema(schema) => {
                 println!("sending schema for: {:#?}", schema.identification)
-            },
+            }
             RuntimeMessage::InitEvent(event) => println!("{event:#?}"),
             RuntimeMessage::Finished => println!("finished"),
             RuntimeMessage::Report(_) => {
                 println!("sending report");
-            },
+            }
         }
 
         // println!("Sending: {msg:#?}");

@@ -9,10 +9,10 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 
-use crate::MachineEntry;
 use crate::controls::DropDown;
 use crate::types::AppAction;
 use crate::types::AppContext;
+use crate::types::MachineEntry;
 use crate::widgets::TabView;
 use crate::widgets::Widget;
 

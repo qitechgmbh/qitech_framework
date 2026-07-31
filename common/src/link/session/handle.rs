@@ -121,16 +121,17 @@ impl<T> Running<T>
 where
     T: HandleTransport,
 {
+    /// non blocking send
     pub fn send_request(&mut self, request: RuntimeRequest) -> Result<(), HandshakeError> {
         self.transport.send(HandleMessage::Request(request))?;
         Ok(())
     }
 
-    pub fn recv_report(&mut self) -> Result<Option<RuntimeReport>, HandshakeError> {
-        match self.transport.try_recv()? {
-            Some(RuntimeMessage::Report(report)) => Ok(Some(*report)),
-            Some(other) => Err(HandshakeError::UnexpectedMessage(format!("{other:?}"))),
-            None => Ok(None),
+    /// blocking read
+    pub fn recv_report(&mut self) -> Result<RuntimeReport, HandshakeError> {
+        match self.transport.recv()? {
+            RuntimeMessage::Report(report) => Ok(*report),
+            other => Err(HandshakeError::UnexpectedMessage(format!("{other:?}"))),
         }
     }
 }

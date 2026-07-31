@@ -55,7 +55,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         }
 
         // --- initialize ethercat ---
-        let mut session = session.complete();
+        let mut session = session.complete()?;
         let mut hardware_registry = Default::default();
 
         let (ecat_controller, mut sub_devices) =
@@ -108,6 +108,8 @@ impl<T: RuntimeTransport> Runtime<T> {
         }
 
         // --- return initialized runtime ---
+        session.send_event(RuntimeInitEvent::Finished)?;
+
         Ok(Runtime {
             status: RuntimeStatus::Initialized,
             // machine_registry,
@@ -149,13 +151,13 @@ impl<T: RuntimeTransport> Runtime<T> {
                 hardware.clone(),
             );
 
-            println!("Building machine `{ident_unique}`");
+            // println!("Building machine `{ident_unique}`");
 
             let inner = match (build)(ctx) {
                 Ok(v) => v,
                 Err(e) => {
                     _ = e;
-                    println!("Failed to build machine: {e}");
+                    // println!("Failed to build machine: {e}");
                     continue;
                 }
             };

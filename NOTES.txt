@@ -34,3 +34,9 @@ library: 3744
 hub: 2835
 control/machines: 1688
 total: 10702 LoC
+
+
+Hub SocketIO Adapter:
+---------------------
+for each discovered machine store the live_values/state_events structs 
+and when we update them send them out.
