@@ -12,6 +12,8 @@ use qitech_framework_common::EtherCATDeviceMetadata;
 use qitech_framework_common::MachineIdentification;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeInitEvent;
+use qitech_framework_common::link::RuntimeTransport;
+use qitech_framework_common::link::runtime::session;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::EtherCATState;
@@ -32,32 +34,30 @@ use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::runtime::EtherCATConfig;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
-use crate::runtime::RuntimeSession;
-use crate::runtime::bridge::RuntimeSessionHandshake;
 use crate::runtime::types::HardwareRegistry;
 
 #[tracing::instrument(skip_all)]
-pub fn init<B: RuntimeSession>(
+pub fn init<T: RuntimeTransport>(
     config: EtherCATConfig,
-    bootstrap: &mut B::Handshake,
+    session: &mut session::Initializing<T>,
     hardware_registry: &mut HardwareRegistry,
 ) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
-    bootstrap.submit_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
+    session.send_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
 
     let interface = find_interface(config.interface_scan_interval);
 
-    bootstrap.submit_event(RuntimeInitEvent::EtherCATDiscoveryCompleted {
+    session.send_event(RuntimeInitEvent::EtherCATDiscoveryCompleted {
         interface: interface.clone(),
     })?;
 
     let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
 
-    bootstrap.submit_event(RuntimeInitEvent::EtherCATInitializationStarted)?;
+    session.send_event(RuntimeInitEvent::EtherCATInitializationStarted)?;
     let sub_devices = setup(&controller)?;
 
     let devices = read_and_register_identifications(&controller, &sub_devices, hardware_registry);
 
-    bootstrap.submit_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
+    session.send_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
         devices: build_ecat_metadata(&sub_devices, &devices),
     })?;
 

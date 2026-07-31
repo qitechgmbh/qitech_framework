@@ -5,6 +5,8 @@ use std::time::Instant;
 
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
+use qitech_framework_common::link::RuntimeTransport;
+use qitech_framework_common::link::runtime::session;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
@@ -16,9 +18,7 @@ use crate::machine::Resources;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
-use crate::runtime::RuntimeSession;
 use crate::runtime::RuntimeStatus;
-use crate::runtime::bridge::RuntimeSessionHandshake;
 use crate::runtime::config::EtherCATMode;
 use crate::runtime::config::ModbusRtuMode;
 use crate::runtime::error::RuntimeInitializeError;
@@ -28,13 +28,13 @@ use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
 
-impl<S: RuntimeSession> Runtime<S> {
+impl<T: RuntimeTransport> Runtime<T> {
     pub fn init(
         config: RuntimeConfiguration,
-        mut handshake: S::Handshake,
+        session: session::SendHello<T>,
     ) -> RuntimeInitializeResult<Self> {
         // --- send hello ---
-        handshake.send_hello()?;
+        let mut session = session.complete()?;
 
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
@@ -51,22 +51,23 @@ impl<S: RuntimeSession> Runtime<S> {
                 ));
             }
 
-            handshake.sync_machine(schema_str)?;
+            session.sync_schema(schema.clone())?;
         }
 
         // --- initialize ethercat ---
+        let mut session = session.complete();
         let mut hardware_registry = Default::default();
 
         let (ecat_controller, mut sub_devices) =
             if let EtherCATMode::Enabled(config) = config.ethercat_mode {
-                ethercat::init::<S>(config, &mut handshake, &mut hardware_registry)?
+                ethercat::init(config, &mut session, &mut hardware_registry)?
             } else {
                 (None, Default::default())
             };
 
         // --- initialize modbus rtu ---
         if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
-            handshake.submit_event(RuntimeInitEvent::ModbusDiscoveryStarted)?;
+            session.send_event(RuntimeInitEvent::ModbusDiscoveryStarted)?;
 
             for (path, ident) in config.bindings {
                 let Some(path) = modbus_rtu::resolve_serial_by_path(&path) else {
@@ -89,11 +90,11 @@ impl<S: RuntimeSession> Runtime<S> {
         }
 
         // --- build machines ---
-        handshake.submit_event(RuntimeInitEvent::BuildingMachines)?;
+        session.send_event(RuntimeInitEvent::BuildingMachines)?;
 
         let mut resources = Box::new(Resources::default());
         let machines = Self::init_machines(
-            &mut handshake,
+            &mut session,
             &machine_registry,
             &hardware_registry,
             ecat_controller.as_ref().map(|v| v.channel.clone()),
@@ -102,7 +103,7 @@ impl<S: RuntimeSession> Runtime<S> {
 
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
-            handshake.submit_event(RuntimeInitEvent::EtherCATFinalizing)?;
+            session.send_event(RuntimeInitEvent::EtherCATFinalizing)?;
             ethercat::finalize(controller, &mut sub_devices)?;
         }
 
@@ -117,14 +118,14 @@ impl<S: RuntimeSession> Runtime<S> {
             sub_devices,
             ecat_controller,
             config: config.config,
-            bridge: handshake.complete()?,
+            session: session.complete()?,
             last_export_ts: Instant::now(),
             subscriptions: Default::default(),
         })
     }
 
     fn init_machines(
-        bridge: &mut S::Handshake,
+        session: &mut session::Initializing<T>,
         machine_registry: &MachineRegistry,
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,
@@ -164,7 +165,7 @@ impl<S: RuntimeSession> Runtime<S> {
                 inner,
             });
 
-            bridge.submit_event(RuntimeInitEvent::BuiltMachine {
+            session.send_event(RuntimeInitEvent::BuiltMachine {
                 ident: *ident_unique,
             })?;
         }

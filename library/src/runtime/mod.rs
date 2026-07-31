@@ -7,6 +7,8 @@ use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
+use qitech_framework_common::link::RuntimeTransport;
+use qitech_framework_common::link::runtime::session;
 use types::Config;
 use types::MachineInstance;
 
@@ -31,10 +33,7 @@ pub use config::RuntimeConfiguration;
 
 mod request;
 
-pub mod bridge;
-use bridge::RuntimeSession;
-
-pub struct Runtime<B: RuntimeSession> {
+pub struct Runtime<T: RuntimeTransport> {
     status: RuntimeStatus,
 
     // // --- registries ---
@@ -53,11 +52,11 @@ pub struct Runtime<B: RuntimeSession> {
     // --- misc ---
     ecat_controller: Option<EtherCATController>,
     config: Config,
-    bridge: B,
+    session: session::Running<T>,
     last_export_ts: Instant,
 }
 
-impl<B: RuntimeSession> Runtime<B> {
+impl<T: RuntimeTransport> Runtime<T> {
     pub fn run(mut self) {
         loop {
             let now = Instant::now();
@@ -114,7 +113,7 @@ impl<B: RuntimeSession> Runtime<B> {
         self.resources.extract_report(&mut self.report.machines);
 
         // --- export report ---
-        self.bridge.export(&self.report);
+        self.session.send_report(self.report.clone()).unwrap();
 
         // --- reset buffers ---
         self.report.logs.clear();

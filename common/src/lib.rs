@@ -48,11 +48,7 @@ pub use types::OperationResult;
 pub use types::ScalarValue;
 pub use types::ScalarValueKind;
 
-pub mod sync;
-pub use sync::HandshakeMessage;
-pub use sync::Hello;
-
-mod link;
+pub mod link;
 
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));

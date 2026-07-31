@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::link::transport::TransportError;
 
 #[derive(Debug, Error)]
-pub enum RuntimeHandleHandshakeError {
+pub enum HandshakeError {
     #[error("transport error: {0}")]
     Transport(#[from] TransportError),
 

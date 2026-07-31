@@ -1,9 +1,8 @@
-use std::thread;
 use std::time::Duration;
 
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::Runtime;
-use qitech_framework::machine::MachineInterface;
+use qitech_framework::link::transport::DebugRuntimeTransport;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
 
@@ -17,18 +16,12 @@ mod interface;
 mod machines;
 use machines::LaserV1;
 use machines::Winder_V1;
-use qitech_framework::runtime::bridge::MockSession;
-use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridge;
-use qitech_framework::runtime::bridge::crossbeam::CrossbeamBridgeBootstrap;
 use qitech_lib::ethercat_hal::DcConfiguration;
 use qitech_lib::ethercat_hal::MasterConfiguration;
-use qitech_lib::ethercat_hal::MasterTxRxConfig;
 use qitech_lib::ethercat_hal::RtOptimizationConfig;
 
-// udevadm info --query=property --name=/dev/ttyUSB0 | grep ID_PATH_TAG
-
 pub fn main() -> anyhow::Result<()> {
-    // interface::bring_up_all_ethernet();
+    interface::bring_up_all_ethernet();
 
     let laser_ident = |serial: u16| MachineIdentificationUnique {
         identification: LaserV1::IDENTIFICATION,
@@ -38,17 +31,18 @@ pub fn main() -> anyhow::Result<()> {
     // --- configure runtime ---
     let config = RuntimeConfiguration::new()
         .requests_per_cycle_max(10)
-        .export_interval(Duration::from_secs_f64(1.0 / 4.0))
-        // .ethercat(ETHERCAT_CONFIG)
+        .export_interval(Duration::from_secs_f64(1.0))
+        .ethercat(ETHERCAT_CONFIG)
         .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0", laser_ident(1))
         .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0", laser_ident(2))
         .machine::<LaserV1>()
         .machine::<Winder_V1>();
 
-    run_tui(config)
+    run_cli(config)
 }
 
 fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
+    /*
     let (bridge, handle) = CrossbeamBridgeBootstrap::new();
 
     // --- start runtime in new thread ---
@@ -60,10 +54,12 @@ fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
     // --- start tui in main thread ---
     let schemas = vec![LaserV1::SCHEMA, Winder_V1::SCHEMA];
     qitech_framework_tui::run(schemas, handle)
+    */
 }
 
 fn run_cli(config: RuntimeConfiguration) -> anyhow::Result<()> {
-    let rt = Runtime::<MockSession>::init(config, MockSession).unwrap();
+    let session = DebugRuntimeTransport::start_session();
+    let rt = Runtime::init(config, session).unwrap();
     rt.run();
     Ok(())
 }

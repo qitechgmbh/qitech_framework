@@ -32,12 +32,6 @@ pub fn run(schemas: Vec<&str>, handle: CrossbeamHelloHandle) -> anyhow::Result<(
         original(panic_info);
     }));
 
-    let mut schemas_parsed = HashMap::new();
-    for yaml_str in schemas {
-        let schema = MachineSchema::from_yaml_str(yaml_str)?;
-        schemas_parsed.insert(schema.identification, schema);
-    }
-
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
@@ -87,10 +81,48 @@ pub fn run(schemas: Vec<&str>, handle: CrossbeamHelloHandle) -> anyhow::Result<(
         terminal.draw(|frame| app.render(frame))?;
     }
 
-    println!("EXITING");
     Ok(())
 }
 
+fn initialize_session<T: HandleTransport>(
+    session: session::ReceiveHello<T>,
+    tx: Sender<SessionMessage<T>>,
+) {
+    let session = match session.complete() {
+        Ok(v) => v,
+        Err(_) => {
+            tx.send(SessionMessage::Disconnected).expect("Channel full");
+            return;
+        }
+    };
+
+    let mut schemas = HashMap::new();
+    let session = match session.sync(|schema| {
+        schemas.insert(schema.identification, schema);
+        Ok(())
+    }) {
+        Ok(v) => v,
+        Err(_) => {
+            tx.send(SessionMessage::Disconnected).expect("Channel full");
+            return;
+        },
+    };
+
+    let session = match session.complete(|event| {
+        tx.send(SessionMessage::InitEvent(event));
+        Ok(())
+    }) {
+        Ok(v) => v,
+        Err(_) => {
+            tx.send(SessionMessage::Disconnected).expect("Channel full");
+            return;
+        },
+    };
+
+    tx.send(SessionMessage::Finished(session)).expect("Channel full");
+}
+
+// --- clean up ---
 struct TerminalGuard;
 
 impl Drop for TerminalGuard {

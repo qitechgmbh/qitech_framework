@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::MachineSchema;
 use crate::RuntimeInitEvent;
 use crate::RuntimeReport;
 use crate::RuntimeRequest;
@@ -51,10 +52,10 @@ pub enum HelloAck {
 #[derive(Debug)]
 pub enum RuntimeMessage {
     Hello(Hello),
-    Schema(String),
+    Schema(Box<MachineSchema>),
     InitEvent(RuntimeInitEvent),
     Finished,
-    Report(RuntimeReport),
+    Report(Box<RuntimeReport>),
 }
 
 #[derive(Debug)]

@@ -1,8 +1,6 @@
 use qitech_framework_common::MachineIdentification;
+use qitech_framework_common::link::error::HandshakeError;
 use qitech_framework_common::schema::ParseError;
-use qitech_framework_common::sync::SendHelloError;
-use qitech_framework_common::sync::SubmitStateError;
-use qitech_framework_common::sync::SyncRegistryError;
 use thiserror::Error;
 
 pub type RuntimeInitializeResult<T> = Result<T, RuntimeInitializeError>;
@@ -12,7 +10,7 @@ pub type EtherCATInitializeResult<T> = Result<T, EtherCATInitializeError>;
 #[derive(Error, Debug)]
 pub enum RuntimeInitializeError {
     #[error("bridge initialization failed: {0}")]
-    BridgeInitialize(#[from] BridgeBootstrapError),
+    Handshake(#[from] HandshakeError),
 
     #[error("machine already registered: {0:?}")]
     DuplicateMachine(MachineIdentification),
@@ -25,21 +23,6 @@ pub enum RuntimeInitializeError {
 
     #[error("EtherCAT initialization failed")]
     EtherCATError(EtherCATInitializeError),
-}
-
-#[derive(Error, Debug)]
-pub enum BridgeBootstrapError {
-    #[error("bridge disconnected")]
-    BridgeDisconnected,
-
-    #[error("failed to send hello")]
-    SendHello(#[from] SendHelloError),
-
-    #[error("failed to sync registry")]
-    SyncRegistry(#[from] SyncRegistryError),
-
-    #[error("failed to submit state")]
-    SubmitState(#[from] SubmitStateError),
 }
 
 #[derive(Debug)]

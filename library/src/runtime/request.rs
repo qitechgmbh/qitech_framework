@@ -1,16 +1,16 @@
 use qitech_framework_common::RuntimeRequestKind;
+use qitech_framework_common::link::RuntimeTransport;
 
 use crate::Runtime;
 use crate::machine::Machine;
 use crate::machine::SubscribeContext;
-use crate::runtime::RuntimeSession;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 
-impl<B: RuntimeSession> Runtime<B> {
+impl<T: RuntimeTransport> Runtime<T> {
     pub fn process_requests(&mut self) {
         for _ in 0..self.config.requests_per_cycle_max {
-            let Some(req) = self.bridge.get_request() else {
+            let Some(req) = self.session.recv_request().unwrap() else {
                 break;
             };
 

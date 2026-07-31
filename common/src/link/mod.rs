@@ -1,29 +1,24 @@
-use crate::RuntimeReport;
-use crate::RuntimeRequest;
-
-mod crossbeam;
+// mod crossbeam;
 pub mod error;
-mod handle;
 mod protocol;
-mod runtime;
+mod session;
 
-mod transport;
-use transport::AsyncTransport;
-use transport::Transport;
+pub mod transport;
+pub use transport::AsyncTransport;
+pub use transport::HandleTransport;
+pub use transport::MockHandleTransport;
+pub use transport::MockRuntimeTransport;
+pub use transport::RuntimeTransport;
+pub use transport::Transport;
 
-pub trait RuntimeHandle: Sized {
-    type Handshake: RuntimeHandleHandshake<Self>;
-
-    fn submit_request(&mut self, request: RuntimeRequest);
-    fn recv_report(&mut self) -> Option<RuntimeReport>;
+pub mod runtime {
+    pub mod session {
+        pub use crate::link::session::runtime::*;
+    }
 }
 
-pub trait RuntimeHandleHandshake<H: RuntimeHandle> {
-    fn send_hello(&mut self) -> Result<(), RuntimeHandleHandshakeError>;
-
-    fn recv_schema(&mut self, schema: &str) -> Result<(), RuntimeHandleHandshakeError>;
-
-    fn recv_event(&mut self, event: RuntimeInitEvent) -> Result<(), RuntimeHandleHandshakeError>;
-
-    fn complete(self) -> Result<H, RuntimeHandleHandshakeError>;
+pub mod handle {
+    pub mod session {
+        pub use crate::link::session::handle::*;
+    }
 }
