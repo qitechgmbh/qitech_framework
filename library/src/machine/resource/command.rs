@@ -7,9 +7,9 @@ use std::rc::Rc;
 use std::rc::Weak;
 
 use chrono::Utc;
-use qitech_framework_core::MachineCommandCall;
-use qitech_framework_core::MachineIdentificationUnique;
-use qitech_framework_core::OperationResult;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::MachineCommandCall;
+use qitech_framework_core::report::OperationResult;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
@@ -221,7 +221,7 @@ pub enum ExecuteError {
 // --- testing ---
 #[cfg(test)]
 mod test {
-    use qitech_framework_core::MachineIdentification;
+    use qitech_framework_core::ident::MachineIdentification;
     use serde::Deserialize;
     use serde::Serialize;
 

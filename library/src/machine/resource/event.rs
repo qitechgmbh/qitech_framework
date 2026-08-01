@@ -8,8 +8,8 @@ use std::rc::Rc;
 use std::rc::Weak;
 
 use chrono::Utc;
-use qitech_framework_core::MachineEmittedEvent;
-use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::MachineEmittedEvent;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -261,7 +261,7 @@ pub type EventEmitResult = Result<(), serde_json::Error>;
 // --- testing ---
 #[cfg(test)]
 mod test {
-    use qitech_framework_core::MachineIdentification;
+    use qitech_framework_core::ident::MachineIdentification;
     use serde::Deserialize;
 
     use super::*;

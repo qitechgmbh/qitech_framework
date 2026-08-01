@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::session::transport::TransportError;
+pub use crate::session::transport::TransportError;
 
 #[derive(Debug, Error)]
 pub enum SessionRecvError {
@@ -51,6 +51,9 @@ pub enum HelloMatchError {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum SchemaSyncError {
+    #[error("duplicate item")]
+    DuplicateItem,
+
     #[error("unsupported QMS version")]
     UnsupportedQmsVersion,
 

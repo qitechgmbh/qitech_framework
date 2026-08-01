@@ -66,3 +66,6 @@ measurements:
 -> expose both:
    - lifetime statistics
    - visible/window statistics (for graph zoom range)
+
+
+config property can_write

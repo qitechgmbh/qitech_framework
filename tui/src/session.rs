@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use crossbeam::channel::Sender;
 use qitech_framework::MachineIdentification;
 use qitech_framework::session::ControllerTransport;
-use qitech_framework::session::handle::session;
-use qitech_framework_core::MachineSchema;
-use qitech_framework_core::RuntimeInitEvent;
-use qitech_framework_core::RuntimeReport;
+use qitech_framework::session::controller::SessionHandshake;
+use qitech_framework::session::error::SchemaSyncError;
+use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::schema::MachineSchema;
 
 pub enum SessionMessage {
     Schemas(HashMap<MachineIdentification, MachineSchema>),
@@ -17,15 +18,15 @@ pub enum SessionMessage {
     Disconnected,
 }
 
-pub fn run<T: HandleTransport>(session: session::ReceiveHello<T>, tx: Sender<SessionMessage>) {
+pub fn run<T: ControllerTransport>(session: SessionHandshake<T>, tx: Sender<SessionMessage>) {
     if wrapped_run(session, &tx).is_err() {
         tx.send(SessionMessage::Disconnected)
             .expect("should not outlive main thread");
     }
 }
 
-fn wrapped_run<T: HandleTransport>(
-    session: session::ReceiveHello<T>,
+fn wrapped_run<T: ControllerTransport>(
+    session: SessionHandshake<T>,
     tx: &Sender<SessionMessage>,
 ) -> anyhow::Result<()> {
     let session = session.complete()?;
@@ -34,7 +35,7 @@ fn wrapped_run<T: HandleTransport>(
     let mut schemas = HashMap::new();
     let session = session.sync(|schema| {
         if schemas.insert(schema.identification, schema).is_some() {
-            return Err("duplicate entry".to_string());
+            return Err(SchemaSyncError::DuplicateItem);
         }
 
         Ok(())

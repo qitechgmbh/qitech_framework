@@ -5,10 +5,10 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
-use qitech_framework_core::MachineIdentificationUnique;
-use qitech_framework_core::RuntimeReport;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::session;
+use qitech_framework_core::session::runtime::SessionRunning;
 use types::Config;
 use types::MachineInstance;
 
@@ -20,7 +20,7 @@ mod types;
 pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
-pub use types::RuntimeStatus;
+use types::RuntimeStatus;
 
 mod ethercat;
 mod init;
@@ -52,7 +52,7 @@ pub struct Runtime<T: RuntimeTransport> {
     // --- misc ---
     ecat_controller: Option<EtherCATController>,
     config: Config,
-    session: session::Running<T>,
+    session: SessionRunning<T>,
     last_export_ts: Instant,
 }
 

@@ -3,11 +3,12 @@ use std::println;
 use std::rc::Rc;
 use std::time::Instant;
 
-use qitech_framework_core::EtherCATState;
-use qitech_framework_core::MachineSchema;
-use qitech_framework_core::RuntimeInitEvent;
+use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::session;
+use qitech_framework_core::session::runtime::SessionHandshake;
+use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::modbus::ModbusDevice;
@@ -33,7 +34,7 @@ use crate::runtime::types::MachineInstance;
 impl<T: RuntimeTransport> Runtime<T> {
     pub fn init(
         config: RuntimeConfiguration,
-        session: session::SendHello<T>,
+        session: SessionHandshake<T>,
     ) -> RuntimeInitializeResult<Self> {
         // --- send hello ---
         let mut session = session.complete()?;
@@ -53,7 +54,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ));
             }
 
-            session.sync_schema(schema.clone())?;
+            session.sync(schema.clone())?;
         }
 
         // --- initialize ethercat ---
@@ -69,7 +70,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- initialize modbus rtu ---
         if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
-            session.send_event(RuntimeInitEvent::ModbusDiscoveryStarted)?;
+            session.send_event(RuntimeInitEvent::ModbusRTUDiscoveryStarted)?;
 
             for (path, ident) in config.bindings {
                 let Some(path) = modbus_rtu::resolve_serial_by_path(&path) else {
@@ -106,12 +107,12 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
             let state = match controller.app_handle.get_state() {
-                ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
-                ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
-                ethercat_hal::EtherCATState::Init => EtherCATState::Init,
-                ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
-                ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
-                ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+                ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
+                ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
+                ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
+                ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
+                ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
+                ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
             };
             session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
 
@@ -119,12 +120,12 @@ impl<T: RuntimeTransport> Runtime<T> {
             ethercat::finalize(controller, &mut sub_devices)?;
 
             let state = match controller.app_handle.get_state() {
-                ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
-                ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
-                ethercat_hal::EtherCATState::Init => EtherCATState::Init,
-                ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
-                ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
-                ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+                ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
+                ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
+                ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
+                ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
+                ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
+                ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
             };
             session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
         }
@@ -148,7 +149,7 @@ impl<T: RuntimeTransport> Runtime<T> {
     }
 
     fn init_machines(
-        session: &mut session::Initializing<T>,
+        session: &mut SessionInitializing<T>,
         machine_registry: &MachineRegistry,
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,

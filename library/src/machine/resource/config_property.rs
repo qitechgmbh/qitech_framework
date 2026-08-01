@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use chrono::Utc;
-use qitech_framework_core::MachineConfigMutation;
-use qitech_framework_core::MachineIdentificationUnique;
-use qitech_framework_core::OperationOrigin;
-use qitech_framework_core::OperationResult;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::MachineConfigMutation;
+use qitech_framework_core::report::OperationOrigin;
+use qitech_framework_core::report::OperationResult;
 use qitech_framework_core::with_uom_quantities;
 use thiserror::Error;
 

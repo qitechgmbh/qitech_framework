@@ -1,4 +1,4 @@
-use qitech_framework_core::MachineIdentification;
+use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::schema::ParseError;
 use qitech_framework_core::session::error::HandshakeError;
 use thiserror::Error;

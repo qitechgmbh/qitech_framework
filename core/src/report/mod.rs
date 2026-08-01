@@ -6,7 +6,6 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::ident::DeviceIdentification;
 use crate::ident::MachineIdentificationUnique;
 
 mod machines;
@@ -23,8 +22,10 @@ pub use logs::LogRecord;
 pub use logs::LogSource;
 
 mod init;
+pub use init::EtherCATDeviceMetadata;
 pub use init::EtherCATStatus;
 pub use init::RuntimeInitEvent;
+pub use init::RuntimeInitStatus;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RuntimeReport {
@@ -114,16 +115,6 @@ pub struct StatsReport {
 }
 
 // --- misc ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EtherCATDeviceMetadata {
-    pub configured_address: u16,
-    pub name: String,
-    pub vendor_id: u32,
-    pub product_id: u32,
-    pub revision: u32,
-    pub device_identification: DeviceIdentification,
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum OperationOrigin {
     Request { request_id: u64 },

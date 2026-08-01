@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use clickhouse::Client;
 use clickhouse::Row;
-use qitech_framework_core::MachineIdentification;
+use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::MachineSchema;
 use serde::Deserialize;
 

@@ -1,4 +1,4 @@
-use qitech_framework_core::MachineSchema;
+use qitech_framework_core::schema::MachineSchema;
 
 pub fn main() {
     let data = include_str!("mock.yaml");

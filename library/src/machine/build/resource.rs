@@ -121,7 +121,7 @@ where
     pub fn register(self) -> BuildResult<StateProperty<T::Type>> {
         let res = self.root.resources.state_properties.register::<T>(
             self.root.ident,
-            self.path.clone(),
+            self.path,
             self.initial,
         );
 

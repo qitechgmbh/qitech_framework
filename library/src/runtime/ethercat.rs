@@ -4,17 +4,17 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use qitech_framework_core::DeviceHardwareIdentification;
-use qitech_framework_core::DeviceHardwareIdentificationEthercat;
-use qitech_framework_core::DeviceIdentification;
-use qitech_framework_core::DeviceMachineIdentification;
-use qitech_framework_core::EtherCATDeviceMetadata;
-use qitech_framework_core::EtherCATState;
-use qitech_framework_core::MachineIdentification;
-use qitech_framework_core::MachineIdentificationUnique;
-use qitech_framework_core::RuntimeInitEvent;
+use qitech_framework_core::ident::DeviceHardwareIdentification;
+use qitech_framework_core::ident::DeviceHardwareIdentificationEthercat;
+use qitech_framework_core::ident::DeviceIdentification;
+use qitech_framework_core::ident::DeviceMachineIdentification;
+use qitech_framework_core::ident::MachineIdentification;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::EtherCATDeviceMetadata;
+use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::session;
+use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::MetaSubdevice;
@@ -39,7 +39,7 @@ use crate::runtime::types::HardwareRegistry;
 #[tracing::instrument(skip_all)]
 pub fn init<T: RuntimeTransport>(
     config: EtherCATConfig,
-    session: &mut session::Initializing<T>,
+    session: &mut SessionInitializing<T>,
     hardware_registry: &mut HardwareRegistry,
 ) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
     session.send_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
@@ -53,12 +53,12 @@ pub fn init<T: RuntimeTransport>(
     let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
 
     let state = match controller.app_handle.get_state() {
-        ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
-        ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
-        ethercat_hal::EtherCATState::Init => EtherCATState::Init,
-        ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
-        ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
-        ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+        ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
+        ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
+        ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
+        ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
+        ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
+        ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
     };
 
     session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
@@ -66,12 +66,12 @@ pub fn init<T: RuntimeTransport>(
     let sub_devices = setup(&controller)?;
 
     let state = match controller.app_handle.get_state() {
-        ethercat_hal::EtherCATState::NoInterface => EtherCATState::NoInterface,
-        ethercat_hal::EtherCATState::Boot => EtherCATState::Boot,
-        ethercat_hal::EtherCATState::Init => EtherCATState::Init,
-        ethercat_hal::EtherCATState::PreOp => EtherCATState::PreOp,
-        ethercat_hal::EtherCATState::PreopPdi => EtherCATState::PreopPdi,
-        ethercat_hal::EtherCATState::Op => EtherCATState::Op,
+        ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
+        ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
+        ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
+        ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
+        ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
+        ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
     };
     session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
 

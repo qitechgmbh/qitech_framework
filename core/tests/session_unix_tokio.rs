@@ -102,8 +102,9 @@ fn runtime(path: String) {
                     events: Default::default(),
                     logs: Default::default(),
                 };
-                
-                session.send_report(report)
+
+                session
+                    .send_report(report)
                     .expect("[Runtime] Couldn't send report");
 
                 break;
@@ -174,7 +175,9 @@ fn controller(path: String) {
             .await
             .expect("[Controller] send failed");
 
-        let report = session.recv_report().await
+        let report = session
+            .recv_report()
+            .await
             .expect("[Controller] couldn't recv report");
 
         println!("received report: {report:#?}");

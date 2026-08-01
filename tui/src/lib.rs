@@ -4,7 +4,6 @@ use std::panic;
 use std::thread;
 use std::time::Duration;
 
-use chrono::Utc;
 use crossbeam::channel::TryRecvError;
 use crossterm::event;
 use crossterm::event::DisableMouseCapture;
@@ -17,11 +16,11 @@ use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::session::session::controller::ReceiveHello;
-use qitech_framework_core::RuntimeInitEvent;
-use qitech_framework_core::RuntimeReport;
-use qitech_framework_core::RuntimeStatus;
-use qitech_framework_core::session::HandleTransport;
+use qitech_framework::session::ControllerTransport;
+use qitech_framework::session::controller::SessionHandshake;
+use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::report::RuntimeInitStatus;
+use qitech_framework_core::report::RuntimeReport;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -38,6 +37,7 @@ mod widgets;
 use crate::session::SessionMessage;
 use crate::types::AppState;
 use crate::types::MachineEntry;
+use crate::types::RuntimeStatus;
 
 pub struct TuiConfiguration {
     cycle_time: Duration,
@@ -97,9 +97,9 @@ impl Tui {
         })
     }
 
-    pub fn run<T>(mut self, session: ReceiveHello<T>) -> anyhow::Result<()>
+    pub fn run<T>(mut self, session: SessionHandshake<T>) -> anyhow::Result<()>
     where
-        T: HandleTransport + Send + 'static,
+        T: ControllerTransport + Send + 'static,
     {
         let (tx, rx) = crossbeam::channel::bounded(128);
 
@@ -146,48 +146,23 @@ impl Tui {
     }
 
     pub fn on_init_event(&mut self, event: RuntimeInitEvent) {
+        self.state.rt_status = RuntimeStatus::Initializing(RuntimeInitStatus::from(&event));
+
         match event {
             RuntimeInitEvent::EtherCATStateUpdate(status) => {
                 self.state.ecat_status = status;
             }
-            RuntimeInitEvent::EtherCATFinalizing => {
-                self.state.rt_status = RuntimeStatus::FinalizingEtherCAT;
-            }
-            RuntimeInitEvent::EtherCATDiscoveryStarted => {
-                self.state.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
-            }
-            RuntimeInitEvent::EtherCATDiscoveryCompleted { .. } => {
-                self.state.rt_status = RuntimeStatus::Initialized;
-            }
-            RuntimeInitEvent::EtherCATInitializationStarted => {
-                self.state.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
-            }
-            RuntimeInitEvent::EtherCATDeviceInitializationFailed { .. } => {
-                self.state.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
-            }
-            RuntimeInitEvent::EtherCATDeviceInitializationCompleted { .. } => {
-                self.state.rt_status = RuntimeStatus::DiscoveringEtherCATInterface;
-            }
-            RuntimeInitEvent::BuildingMachines => {
-                self.state.rt_status = RuntimeStatus::BuildingMachines;
-            }
+
             RuntimeInitEvent::BuiltMachine { ident } => {
                 self.state.add_machine(ident);
             }
-            RuntimeInitEvent::FailedToBuildMachine { .. } => {}
 
-            RuntimeInitEvent::ModbusDiscoveryStarted => {
-                self.state.rt_status = RuntimeStatus::DiscoveringModbusDevices;
-            }
-
-            RuntimeInitEvent::Finished => {
-                self.state.rt_status = RuntimeStatus::Initialized;
-            }
+            _ => {}
         }
     }
 
     pub fn on_report(&mut self, report: RuntimeReport) {
-        self.state.rt_status = RuntimeStatus::Running { in_pre_op: false };
+        self.state.rt_status = RuntimeStatus::Running;
 
         let timestamp = report.timestamp;
         let report = report.machines;

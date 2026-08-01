@@ -2020,7 +2020,7 @@ dependencies = [
  "crossbeam",
  "heapless 0.9.3",
  "postcard",
- "qitech_framework_common",
+ "qitech_framework_core",
  "qitech_framework_macros",
  "qitech_lib",
  "serde",
@@ -2036,7 +2036,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "qitech_framework_common"
+name = "qitech_framework_core"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -2062,7 +2062,7 @@ name = "qitech_framework_macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
- "qitech_framework_common",
+ "qitech_framework_core",
  "quote",
  "syn 3.0.3",
 ]
@@ -2080,7 +2080,7 @@ dependencies = [
  "indexmap",
  "postcard",
  "qitech_framework",
- "qitech_framework_common",
+ "qitech_framework_core",
  "qitech_lib",
  "ratatui",
  "serde",

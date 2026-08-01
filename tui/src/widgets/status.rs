@@ -1,6 +1,6 @@
 use crossterm::event::KeyCode;
-use qitech_framework_core::EtherCATState;
-use qitech_framework_core::RuntimeStatus;
+use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::RuntimeInitStatus;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
@@ -11,6 +11,7 @@ use ratatui::widgets::Paragraph;
 
 use crate::types::AppAction;
 use crate::types::AppContext;
+use crate::types::RuntimeStatus;
 use crate::widgets::Widget;
 
 pub struct StatusDisplay;
@@ -28,28 +29,31 @@ impl Widget<AppContext> for StatusDisplay {
 
         let runtime = match ctx.rt_status {
             RuntimeStatus::Offline => "🔴 Offline",
-            RuntimeStatus::DiscoveringEtherCATInterface => "🟡 Discovering EtherCAT Interface",
-            RuntimeStatus::InitializingEtherCAT => "🟡 Initializing EtherCAT",
-            RuntimeStatus::DiscoveringModbusDevices => "🟡 Discovering Modbus RTU Devices",
-            RuntimeStatus::BuildingMachines => "🟡 Building Machines",
-            RuntimeStatus::FinalizingEtherCAT => "🟡 Finalizing EtherCAT",
-            RuntimeStatus::Initialized => "🟢 Initialized",
-            RuntimeStatus::Running { in_pre_op } => {
-                if in_pre_op {
-                    "🔵 Running (Pre-Op)"
-                } else {
-                    "🟢 Running"
+
+            RuntimeStatus::Initializing(status) => match status {
+                RuntimeInitStatus::NotStarted => "🟡 Not Started",
+                RuntimeInitStatus::EtherCATDiscovery => "🟡 EtherCAT Discovery",
+                RuntimeInitStatus::EtherCATInitializingDevices => {
+                    "🟡 Initializing EtherCAT Devices"
                 }
-            }
+                RuntimeInitStatus::ModbusRTUDiscovery => "🟡 Modbus RTU Discovery",
+                RuntimeInitStatus::BuildingMachines => "🟡 Building Machines",
+                RuntimeInitStatus::Finalizing => "🟡 Finalizing",
+                RuntimeInitStatus::Completed => "🔵 Initialization Completed",
+                RuntimeInitStatus::Failed => "🔴 Initialization Failed",
+            },
+
+            RuntimeStatus::Running => "🟢 Running",
+            RuntimeStatus::Disconnected => "🔴 Disconnected",
         };
 
         let ethercat = match ctx.ecat_status {
-            EtherCATState::NoInterface => "🔴 No Interface",
-            EtherCATState::Boot => "🟡 Boot",
-            EtherCATState::Init => "🟡 Init",
-            EtherCATState::PreOp => "🔵 PreOp",
-            EtherCATState::PreopPdi => "🟡 PreopPdi",
-            EtherCATState::Op => "🟢 Op",
+            EtherCATStatus::NoInterface => "🔴 No Interface",
+            EtherCATStatus::Boot => "🟡 Boot",
+            EtherCATStatus::Init => "🟡 Init",
+            EtherCATStatus::PreOp => "🔵 PreOp",
+            EtherCATStatus::PreopPdi => "🟡 PreopPdi",
+            EtherCATStatus::Op => "🟢 Op",
         };
 
         let style = if in_focus {

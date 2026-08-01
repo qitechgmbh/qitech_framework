@@ -5,11 +5,11 @@ use indexmap::IndexMap;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::ScalarValue;
-use qitech_framework_core::EtherCATState;
-use qitech_framework_core::MachineSchema;
-use qitech_framework_core::RuntimeStatus;
+use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::schema;
 use qitech_framework_core::schema::ConfigPropertyValue;
+use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::schema::MeasurementValue;
 use qitech_framework_core::schema::Node;
 use qitech_framework_core::schema::NodeKind;
@@ -23,9 +23,17 @@ pub enum Focus {
     Content,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeStatus {
+    Offline,
+    Initializing(RuntimeInitStatus),
+    Running,
+    Disconnected,
+}
+
 pub struct AppState {
     pub rt_status: RuntimeStatus,
-    pub ecat_status: EtherCATState,
+    pub ecat_status: EtherCATStatus,
     pub schemas: HashMap<MachineIdentification, MachineSchema>,
     pub machines: Vec<MachineEntry>,
 }
@@ -34,7 +42,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             rt_status: RuntimeStatus::Offline,
-            ecat_status: EtherCATState::NoInterface,
+            ecat_status: EtherCATStatus::NoInterface,
             schemas: Default::default(),
             machines: Default::default(),
         }
@@ -83,7 +91,7 @@ impl AppState {
 #[derive(Clone, Copy)]
 pub struct AppContext {
     pub rt_status: RuntimeStatus,
-    pub ecat_status: EtherCATState,
+    pub ecat_status: EtherCATStatus,
     pub schemas: *const HashMap<MachineIdentification, MachineSchema>,
     pub machines: *const [MachineEntry],
 }

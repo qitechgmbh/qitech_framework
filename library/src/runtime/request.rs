@@ -1,4 +1,4 @@
-use qitech_framework_core::RuntimeRequestKind;
+use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;

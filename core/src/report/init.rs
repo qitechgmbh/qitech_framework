@@ -1,3 +1,5 @@
+use core::fmt;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -39,6 +41,81 @@ pub enum RuntimeInitEvent {
     // --- finalizing ---
     EtherCATFinalizing,
     Finished,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RuntimeInitStatus {
+    NotStarted,
+    EtherCATDiscovery,
+    EtherCATInitializingDevices,
+    ModbusRTUDiscovery,
+    BuildingMachines,
+    Finalizing,
+    Completed,
+    Failed,
+}
+
+impl RuntimeInitStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            RuntimeInitStatus::NotStarted => "not_started",
+            RuntimeInitStatus::EtherCATDiscovery => "ethercat_discovery",
+            RuntimeInitStatus::EtherCATInitializingDevices => {
+                "ethercat_initializing_devices"
+            }
+            RuntimeInitStatus::ModbusRTUDiscovery => "modbus_rtu_discovery",
+            RuntimeInitStatus::BuildingMachines => "building_machines",
+            RuntimeInitStatus::Finalizing => "finalizing",
+            RuntimeInitStatus::Completed => "completed",
+            RuntimeInitStatus::Failed => "failed",
+        }
+    }
+}
+
+impl fmt::Display for RuntimeInitStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl From<&RuntimeInitEvent> for RuntimeInitStatus {
+    fn from(event: &RuntimeInitEvent) -> Self {
+        match event {
+            RuntimeInitEvent::EtherCATDiscoveryStarted => RuntimeInitStatus::EtherCATDiscovery,
+
+            RuntimeInitEvent::EtherCATDiscoveryCompleted { .. } => {
+                RuntimeInitStatus::EtherCATInitializingDevices
+            }
+
+            RuntimeInitEvent::EtherCATStateUpdate(_) => {
+                RuntimeInitStatus::EtherCATInitializingDevices
+            }
+
+            RuntimeInitEvent::EtherCATInitializationStarted => {
+                RuntimeInitStatus::EtherCATInitializingDevices
+            }
+
+            RuntimeInitEvent::EtherCATDeviceInitializationFailed { .. } => {
+                RuntimeInitStatus::Failed
+            }
+
+            RuntimeInitEvent::EtherCATDeviceInitializationCompleted { .. } => {
+                RuntimeInitStatus::ModbusRTUDiscovery
+            }
+
+            RuntimeInitEvent::ModbusRTUDiscoveryStarted => RuntimeInitStatus::ModbusRTUDiscovery,
+
+            RuntimeInitEvent::BuildingMachines => RuntimeInitStatus::BuildingMachines,
+
+            RuntimeInitEvent::BuiltMachine { .. } => RuntimeInitStatus::BuildingMachines,
+
+            RuntimeInitEvent::FailedToBuildMachine { .. } => RuntimeInitStatus::Failed,
+
+            RuntimeInitEvent::EtherCATFinalizing => RuntimeInitStatus::Finalizing,
+
+            RuntimeInitEvent::Finished => RuntimeInitStatus::Completed,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

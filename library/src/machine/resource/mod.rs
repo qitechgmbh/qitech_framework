@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineIdentificationUnique;
 
 pub mod error;
 

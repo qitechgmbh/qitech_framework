@@ -8,7 +8,7 @@ proc-macro = true
 
 [dependencies]
 # --- internal deps ---
-qitech_framework_common = { path = "../common" }
+qitech_framework_core = { path = "../core" }
 syn = { version = "3.0.2" , features = ["full", "visit-mut"]}
 quote = "1"
 proc-macro2 = "1"
