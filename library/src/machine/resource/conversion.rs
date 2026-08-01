@@ -26,14 +26,14 @@ pub trait TypeWrapper {
     type Type: Clone + 'static;
     type Input;
 
-    fn into_scalar(value: &Self::Type) -> ScalarValue;
     fn convert_input(input: Self::Input) -> Self::Type;
-    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type>;
+    fn into_scalar(value: &Self::Type) -> ScalarValue;
+    fn from_scalar(value: ScalarValue) -> Option<Self::Type>;
 }
 
 // --- type wrapper ---q
 macro_rules! simple_type_wrapper {
-    ($type:ty, $scalar_name:tt) => {
+    ($type:ty, $variant:ident) => {
         impl TypeWrapper for $type {
             type Type = $type;
             type Input = $type;
@@ -42,12 +42,15 @@ macro_rules! simple_type_wrapper {
                 input
             }
 
-            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
-                serde_json::from_str(raw)
+            fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
+                match value {
+                    ScalarValue::$variant(Some(value)) => Some(value),
+                    _ => None,
+                }
             }
 
             fn into_scalar(value: &Self::Type) -> ScalarValue {
-                ScalarValue::$scalar_name(Some(*value))
+                ScalarValue::$variant(Some(value.clone()))
             }
         }
 
@@ -59,12 +62,15 @@ macro_rules! simple_type_wrapper {
                 input
             }
 
-            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
-                serde_json::from_str(raw)
+            fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
+                match value {
+                    ScalarValue::$variant(value) => Some(value),
+                    _ => None,
+                }
             }
 
             fn into_scalar(value: &Self::Type) -> ScalarValue {
-                ScalarValue::$scalar_name(value.as_ref().map(|v| v.clone()))
+                ScalarValue::$variant(value.clone())
             }
         }
     };
@@ -82,8 +88,11 @@ impl TypeWrapper for String {
         input.to_string()
     }
 
-    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
-        serde_json::from_str(raw)
+    fn from_scalar(value: ScalarValue) -> Option<String> {
+        match value {
+            ScalarValue::String(Some(s)) => Some(s),
+            _ => None,
+        }
     }
 
     fn into_scalar(value: &Self::Type) -> ScalarValue {
@@ -99,8 +108,11 @@ impl TypeWrapper for Option<String> {
         input.map(|x| x.to_string())
     }
 
-    fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
-        serde_json::from_str(raw)
+    fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
+        match value {
+            ScalarValue::String(s) => Some(s),
+            _ => None,
+        }
     }
 
     fn into_scalar(value: &Self::Type) -> ScalarValue {
@@ -239,9 +251,11 @@ macro_rules! impl_uom_unit {
                 <$quantity>::new::<$unit>(input)
             }
 
-            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
-                let value = serde_json::from_str::<f64>(raw)?;
-                Ok(<$quantity>::new::<$unit>(value))
+            fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
+                match value {
+                    ScalarValue::Float(Some(x)) => Some(<$quantity>::new::<$unit>(x)),
+                    _ => None,
+                }
             }
 
             fn into_scalar(value: &Self::Type) -> ScalarValue {
@@ -272,9 +286,11 @@ macro_rules! impl_uom_unit {
                 input.map(|x| <$quantity>::new::<$unit>(x))
             }
 
-            fn deserialize_json(raw: &str) -> serde_json::Result<Self::Type> {
-                let value = serde_json::from_str::<Option<f64>>(raw)?;
-                Ok(value.map(|x| <$quantity>::new::<$unit>(x)))
+            fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
+                match value {
+                    ScalarValue::Float(v) => Some(v.map(|x| <$quantity>::new::<$unit>(x))),
+                    _ => None,
+                }
             }
 
             fn into_scalar(value: &Self::Type) -> ScalarValue {

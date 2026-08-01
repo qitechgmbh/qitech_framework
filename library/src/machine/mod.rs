@@ -95,8 +95,8 @@ impl Resources {
     }
 
     pub fn extract_report(&mut self, report: &mut MachinesReport) {
-        self.config_properties.drain_journal(|entry| {
-            report.config_mutations.push(entry);
+        self.config_properties.drain_journal_value(|entry| {
+            report.config_value_mutations.push(entry);
         });
 
         self.state_properties.drain_journal(|entry| {

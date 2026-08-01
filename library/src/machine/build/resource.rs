@@ -73,6 +73,13 @@ where
         self
     }
 
+    // pub fn execute(mut self, execute: fn(&mut M) -> Result<(), String>) -> Self {
+    //     self.execute = Some(execute.into_execute_fn());
+    //     self
+    // }
+
+    pub fn can_set<M: Machine + 'static>(self, value: fn(&M) -> bool) {}
+
     pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
         Ok(self.root.resources.config_properties.register::<T>(
             self.root.ident,

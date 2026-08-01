@@ -63,7 +63,7 @@ pub enum BoundsError {
 
 #[derive(Debug)]
 pub struct BoundsErrorAny<T: Debug> {
-    pub resource_path: &'static str,
+    pub resource: &'static str,
     pub received: T,
     pub min: Option<T>,
     pub max: Option<T>,
@@ -78,22 +78,22 @@ where
             (Some(min), Some(max)) => write!(
                 f,
                 "{}: value {} is outside bounds [{}, {}]",
-                self.resource_path, self.received, min, max
+                self.resource, self.received, min, max
             ),
             (Some(min), None) => write!(
                 f,
                 "{}: value {} is below minimum {}",
-                self.resource_path, self.received, min
+                self.resource, self.received, min
             ),
             (None, Some(max)) => write!(
                 f,
                 "{}: value {} exceeds maximum {}",
-                self.resource_path, self.received, max
+                self.resource, self.received, max
             ),
             (None, None) => write!(
                 f,
                 "{}: value {} failed bounds validation",
-                self.resource_path, self.received
+                self.resource, self.received
             ),
         }
     }

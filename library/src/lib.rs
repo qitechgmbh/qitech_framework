@@ -1,7 +1,6 @@
 pub use qitech_framework_core::ScalarValue;
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
-// pub use qitech_framework_macros::*;
 pub use qitech_framework_core::session;
 pub use qitech_framework_core::vendors;
 

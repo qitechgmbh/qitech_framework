@@ -27,9 +27,7 @@ pub use state_property::Manager as StatePropertyManager;
 pub use state_property::StateProperty;
 
 mod command;
-pub use command::ExecuteError as CommandExecuteError;
 pub use command::ExecuteFn;
-pub use command::Handle as CommandHandle;
 pub use command::IntoExecuteFn;
 pub use command::Manager as CommandManager;
 
@@ -112,6 +110,9 @@ impl fmt::Display for ResourceKind {
 pub struct Journal<T> {
     buffer: Rc<RefCell<Vec<T>>>,
 }
+
+// my_command[]
+// my_command["target_diameter"].set_bounds(0.0, 1.0)
 
 impl<T> Journal<T> {
     pub fn new() -> Self {

@@ -1,33 +1,41 @@
+use std::any;
+use std::any::Any;
 use std::collections::HashMap;
-use std::fmt::Debug;
 
 use chrono::Utc;
+use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::MachineConfigMutation;
+use qitech_framework_core::report::MachineConfigCapabilityMutation;
+use qitech_framework_core::report::MachineConfigConstraints;
+use qitech_framework_core::report::MachineConfigValueMutation;
+use qitech_framework_core::report::MachineConfigWriteCapability;
+use qitech_framework_core::report::MachineConfigWriteError;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::report::OperationResult;
 use qitech_framework_core::with_uom_quantities;
-use thiserror::Error;
 
 use super::PropertyHandle;
+use crate::machine::Machine;
 use crate::machine::TypeWrapper;
-use crate::machine::error::BoundsError;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
 use crate::machine::resource::PropertyManager;
 use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::error::RegisterResult;
+use crate::machine::resource::error::ResourceAccessError;
 use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
 
 pub struct ConfigProperty<T: Clone> {
     handle: PropertyHandle<T>,
-    write: WriteFn<T>,
+    write: WriteFn,
     default: T,
 }
 
 impl<T: Clone> ConfigProperty<T> {
-    pub fn set(&mut self, value: T) -> Result<(), WriteError> {
+    pub fn set(&mut self, value: T) -> Result<(), MachineConfigWriteError> {
+
+        self.
         (self.write)(self.handle.clone(), value)
     }
 
@@ -59,7 +67,7 @@ macro_rules! impl_uom {
                 self.get().get::<N>()
             }
 
-            pub fn set_as<N>(&mut self, value: f64) -> Result<(), WriteError>
+            pub fn set_as<N>(&mut self, value: f64) -> Result<(), MachineConfigWriteError>
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -75,7 +83,7 @@ macro_rules! impl_uom {
                 self.get().map(|q| q.get::<N>())
             }
 
-            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<(), WriteError>
+            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<(), MachineConfigWriteError>
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -95,8 +103,9 @@ type Kind = super::property_kind::ConfigProperty;
 #[derive(Default)]
 pub struct Manager {
     inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, ()>,
-    journal: Journal<MachineConfigMutation>,
-    writers: HashMap<Key<'static>, WriteApiFn>,
+    entries: HashMap<Key<'static>, Entry>,
+    journal_value: Journal<MachineConfigValueMutation>,
+    journal_capability: Journal<MachineConfigCapabilityMutation>,
 }
 
 impl Manager {
@@ -118,11 +127,15 @@ impl Manager {
 
         // --- internal writer ---
         let opts = options.clone();
-        let journal = self.journal.new_handle();
+        let journal = self.journal_value.new_handle();
+
+        // --- internal writer ---
+        let opts = options.clone();
+        let journal = self.journal_value.new_handle();
 
         let write = Box::new(
             move |handle: PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
-                let mut entry = MachineConfigMutation {
+                let mut entry = MachineConfigValueMutation {
                     machine,
                     path: path.to_string(),
                     value: T::into_scalar(&value),
@@ -145,16 +158,16 @@ impl Manager {
 
         // --- api writer ---
         let opts = options.clone();
-        let journal = self.journal.new_handle();
+        let journal = self.journal_value.new_handle();
 
         let handle_api = handle.clone();
         let write_api = Box::new(
-            move |request_id: u64,
-                  raw: &str|
-                  -> Result<Result<(), WriteError>, serde_json::Error> {
-                let value: T::Type = T::deserialize_json(raw)?;
+            move |request_id: u64, value: ScalarValue| -> Result<(), ApiWriteError> {
+                let Some(value) = T::from_scalar(value) else {
+                    return Err(ApiWriteError::InvalidType);
+                };
 
-                let mut entry = MachineConfigMutation {
+                let mut entry = MachineConfigValueMutation {
                     machine,
                     path: path.to_string(),
                     value: T::into_scalar(&value),
@@ -165,20 +178,31 @@ impl Manager {
 
                 if let Err(e) = check(&value, &opts) {
                     journal.append(entry);
-                    return Ok(Err(e));
+                    return Err(match e {
+                        WriteError::OutOfBounds(e) => ApiWriteError::OutOfBounds(e),
+                        WriteError::RegexFailed(e) => ApiWriteError::Validate(e),
+                    });
                 }
 
                 entry.result = OperationResult::Success;
                 journal.append(entry);
 
                 handle_api.write(value);
-                Ok(Ok(()))
+                Ok(())
             },
         );
 
         // --- store the api writer ---
         let key = Key::from_str(machine, path);
-        self.writers.insert(key, write_api);
+        self.entries.insert(
+            key,
+            Entry {
+                fixed_constraints: (),
+                get_capabilities: (),
+            },
+        );
+
+        // --- create entry ---
 
         // --- create property ---
         let mut property = ConfigProperty {
@@ -197,7 +221,7 @@ impl Manager {
         self.inner.unregister_machine(ident);
 
         // --- remove api writers associated with machine ---
-        self.writers.retain(|key, _| key.ident != ident);
+        self.entries.retain(|key, _| key.ident != ident);
     }
 
     // --- subscription ---
@@ -222,90 +246,130 @@ impl Manager {
         self.inner.sync_cache();
     }
 
-    // --- api ---
-    pub fn api_write(
-        &mut self,
-        transaction_id: u64,
-        target: MachineIdentificationUnique,
+    pub fn get_capabilities(
+        &self,
+        machine: MachineIdentificationUnique,
         path: &str,
-        value: String,
-    ) -> Result<(), ApiWriteError> {
-        let key = Key::from_str(target, path);
+        machine_ref: &dyn Machine,
+    ) -> Result<MachineConfigPropertyCapabilities, ResourceAccessError> {
+        let key = Key::from_str(machine, path);
 
-        let Some(write) = self.writers.get(&key) else {
-            return Err(ApiWriteError::NotFound);
+        let Some(Entry {
+            fixed_constraints,
+            get_capabilities,
+        }) = self.entries.get(&key)
+        else {
+            return Err(ResourceAccessError::NoSuchResource);
         };
 
-        let result = (write)(transaction_id, &value).map_err(ApiWriteError::ParseError)?;
+        let dynamic = match get_capabilities {
+            Some(get) => get(machine_ref)?,
 
-        if let Err(e) = result {
-            return Err(match e {
-                WriteError::OutOfBounds(e) => ApiWriteError::OutOfBounds(e),
-                WriteError::Validate(e) => ApiWriteError::Validate(e),
-            });
+            None => MachineConfigPropertyCapabilities {
+                writable: MachineConfigWriteCapability {
+                    disabled_reason: None,
+                },
+                constraints: MachineConfigConstraints::None,
+            },
+        };
+
+        Ok(MachineConfigPropertyCapabilities {
+            writable: dynamic.writable,
+            constraints: fixed_constraints.merged(&dynamic.constraints),
+        })
+    }
+
+    pub fn write(
+        &mut self,
+        target: MachineIdentificationUnique,
+        path: &str,
+        machine_ref: &dyn Machine,
+        value: ScalarValue,
+    ) -> Result<(), MachineConfigWriteError> {
+        let key = Key::from_str(target, path);
+
+        let Some(entry) = self.entries.get(&key) else {
+            return Err(MachineConfigWriteError::NotFound);
+        };
+
+        let capabilities = {
+            let dynamic = match &entry.get_capabilities {
+                Some(get) => get(machine_ref)
+                    .map_err(MachineConfigWriteError::MachineTypeMismatch)?,
+
+                None => MachineConfigPropertyCapabilities {
+                    write: WriteCapability::writable(),
+                    constraints: MachineConfigConstraints::None,
+                },
+            };
+
+            MachineConfigPropertyCapabilities {
+                write: dynamic.write,
+                constraints: entry.fixed_constraints.merged(&dynamic.constraints),
+            }
+        };
+
+        if let Some(reason) = capabilities.write.disabled_reason {
+            return Err(MachineConfigWriteError::NotWritable(reason));
         }
 
-        Ok(())
+        let Some(Entry { fixed_constraints, get_capabilities }) = self.entries.get(&key) else {
+            return Err(MachineConfigWriteError::NotWritable(None));
+        };
+
+        writer(value)
     }
 
     // --- reporting ---
-    pub fn drain_journal(&mut self, f: impl FnMut(MachineConfigMutation)) {
-        self.journal.drain_with(f);
+    pub fn drain_journal_value(&mut self, f: impl FnMut(MachineConfigValueMutation)) {
+        self.journal_value.drain_with(f);
+    }
+
+    pub fn drain_journal_capability(&mut self, f: impl FnMut(MachineConfigCapabilityMutation)) {
+        self.journal_capability.drain_with(f);
     }
 }
 
-#[derive(Debug, Clone, Default)]
+pub struct Entry {
+    fixed_constraints: MachineConfigConstraints,
+    get_capabilities: GetCapabilitiesFn,
+    write_value: WriteFn,
+}
+
+pub struct MachineConfigPropertyCapabilities {
+    pub writable: MachineConfigWriteCapability,
+    pub constraints: MachineConfigConstraints,
+}
+
+#[derive(Default)]
 pub struct RegisterOptions<T: BoundedMeta> {
     pub default: T,
-    pub min: Option<T::Bound>,
-    pub max: Option<T::Bound>,
-
-    #[allow(clippy::type_complexity)]
-    pub validate: Option<fn(&T) -> Result<(), String>>,
+    pub fixed_constraints: MachineConfigConstraints,
+    pub get_constraints: Option<GetCapabilitiesFn>,
 }
 
-fn check<T: BoundedMeta>(value: &T, options: &RegisterOptions<T>) -> Result<(), WriteError> {
-    // value
-    //     .validate(options.min, options.max)
-    //     .map_err(WriteError::OutOfBounds)?;
-    //
-    // if let Some(min) = options.min && value < min {
-    //     return WriteError::OutOfBounds(Bound);
-    // }
-    // TODO: IMPLEMENT
+// --- get capabilities ---
+pub type GetCapabilitiesFn =
+    Box<dyn Fn(&dyn Machine) -> Result<MachineConfigPropertyCapabilities, ResourceAccessError>>;
 
-    if let Some(func) = options.validate {
-        (func)(value).map_err(WriteError::Validate)?;
+pub trait IntoGetConstraintsFn {
+    fn into_get_constraints_fn(self) -> GetCapabilitiesFn;
+}
+
+impl<M> IntoGetConstraintsFn for fn(&M) -> MachineConfigPropertyCapabilities
+where
+    M: Machine + 'static,
+{
+    fn into_get_constraints_fn(self) -> GetCapabilitiesFn {
+        Box::new(move |machine: &dyn Machine| {
+            let machine = (machine as &dyn Any)
+                .downcast_ref::<M>()
+                .ok_or(ResourceAccessError::MachineTypeMismatch)?;
+
+            Ok(self(machine))
+        })
     }
-
-    Ok(())
 }
 
-// --- types ---
-pub type WriteFn<T> = Box<dyn Fn(PropertyHandle<T>, T) -> Result<(), WriteError>>;
-pub type WriteApiFn = Box<dyn Fn(u64, &str) -> Result<Result<(), WriteError>, serde_json::Error>>;
-
-// --- errors ---
-#[derive(Error, Debug)]
-pub enum WriteError {
-    #[error("value out of bounds: {0}")]
-    OutOfBounds(BoundsError),
-
-    #[error("validation failed: {0}")]
-    Validate(String),
-}
-
-#[derive(Error, Debug)]
-pub enum ApiWriteError {
-    #[error("resource not found for machine")]
-    NotFound,
-
-    #[error("failed to parse value: {0}")]
-    ParseError(#[from] serde_json::Error),
-
-    #[error("value out of bounds: {0}")]
-    OutOfBounds(BoundsError),
-
-    #[error("validation failed: {0}")]
-    Validate(String),
-}
+// --- write fn ---
+pub type WriteFn = Box<dyn Fn(ScalarValue) -> Result<(), MachineConfigWriteError>>;

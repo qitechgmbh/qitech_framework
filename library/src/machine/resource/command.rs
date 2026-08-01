@@ -1,44 +1,23 @@
 use std::any;
 use std::any::Any;
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::rc::Weak;
 
-use chrono::Utc;
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::MachineCommandCall;
-use qitech_framework_core::report::OperationResult;
-use serde::de::DeserializeOwned;
-use thiserror::Error;
+use qitech_framework_core::report::MachineCommandInvokeError;
+use qitech_framework_core::report::MachineCommandTrace;
 
 use crate::machine::Machine;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
 use crate::machine::resource::error::RegisterError;
 use crate::machine::resource::error::RegisterResult;
-
-pub type ExecuteFn = Box<dyn Fn(&mut dyn Machine, &str) -> Result<(), ExecuteError>>;
-
-pub struct Handle {
-    enabled: Weak<RefCell<bool>>,
-}
-
-impl Handle {
-    pub fn set_enabled(&mut self, value: bool) {
-        let handle = self
-            .enabled
-            .upgrade()
-            .expect("Handle outlived manager's entry");
-        *handle.borrow_mut() = value;
-    }
-}
+use crate::machine::resource::error::ResourceAccessError;
 
 // --- resource managment ---
 pub struct Manager {
     registry: HashMap<Key<'static>, Entry>,
-    journal: Journal<MachineCommandCall>,
+    journal: Journal<MachineCommandTrace>,
 }
 
 impl Manager {
@@ -50,29 +29,45 @@ impl Manager {
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-        disabled: bool,
+        can_execute: CanExecuteFn,
         execute: ExecuteFn,
-        /* can_execute: CanExecuteFn */
-    ) -> RegisterResult<Handle> {
+    ) -> RegisterResult<()> {
         let key = Key::from_str(ident, path);
 
         if self.registry.contains_key(&key) {
             return Err(RegisterError::Duplicate);
         }
 
-        let enabled = Rc::<RefCell<bool>>::default();
-        *enabled.borrow_mut() = disabled;
-
-        let handle = Handle {
-            enabled: Rc::downgrade(&enabled),
-        };
-
-        self.registry.insert(key, Entry { enabled, execute });
-        Ok(handle)
+        self.registry.insert(
+            key,
+            Entry {
+                can_execute,
+                execute,
+            },
+        );
+        Ok(())
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
         self.registry.retain(|k, _| k.ident != ident);
+    }
+
+    pub fn can_invoke(
+        &self,
+        machine: &dyn Machine,
+        target: MachineIdentificationUnique,
+        path: &str,
+    ) -> Result<bool, ResourceAccessError> {
+        let key = Key {
+            ident: target,
+            path: Cow::Owned(path.to_string()),
+        };
+
+        let Some(Entry { can_execute, .. }) = self.registry.get(&key) else {
+            return Err(ResourceAccessError::NoSuchResource);
+        };
+
+        (can_execute)(machine)
     }
 
     pub fn invoke(
@@ -80,50 +75,36 @@ impl Manager {
         target: MachineIdentificationUnique,
         machine: &mut dyn Machine,
         path: &str,
-        args: &str,
-    ) -> Result<(), ExecuteError> {
+    ) -> Result<(), MachineCommandInvokeError> {
         let key = Key {
             ident: target,
             path: Cow::Owned(path.to_string()),
         };
 
-        let handle = self.journal.new_handle();
-
-        let finish = |err: Result<(), ExecuteError>| -> Result<(), ExecuteError> {
-            let result = if err.is_ok() {
-                OperationResult::Success
-            } else {
-                OperationResult::Failure
-            };
-
-            let entry = MachineCommandCall {
-                target,
-                resource_path: Cow::Owned(path.to_owned()),
-                arguments: args.to_string(),
-                timestamp: Utc::now(),
-                result,
-            };
-
-            handle.append(entry);
-            Ok(())
+        let Some(Entry {
+            can_execute,
+            execute,
+        }) = self.registry.get(&key)
+        else {
+            return Err(MachineCommandInvokeError::NotFound);
         };
 
-        let Some(Entry { enabled, execute }) = self.registry.get(&key) else {
-            return finish(Err(ExecuteError::NotFound));
+        let can_execute = match (can_execute)(machine) {
+            Ok(v) => v,
+            Err(ResourceAccessError::NoSuchResource) => unreachable!("validated above"),
+            Err(ResourceAccessError::NoSuchMachine) => {
+                return Err(MachineCommandInvokeError::NoSuchMachine);
+            }
         };
 
-        if !*enabled.borrow() {
-            return finish(Err(ExecuteError::Disabled));
+        if !can_execute {
+            return Err(MachineCommandInvokeError::Disabled);
         }
 
-        if let Err(e) = (execute)(machine, args) {
-            return finish(Err(e));
-        }
-
-        finish(Ok(()))
+        (execute)(machine)
     }
 
-    pub fn drain_journal(&mut self, f: impl FnMut(MachineCommandCall)) {
+    pub fn drain_journal(&mut self, f: impl FnMut(MachineCommandTrace)) {
         self.journal.drain_with(f);
     }
 }
@@ -138,11 +119,36 @@ impl Default for Manager {
 }
 
 struct Entry {
-    enabled: Rc<RefCell<bool>>,
+    can_execute: CanExecuteFn,
     execute: ExecuteFn,
 }
 
-// --- trait wank ---
+// --- can execute fn ---
+pub type CanExecuteFn = Box<dyn Fn(&dyn Machine) -> Result<bool, ResourceAccessError>>;
+
+pub trait IntoCanExecuteFn {
+    fn into_can_execute_fn(self) -> CanExecuteFn;
+}
+
+impl<M> IntoCanExecuteFn for fn(&M) -> bool
+where
+    M: Machine + 'static,
+{
+    fn into_can_execute_fn(self) -> CanExecuteFn {
+        Box::new(move |machine: &dyn Machine| {
+            let any: &dyn Any = machine;
+            let machine = any
+                .downcast_ref::<M>()
+                .ok_or(ResourceAccessError::NoSuchMachine)?;
+
+            Ok(self(machine))
+        })
+    }
+}
+
+// --- execute fn ---
+pub type ExecuteFn = Box<dyn Fn(&mut dyn Machine) -> Result<(), MachineCommandInvokeError>>;
+
 pub trait IntoExecuteFn {
     fn into_execute_fn(self) -> ExecuteFn;
 }
@@ -152,78 +158,26 @@ where
     M: Machine + 'static,
 {
     fn into_execute_fn(self) -> ExecuteFn {
-        Box::new(move |machine: &mut dyn Machine, bytes: &str| {
+        Box::new(move |machine: &mut dyn Machine| {
             let machine_type_name = any::type_name_of_val(machine);
             let any: &mut dyn Any = machine;
 
-            let machine = any
-                .downcast_mut::<M>()
-                .ok_or(ExecuteError::UnexpectedMachineType {
-                    expected: any::type_name::<M>(),
-                    received: machine_type_name,
-                })?;
+            let machine =
+                any.downcast_mut::<M>()
+                    .ok_or(MachineCommandInvokeError::MachineTypeMismatch {
+                        expected: any::type_name::<M>().to_string(),
+                        received: machine_type_name.to_string(),
+                    })?;
 
-            // Validate that the caller sent an empty argument payload
-            let _: () = serde_json::from_str(bytes).map_err(ExecuteError::ParsingError)?;
-
-            self(machine).map_err(ExecuteError::ExecutionError)
+            self(machine).map_err(MachineCommandInvokeError::ExecutionError)
         })
     }
-}
-
-impl<M, A> IntoExecuteFn for fn(&mut M, A) -> Result<(), String>
-where
-    M: Machine + 'static,
-    A: DeserializeOwned + 'static,
-{
-    fn into_execute_fn(self) -> ExecuteFn {
-        Box::new(move |machine: &mut dyn Machine, bytes: &str| {
-            let machine_type_name = any::type_name_of_val(machine);
-            let any: &mut dyn Any = machine;
-
-            let machine = any
-                .downcast_mut::<M>()
-                .ok_or(ExecuteError::UnexpectedMachineType {
-                    expected: any::type_name::<M>(),
-                    received: machine_type_name,
-                })?;
-
-            // Validate that the caller sent an empty argument payload
-            let args: A = serde_json::from_str(bytes).map_err(ExecuteError::ParsingError)?;
-
-            self(machine, args).map_err(ExecuteError::ExecutionError)
-        })
-    }
-}
-
-// --- errors ---
-#[derive(Debug, Error)]
-pub enum ExecuteError {
-    #[error("unexpected machine type: expected `{expected}`, received `{received}`")]
-    UnexpectedMachineType {
-        expected: &'static str,
-        received: &'static str,
-    },
-
-    #[error("command is disabled")]
-    Disabled,
-
-    #[error("command not found")]
-    NotFound,
-
-    #[error("failed to parse command arguments: {0}")]
-    ParsingError(#[from] serde_json::Error),
-
-    #[error("command execution failed: {0}")]
-    ExecutionError(String),
 }
 
 // --- testing ---
 #[cfg(test)]
 mod test {
     use qitech_framework_core::ident::MachineIdentification;
-    use serde::Deserialize;
-    use serde::Serialize;
 
     use super::*;
     use crate::machine::error::ActResult;
@@ -247,60 +201,26 @@ mod test {
         }
 
         impl TestMachine {
-            fn simple_command(&mut self) -> Result<(), String> {
+            fn can_execute(&self) -> bool {
+                true
+            }
+
+            fn execute(&mut self) -> Result<(), String> {
                 println!("Hello World!");
                 Ok(())
             }
-
-            fn complex_command(&mut self, args: ComplexCommandArgs) -> Result<(), String> {
-                assert_eq!(args.a, 2.0);
-                assert_eq!(args.b, 5);
-                assert!(!args.c);
-                assert_eq!(&args.d, "Hello World");
-                Ok(())
-            }
-        }
-
-        #[derive(Serialize, Deserialize)]
-        struct ComplexCommandArgs {
-            a: f64,
-            b: i64,
-            c: bool,
-            d: String,
         }
 
         let mut r = Manager::new();
 
-        let cmd: fn(&mut TestMachine) -> Result<(), String> = TestMachine::simple_command;
+        let cmd: fn(&TestMachine) -> bool = TestMachine::can_execute;
+        let can_execute = cmd.into_can_execute_fn();
+
+        let cmd: fn(&mut TestMachine) -> Result<(), String> = TestMachine::execute;
         let execute = cmd.into_execute_fn();
 
-        // --- simple ---
-        let mut handle = r.register(ident, "simple", false, execute)?;
-        handle.set_enabled(false);
-        handle.set_enabled(true);
-
-        // --- complex ---
-        let cmd: fn(&mut TestMachine, ComplexCommandArgs) -> Result<(), String> =
-            TestMachine::complex_command;
-        let execute = cmd.into_execute_fn();
-
-        let mut handle = r.register(ident, "not.simple", false, execute)?;
-        handle.set_enabled(false);
-        handle.set_enabled(true);
-
-        // --- execute simple ---
-        r.invoke(ident, &mut TestMachine, "simple", "null")?;
-
-        // --- execute complex ---
-        let args = ComplexCommandArgs {
-            a: 2.0,
-            b: 5,
-            c: false,
-            d: "Hello World".to_string(),
-        };
-        let args = &serde_json::to_string(&args)?;
-        r.invoke(ident, &mut TestMachine, "not.simple", args)?;
-
+        r.register(ident, "simple", can_execute, execute)?;
+        r.invoke(ident, &mut TestMachine, "simple")?;
         Ok(())
     }
 }

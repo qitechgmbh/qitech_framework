@@ -2,6 +2,7 @@ use std::thread;
 use std::time::Duration;
 
 use chrono::Utc;
+use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::EtherCATStatus;
@@ -169,7 +170,7 @@ fn controller(path: String) {
                         serial: 0,
                     },
                     resource: "just_some_config".to_string(),
-                    value: "1.0".to_string(),
+                    value: ScalarValue::Float(Some(1.0)),
                 },
             })
             .await

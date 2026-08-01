@@ -1,11 +1,15 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeRequest {
-    pub transaction_id: u64,
+    /// identifier the controller can use to map request back to response
+    pub request_id: u64,
+
+    /// the actual request
     pub kind: RuntimeRequestKind,
 }
 
@@ -30,7 +34,7 @@ pub enum RuntimeRequestKind {
         resource: String,
 
         /// value to write
-        value: String,
+        value: ScalarValue,
     },
 
     InvokeMachineCommand {
@@ -39,9 +43,6 @@ pub enum RuntimeRequestKind {
 
         /// command resource path
         resource: String,
-
-        /// command arguments
-        arguments: String,
     },
 
     MachineSubscribe {

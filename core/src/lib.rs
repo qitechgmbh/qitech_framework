@@ -5,9 +5,10 @@ pub mod schema;
 // generates the macro from the units.toml file using build.rs
 include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
 
-mod scalar_value;
-pub use scalar_value::ScalarValue;
-pub use scalar_value::ScalarValueKind;
+mod value;
+pub use value::NumericValue;
+pub use value::ScalarValue;
+pub use value::ScalarValueKind;
 
 pub mod ident;
 pub mod report;

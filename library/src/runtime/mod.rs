@@ -118,7 +118,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- clear buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
-        self.report.machines.config_mutations.clear();
+        self.report.machines.config_value_mutations.clear();
         self.report.machines.state_mutations.clear();
         self.report.machines.measurements.clear();
         self.report.machines.events.clear();

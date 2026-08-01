@@ -60,9 +60,7 @@ impl RuntimeInitStatus {
         match self {
             RuntimeInitStatus::NotStarted => "not_started",
             RuntimeInitStatus::EtherCATDiscovery => "ethercat_discovery",
-            RuntimeInitStatus::EtherCATInitializingDevices => {
-                "ethercat_initializing_devices"
-            }
+            RuntimeInitStatus::EtherCATInitializingDevices => "ethercat_initializing_devices",
             RuntimeInitStatus::ModbusRTUDiscovery => "modbus_rtu_discovery",
             RuntimeInitStatus::BuildingMachines => "building_machines",
             RuntimeInitStatus::Finalizing => "finalizing",

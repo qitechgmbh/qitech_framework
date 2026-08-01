@@ -17,15 +17,27 @@ pub enum RegisterError {
     RegistryFull,
 }
 
+#[derive(Error, Debug)]
+pub enum ResourceAccessError {
+    #[error("resource not found")]
+    MachineTypeMismatch,
+
+    #[error("resource not found")]
+    NoSuchResource,
+
+    #[error("resource not found")]
+    NoSuchMachine,
+}
+
 #[derive(Debug, Error)]
-#[error("{resource_kind} '{resource_path}' on machine {machine_ident}: {error}")]
+#[error("{resource_kind} '{resource_name}' on machine {machine_ident}: {error}")]
 pub struct ResourceError<E>
 where
     E: std::error::Error + 'static,
 {
     pub machine_ident: MachineIdentificationUnique,
     pub resource_kind: ResourceKind,
-    pub resource_path: &'static str,
+    pub resource_name: &'static str,
 
     #[source]
     pub error: E,

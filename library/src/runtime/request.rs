@@ -1,3 +1,6 @@
+use chrono::Utc;
+use qitech_framework_core::report::MachineCommandTrace;
+use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::RuntimeTransport;
 
@@ -15,12 +18,14 @@ impl<T: RuntimeTransport> Runtime<T> {
             };
 
             let response = self.process_request(req.kind);
-            self.report.responses.push((req.transaction_id, response));
+            self.report.responses.push((req.request_id, response));
         }
     }
 
-    fn process_request(&mut self, kind: RuntimeRequestKind) -> Result<(), String> {
-        match kind {
+    fn process_request(&mut self, request: RuntimeRequest) {
+        let request_id = request.request_id;
+
+        match request.kind {
             RuntimeRequestKind::WriteMachineDeviceInfo {
                 machine_ident,
                 role,
@@ -55,23 +60,25 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .map_err(|e| format!("{e}"))
             }
 
-            RuntimeRequestKind::InvokeMachineCommand {
-                target,
-                resource,
-                arguments,
-            } => {
+            RuntimeRequestKind::InvokeMachineCommand { target, resource } => {
                 let Some(machine) = find_machine(&mut self.machines, target) else {
                     return Err("No Such Machine".to_string());
                 };
 
                 let machine_ref: &mut dyn Machine = &mut *machine;
 
-                let res =
-                    self.resources
-                        .commands
-                        .invoke(target, machine_ref, &resource, &arguments);
+                let result = self
+                    .resources
+                    .commands
+                    .invoke(target, machine_ref, &resource);
 
-                res.map_err(|e| format!("{e}"))
+                self.report.machines.commands.push(MachineCommandTrace {
+                    request_id,
+                    target,
+                    resource,
+                    timestamp: Utc::now(),
+                    result,
+                });
             }
 
             RuntimeRequestKind::MachineSubscribe {

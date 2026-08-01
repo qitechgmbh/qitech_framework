@@ -9,8 +9,14 @@ use serde::Serialize;
 use crate::ident::MachineIdentificationUnique;
 
 mod machines;
-pub use machines::MachineCommandCall;
-pub use machines::MachineConfigMutation;
+pub use machines::MachineCommandCapabilityMutation;
+pub use machines::MachineCommandInvokeError;
+pub use machines::MachineCommandTrace;
+pub use machines::MachineConfigCapabilityMutation;
+pub use machines::MachineConfigConstraints;
+pub use machines::MachineConfigValueMutation;
+pub use machines::MachineConfigWriteCapability;
+pub use machines::MachineConfigWriteError;
 pub use machines::MachineEmittedEvent;
 pub use machines::MachineMeasurement;
 pub use machines::MachineStateMutation;
@@ -54,6 +60,9 @@ pub enum RuntimeRunEvent {
     AddedMachine { ident: MachineIdentificationUnique },
     RemovedMachine { ident: MachineIdentificationUnique },
 }
+
+// --- response ---
+pub struct RequestResults {}
 
 // --- timing ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
