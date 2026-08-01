@@ -1,6 +1,5 @@
-use crate::MachineIdentification;
-
 mod version;
+use serde::Serialize;
 pub use version::Version;
 
 mod types;
@@ -47,7 +46,7 @@ mod raw;
 
 pub type ParseError = yaml_serde::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MachineSchema {
     // --- meta data ---
     pub qms_version: Version,
@@ -107,6 +106,7 @@ impl MachineSchema {
 
     fn walk_node<'a, 'b, T, I>(property: &'a Node<T>, mut parts: I) -> Option<&'a T>
     where
+        T: Serialize,
         I: Iterator<Item = &'b str>,
     {
         match &property.kind {
@@ -132,6 +132,8 @@ impl MachineSchema {
 use serde::de::Deserialize;
 use serde::de::Deserializer;
 use serde::de::Error;
+
+use crate::ident::MachineIdentification;
 
 impl<'de> Deserialize<'de> for MachineSchema {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

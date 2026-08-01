@@ -97,13 +97,14 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     // encapsulate inside private module
     writeln!(file, "mod generated {{")?;
+    writeln!(file, "use serde::Serialize;")?;
     writeln!(file, "use super::*;")?;
 
     let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)
         .unwrap_or_else(|e| panic!("failed to parse {QUANTITIES_PATH}: {e}"));
 
     // --- pass one: Quantity definition ---
-    writeln!(file, "#[derive(Debug, Clone, Copy)]")?;
+    writeln!(file, "#[derive(Debug, Clone, Copy, Serialize)]")?;
     writeln!(file, "pub enum Quantity {{")?;
 
     for UomEntry { name, .. } in &quantity {
@@ -114,7 +115,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     // --- pass two: emit Quantity unit types ---
     for UomEntry { name, units } in &quantity {
-        writeln!(file, "#[derive(Debug, Clone, Copy)]")?;
+        writeln!(file, "#[derive(Debug, Clone, Copy, Serialize)]")?;
         writeln!(file, "pub enum {name}Unit {{")?;
 
         for unit in units {

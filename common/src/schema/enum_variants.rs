@@ -1,7 +1,7 @@
 use super::Map;
 use super::StringMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EnumVariants {
     values: StringMap<i64>,
     reverse: Map<i64, String>,
@@ -90,6 +90,7 @@ use std::fmt::Formatter;
 use std::fmt::{self};
 
 use serde::Deserialize;
+use serde::Serialize;
 use serde::de::Deserializer;
 use serde::de::Error;
 use serde::de::MapAccess;

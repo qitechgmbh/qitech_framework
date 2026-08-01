@@ -95,7 +95,7 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub enum FloatSemantic {
     Plain,
     Fraction,
@@ -131,14 +131,14 @@ impl FloatSemantic {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Node<V> {
+#[derive(Debug, Clone, Serialize)]
+pub struct Node<V: Serialize> {
     pub kind: NodeKind<V>,
     pub metadata: NodeMetadata,
 }
 
-#[derive(Debug, Clone)]
-pub enum NodeKind<V> {
+#[derive(Debug, Clone, Serialize)]
+pub enum NodeKind<V: Serialize> {
     Branch(StringMap<Node<V>>),
     Leaf(V),
 }
@@ -153,7 +153,7 @@ pub struct FieldMetadata {
     pub description: LocalizedText,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub enum Range<T> {
     #[default]
     Unbounded,
@@ -234,7 +234,7 @@ use serde::de::value::MapAccessDeserializer;
 
 impl<'de, V> Deserialize<'de> for Node<V>
 where
-    V: Deserialize<'de>,
+    V: Serialize + Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -249,7 +249,7 @@ where
 
 impl<'de, V> Deserialize<'de> for NodeKind<V>
 where
-    V: Deserialize<'de>,
+    V: Serialize + Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -259,7 +259,7 @@ where
 
         impl<'de, V> Visitor<'de> for KindVisitor<V>
         where
-            V: Deserialize<'de>,
+            V: Serialize + Deserialize<'de>,
         {
             type Value = NodeKind<V>;
 

@@ -5,30 +5,28 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::MachineIdentificationUnique;
+use crate::ident::MachineIdentificationUnique;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogRecord {
     pub timestamp: DateTime<Utc>,
     pub level: LogLevel,
-    pub origin: LogOrigin,
+    pub source: LogSource,
     pub message: String,
     pub attributes: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum LogOrigin {
-    Hub,
+pub enum LogSource {
     Runtime,
     Machine(MachineIdentificationUnique),
 }
 
-impl LogOrigin {
+impl LogSource {
     pub const fn to_u64(self) -> u64 {
         match self {
-            LogOrigin::Hub => 1 << 63,
-            LogOrigin::Runtime => 1 << 62,
-            LogOrigin::Machine(id) => id.to_u64(),
+            LogSource::Runtime => 1 << 63,
+            LogSource::Machine(id) => id.to_u64(),
         }
     }
 }

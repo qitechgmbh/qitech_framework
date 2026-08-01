@@ -2,14 +2,14 @@ use super::EnumVariants;
 use super::FloatSemantic;
 use super::Range;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ConfigPropertyValue {
     pub kind: ConfigPropertyValueKind,
     pub nullable: bool,
     pub persistent: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum ConfigPropertyValueKind {
     Enum {
         /// Variants of the enum. Required.
@@ -54,6 +54,7 @@ use std::fmt::{self};
 use std::str::FromStr;
 
 use serde::Deserialize;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;

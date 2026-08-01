@@ -4,19 +4,19 @@ use super::FloatSemantic;
 use super::StringMap;
 use super::Type;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Event {
     pub fields: StringMap<EventField>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EventField {
     pub kind: EventFieldKind,
     pub nullable: bool,
     pub metadata: FieldMetadata,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum EventFieldKind {
     Object { fields: StringMap<EventField> },
     Array { item: Box<EventField> },
@@ -31,6 +31,7 @@ pub enum EventFieldKind {
 use std::str::FromStr;
 
 use serde::Deserialize;
+use serde::Serialize;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;
 use serde::de::Error;

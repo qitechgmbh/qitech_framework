@@ -6,10 +6,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use soa_derive::StructOfArray;
 
-use crate::MachineIdentificationUnique;
 use crate::ScalarValue;
-use crate::types::OperationOrigin;
-use crate::types::OperationResult;
+use crate::ident::MachineIdentificationUnique;
+use crate::report::OperationOrigin;
+use crate::report::OperationResult;
 
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

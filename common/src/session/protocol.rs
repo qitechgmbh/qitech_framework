@@ -1,11 +1,12 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::MachineSchema;
-use crate::RuntimeInitEvent;
-use crate::RuntimeReport;
-use crate::RuntimeRequest;
+use crate::report::RuntimeInitEvent;
+use crate::report::RuntimeReport;
+use crate::request::RuntimeRequest;
+use crate::schema::MachineSchema;
 use crate::session::error::HelloMatchError;
+use crate::session::error::SchemaSyncError;
 
 const MAGIC: u64 = 0x4855425F4C494E4B;
 const PROTOCOL_VERSION: u64 = 0x1;
@@ -24,7 +25,7 @@ impl Hello {
         }
     }
 
-    pub fn r#match(self, other: Hello) -> Result<(), HelloMatchError> {
+    pub fn try_match(self, other: Hello) -> Result<(), HelloMatchError> {
         if self.magic != other.magic {
             return Err(HelloMatchError::MagicMismatch {
                 expected: self.magic,
@@ -55,7 +56,7 @@ pub enum HelloAck {
     Rejected(HelloMatchError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum RuntimeMessage {
     Hello(Hello),
     Schema(Box<MachineSchema>),
@@ -64,10 +65,11 @@ pub enum RuntimeMessage {
     Report(Box<RuntimeReport>),
 }
 
-#[derive(Debug)]
-pub enum HandleMessage {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ControllerMessage {
     HelloAck,
+    HelloReject(HelloMatchError),
     SchemaAck,
-    SchemaReject(String),
+    SchemaReject(SchemaSyncError),
     Request(RuntimeRequest),
 }

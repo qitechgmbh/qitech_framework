@@ -1,39 +1,41 @@
-use crate::MachineSchema;
-use crate::RuntimeInitEvent;
-use crate::RuntimeReport;
-use crate::RuntimeRequest;
+use crate::report::RuntimeInitEvent;
+use crate::report::RuntimeReport;
+use crate::request::RuntimeRequest;
+use crate::schema::MachineSchema;
 use crate::session::error::HandshakeError;
-use crate::session::protocol::HandleMessage;
+use crate::session::error::SessionRecvError;
+use crate::session::protocol::ControllerMessage;
 use crate::session::protocol::Hello;
 use crate::session::protocol::RuntimeMessage;
-use crate::session::transport::AgentTransport;
+use crate::session::transport::RuntimeTransport;
+use crate::session::transport::TransportError;
 
 // --- send hello ---
-pub struct SendHello<T>
+pub struct SessionHandshake<T>
 where
-    T: AgentTransport,
+    T: RuntimeTransport,
 {
     transport: T,
 }
 
-impl<T> SendHello<T>
+impl<T> SessionHandshake<T>
 where
-    T: AgentTransport,
+    T: RuntimeTransport,
 {
     pub(crate) fn new(transport: T) -> Self {
         Self { transport }
     }
 }
 
-impl<T> SendHello<T>
+impl<T> SessionHandshake<T>
 where
-    T: AgentTransport,
+    T: RuntimeTransport,
 {
-    pub fn complete(mut self) -> Result<SyncSchemas<T>, HandshakeError> {
+    pub fn complete(mut self) -> Result<SessionSyncingSchemas<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Hello(Hello::new()))?;
 
         match self.transport.recv()? {
-            HandleMessage::HelloAck => Ok(SyncSchemas {
+            ControllerMessage::HelloAck => Ok(SessionSyncingSchemas {
                 transport: self.transport,
             }),
 
@@ -43,77 +45,81 @@ where
 }
 
 // --- sync schemas ---
-pub struct SyncSchemas<T> {
+pub struct SessionSyncingSchemas<T> {
     transport: T,
 }
 
-impl<T> SyncSchemas<T>
+impl<T> SessionSyncingSchemas<T>
 where
-    T: AgentTransport,
+    T: RuntimeTransport,
 {
-    pub fn sync_schema(&mut self, schema: MachineSchema) -> Result<(), HandshakeError> {
+    pub fn sync(&mut self, schema: MachineSchema) -> Result<(), HandshakeError> {
         self.transport
             .send(RuntimeMessage::Schema(Box::new(schema)))?;
 
         match self.transport.recv()? {
-            HandleMessage::SchemaAck => Ok(()),
+            ControllerMessage::SchemaAck => Ok(()),
 
-            HandleMessage::SchemaReject(reason) => Err(HandshakeError::SchemaRejected(reason)),
+            ControllerMessage::SchemaReject(reason) => Err(HandshakeError::SchemaRejected(reason)),
 
             other => Err(HandshakeError::UnexpectedMessage(format!("{other:?}"))),
         }
     }
 
-    pub fn complete(mut self) -> Result<Initializing<T>, HandshakeError> {
+    pub fn complete(mut self) -> Result<SessionInitializing<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Finished)?;
 
-        Ok(Initializing {
+        Ok(SessionInitializing {
             transport: self.transport,
         })
     }
 }
 
-// --- initializing ---
-pub struct Initializing<T> {
+// --- send init events ---
+pub struct SessionInitializing<T> {
     transport: T,
 }
 
-impl<T> Initializing<T>
+impl<T> SessionInitializing<T>
 where
-    T: AgentTransport,
+    T: RuntimeTransport,
 {
     pub fn send_event(&mut self, event: RuntimeInitEvent) -> Result<(), HandshakeError> {
         self.transport.send(RuntimeMessage::InitEvent(event))?;
         Ok(())
     }
 
-    pub fn complete(mut self) -> Result<Running<T>, HandshakeError> {
+    pub fn complete(mut self) -> Result<SessionRunning<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Finished)?;
 
-        Ok(Running {
+        // don't block from now on
+        self.transport.set_blocking(false)?;
+
+        Ok(SessionRunning {
             transport: self.transport,
         })
     }
 }
 
-// --- running ---
-pub struct Running<T> {
+// --- run ---
+pub struct SessionRunning<T> {
     transport: T,
 }
 
-impl<T> Running<T>
+impl<T> SessionRunning<T>
 where
-    T: AgentTransport,
+    T: RuntimeTransport,
 {
-    pub fn recv_request(&mut self) -> Result<Option<RuntimeRequest>, HandshakeError> {
-        match self.transport.try_recv()? {
-            Some(HandleMessage::Request(req)) => Ok(Some(req)),
-            Some(other) => Err(HandshakeError::UnexpectedMessage(format!("{other:?}"))),
-            None => Ok(None),
+    pub fn recv_request(&mut self) -> Result<Option<RuntimeRequest>, SessionRecvError> {
+        match self.transport.recv() {
+            Ok(ControllerMessage::Request(req)) => Ok(Some(req)),
+            Ok(other) => Err(SessionRecvError::UnexpectedMessage(format!("{other:?}"))),
+            Err(TransportError::WouldBlock) => Ok(None),
+            Err(e) => Err(SessionRecvError::Transport(e)),
         }
     }
 
-    pub fn send_report(&mut self, report: RuntimeReport) -> Result<(), HandshakeError> {
+    pub fn send_report(&mut self, report: RuntimeReport) -> Result<(), TransportError> {
         self.transport
             .send(RuntimeMessage::Report(Box::new(report)))?;
         Ok(())

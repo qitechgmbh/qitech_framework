@@ -5,91 +5,89 @@ use crossbeam::channel::Sender;
 use crossbeam::channel::TryRecvError;
 use crossbeam::channel::bounded;
 
-use crate::session::protocol::HandleMessage;
+use crate::session::controller;
+use crate::session::protocol::ControllerMessage;
 use crate::session::protocol::RuntimeMessage;
-use crate::session::session::handle::ReceiveHello;
-use crate::session::session::runtime::SendHello;
-use crate::session::transport::HandleTransport as HandleTransportTrait;
-use crate::session::transport::RuntimeTransport as RuntimeTransportTrait;
-use crate::session::transport::Transport;
+use crate::session::runtime;
+use crate::session::transport::ControllerTransport;
+use crate::session::transport::RuntimeTransport;
 use crate::session::transport::TransportError;
 
-pub fn pair(capacity: usize) -> (SendHello<RuntimeTransport>, ReceiveHello<ControllerTransport>) {
+pub fn crossbeam(
+    capacity: usize,
+) -> (
+    runtime::SessionHandshake<CrossbeamRuntimeTransport>,
+    controller::SessionHandshake<CrossbeamControllerTransport>,
+) {
     let (hub_tx, runtime_rx) = bounded(capacity);
     let (runtime_tx, hub_rx) = bounded(capacity);
 
-    let hub = ControllerTransport {
+    let hub = CrossbeamControllerTransport {
         tx: hub_tx,
         rx: hub_rx,
     };
 
-    let runtime = RuntimeTransport {
+    let runtime = CrossbeamRuntimeTransport {
         tx: runtime_tx,
         rx: runtime_rx,
+        blocking: true,
     };
 
-    (SendHello::new(runtime), ReceiveHello::new(hub))
+    (
+        runtime::SessionHandshake::new(runtime),
+        controller::SessionHandshake::new(hub),
+    )
 }
 
-// --- handle ---
-pub struct ControllerTransport {
-    tx: Sender<HandleMessage>,
+// --- controller ---
+pub struct CrossbeamControllerTransport {
+    tx: Sender<ControllerMessage>,
     rx: Receiver<RuntimeMessage>,
 }
 
-impl Transport for ControllerTransport {
-    type In = RuntimeMessage;
-    type Out = HandleMessage;
-
-    fn recv(&mut self) -> Result<Self::In, TransportError> {
+impl ControllerTransport for CrossbeamControllerTransport {
+    fn recv(&mut self) -> Result<RuntimeMessage, TransportError> {
         Ok(self.rx.recv()?)
     }
 
-    fn try_recv(&mut self) -> Result<Option<Self::In>, TransportError> {
-        match self.rx.try_recv() {
-            Ok(msg) => Ok(Some(msg)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Err(TransportError::Disconnected),
-        }
-    }
-
-    fn send(&mut self, msg: Self::Out) -> Result<(), TransportError> {
+    fn send(&mut self, msg: ControllerMessage) -> Result<(), TransportError> {
         self.tx.send(msg)?;
         Ok(())
     }
 }
-
-impl HandleTransportTrait for ControllerTransport {}
 
 // --- runtime ---
-pub struct RuntimeTransport {
+pub struct CrossbeamRuntimeTransport {
     tx: Sender<RuntimeMessage>,
-    rx: Receiver<HandleMessage>,
+    rx: Receiver<ControllerMessage>,
+    blocking: bool,
 }
 
-impl Transport for RuntimeTransport {
-    type In = HandleMessage;
-    type Out = RuntimeMessage;
-
-    fn recv(&mut self) -> Result<Self::In, TransportError> {
-        Ok(self.rx.recv()?)
+impl RuntimeTransport for CrossbeamRuntimeTransport {
+    fn set_blocking(&mut self, blocking: bool) -> Result<(), TransportError> {
+        self.blocking = blocking;
+        Ok(())
     }
 
-    fn try_recv(&mut self) -> Result<Option<Self::In>, TransportError> {
-        match self.rx.try_recv() {
-            Ok(msg) => Ok(Some(msg)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => Err(TransportError::Disconnected),
+    fn recv(&mut self) -> Result<ControllerMessage, TransportError> {
+        if self.blocking {
+            Ok(self.rx.recv()?)
+        } else {
+            match self.rx.try_recv() {
+                Ok(msg) => Ok(msg),
+
+                Err(TryRecvError::Empty) => Err(TransportError::WouldBlock),
+
+                Err(TryRecvError::Disconnected) => Err(TransportError::Disconnected),
+            }
         }
     }
 
-    fn send(&mut self, msg: Self::Out) -> Result<(), TransportError> {
+    fn send(&mut self, msg: RuntimeMessage) -> Result<(), TransportError> {
         self.tx.send(msg)?;
         Ok(())
     }
 }
-
-impl RuntimeTransportTrait for RuntimeTransport {}
 
 // --- error conversion ---
 impl From<RecvError> for TransportError {

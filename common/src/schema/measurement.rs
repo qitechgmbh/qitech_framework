@@ -1,14 +1,15 @@
 use serde::Deserialize;
+use serde::Serialize;
 
 use super::FloatSemantic;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MeasurementValue {
     pub kind: MeasurementValueKind,
     pub nullable: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum MeasurementValueKind {
     Boolean,
     Integer {
@@ -20,7 +21,7 @@ pub enum MeasurementValueKind {
     },
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MeasurementStatistics {
     /// Track the minimum observed value each sampling cycle. Optional.

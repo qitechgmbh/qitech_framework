@@ -1,13 +1,13 @@
 use super::EnumVariants;
 use super::FloatSemantic;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StatePropertyValue {
     pub kind: StatePropertyValueKind,
     pub nullable: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum StatePropertyValueKind {
     Enum {
         /// The set of allowed variants for this value. Required.
@@ -27,6 +27,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use serde::Deserialize;
+use serde::Serialize;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;
 use serde::de::Error;

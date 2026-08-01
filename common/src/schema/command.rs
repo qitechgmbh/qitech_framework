@@ -4,19 +4,19 @@ use super::FloatSemantic;
 use super::Range;
 use super::StringMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Command {
     pub fields: StringMap<CommandField>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CommandField {
     pub kind: CommandFieldKind,
     pub nullable: bool,
     pub metadata: FieldMetadata,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum CommandFieldKind {
     Object {
         fields: StringMap<CommandField>,
@@ -53,6 +53,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use serde::Deserialize;
+use serde::Serialize;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;
 use serde::de::Error;

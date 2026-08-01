@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde::Serialize;
 
 use super::Command;
 use super::Event;
@@ -11,7 +12,7 @@ use super::Version;
 use super::config_property;
 use super::measurement;
 use super::state_property;
-use crate::MachineIdentification;
+use crate::ident::MachineIdentification;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -131,7 +132,7 @@ impl TryFrom<MachineSchemaRaw> for MachineSchema {
     }
 }
 
-fn merge_with_metadata<V>(
+fn merge_with_metadata<V: Serialize>(
     section: &str,
     key: &str,
     metadata: StringMap<MetadataNode>,
