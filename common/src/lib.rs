@@ -49,7 +49,7 @@ pub use types::OperationResult;
 pub use types::ScalarValue;
 pub use types::ScalarValueKind;
 
-pub mod link;
+pub mod session;
 
 pub mod vendors {
     include!(concat!(env!("OUT_DIR"), "/vendors.rs"));

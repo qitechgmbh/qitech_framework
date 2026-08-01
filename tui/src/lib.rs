@@ -17,11 +17,11 @@ use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::link::session::handle::ReceiveHello;
+use qitech_framework::session::session::controller::ReceiveHello;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;
 use qitech_framework_common::RuntimeStatus;
-use qitech_framework_common::link::HandleTransport;
+use qitech_framework_common::session::HandleTransport;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -50,7 +50,7 @@ impl TuiConfiguration {
         }
     }
 
-    pub fn cycle_time(mut self, value: Duration) -> Self {
+    pub fn refresh_rate(mut self, value: Duration) -> Self {
         self.cycle_time = value;
         self
     }
@@ -110,7 +110,7 @@ impl Tui {
 
         loop {
             #[allow(clippy::collapsible_if)]
-            if event::poll(Duration::from_millis(20))?
+            if event::poll(self.config.cycle_time)?
                 && let Event::Key(key) = event::read()?
             {
                 if self.root.on_key(key, self.state.as_ctx()).is_err() {

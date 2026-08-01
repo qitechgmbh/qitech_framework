@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::link::transport::TransportError;
+use crate::session::transport::TransportError;
 
 #[derive(Debug, Error)]
 pub enum HandshakeError {

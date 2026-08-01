@@ -2,23 +2,23 @@ use crate::MachineSchema;
 use crate::RuntimeInitEvent;
 use crate::RuntimeReport;
 use crate::RuntimeRequest;
-use crate::link::error::HandshakeError;
-use crate::link::protocol::HandleMessage;
-use crate::link::protocol::Hello;
-use crate::link::protocol::RuntimeMessage;
-use crate::link::transport::RuntimeTransport;
+use crate::session::error::HandshakeError;
+use crate::session::protocol::HandleMessage;
+use crate::session::protocol::Hello;
+use crate::session::protocol::RuntimeMessage;
+use crate::session::transport::AgentTransport;
 
 // --- send hello ---
 pub struct SendHello<T>
 where
-    T: RuntimeTransport,
+    T: AgentTransport,
 {
     transport: T,
 }
 
 impl<T> SendHello<T>
 where
-    T: RuntimeTransport,
+    T: AgentTransport,
 {
     pub(crate) fn new(transport: T) -> Self {
         Self { transport }
@@ -27,7 +27,7 @@ where
 
 impl<T> SendHello<T>
 where
-    T: RuntimeTransport,
+    T: AgentTransport,
 {
     pub fn complete(mut self) -> Result<SyncSchemas<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Hello(Hello::new()))?;
@@ -49,7 +49,7 @@ pub struct SyncSchemas<T> {
 
 impl<T> SyncSchemas<T>
 where
-    T: RuntimeTransport,
+    T: AgentTransport,
 {
     pub fn sync_schema(&mut self, schema: MachineSchema) -> Result<(), HandshakeError> {
         self.transport
@@ -80,7 +80,7 @@ pub struct Initializing<T> {
 
 impl<T> Initializing<T>
 where
-    T: RuntimeTransport,
+    T: AgentTransport,
 {
     pub fn send_event(&mut self, event: RuntimeInitEvent) -> Result<(), HandshakeError> {
         self.transport.send(RuntimeMessage::InitEvent(event))?;
@@ -103,7 +103,7 @@ pub struct Running<T> {
 
 impl<T> Running<T>
 where
-    T: RuntimeTransport,
+    T: AgentTransport,
 {
     pub fn recv_request(&mut self) -> Result<Option<RuntimeRequest>, HandshakeError> {
         match self.transport.try_recv()? {

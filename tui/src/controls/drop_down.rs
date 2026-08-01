@@ -59,8 +59,14 @@ impl DropDown {
                 self.state = State::Open((pos + 1).min(limit));
             }
 
+            // submitted
             KeyCode::Enter => {
                 self.selected = pos;
+                self.state = State::Closed;
+            }
+
+            // canceled
+            KeyCode::Esc => {
                 self.state = State::Closed;
             }
 

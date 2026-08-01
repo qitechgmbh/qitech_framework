@@ -40,3 +40,29 @@ Hub SocketIO Adapter:
 ---------------------
 for each discovered machine store the live_values/state_events structs 
 and when we update them send them out.
+
+
+TODOs:
+------
+schemas:
+-> introduce the ? operator for nullable types
+
+-> age property for all properties: 
+   -> export all so we can track their age
+
+measurements:
+-> add statistics:
+   - age
+   - count
+   - avg
+   - variance
+   - stddev
+   - percentiles: p50, p95, p99
+
+-> define statistics window:
+   - keep exact samples up to N samples (e.g. 1000)
+   - after exceeding N, aggregate older samples into weighted buckets
+
+-> expose both:
+   - lifetime statistics
+   - visible/window statistics (for graph zoom range)

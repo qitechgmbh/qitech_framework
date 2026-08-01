@@ -2,10 +2,10 @@ use crate::MachineSchema;
 use crate::RuntimeInitEvent;
 use crate::RuntimeReport;
 use crate::RuntimeRequest;
-use crate::link::error::HandshakeError;
-use crate::link::protocol::HandleMessage;
-use crate::link::protocol::RuntimeMessage;
-use crate::link::transport::HandleTransport;
+use crate::session::error::HandshakeError;
+use crate::session::protocol::HandleMessage;
+use crate::session::protocol::RuntimeMessage;
+use crate::session::transport::ControllerTransport;
 
 // --- receive hello ---
 pub struct ReceiveHello<T> {
@@ -14,7 +14,7 @@ pub struct ReceiveHello<T> {
 
 impl<T> ReceiveHello<T>
 where
-    T: HandleTransport,
+    T: ControllerTransport,
 {
     pub(crate) fn new(transport: T) -> Self {
         Self { transport }
@@ -42,7 +42,7 @@ pub struct SyncSchemas<T> {
 
 impl<T> SyncSchemas<T>
 where
-    T: HandleTransport,
+    T: ControllerTransport,
 {
     pub fn sync<F>(mut self, mut handler: F) -> Result<Initializing<T>, HandshakeError>
     where
@@ -84,7 +84,7 @@ pub struct Initializing<T> {
 
 impl<T> Initializing<T>
 where
-    T: HandleTransport,
+    T: ControllerTransport,
 {
     pub fn complete<F>(mut self, mut handler: F) -> Result<Running<T>, HandshakeError>
     where
@@ -119,7 +119,7 @@ pub struct Running<T> {
 
 impl<T> Running<T>
 where
-    T: HandleTransport,
+    T: ControllerTransport,
 {
     /// non blocking send
     pub fn send_request(&mut self, request: RuntimeRequest) -> Result<(), HandshakeError> {

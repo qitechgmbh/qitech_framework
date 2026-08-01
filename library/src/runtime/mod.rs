@@ -7,8 +7,8 @@ use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_common::MachineIdentificationUnique;
 use qitech_framework_common::RuntimeReport;
-use qitech_framework_common::link::RuntimeTransport;
-use qitech_framework_common::link::runtime::session;
+use qitech_framework_common::session::RuntimeTransport;
+use qitech_framework_common::session::runtime::session;
 use types::Config;
 use types::MachineInstance;
 

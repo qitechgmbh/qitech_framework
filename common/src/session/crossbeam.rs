@@ -5,20 +5,20 @@ use crossbeam::channel::Sender;
 use crossbeam::channel::TryRecvError;
 use crossbeam::channel::bounded;
 
-use crate::link::protocol::HandleMessage;
-use crate::link::protocol::RuntimeMessage;
-use crate::link::session::handle::ReceiveHello;
-use crate::link::session::runtime::SendHello;
-use crate::link::transport::HandleTransport as HandleTransportTrait;
-use crate::link::transport::RuntimeTransport as RuntimeTransportTrait;
-use crate::link::transport::Transport;
-use crate::link::transport::TransportError;
+use crate::session::protocol::HandleMessage;
+use crate::session::protocol::RuntimeMessage;
+use crate::session::session::handle::ReceiveHello;
+use crate::session::session::runtime::SendHello;
+use crate::session::transport::HandleTransport as HandleTransportTrait;
+use crate::session::transport::RuntimeTransport as RuntimeTransportTrait;
+use crate::session::transport::Transport;
+use crate::session::transport::TransportError;
 
-pub fn new(capacity: usize) -> (SendHello<RuntimeTransport>, ReceiveHello<HandleTransport>) {
+pub fn pair(capacity: usize) -> (SendHello<RuntimeTransport>, ReceiveHello<ControllerTransport>) {
     let (hub_tx, runtime_rx) = bounded(capacity);
     let (runtime_tx, hub_rx) = bounded(capacity);
 
-    let hub = HandleTransport {
+    let hub = ControllerTransport {
         tx: hub_tx,
         rx: hub_rx,
     };
@@ -32,12 +32,12 @@ pub fn new(capacity: usize) -> (SendHello<RuntimeTransport>, ReceiveHello<Handle
 }
 
 // --- handle ---
-pub struct HandleTransport {
+pub struct ControllerTransport {
     tx: Sender<HandleMessage>,
     rx: Receiver<RuntimeMessage>,
 }
 
-impl Transport for HandleTransport {
+impl Transport for ControllerTransport {
     type In = RuntimeMessage;
     type Out = HandleMessage;
 
@@ -59,7 +59,7 @@ impl Transport for HandleTransport {
     }
 }
 
-impl HandleTransportTrait for HandleTransport {}
+impl HandleTransportTrait for ControllerTransport {}
 
 // --- runtime ---
 pub struct RuntimeTransport {

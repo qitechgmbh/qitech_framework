@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::Runtime;
-use qitech_framework::link::session;
-use qitech_framework::link::transport::DebugRuntimeTransport;
+use qitech_framework::session::session;
+use qitech_framework::session::transport::DebugRuntimeTransport;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
 
@@ -47,25 +47,28 @@ pub fn main() -> anyhow::Result<()> {
     run_tui(config)
 }
 
+fn run_headless(config: RuntimeConfiguration) -> anyhow::Result<()> {
+    // TODO: runtime::session::debug::new()
+    let session = DebugRuntimeTransport::start_session();
+    let rt = Runtime::init(config, session).unwrap();
+    rt.run();
+    Ok(())
+}
+
 fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
-    let (session_rt, session_tui) = session::crossbeam::new(64);
+    let (session_rt, session_tui) = session::crossbeam(64);
 
     thread::spawn(move || {
         let rt = Runtime::init(config, session_rt).unwrap();
         rt.run();
     });
 
-    let config = TuiConfiguration::new().cycle_time(Duration::from_secs(1));
+    // run slightly faster than the export interval so we don't stay behind
+    let config = TuiConfiguration::new()
+        .refresh_rate(Duration::from_secs_f64(1.0 / 40.0));
 
     let app = Tui::create(config)?;
     app.run(session_tui)
-}
-
-fn run_headless(config: RuntimeConfiguration) -> anyhow::Result<()> {
-    let session = DebugRuntimeTransport::start_session();
-    let rt = Runtime::init(config, session).unwrap();
-    rt.run();
-    Ok(())
 }
 
 const ETHERCAT_CONFIG: EtherCATConfig = {

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crossbeam::channel::Sender;
 use qitech_framework::MachineIdentification;
-use qitech_framework::link::HandleTransport;
-use qitech_framework::link::handle::session;
+use qitech_framework::session::ControllerTransport;
+use qitech_framework::session::handle::session;
 use qitech_framework_common::MachineSchema;
 use qitech_framework_common::RuntimeInitEvent;
 use qitech_framework_common::RuntimeReport;

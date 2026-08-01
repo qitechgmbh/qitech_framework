@@ -1,5 +1,5 @@
 use qitech_framework_common::MachineIdentification;
-use qitech_framework_common::link::error::HandshakeError;
+use qitech_framework_common::session::error::HandshakeError;
 use qitech_framework_common::schema::ParseError;
 use thiserror::Error;
 

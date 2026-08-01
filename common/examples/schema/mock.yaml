@@ -9,6 +9,7 @@ identification:
 config:
   machine:
     enabled: !boolean
+      nullable: true
       default: true
 
     mode: !enum

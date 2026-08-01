@@ -9,7 +9,6 @@ use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 
 use crate::types::AppAction;
-use crate::types::AppContext;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 

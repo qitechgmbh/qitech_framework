@@ -10,7 +10,7 @@ use crate::types::AppContext;
 use crate::types::MachineEntry;
 use crate::widgets::TabView;
 use crate::widgets::config::ConfigPage;
-use crate::widgets::measurements::MeasurementsPage;
+use crate::widgets::measurements::MeasurementsView;
 use crate::widgets::state::StatePage;
 use crate::widgets::tab_view::TabEntry;
 use crate::widgets::tab_view::TabItem;
@@ -46,7 +46,7 @@ impl MachinesView {
 
         let measurements = TabEntry {
             title: "Measurements",
-            item: Box::new(MeasurementsPage::default()),
+            item: Box::new(MeasurementsView::default()),
         };
 
         Self {

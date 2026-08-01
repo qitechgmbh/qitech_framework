@@ -5,7 +5,7 @@ use crate::MachineSchema;
 use crate::RuntimeInitEvent;
 use crate::RuntimeReport;
 use crate::RuntimeRequest;
-use crate::link::error::HelloMatchError;
+use crate::session::error::HelloMatchError;
 
 const MAGIC: u64 = 0x4855425F4C494E4B;
 const PROTOCOL_VERSION: u64 = 0x1;

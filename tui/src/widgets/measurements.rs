@@ -6,7 +6,6 @@ use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::symbols;
-use ratatui::text::Line;
 use ratatui::text::Span;
 use ratatui::widgets::Axis;
 use ratatui::widgets::Block;
@@ -15,7 +14,6 @@ use ratatui::widgets::Cell;
 use ratatui::widgets::Chart;
 use ratatui::widgets::Dataset;
 use ratatui::widgets::GraphType;
-use ratatui::widgets::Paragraph;
 use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 
@@ -31,38 +29,39 @@ enum Mode {
 }
 
 #[derive(Default)]
-pub struct MeasurementsPage {
-    mode: Mode,
+pub struct MeasurementsView {
     selected: usize,
+    mode: Mode,
+
+    // --- graph state ---
     zoom: u8,
+    offset: f64,
 }
 
-impl TabItem<MachinesContext> for MeasurementsPage {
+impl TabItem<MachinesContext> for MeasurementsView {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
-        let machine = unsafe { &*ctx.machine };
-
-        if self.mode == Mode::Graph {
-            return match code {
-                KeyCode::Char(' ') => {
-                    self.mode = Mode::Navigate;
-                    Ok(AppAction::NoAction)
-                }
-
-                KeyCode::Char('+') => {
-                    // zoom in
-                    self.zoom = (self.zoom + 1).min(4); // 2^4 = 16x
-                    Ok(AppAction::NoAction)
-                }
-
-                KeyCode::Char('-') => {
-                    // zoom out
-                    self.zoom = self.zoom.saturating_sub(1);
-                    Ok(AppAction::NoAction)
-                }
-
-                _ => Err(code),
-            };
+        match self.mode {
+            Mode::Navigate => self.on_key_navigation(code, ctx),
+            Mode::Graph => self.on_key_chart(code),
         }
+    }
+
+    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
+        match self.mode {
+            Mode::Navigate => self.render_navigation(frame, area, ctx, in_focus),
+            Mode::Graph => self.render_chart(frame, area, ctx, in_focus),
+        }
+    }
+}
+
+// navigation
+impl MeasurementsView {
+    fn on_key_navigation(
+        &mut self,
+        code: KeyCode,
+        ctx: MachinesContext,
+    ) -> Result<AppAction, KeyCode> {
+        let machine = unsafe { &*ctx.machine };
 
         match code {
             KeyCode::Char(' ') => {
@@ -78,31 +77,17 @@ impl TabItem<MachinesContext> for MeasurementsPage {
             }
 
             KeyCode::Down => {
-                let max = machine.measurements.len().saturating_sub(1);
-                self.selected = (self.selected + 1).min(max);
+                if self.selected == machine.measurements.len().saturating_sub(1) {
+                    return Err(code);
+                }
+
+                self.selected += 1;
             }
 
             _ => return Err(code),
         }
 
         Ok(AppAction::NoAction)
-    }
-
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
-        match self.mode {
-            Mode::Navigate => self.render_navigation(frame, area, ctx, in_focus),
-            Mode::Graph => self.render_chart(frame, area, ctx, in_focus),
-        }
-    }
-}
-
-impl MeasurementsPage {
-    fn zoom_factor(&self) -> f64 {
-        (1u32 << self.zoom as u32) as f64
-    }
-
-    fn window(&self) -> f64 {
-        120.0 / self.zoom_factor()
     }
 
     fn render_navigation(
@@ -147,8 +132,60 @@ impl MeasurementsPage {
 
         frame.render_widget(table, area);
     }
+}
 
-    fn render_chart(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, _in_focus: bool) {
+// chart
+impl MeasurementsView {
+    fn zoom_factor(&self) -> f64 {
+        (1u32 << self.zoom as u32) as f64
+    }
+
+    fn window(&self) -> f64 {
+        600.0 / self.zoom_factor()
+    }
+
+    fn on_key_chart(&mut self, code: KeyCode) -> Result<AppAction, KeyCode> {
+        match code {
+            KeyCode::Left => {
+                self.offset += self.window() / 4.0;
+                Ok(AppAction::NoAction)
+            }
+
+            KeyCode::Right => {
+                self.offset = (self.offset - self.window() / 4.0).max(0.0);
+                Ok(AppAction::NoAction)
+            }
+
+            KeyCode::Up | KeyCode::Down => {
+                // consume to disable navigation
+                Ok(AppAction::NoAction)
+            }
+
+            KeyCode::Esc => {
+                self.mode = Mode::Navigate;
+                Ok(AppAction::NoAction)
+            }
+
+            KeyCode::Char(' ') => {
+                self.mode = Mode::Navigate;
+                Ok(AppAction::NoAction)
+            }
+
+            KeyCode::Char('+') => {
+                self.zoom = (self.zoom + 1).min(6); // 2^6 = 64x
+                Ok(AppAction::NoAction)
+            }
+
+            KeyCode::Char('-') => {
+                self.zoom = self.zoom.saturating_sub(1);
+                Ok(AppAction::NoAction)
+            }
+
+            _ => Err(code),
+        }
+    }
+
+    fn render_chart(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
         let machine = unsafe { &*ctx.machine };
 
         let Some((name, field)) = machine.measurements.get_index(self.selected) else {
@@ -163,6 +200,10 @@ impl MeasurementsPage {
 
         let window = self.window();
 
+        // Visible age range
+        let x_max = -self.offset;
+        let x_min = x_max - window;
+
         let data: Vec<(f64, f64)> = field
             .values
             .iter()
@@ -173,56 +214,83 @@ impl MeasurementsPage {
                     (age, v)
                 })
             })
-            .filter(|(age, _)| *age >= -window)
+            .filter(|(age, _)| *age >= x_min && *age <= x_max)
             .collect();
 
-        if data.is_empty() {
-            return;
-        }
+        let (y_min, y_max) = if data.is_empty() {
+            (0.0, 1.0)
+        } else {
+            #[rustfmt::skip]
+            let y_min = data.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
 
-        let y_min = data
-            .iter()
-            .map(|(_, y)| *y)
-            .fold(f64::INFINITY, f64::min);
+            #[rustfmt::skip]
+            let x_min = data.iter().map(|(_, y)| *y).fold(f64::NEG_INFINITY, f64::max);
 
-        let y_max = data
-            .iter()
-            .map(|(_, y)| *y)
-            .fold(f64::NEG_INFINITY, f64::max);
+            (y_min, x_min)
+        };
+
+        // Add a little padding so the line doesn't touch the border.
+        let padding = if (y_max - y_min).abs() < f64::EPSILON {
+            1.0
+        } else {
+            (y_max - y_min) * 0.1
+        };
 
         let current = field.values.newest().and_then(|sample| sample.value);
 
         let title = match current {
-            Some(v) => format!("{} ({:.2}) [Zoom {}x]", name, v, self.zoom_factor()),
-            None => format!("{} (N/A) [Zoom {}x]", name, self.zoom_factor()),
+            Some(v) => format!(
+                "{} ({:.2}) [Zoom {}x | Offset {:.1}s]",
+                name,
+                v,
+                self.zoom_factor(),
+                self.offset,
+            ),
+            None => format!(
+                "{} (N/A) [Zoom {}x | Offset {:.1}s]",
+                name,
+                self.zoom_factor(),
+                self.offset,
+            ),
         };
 
         let dataset = Dataset::default()
-            .name(title)
             .marker(symbols::Marker::Braille)
             .graph_type(GraphType::Line)
             .style(Style::default().fg(Color::Green))
             .data(&data);
 
+        let border_style = if in_focus {
+            Style::default().fg(Color::Blue)
+        } else {
+            Style::default()
+        };
+
+        let block = Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(border_style);
+
         let chart = Chart::new(vec![dataset])
+            .block(block)
             .x_axis(
                 Axis::default()
-                    .title("Age (s)")
-                    .bounds([-window, 0.0])
+                    .bounds([x_min, x_max])
+                    .style(Style::reset().fg(Color::White))
                     .labels(vec![
-                        Span::raw(format!("{:.1}s", -window)),
-                        Span::raw(format!("{:.1}s", -window / 2.0)),
-                        Span::raw("0.0s"),
+                        Span::raw(format!("{:.1}s", x_min)),
+                        Span::raw(format!("{:.1}s", (x_min + x_max) / 2.0)),
+                        Span::raw(format!("{:.1}s", x_max)),
                     ]),
             )
             .y_axis(
                 Axis::default()
-                    .title("Value")
-                    .bounds([y_min, y_max])
+                    .bounds([y_min - padding, y_max + padding])
+                    .style(Style::reset().fg(Color::White))
                     .labels(vec![
-                        Span::raw(format!("{:.2}", y_min)),
-                        Span::raw(format!("{:.2}", (y_min + y_max) / 2.0)),
-                        Span::raw(format!("{:.2}", y_max)),
+                        Span::raw(format!("{:.3}", y_min)),
+                        Span::raw(format!("{:.3}", (y_min + y_max) / 2.0)),
+                        Span::raw(format!("{:.3}", y_max)),
                     ]),
             );
 
