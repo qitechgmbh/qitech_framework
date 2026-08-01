@@ -146,7 +146,7 @@ impl Transport for DebugRuntimeTransport {
             RuntimeMessage::InitEvent(event) => println!("{event:#?}"),
             RuntimeMessage::Finished => println!("finished"),
             RuntimeMessage::Report(report) => {
-                println!("sending report: {}", report.machines.measurements.len());
+                println!("sending report: {:#?}", report.machines.measurements);
             }
         }
 

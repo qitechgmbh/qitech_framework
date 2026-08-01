@@ -34,6 +34,7 @@ enum Mode {
 pub struct MeasurementsPage {
     mode: Mode,
     selected: usize,
+    zoom: u8,
 }
 
 impl TabItem<MachinesContext> for MeasurementsPage {
@@ -46,6 +47,19 @@ impl TabItem<MachinesContext> for MeasurementsPage {
                     self.mode = Mode::Navigate;
                     Ok(AppAction::NoAction)
                 }
+
+                KeyCode::Char('+') => {
+                    // zoom in
+                    self.zoom = (self.zoom + 1).min(4); // 2^4 = 16x
+                    Ok(AppAction::NoAction)
+                }
+
+                KeyCode::Char('-') => {
+                    // zoom out
+                    self.zoom = self.zoom.saturating_sub(1);
+                    Ok(AppAction::NoAction)
+                }
+
                 _ => Err(code),
             };
         }
@@ -60,7 +74,7 @@ impl TabItem<MachinesContext> for MeasurementsPage {
                     return Err(code);
                 }
 
-                self.selected = self.selected.saturating_sub(1);
+                self.selected -= 1;
             }
 
             KeyCode::Down => {
@@ -83,6 +97,14 @@ impl TabItem<MachinesContext> for MeasurementsPage {
 }
 
 impl MeasurementsPage {
+    fn zoom_factor(&self) -> f64 {
+        (1u32 << self.zoom as u32) as f64
+    }
+
+    fn window(&self) -> f64 {
+        120.0 / self.zoom_factor()
+    }
+
     fn render_navigation(
         &self,
         frame: &mut Frame,
@@ -105,8 +127,11 @@ impl MeasurementsPage {
                     Style::reset()
                 };
 
-                let value = match field.values.last() {
-                    Some(sample) => format!("{}", sample.timestamp),
+                let value = match field.values.newest() {
+                    Some(sample) => match sample.value {
+                        Some(v) => format!("{:.2}", v),
+                        None => "null".to_string(),
+                    },
                     None => "N/A".to_string(),
                 };
 
@@ -122,7 +147,7 @@ impl MeasurementsPage {
 
         frame.render_widget(table, area);
     }
-    
+
     fn render_chart(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, _in_focus: bool) {
         let machine = unsafe { &*ctx.machine };
 
@@ -132,9 +157,11 @@ impl MeasurementsPage {
 
         let now = field
             .values
-            .last()
+            .newest()
             .map(|s| s.timestamp)
             .unwrap_or_else(Utc::now);
+
+        let window = self.window();
 
         let data: Vec<(f64, f64)> = field
             .values
@@ -146,23 +173,28 @@ impl MeasurementsPage {
                     (age, v)
                 })
             })
+            .filter(|(age, _)| *age >= -window)
             .collect();
 
         if data.is_empty() {
             return;
         }
 
-        let x_min = data.iter().map(|(x, _)| *x).fold(0.0, f64::min);
-        let x_max = 0.0;
+        let y_min = data
+            .iter()
+            .map(|(_, y)| *y)
+            .fold(f64::INFINITY, f64::min);
 
-        let y_min = field.values.min().unwrap_or(0.0);
-        let y_max = field.values.max().unwrap_or(1.0);
+        let y_max = data
+            .iter()
+            .map(|(_, y)| *y)
+            .fold(f64::NEG_INFINITY, f64::max);
 
-        let current = field.values.last().and_then(|sample| sample.value);
+        let current = field.values.newest().and_then(|sample| sample.value);
 
         let title = match current {
-            Some(v) => format!("{} ({:.2})", name, v),
-            None => format!("{} (N/A)", name),
+            Some(v) => format!("{} ({:.2}) [Zoom {}x]", name, v, self.zoom_factor()),
+            None => format!("{} (N/A) [Zoom {}x]", name, self.zoom_factor()),
         };
 
         let dataset = Dataset::default()
@@ -176,10 +208,10 @@ impl MeasurementsPage {
             .x_axis(
                 Axis::default()
                     .title("Age (s)")
-                    .bounds([x_min, x_max])
+                    .bounds([-window, 0.0])
                     .labels(vec![
-                        Span::raw(format!("{:.1}s", x_min)),
-                        Span::raw(format!("{:.1}s", x_min / 2.0)),
+                        Span::raw(format!("{:.1}s", -window)),
+                        Span::raw(format!("{:.1}s", -window / 2.0)),
                         Span::raw("0.0s"),
                     ]),
             )

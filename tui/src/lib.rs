@@ -110,7 +110,7 @@ impl Tui {
 
         loop {
             #[allow(clippy::collapsible_if)]
-            if event::poll(Duration::from_millis(50))?
+            if event::poll(Duration::from_millis(20))?
                 && let Event::Key(key) = event::read()?
             {
                 if self.root.on_key(key, self.state.as_ctx()).is_err() {

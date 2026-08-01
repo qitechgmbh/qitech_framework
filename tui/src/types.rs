@@ -217,7 +217,7 @@ fn collect_measurement_fields(
                     path.clone(),
                     MeasurementField {
                         label: path.clone(),
-                        values: Timeseries::new(256),
+                        values: Timeseries::new(4096),
                     },
                 );
             }

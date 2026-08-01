@@ -91,13 +91,21 @@ impl Timeseries {
         (0..self.len).map(|i| &self.buf[(self.head + i) % self.buf.len()])
     }
 
-    pub fn last(&self) -> Option<Sample> {
+    pub fn newest(&self) -> Option<Sample> {
         if self.len == 0 {
             return None;
         }
 
         let index = (self.head + self.len - 1) % self.buf.len();
         Some(self.buf[index])
+    }
+
+    pub fn oldest(&self) -> Option<Sample> {
+        if self.len == 0 {
+            return None;
+        }
+
+        Some(self.buf[self.head])
     }
 
     pub fn min(&self) -> Option<f64> {
