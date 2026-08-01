@@ -5,15 +5,15 @@ use indexmap::IndexMap;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::ScalarValue;
-use qitech_framework_common::EtherCATState;
-use qitech_framework_common::MachineSchema;
-use qitech_framework_common::RuntimeStatus;
-use qitech_framework_common::schema;
-use qitech_framework_common::schema::ConfigPropertyValue;
-use qitech_framework_common::schema::MeasurementValue;
-use qitech_framework_common::schema::Node;
-use qitech_framework_common::schema::NodeKind;
-use qitech_framework_common::schema::StatePropertyValue;
+use qitech_framework_core::EtherCATState;
+use qitech_framework_core::MachineSchema;
+use qitech_framework_core::RuntimeStatus;
+use qitech_framework_core::schema;
+use qitech_framework_core::schema::ConfigPropertyValue;
+use qitech_framework_core::schema::MeasurementValue;
+use qitech_framework_core::schema::Node;
+use qitech_framework_core::schema::NodeKind;
+use qitech_framework_core::schema::StatePropertyValue;
 
 use crate::utils::Timeseries;
 

@@ -4,8 +4,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
-use qitech_framework_common::MachineIdentification;
-use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_core::MachineIdentification;
+use qitech_framework_core::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::EtherCATControl;
 use qitech_lib::ethercat_hal::Mailbox;
 use qitech_lib::ethercat_hal::MetaSubdevice;

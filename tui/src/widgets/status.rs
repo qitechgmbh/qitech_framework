@@ -1,6 +1,6 @@
 use crossterm::event::KeyCode;
-use qitech_framework_common::EtherCATState;
-use qitech_framework_common::RuntimeStatus;
+use qitech_framework_core::EtherCATState;
+use qitech_framework_core::RuntimeStatus;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::Color;

@@ -3,11 +3,11 @@ use std::println;
 use std::rc::Rc;
 use std::time::Instant;
 
-use qitech_framework_common::EtherCATState;
-use qitech_framework_common::MachineSchema;
-use qitech_framework_common::RuntimeInitEvent;
-use qitech_framework_common::session::RuntimeTransport;
-use qitech_framework_common::session::runtime::session;
+use qitech_framework_core::EtherCATState;
+use qitech_framework_core::MachineSchema;
+use qitech_framework_core::RuntimeInitEvent;
+use qitech_framework_core::session::RuntimeTransport;
+use qitech_framework_core::session::runtime::session;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::modbus::ModbusDevice;

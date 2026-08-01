@@ -4,9 +4,9 @@ use crossbeam::channel::Sender;
 use qitech_framework::MachineIdentification;
 use qitech_framework::session::ControllerTransport;
 use qitech_framework::session::handle::session;
-use qitech_framework_common::MachineSchema;
-use qitech_framework_common::RuntimeInitEvent;
-use qitech_framework_common::RuntimeReport;
+use qitech_framework_core::MachineSchema;
+use qitech_framework_core::RuntimeInitEvent;
+use qitech_framework_core::RuntimeReport;
 
 pub enum SessionMessage {
     Schemas(HashMap<MachineIdentification, MachineSchema>),

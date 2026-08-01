@@ -1,6 +1,6 @@
 use std::any::Any;
 
-pub use qitech_framework_common::MachineIdentificationUnique;
+pub use qitech_framework_core::MachineIdentificationUnique;
 
 pub mod error;
 use error::ActResult;
@@ -11,7 +11,7 @@ mod build;
 pub use build::BuildContext;
 
 mod subscribe;
-use qitech_framework_common::MachinesReport;
+use qitech_framework_core::MachinesReport;
 pub use subscribe::SubscribeContext;
 
 pub(crate) mod hardware;

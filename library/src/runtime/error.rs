@@ -1,6 +1,6 @@
-use qitech_framework_common::MachineIdentification;
-use qitech_framework_common::schema::ParseError;
-use qitech_framework_common::session::error::HandshakeError;
+use qitech_framework_core::MachineIdentification;
+use qitech_framework_core::schema::ParseError;
+use qitech_framework_core::session::error::HandshakeError;
 use thiserror::Error;
 
 pub type RuntimeInitializeResult<T> = Result<T, RuntimeInitializeError>;

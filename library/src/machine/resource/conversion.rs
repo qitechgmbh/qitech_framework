@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
-use qitech_framework_common::ScalarValue;
-use qitech_framework_common::with_uom_quantities;
-use qitech_framework_common::with_uom_units;
+use qitech_framework_core::ScalarValue;
+use qitech_framework_core::with_uom_quantities;
+use qitech_framework_core::with_uom_units;
 
 pub trait Extract<T> {
     /// Extracts a value from a raw byte pointer.

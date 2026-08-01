@@ -2,15 +2,15 @@ use std::thread;
 use std::time::Duration;
 
 use chrono::Utc;
-use qitech_framework_common::ident::MachineIdentification;
-use qitech_framework_common::ident::MachineIdentificationUnique;
-use qitech_framework_common::report::EtherCATStatus;
-use qitech_framework_common::report::RuntimeInitEvent;
-use qitech_framework_common::report::RuntimeReport;
-use qitech_framework_common::report::TimingsReport;
-use qitech_framework_common::request::RuntimeRequest;
-use qitech_framework_common::request::RuntimeRequestKind;
-use qitech_framework_common::session;
+use qitech_framework_core::ident::MachineIdentification;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::report::TimingsReport;
+use qitech_framework_core::request::RuntimeRequest;
+use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework_core::session;
 
 #[test]
 fn main() {

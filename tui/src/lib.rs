@@ -18,10 +18,10 @@ use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::session::session::controller::ReceiveHello;
-use qitech_framework_common::RuntimeInitEvent;
-use qitech_framework_common::RuntimeReport;
-use qitech_framework_common::RuntimeStatus;
-use qitech_framework_common::session::HandleTransport;
+use qitech_framework_core::RuntimeInitEvent;
+use qitech_framework_core::RuntimeReport;
+use qitech_framework_core::RuntimeStatus;
+use qitech_framework_core::session::HandleTransport;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 

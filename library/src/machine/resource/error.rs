@@ -1,4 +1,4 @@
-use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_core::MachineIdentificationUnique;
 use thiserror::Error;
 
 use super::ResourceKind;

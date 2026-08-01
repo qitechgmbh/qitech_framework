@@ -1,7 +1,7 @@
 use chrono::Utc;
-use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::MachineStateMutation;
-use qitech_framework_common::with_uom_quantities;
+use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::MachineStateMutation;
+use qitech_framework_core::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::TypeWrapper;
@@ -157,7 +157,7 @@ pub type RecordFn<T> = Box<dyn Fn(&T)>;
 // --- testing ---
 #[cfg(test)]
 mod test {
-    use qitech_framework_common::MachineIdentification;
+    use qitech_framework_core::MachineIdentification;
     use qitech_lib::units::ConstZero;
     use qitech_lib::units::Length;
     use qitech_lib::units::length::centimeter;

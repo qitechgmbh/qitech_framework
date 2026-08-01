@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::MachineMeasurement;
-use qitech_framework_common::with_uom_quantities;
+use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::MachineMeasurement;
+use qitech_framework_core::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::resource::PropertyManager;
@@ -231,7 +231,7 @@ pub struct RegisterOptions<T: Default> {
 // --- testing ---
 #[cfg(test)]
 mod test {
-    use qitech_framework_common::MachineIdentification;
+    use qitech_framework_core::MachineIdentification;
     use qitech_lib::units::ConstZero;
     use qitech_lib::units::Length;
     use qitech_lib::units::length::centimeter;

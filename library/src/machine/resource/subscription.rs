@@ -4,8 +4,8 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
 
-use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::with_uom_quantities;
+use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::with_uom_quantities;
 use thiserror::Error;
 
 pub struct SubscriptionToken;

@@ -1,6 +1,6 @@
 use std::fs;
 
-use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_core::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
 use crate::machine::Machine;

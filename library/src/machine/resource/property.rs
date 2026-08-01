@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
-use qitech_framework_common::MachineIdentificationUnique;
+use qitech_framework_core::MachineIdentificationUnique;
 
 use super::PropertyKind;
 use super::error::RegisterError;

@@ -1,7 +1,7 @@
 use std::{env, fs};
 
 use proc_macro2::Span;
-use qitech_framework_common::{
+use qitech_framework_core::{
     MachineSchema, schema::{
         ConfigPropertyValue, ConfigPropertyValueKind, FloatSemantic, StatePropertyValue, StatePropertyValueKind,
     },

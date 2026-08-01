@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use clickhouse::Client;
-use qitech_framework_common::MachineIdentification;
-use qitech_framework_common::MachineSchema;
-use qitech_framework_common::RuntimeReport;
-use qitech_framework_common::RuntimeRequest;
+use qitech_framework_core::MachineIdentification;
+use qitech_framework_core::MachineSchema;
+use qitech_framework_core::RuntimeReport;
+use qitech_framework_core::RuntimeRequest;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 

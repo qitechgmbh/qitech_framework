@@ -5,10 +5,10 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
-use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::RuntimeReport;
-use qitech_framework_common::session::RuntimeTransport;
-use qitech_framework_common::session::runtime::session;
+use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::RuntimeReport;
+use qitech_framework_core::session::RuntimeTransport;
+use qitech_framework_core::session::runtime::session;
 use types::Config;
 use types::MachineInstance;
 

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use qitech_framework_common::RuntimeReport;
-use qitech_framework_common::RuntimeRequest;
+use qitech_framework_core::RuntimeReport;
+use qitech_framework_core::RuntimeRequest;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tracing::info;

@@ -8,11 +8,11 @@ use chrono::Utc;
 use clickhouse::Client;
 use clickhouse::Row;
 use indexmap::IndexMap;
-use qitech_framework_common::MachineIdentification;
-use qitech_framework_common::MachineIdentificationUnique;
-use qitech_framework_common::MachineSchema;
-use qitech_framework_common::ScalarValue;
-use qitech_framework_common::schema::Node;
+use qitech_framework_core::MachineIdentification;
+use qitech_framework_core::MachineIdentificationUnique;
+use qitech_framework_core::MachineSchema;
+use qitech_framework_core::ScalarValue;
+use qitech_framework_core::schema::Node;
 use serde::Deserialize;
 
 use crate::SchemaRegistry;
