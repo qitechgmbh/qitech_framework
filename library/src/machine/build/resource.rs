@@ -80,6 +80,7 @@ where
         self,
         func: fn(&M) -> ConfigPropertyCapabilities,
     ) {
+        
     }
 
     pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {

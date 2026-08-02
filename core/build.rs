@@ -97,8 +97,6 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     // encapsulate inside private module
     writeln!(file, "mod generated {{")?;
-    writeln!(file, "use serde::Serialize;")?;
-    writeln!(file, "use super::*;")?;
 
     let UomFile { quantity } = toml::from_str(QUANTITIES_DATA)
         .unwrap_or_else(|e| panic!("failed to parse {QUANTITIES_PATH}: {e}"));
@@ -106,7 +104,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     // --- pass one: Quantity definition ---
     writeln!(
         file,
-        "#[derive(Debug, Clone, Copy, Serialize, Deserialize)]"
+        "#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]"
     )?;
     writeln!(file, "pub enum Quantity {{")?;
 
@@ -120,7 +118,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     for UomEntry { name, units } in &quantity {
         writeln!(
             file,
-            "#[derive(Debug, Clone, Copy, Serialize, Deserialize)]"
+            "#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]"
         )?;
         writeln!(file, "pub enum {name}Unit {{")?;
 
@@ -132,7 +130,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     }
 
     // --- pass three: emit Display for Quantity ---
-    writeln!(file, "impl Display for Quantity {{")?;
+    writeln!(file, "impl std::fmt::Display for Quantity {{")?;
     writeln!(
         file,
         "    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {{"
@@ -149,7 +147,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     // --- pass four: emit Display for quantity unit types ---
     for UomEntry { name, units } in &quantity {
-        writeln!(file, "impl Display for {name}Unit {{")?;
+        writeln!(file, "impl std::fmt::Display for {name}Unit {{")?;
         writeln!(
             file,
             "    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {{"

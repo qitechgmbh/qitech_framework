@@ -3,22 +3,6 @@ use core::fmt;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub enum NumericValue {
-    Integer(i64),
-    Float(f64),
-}
-
-impl NumericValue {
-    pub fn max(self, other: Self) -> Self {
-        if self >= other { self } else { other }
-    }
-
-    pub fn min(self, other: Self) -> Self {
-        if self <= other { self } else { other }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(i8)]
 pub enum ScalarValueKind {
