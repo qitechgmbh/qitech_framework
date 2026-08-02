@@ -122,7 +122,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.report.machines.state_mutations.clear();
         self.report.machines.measurements.clear();
         self.report.machines.events.clear();
-        self.report.machines.commands.clear();
+        self.report.machines.command_traces.clear();
 
         // --- reset timer ---
         self.last_export_ts = now;

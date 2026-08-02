@@ -168,7 +168,7 @@ impl Tui {
         let report = report.machines;
 
         for mutation in &report.config_value_mutations {
-            let Some(entry) = self.find_machine_mut(mutation.machine) else {
+            let Some(entry) = self.find_machine_mut(mutation.ident) else {
                 continue;
             };
 
@@ -180,7 +180,7 @@ impl Tui {
         }
 
         for mutation in &report.state_mutations {
-            let Some(entry) = self.find_machine_mut(mutation.machine) else {
+            let Some(entry) = self.find_machine_mut(mutation.ident) else {
                 continue;
             };
 

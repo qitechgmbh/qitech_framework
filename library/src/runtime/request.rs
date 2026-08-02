@@ -72,13 +72,16 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .commands
                     .invoke(target, machine_ref, &resource);
 
-                self.report.machines.commands.push(MachineCommandTrace {
-                    request_id,
-                    target,
-                    resource,
-                    timestamp: Utc::now(),
-                    result,
-                });
+                self.report
+                    .machines
+                    .command_traces
+                    .push(MachineCommandTrace {
+                        request_id,
+                        ident: target,
+                        resource,
+                        timestamp: Utc::now(),
+                        result,
+                    });
             }
 
             RuntimeRequestKind::MachineSubscribe {

@@ -1,6 +1,5 @@
 use super::EnumVariants;
 use super::FloatSemantic;
-use super::Range;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ConfigPropertyValue {
@@ -21,9 +20,6 @@ pub enum ConfigPropertyValueKind {
         /// Default value. Required if `nullable` is `false`.
         /// Default is `None` if `nullable` is `true`.
         default: Option<String>,
-        /// Character length bounds. Optional.
-        /// Default is `Unbounded`.
-        bounds: Range<u32>,
     },
     Boolean {
         /// Default value. Required if `nullable` is `false`.
@@ -31,10 +27,9 @@ pub enum ConfigPropertyValueKind {
         default: Option<bool>,
     },
     Integer {
+        /// Default value. Required if `nullable` is `false`.
+        /// Default is `None` if `nullable` is `true`.
         default: Option<i64>,
-        /// Allowed range for this value. Optional.
-        /// Default is unbounded.
-        range: Range<i64>,
     },
     Float {
         /// Representation of the float. E.g. plain, fraction, millimeter
@@ -42,9 +37,6 @@ pub enum ConfigPropertyValueKind {
         /// Default value. Required if `nullable` is `false`.
         /// Default is `None` if `nullable` is `true`.
         default: Option<f64>,
-        /// Allowed range for this value. Optional.
-        /// Default is unbounded.
-        range: Range<f64>,
     },
 }
 
@@ -165,112 +157,50 @@ fn process_enum<E: Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue
 }
 
 // --- string ---
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct StringValueHelper {
-    #[serde(default)]
-    default: Option<String>,
-    #[serde(default)]
-    bounds: Range<u32>,
-    #[serde(default)]
-    nullable: bool,
-    #[serde(default = "persistent_default")]
-    persistent: bool,
-}
-
-fn process_string<E: Error>(helper: StringValueHelper) -> Result<ConfigPropertyValue, E> {
-    let StringValueHelper {
+fn process_string<E: Error>(helper: SimpleValueHelper<String>) -> Result<ConfigPropertyValue, E> {
+    process_simple(helper, |default| ConfigPropertyValueKind::String {
         default,
-        bounds,
-        nullable,
-        persistent,
-    } = helper;
-
-    if !nullable && default.is_none() {
-        return Err(Error::custom(
-            "`default` is required when `nullable` is `false`",
-        ));
-    }
-
-    // ensure default itself lies in the provided range
-    if let Some(v) = &default {
-        let len = v.len() as u32;
-        if !bounds.in_range(len) {
-            return Err(Error::custom(format!(
-                "default value '{v}' (len = {len}) is outside the allowed length range {bounds}"
-            )));
-        }
-    }
-
-    Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::String { default, bounds },
-        nullable,
-        persistent,
     })
 }
 
 // --- boolean ---
-#[derive(Debug, Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BooleanValueHelper {
-    #[serde(default)]
-    pub default: Option<bool>,
-    #[serde(default)]
-    pub nullable: bool,
-    #[serde(default = "persistent_default")]
-    pub persistent: bool,
-}
-
-fn process_bool<E: Error>(helper: BooleanValueHelper) -> Result<ConfigPropertyValue, E> {
-    let BooleanValueHelper {
+fn process_bool<E: Error>(helper: SimpleValueHelper<bool>) -> Result<ConfigPropertyValue, E> {
+    process_simple(helper, |default| ConfigPropertyValueKind::Boolean {
         default,
-        nullable,
-        persistent,
-    } = helper;
-
-    if !nullable && default.is_none() {
-        return Err(Error::custom(
-            "`default` is required when `nullable` is `false`",
-        ));
-    }
-
-    Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Boolean { default },
-        nullable,
-        persistent,
     })
 }
 
 // --- integer ---
-fn process_integer<E: Error>(helper: NumericValueHelper<i64>) -> Result<ConfigPropertyValue, E> {
-    let NumericValueHelper {
+fn process_integer<E: Error>(helper: SimpleValueHelper<i64>) -> Result<ConfigPropertyValue, E> {
+    process_simple(helper, |default| ConfigPropertyValueKind::Integer {
         default,
-        range,
-        nullable,
-        persistent,
-    } = helper;
-
-    if !nullable && default.is_none() {
-        return Err(Error::custom(
-            "`default` is required when `nullable` is `false`",
-        ));
-    }
-
-    Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Integer { default, range },
-        nullable,
-        persistent,
     })
 }
 
 // --- float ---
 fn process_float<E: Error>(
-    helper: NumericValueHelper<f64>,
+    helper: SimpleValueHelper<f64>,
     semantic: FloatSemantic,
 ) -> Result<ConfigPropertyValue, E> {
-    let NumericValueHelper {
+    process_simple(helper, move |default| ConfigPropertyValueKind::Float {
+        semantic,
         default,
-        range,
+    })
+}
+
+// --- helpers ---
+fn process_simple<T, E, F>(
+    helper: SimpleValueHelper<T>,
+    build_kind: F,
+) -> Result<ConfigPropertyValue, E>
+where
+    T: FromStr,
+    T::Err: Display,
+    E: Error,
+    F: FnOnce(Option<T>) -> ConfigPropertyValueKind,
+{
+    let SimpleValueHelper {
+        default,
         nullable,
         persistent,
     } = helper;
@@ -282,20 +212,15 @@ fn process_float<E: Error>(
     }
 
     Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Float {
-            semantic,
-            default,
-            range,
-        },
+        kind: build_kind(default),
         nullable,
         persistent,
     })
 }
 
-// --- helpers ---
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, bound(deserialize = "T: DeserializeOwned"))]
-struct NumericValueHelper<T>
+struct SimpleValueHelper<T>
 where
     T: FromStr,
     T::Err: Display,
@@ -305,9 +230,6 @@ where
 
     #[serde(default)]
     pub default: Option<T>,
-
-    #[serde(default)]
-    pub range: Range<T>,
 
     #[serde(default = "persistent_default")]
     pub persistent: bool,

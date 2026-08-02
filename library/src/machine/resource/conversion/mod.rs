@@ -1,8 +1,9 @@
-use std::fmt::Debug;
-
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::with_uom_quantities;
 use qitech_framework_core::with_uom_units;
+
+mod type_wrapper;
+pub use type_wrapper::TypeWrapper;
 
 pub trait Extract<T> {
     /// Extracts a value from a raw byte pointer.
@@ -14,109 +15,24 @@ pub trait Extract<T> {
     unsafe fn extract(bytes: *const u8) -> T;
 }
 
-pub trait BoundedMeta {
-    type Bound: Copy + Default + PartialOrd + Debug;
-    fn as_bound(&self) -> Option<Self::Bound>;
+/// trait each measurement types value type must implement
+pub trait StatisticValue: Copy + Default + PartialOrd {
+    fn as_opt_f64(self) -> Option<f64>;
+    fn from_f64(value: f64) -> Self;
+    fn zero() -> Self;
 }
 
-/// Trait to allow defining conversion and extract operations
-/// on wrapped units. The best example here is uom which allows us to export
-/// a uom Length as millimeter instead of meter (the default with serde feature)
-pub trait TypeWrapper {
-    type Type: Clone + 'static;
-    type Input;
-
-    fn convert_input(input: Self::Input) -> Self::Type;
-    fn into_scalar(value: &Self::Type) -> ScalarValue;
-    fn from_scalar(value: ScalarValue) -> Option<Self::Type>;
-}
-
-// --- type wrapper ---q
-macro_rules! simple_type_wrapper {
-    ($type:ty, $variant:ident) => {
-        impl TypeWrapper for $type {
-            type Type = $type;
-            type Input = $type;
-
-            fn convert_input(input: Self::Input) -> Self::Type {
-                input
-            }
-
-            fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
-                match value {
-                    ScalarValue::$variant(Some(value)) => Some(value),
-                    _ => None,
-                }
-            }
-
-            fn into_scalar(value: &Self::Type) -> ScalarValue {
-                ScalarValue::$variant(Some(value.clone()))
-            }
-        }
-
-        impl TypeWrapper for Option<$type> {
-            type Type = Option<$type>;
-            type Input = Option<$type>;
-
-            fn convert_input(input: Self::Input) -> Self::Type {
-                input
-            }
-
-            fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
-                match value {
-                    ScalarValue::$variant(value) => Some(value),
-                    _ => None,
-                }
-            }
-
-            fn into_scalar(value: &Self::Type) -> ScalarValue {
-                ScalarValue::$variant(value.clone())
-            }
-        }
-    };
-}
-
-simple_type_wrapper!(f64, Float);
-simple_type_wrapper!(i64, Integer);
-simple_type_wrapper!(bool, Boolean);
-
-impl TypeWrapper for String {
-    type Type = String;
-    type Input = &'static str;
-
-    fn convert_input(input: &'static str) -> String {
-        input.to_string()
+impl StatisticValue for f64 {
+    fn as_opt_f64(self) -> Option<f64> {
+        Some(self)
     }
 
-    fn from_scalar(value: ScalarValue) -> Option<String> {
-        match value {
-            ScalarValue::String(Some(s)) => Some(s),
-            _ => None,
-        }
+    fn from_f64(value: f64) -> Self {
+        value
     }
 
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::String(Some(value.clone()))
-    }
-}
-
-impl TypeWrapper for Option<String> {
-    type Type = Option<String>;
-    type Input = Option<&'static str>;
-
-    fn convert_input(input: Option<&'static str>) -> Option<String> {
-        input.map(|x| x.to_string())
-    }
-
-    fn from_scalar(value: ScalarValue) -> Option<Self::Type> {
-        match value {
-            ScalarValue::String(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    fn into_scalar(value: &Self::Type) -> ScalarValue {
-        ScalarValue::String(value.clone())
+    fn zero() -> Self {
+        0.0
     }
 }
 
@@ -165,14 +81,6 @@ impl Extract<ScalarValue> for i64 {
 }
 
 // --- optional int ---
-impl BoundedMeta for i64 {
-    type Bound = i64;
-
-    fn as_bound(&self) -> Option<Self::Bound> {
-        Some(*self)
-    }
-}
-
 impl Extract<Option<f64>> for Option<i64> {
     unsafe fn extract(bytes: *const u8) -> Option<f64> {
         let value = unsafe { *(bytes as *const Option<i64>) };
@@ -222,14 +130,6 @@ impl Extract<ScalarValue> for String {
     unsafe fn extract(bytes: *const u8) -> ScalarValue {
         let value = unsafe { (*(bytes as *const String)).clone() };
         ScalarValue::String(Some(value.clone()))
-    }
-}
-
-impl BoundedMeta for String {
-    type Bound = usize;
-
-    fn as_bound(&self) -> Option<Self::Bound> {
-        Some(self.len())
     }
 }
 

@@ -34,7 +34,7 @@ impl<T: Serialize> Emitter<T> {
     pub fn emit(&mut self, event: T) -> EventEmitResult {
         self.journal.append(MachineEmittedEvent {
             timestamp: Utc::now(),
-            machine: self.machine,
+            ident: self.machine,
             path: Cow::Borrowed(self.path),
             data: serde_json::to_string(&event)?,
         });

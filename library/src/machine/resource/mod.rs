@@ -14,6 +14,8 @@ use property::PropertyManager;
 
 mod config_property;
 pub use config_property::ConfigProperty;
+pub use config_property::ConfigPropertyCapabilities;
+pub use config_property::GetCapabilitiesFn;
 pub use config_property::Manager as ConfigPropertyManager;
 pub use config_property::RegisterOptions as ConfigPropertyRegisterOptions;
 
@@ -27,7 +29,9 @@ pub use state_property::Manager as StatePropertyManager;
 pub use state_property::StateProperty;
 
 mod command;
+pub use command::CanExecuteFn;
 pub use command::ExecuteFn;
+pub use command::IntoCanExecuteFn;
 pub use command::IntoExecuteFn;
 pub use command::Manager as CommandManager;
 
@@ -36,6 +40,7 @@ pub use event::Emitter as EventEmitter;
 pub use event::Manager as EventManager;
 pub use event::SubscribedEvent;
 
+pub mod constraints;
 pub(crate) mod conversion;
 pub(crate) mod subscription;
 

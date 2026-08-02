@@ -13,7 +13,7 @@ pub use machines::MachineCommandCapabilityMutation;
 pub use machines::MachineCommandInvokeError;
 pub use machines::MachineCommandTrace;
 pub use machines::MachineConfigCapabilityMutation;
-pub use machines::MachineConfigConstraints;
+pub use machines::MachineConfigPropertyConstraints;
 pub use machines::MachineConfigValueMutation;
 pub use machines::MachineConfigWriteCapability;
 pub use machines::MachineConfigWriteError;

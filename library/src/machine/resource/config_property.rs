@@ -1,12 +1,12 @@
-use std::any;
 use std::any::Any;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::MachineConfigCapabilityMutation;
-use qitech_framework_core::report::MachineConfigConstraints;
+use qitech_framework_core::report::MachineConfigPropertyConstraints;
 use qitech_framework_core::report::MachineConfigValueMutation;
 use qitech_framework_core::report::MachineConfigWriteCapability;
 use qitech_framework_core::report::MachineConfigWriteError;
@@ -20,7 +20,6 @@ use crate::machine::TypeWrapper;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
 use crate::machine::resource::PropertyManager;
-use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::error::ResourceAccessError;
 use crate::machine::resource::subscription::SubscribeError;
@@ -34,8 +33,6 @@ pub struct ConfigProperty<T: Clone> {
 
 impl<T: Clone> ConfigProperty<T> {
     pub fn set(&mut self, value: T) -> Result<(), MachineConfigWriteError> {
-
-        self.
         (self.write)(self.handle.clone(), value)
     }
 
@@ -102,7 +99,7 @@ type Kind = super::property_kind::ConfigProperty;
 
 #[derive(Default)]
 pub struct Manager {
-    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, ()>,
+    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind>,
     entries: HashMap<Key<'static>, Entry>,
     journal_value: Journal<MachineConfigValueMutation>,
     journal_capability: Journal<MachineConfigCapabilityMutation>,
@@ -111,19 +108,19 @@ pub struct Manager {
 impl Manager {
     pub fn register<T>(
         &mut self,
-        machine: MachineIdentificationUnique,
+        ident: MachineIdentificationUnique,
         path: &'static str,
         options: RegisterOptions<T::Type>,
     ) -> RegisterResult<ConfigProperty<T::Type>>
     where
         T: TypeWrapper + 'static,
-        T::Type: Clone + BoundedMeta,
+        // T::Type: Clone,
     {
         // --- create handle ---
         let default = options.default.clone();
         let handle =
             self.inner
-                .register::<T::Type>(machine, path.to_string(), (), default.clone())?;
+                .register::<T::Type>(ident, path.to_string(), (), default.clone())?;
 
         // --- internal writer ---
         let opts = options.clone();
@@ -136,7 +133,7 @@ impl Manager {
         let write = Box::new(
             move |handle: PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
                 let mut entry = MachineConfigValueMutation {
-                    machine,
+                    ident,
                     path: path.to_string(),
                     value: T::into_scalar(&value),
                     origin: OperationOrigin::Machine,
@@ -168,7 +165,7 @@ impl Manager {
                 };
 
                 let mut entry = MachineConfigValueMutation {
-                    machine,
+                    ident,
                     path: path.to_string(),
                     value: T::into_scalar(&value),
                     origin: OperationOrigin::Request { request_id },
@@ -193,7 +190,7 @@ impl Manager {
         );
 
         // --- store the api writer ---
-        let key = Key::from_str(machine, path);
+        let key = Key::from_str(ident, path);
         self.entries.insert(
             key,
             Entry {
@@ -251,7 +248,7 @@ impl Manager {
         machine: MachineIdentificationUnique,
         path: &str,
         machine_ref: &dyn Machine,
-    ) -> Result<MachineConfigPropertyCapabilities, ResourceAccessError> {
+    ) -> Result<ConfigPropertyCapabilities, ResourceAccessError> {
         let key = Key::from_str(machine, path);
 
         let Some(Entry {
@@ -265,15 +262,15 @@ impl Manager {
         let dynamic = match get_capabilities {
             Some(get) => get(machine_ref)?,
 
-            None => MachineConfigPropertyCapabilities {
+            None => ConfigPropertyCapabilities {
                 writable: MachineConfigWriteCapability {
                     disabled_reason: None,
                 },
-                constraints: MachineConfigConstraints::None,
+                constraints: MachineConfigPropertyConstraints::None,
             },
         };
 
-        Ok(MachineConfigPropertyCapabilities {
+        Ok(ConfigPropertyCapabilities {
             writable: dynamic.writable,
             constraints: fixed_constraints.merged(&dynamic.constraints),
         })
@@ -294,16 +291,17 @@ impl Manager {
 
         let capabilities = {
             let dynamic = match &entry.get_capabilities {
-                Some(get) => get(machine_ref)
-                    .map_err(MachineConfigWriteError::MachineTypeMismatch)?,
+                Some(get) => {
+                    get(machine_ref).map_err(MachineConfigWriteError::MachineTypeMismatch)?
+                }
 
-                None => MachineConfigPropertyCapabilities {
+                None => ConfigPropertyCapabilities {
                     write: WriteCapability::writable(),
-                    constraints: MachineConfigConstraints::None,
+                    constraints: MachineConfigPropertyConstraints::None,
                 },
             };
 
-            MachineConfigPropertyCapabilities {
+            ConfigPropertyCapabilities {
                 write: dynamic.write,
                 constraints: entry.fixed_constraints.merged(&dynamic.constraints),
             }
@@ -313,7 +311,11 @@ impl Manager {
             return Err(MachineConfigWriteError::NotWritable(reason));
         }
 
-        let Some(Entry { fixed_constraints, get_capabilities }) = self.entries.get(&key) else {
+        let Some(Entry {
+            fixed_constraints,
+            get_capabilities,
+        }) = self.entries.get(&key)
+        else {
             return Err(MachineConfigWriteError::NotWritable(None));
         };
 
@@ -331,37 +333,44 @@ impl Manager {
 }
 
 pub struct Entry {
-    fixed_constraints: MachineConfigConstraints,
     get_capabilities: GetCapabilitiesFn,
     write_value: WriteFn,
+
+    /// pointer to own machine
+    machine_ref: *const dyn Machine,
 }
 
-pub struct MachineConfigPropertyCapabilities {
+pub struct ConfigPropertyCapabilities {
     pub writable: MachineConfigWriteCapability,
-    pub constraints: MachineConfigConstraints,
+    pub constraints: MachineConfigPropertyConstraints,
 }
 
 #[derive(Default)]
-pub struct RegisterOptions<T: BoundedMeta> {
-    pub default: T,
-    pub fixed_constraints: MachineConfigConstraints,
+pub struct RegisterOptions<T: TypeWrapper> {
+    pub default: T::Type,
+
+    /// static constraints for values of T
+    pub constraints: Option<T::Constraints>,
+
+    /// getter to compute constraints from machine state.
+    /// If Some overrides `constraints`
     pub get_constraints: Option<GetCapabilitiesFn>,
 }
 
 // --- get capabilities ---
 pub type GetCapabilitiesFn =
-    Box<dyn Fn(&dyn Machine) -> Result<MachineConfigPropertyCapabilities, ResourceAccessError>>;
+    Rc<dyn Fn(&dyn Machine) -> Result<ConfigPropertyCapabilities, ResourceAccessError>>;
 
 pub trait IntoGetConstraintsFn {
     fn into_get_constraints_fn(self) -> GetCapabilitiesFn;
 }
 
-impl<M> IntoGetConstraintsFn for fn(&M) -> MachineConfigPropertyCapabilities
+impl<M> IntoGetConstraintsFn for fn(&M) -> ConfigPropertyCapabilities
 where
     M: Machine + 'static,
 {
     fn into_get_constraints_fn(self) -> GetCapabilitiesFn {
-        Box::new(move |machine: &dyn Machine| {
+        Rc::new(move |machine: &dyn Machine| {
             let machine = (machine as &dyn Any)
                 .downcast_ref::<M>()
                 .ok_or(ResourceAccessError::MachineTypeMismatch)?;
@@ -373,3 +382,41 @@ where
 
 // --- write fn ---
 pub type WriteFn = Box<dyn Fn(ScalarValue) -> Result<(), MachineConfigWriteError>>;
+
+// --- testing ---
+#[cfg(test)]
+mod test {
+    use qitech_framework_core::ident::MachineIdentification;
+
+    use super::*;
+
+    #[test]
+    pub fn register_and_use() -> anyhow::Result<()> {
+        let ident = MachineIdentificationUnique {
+            identification: MachineIdentification {
+                vendor_id: 0,
+                machine_id: 0,
+            },
+            serial: 0,
+        };
+
+        let mut r = Manager::default();
+
+        let mut prop = r.register::<f64>(
+            ident,
+            "just.some.config",
+            RegisterOptions {
+                default: 0.0,
+                constraints: MachineConfigPropertyConstraints::None,
+                get_constraints: None,
+            },
+        )?;
+
+        prop.get_ref();
+        prop.get();
+        prop.set(10.0);
+        prop.reset();
+
+        Ok(())
+    }
+}

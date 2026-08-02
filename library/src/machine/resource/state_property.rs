@@ -100,7 +100,7 @@ impl Manager {
         let journal = self.journal.new_handle();
         let record = Box::new(move |value: &T::Type| {
             let entry = MachineStateMutation {
-                machine: ident,
+                ident,
                 path: path.to_string(),
                 value: T::into_scalar(value),
                 timestamp: Utc::now(),

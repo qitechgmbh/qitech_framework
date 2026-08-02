@@ -51,12 +51,6 @@ impl Default for Hello {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum HelloAck {
-    Accepted,
-    Rejected(HelloMatchError),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub enum RuntimeMessage {
     Hello(Hello),
     Schema(Box<MachineSchema>),

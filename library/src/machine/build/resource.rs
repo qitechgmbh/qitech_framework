@@ -1,23 +1,27 @@
 use std::marker::PhantomData;
 use std::println;
+use std::rc::Rc;
 
+use qitech_framework_core::report::MachineConfigPropertyConstraints;
+use qitech_framework_core::report::MachineConfigWriteCapability;
 use serde::Serialize;
-use serde::de::DeserializeOwned;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
 use crate::machine::build::BuildError;
 use crate::machine::build::BuildResult;
-use crate::machine::resource::CommandHandle;
+use crate::machine::resource::CanExecuteFn;
 use crate::machine::resource::ConfigProperty;
+use crate::machine::resource::ConfigPropertyCapabilities;
 use crate::machine::resource::ConfigPropertyRegisterOptions;
 use crate::machine::resource::EventEmitter;
 use crate::machine::resource::ExecuteFn;
+use crate::machine::resource::GetCapabilitiesFn;
+use crate::machine::resource::IntoCanExecuteFn;
 use crate::machine::resource::IntoExecuteFn;
 use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementRegisterOptions;
 use crate::machine::resource::StateProperty;
-use crate::machine::resource::conversion::BoundedMeta;
 use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterError;
@@ -28,7 +32,7 @@ impl<'a> BuildContext<'a> {
     where
         'a: 'b,
         T: TypeWrapper + 'static,
-        T::Type: Clone + Default + BoundedMeta,
+        T::Type: Clone + Default,
     {
         ConfigPropertyBuilder {
             root: self,
@@ -41,17 +45,21 @@ impl<'a> BuildContext<'a> {
 pub struct ConfigPropertyBuilder<'a, 'b, T>
 where
     T: TypeWrapper + 'static,
-    T::Type: Clone + BoundedMeta,
+    T::Type: Clone,
 {
     root: &'b mut BuildContext<'a>,
     path: &'static str,
-    options: ConfigPropertyRegisterOptions<T::Type>,
+
+    // --- configuration ---
+    default: T::Type,
+    constraints: Option<T::Constraints>,
+    get_constraints: Option<GetCapabilitiesFn>,
 }
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
 where
     T: TypeWrapper + 'static,
-    T::Type: Clone + BoundedMeta,
+    T::Type: Clone,
 {
     pub fn default(mut self, value: T::Input) -> Self {
         self.options.default = T::convert_input(value);
@@ -68,19 +76,24 @@ where
         self
     }
 
-    pub fn validate(mut self, value: fn(&T::Type) -> Result<(), String>) -> Self {
-        self.options.validate = Some(value);
-        self
+    pub fn get_capabilities<M: Machine + 'static>(
+        self,
+        func: fn(&M) -> ConfigPropertyCapabilities,
+    ) {
     }
 
-    // pub fn execute(mut self, execute: fn(&mut M) -> Result<(), String>) -> Self {
-    //     self.execute = Some(execute.into_execute_fn());
-    //     self
-    // }
-
-    pub fn can_set<M: Machine + 'static>(self, value: fn(&M) -> bool) {}
-
     pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
+        let get_constraints = self.get_constraints.unwrap_or_else(|| {
+            Rc::new(move |machine: &dyn Machine| {
+                _ = machine;
+
+                Ok(ConfigPropertyCapabilities {
+                    writable: MachineConfigWriteCapability::allowed(),
+                    constraints: MachineConfigPropertyConstraints::None,
+                })
+            })
+        });
+
         Ok(self.root.resources.config_properties.register::<T>(
             self.root.ident,
             self.path,
@@ -205,8 +218,8 @@ impl<'a> BuildContext<'a> {
         CommandBuilder {
             root: self,
             path,
-            disabled: false,
-            execute: None,
+            can_execute_fn: None,
+            execute_fn: None,
             _marker: PhantomData,
         }
     }
@@ -218,8 +231,8 @@ where
 {
     root: &'b mut BuildContext<'a>,
     path: &'static str,
-    disabled: bool,
-    execute: Option<ExecuteFn>,
+    can_execute_fn: Option<CanExecuteFn>,
+    execute_fn: Option<ExecuteFn>,
     _marker: PhantomData<M>,
 }
 
@@ -227,26 +240,18 @@ impl<'a, 'b, M> CommandBuilder<'a, 'b, M>
 where
     M: Machine + 'static,
 {
-    pub fn execute(mut self, execute: fn(&mut M) -> Result<(), String>) -> Self {
-        self.execute = Some(execute.into_execute_fn());
+    pub fn can_execute(mut self, value: fn(&M) -> bool) -> Self {
+        self.can_execute_fn = Some(value.into_can_execute_fn());
         self
     }
 
-    pub fn execute_args<A>(mut self, execute: fn(&mut M, A) -> Result<(), String>) -> Self
-    where
-        A: DeserializeOwned + 'static,
-    {
-        self.execute = Some(execute.into_execute_fn());
+    pub fn execute(mut self, value: fn(&mut M) -> Result<(), String>) -> Self {
+        self.execute_fn = Some(value.into_execute_fn());
         self
     }
 
-    pub fn disabled(mut self) -> Self {
-        self.disabled = true;
-        self
-    }
-
-    pub fn register(self) -> BuildResult<CommandHandle> {
-        let Some(execute) = self.execute else {
+    pub fn register(self) -> BuildResult<()> {
+        let Some(execute) = self.execute_fn else {
             let err = RegisterError::MissingRequiredField("execute");
             return Err(BuildError::RegisterError(err));
         };

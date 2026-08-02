@@ -93,7 +93,7 @@ fn runtime(path: String) {
             Ok(Some(request)) => {
                 println!("[Runtime] received request: {request:?}");
 
-                let response = (request.transaction_id, Ok(()));
+                let response = (request.request_id, Ok(()));
 
                 let report = RuntimeReport {
                     timestamp: Utc::now(),
@@ -160,7 +160,7 @@ fn controller(path: String) {
         // --- send request ---
         session
             .send_request(RuntimeRequest {
-                transaction_id: 0,
+                request_id: 0,
                 kind: RuntimeRequestKind::SetMachineConfiguration {
                     target: MachineIdentificationUnique {
                         identification: MachineIdentification {

@@ -69,3 +69,7 @@ measurements:
 
 
 config property can_write
+
+
+
+config property no more bounds in schema

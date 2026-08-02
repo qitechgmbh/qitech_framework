@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::MachineMeasurement;
 use qitech_framework_core::with_uom_quantities;
@@ -7,6 +5,7 @@ use qitech_framework_core::with_uom_quantities;
 use super::PropertyHandle;
 use crate::machine::resource::PropertyManager;
 use crate::machine::resource::conversion::Extract;
+use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::property_kind;
@@ -16,7 +15,7 @@ use crate::machine::resource::subscription::SubscribedProperty;
 #[derive(Debug)]
 pub struct Measurement<T> {
     handle: PropertyHandle<T>,
-    stats: Statistics<T>,
+    stats: Statistics,
 }
 
 impl<T> Measurement<T>
@@ -34,7 +33,7 @@ where
 {
     pub fn set(&mut self, value: T) {
         self.handle.write(value);
-        self.stats.update(value);
+        self.stats.update((self.to_canonical)(value));
     }
 }
 
@@ -79,23 +78,98 @@ with_uom_quantities!(impl_uom);
 
 // --- statistics ---
 #[derive(Debug)]
-struct Statistics<T> {
+struct Statistics<T: StatisticValue> {
+    /// cycle generation, used to know when to reset stats
+    p_generation: PropertyHandle<u64>,
+    generation: u64,
+
     min: Option<PropertyHandle<T>>,
     max: Option<PropertyHandle<T>>,
+    avg: Option<PropertyHandle<T>>,
+    stddev: Option<PropertyHandle<T>>,
+
+    count: u64,
+    mean: f64,
+    m2: f64,
 }
 
-impl<T: Copy + PartialOrd> Statistics<T> {
+impl<T: StatisticValue> Statistics<T> {
     pub fn update(&mut self, value: T) {
-        if let Some(min) = &mut self.min
-            && *min.read() > value
-        {
-            min.write(value);
+        let generation_now = *self.p_generation.read();
+
+        if generation_now != self.generation {
+            self.generation = generation_now;
+
+            self.count = 1;
+            self.mean = value_f64;
+            self.m2 = 0.0;
+
+            if let Some(min) = &mut self.min {
+                min.write(value);
+            }
+
+            if let Some(max) = &mut self.max {
+                max.write(value);
+            }
+
+            if let Some(avg) = &mut self.avg {
+                avg.write(value);
+            }
+
+            if let Some(stddev) = &mut self.stddev {
+                stddev.write(Default::default());
+            }
         }
 
-        if let Some(max) = &mut self.max
-            && *max.read() < value
-        {
-            max.write(value);
+        if let Some(min) = &mut self.min {
+            match min.read() {
+                Some(current) if value < *current => {
+                    min.write(Some(value));
+                }
+                None => {
+                    min.write(Some(value));
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(max) = &mut self.max {
+            match max.read() {
+                Some(current) if value > *current => {
+                    max.write(Some(value));
+                }
+                None => {
+                    max.write(Some(value));
+                }
+                _ => {}
+            }
+        }
+
+        // mean/stddev
+        if self.avg.is_some() || self.stddev.is_some() {
+            let value_f64 = value.to_f64();
+
+            self.count += 1;
+
+            let delta = value_f64 - self.mean;
+            self.mean += delta / self.count as f64;
+
+            let delta2 = value_f64 - self.mean;
+            self.m2 += delta * delta2;
+
+            if let Some(avg) = &mut self.avg {
+                avg.write(Some(T::from_f64(self.mean)));
+            }
+
+            if let Some(stddev) = &mut self.stddev {
+                let variance = if self.count > 1 {
+                    self.m2 / (self.count - 1) as f64
+                } else {
+                    0.0
+                };
+
+                stddev.write(Some(T::from_f64(variance.sqrt())));
+            }
         }
     }
 }
@@ -108,9 +182,6 @@ type Kind = property_kind::Measurement;
 #[derive(Clone, Copy)]
 struct Metadata {
     extract: unsafe fn(*const u8) -> Option<f64>,
-
-    #[allow(unused)]
-    is_stat: bool,
 }
 
 #[derive(Default)]
@@ -133,47 +204,80 @@ impl Manager {
     ) -> RegisterResult<Measurement<T::Type>>
     where
         T: TypeWrapper + Extract<Option<f64>> + 'static,
-        T::Type: Copy + PartialOrd + Default,
+        T::Type: Copy + PartialOrd + Default + Into<Option<f64>>,
     {
-        let mut init_handle =
-            |postfix: Option<&'static str>| -> RegisterResult<PropertyHandle<T::Type>> {
-                let path: Cow<'static, str> = match postfix {
-                    Some(postfix) => Cow::Owned(format!("{path}.{postfix}")),
-                    None => Cow::Borrowed(path),
-                };
+        // --- create root handle ---
+        let handle = self.inner.register::<T::Type>(
+            ident,
+            path.to_string(),
+            Metadata {
+                extract: T::extract,
+            },
+            T::Type::default(),
+        )?;
 
-                self.inner.register::<T::Type>(
+        // --- create cycle generation handle ---
+        let generation_handle = self.inner.register::<u64>(
+            ident,
+            "generation".to_string(),
+            Metadata {
+                extract: T::extract,
+            },
+            0,
+        )?;
+
+        // --- create stat handles ---
+        let mut init_stat_handle =
+            |postfix: &'static str| -> RegisterResult<PropertyHandle<Option<f64>>> {
+                self.inner.register::<Option<f64>>(
                     ident,
-                    path.to_string(),
+                    format!("{path}.{postfix}"),
                     Metadata {
                         extract: T::extract,
-                        is_stat: postfix.is_some(),
                     },
-                    T::Type::default(),
+                    None,
                 )
             };
 
-        let handle = (init_handle)(None)?;
-        handle.write(options.initial);
-
         let stat_min_handle = if options.record_min {
-            Some(init_handle(Some("min"))?)
+            Some(init_stat_handle("min")?)
         } else {
             None
         };
 
         let stat_max_handle = if options.record_max {
-            Some(init_handle(Some("max"))?)
+            Some(init_stat_handle("max")?)
+        } else {
+            None
+        };
+
+        let stat_avg_handle = if options.record_avg {
+            Some(init_stat_handle("avg")?)
+        } else {
+            None
+        };
+
+        let stat_stddev_handle = if options.record_stddev {
+            Some(init_stat_handle("stddev")?)
         } else {
             None
         };
 
         let stats = Statistics {
+            p_generation: generation_handle,
+            generation: 0,
             min: stat_min_handle,
             max: stat_max_handle,
+            avg: stat_avg_handle,
+            stddev: stat_stddev_handle,
+            count: 0,
+            mean: 0.0,
+            m2: 0.0,
+            current_min: None,
+            current_max: None,
         };
 
-        Ok(Measurement { handle, stats })
+        // Ok(Measurement { handle, stats, to_canonical: T:: })
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
@@ -211,7 +315,7 @@ impl Manager {
             let value = unsafe { (info.metadata.extract)(bytes) };
 
             let entry = MachineMeasurement {
-                machine: info.machine,
+                ident: info.machine,
                 path: info.path.clone(),
                 value,
             };
@@ -226,6 +330,8 @@ pub struct RegisterOptions<T: Default> {
     pub initial: T,
     pub record_min: bool,
     pub record_max: bool,
+    pub record_avg: bool,
+    pub record_stddev: bool,
 }
 
 // --- testing ---

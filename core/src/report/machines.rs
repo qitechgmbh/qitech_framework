@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -7,7 +5,6 @@ use serde::Serialize;
 use soa_derive::StructOfArray;
 use thiserror::Error;
 
-use crate::NumericValue;
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::OperationOrigin;
@@ -29,7 +26,10 @@ pub struct MachinesReport {
     pub measurements: MachineMeasurementVec,
 
     /// machine command invocations
-    pub commands: Vec<MachineCommandTrace>,
+    pub command_traces: Vec<MachineCommandTrace>,
+
+    /// machine command invocations
+    pub command_enabled_mutations: Vec<MachineCommandCapabilityMutation>,
 
     /// machine events emitted during this cycle
     pub events: Vec<MachineEmittedEvent>,
@@ -39,7 +39,7 @@ pub struct MachinesReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineConfigValueMutation {
     /// target machine
-    pub machine: MachineIdentificationUnique,
+    pub ident: MachineIdentificationUnique,
 
     /// configuration resource path (e.g. "laser.power")
     pub path: String,
@@ -60,7 +60,7 @@ pub struct MachineConfigValueMutation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineConfigCapabilityMutation {
     /// target machine
-    pub machine: MachineIdentificationUnique,
+    pub ident: MachineIdentificationUnique,
 
     /// configuration resource path
     pub path: String,
@@ -69,7 +69,7 @@ pub struct MachineConfigCapabilityMutation {
     pub writable: MachineConfigWriteCapability,
 
     /// current operational constraints
-    pub constraints: MachineConfigConstraints,
+    pub constraints: MachineConfigPropertyConstraints,
 
     /// when constraints changed
     pub timestamp: DateTime<Utc>,
@@ -82,105 +82,34 @@ pub struct MachineConfigWriteCapability {
     pub disabled_reason: Option<String>,
 }
 
+impl MachineConfigWriteCapability {
+    pub fn allowed() -> Self {
+        Self {
+            disabled_reason: None,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub enum MachineConfigConstraints {
+pub enum MachineConfigPropertyConstraints {
     #[default]
     None,
-
-    Number {
-        min: Option<NumericValue>,
-        max: Option<NumericValue>,
+    Float {
+        min: Option<f64>,
+        max: Option<f64>,
     },
-
+    Integer {
+        min: Option<i64>,
+        max: Option<i64>,
+    },
     String {
         min_length: Option<usize>,
         max_length: Option<usize>,
-        patterns: Vec<String>,
+        pattern: String,
     },
-
     Enum {
         allowed: Vec<String>,
     },
-}
-
-impl MachineConfigConstraints {
-    pub fn merged(&self, other: &Self) -> Self {
-        match (self, other) {
-            (Self::None, other) => other.clone(),
-
-            (this, Self::None) => this.clone(),
-
-            (
-                Self::Number { min, max },
-                Self::Number {
-                    min: other_min,
-                    max: other_max,
-                },
-            ) => Self::Number {
-                min: match (min, other_min) {
-                    (Some(a), Some(b)) => Some(a.clone().max(b.clone())),
-                    (Some(a), None) => Some(a.clone()),
-                    (None, Some(b)) => Some(b.clone()),
-                    (None, None) => None,
-                },
-                max: match (max, other_max) {
-                    (Some(a), Some(b)) => Some(a.clone().min(b.clone())),
-                    (Some(a), None) => Some(a.clone()),
-                    (None, Some(b)) => Some(b.clone()),
-                    (None, None) => None,
-                },
-            },
-
-            (
-                Self::String {
-                    min_length,
-                    max_length,
-                    patterns,
-                },
-                Self::String {
-                    min_length: other_min_length,
-                    max_length: other_max_length,
-                    patterns: other_patterns,
-                },
-            ) => {
-                let mut patterns = patterns.clone();
-                patterns.extend(other_patterns.clone());
-
-                Self::String {
-                    min_length: match (min_length, other_min_length) {
-                        (Some(a), Some(b)) => Some((*a).max(*b)),
-                        (Some(a), None) => Some(*a),
-                        (None, Some(b)) => Some(*b),
-                        (None, None) => None,
-                    },
-                    max_length: match (max_length, other_max_length) {
-                        (Some(a), Some(b)) => Some((*a).min(*b)),
-                        (Some(a), None) => Some(*a),
-                        (None, Some(b)) => Some(*b),
-                        (None, None) => None,
-                    },
-                    patterns,
-                }
-            }
-
-            (
-                Self::Enum { allowed },
-                Self::Enum {
-                    allowed: other_allowed,
-                },
-            ) => Self::Enum {
-                allowed: allowed
-                    .iter()
-                    .filter(|v| other_allowed.contains(v))
-                    .cloned()
-                    .collect(),
-            },
-
-            // Different types should not happen after schema validation.
-            // Prefer the restrictive side.
-            (_, other) => other.clone(),
-        }
-    }
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
@@ -205,7 +134,7 @@ pub enum MachineConfigWriteError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineStateMutation {
     /// source machine
-    pub machine: MachineIdentificationUnique,
+    pub ident: MachineIdentificationUnique,
 
     /// state resource path (e.g. "laser.diameter")
     pub path: String,
@@ -222,7 +151,7 @@ pub struct MachineStateMutation {
 #[soa_derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineMeasurement {
     /// source machine
-    pub machine: MachineIdentificationUnique,
+    pub ident: MachineIdentificationUnique,
 
     /// measurement resource path
     pub path: String,
@@ -237,7 +166,7 @@ pub struct MachineCommandTrace {
     pub request_id: u64,
 
     /// target machine
-    pub target: MachineIdentificationUnique,
+    pub ident: MachineIdentificationUnique,
 
     /// command resource path
     pub resource: String,
@@ -249,6 +178,7 @@ pub struct MachineCommandTrace {
     pub result: Result<(), MachineCommandInvokeError>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineCommandCapabilityMutation {
     pub ident: MachineIdentificationUnique,
 
@@ -281,12 +211,12 @@ pub enum MachineCommandInvokeError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineEmittedEvent {
     /// source machine
-    pub machine: MachineIdentificationUnique,
+    pub ident: MachineIdentificationUnique,
 
     /// event resource path
-    pub path: Cow<'static, str>,
+    pub path: String,
 
-    /// event payload
+    /// event payload as json
     pub data: String,
 
     /// event timestamp

@@ -91,10 +91,9 @@ impl Manager {
 
         let can_execute = match (can_execute)(machine) {
             Ok(v) => v,
-            Err(ResourceAccessError::NoSuchResource) => unreachable!("validated above"),
-            Err(ResourceAccessError::NoSuchMachine) => {
-                return Err(MachineCommandInvokeError::NoSuchMachine);
-            }
+            Err(ResourceAccessError::MachineTypeMismatch) => todo!(),
+            Err(ResourceAccessError::NoSuchResource) => todo!(),
+            Err(ResourceAccessError::NoSuchMachine) => todo!(),
         };
 
         if !can_execute {
