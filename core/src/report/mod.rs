@@ -11,7 +11,7 @@ use crate::ident::MachineIdentificationUnique;
 mod machines;
 pub use machines::MachineCommandCapabilityMutation;
 pub use machines::MachineCommandInvokeError;
-pub use machines::MachineCommandTrace;
+pub use machines::MachineCommandInvokeTrace;
 pub use machines::MachineConfigCapabilityMutation;
 pub use machines::MachineConfigPropertyConstraints;
 pub use machines::MachineConfigValueMutation;

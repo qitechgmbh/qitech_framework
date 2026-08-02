@@ -15,7 +15,6 @@ use crate::schema::StringMap;
 pub type DefinitionTree<T> = StringMap<DefinitionNode<T>>;
 pub type MetadataTree = StringMap<MetadataNode>;
 
-// --- single generic collapse, replaces the old `collapse`/`collapse_into` pair ---
 pub fn collapse<N: TreeNode>(tree: StringMap<N>) -> StringMap<N::Leaf> {
     let mut result = StringMap::new();
     collapse_into(tree, String::new(), &mut result);
@@ -41,7 +40,7 @@ fn collapse_into<N: TreeNode>(tree: StringMap<N>, prefix: String, result: &mut S
     }
 }
 
-// --- generic flatten support ---
+// --- tree node ---
 pub trait TreeNode {
     type Leaf;
 

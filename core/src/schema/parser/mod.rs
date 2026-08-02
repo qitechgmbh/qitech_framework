@@ -42,6 +42,7 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
         minor: raw.qms_version.minor,
     };
 
+    // --- validate version ---
     if !Version::is_supported(qms_version) {
         return Err(ParseError::custom(format!(
             "Unsupported version: {}",
@@ -158,11 +159,9 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
 #[serde(deny_unknown_fields)]
 /// Raw representation of the yaml doc
 pub struct MachineSchemaRaw {
-    // --- meta data ---
     pub qms_version: VersionRaw,
     pub revision: u32,
 
-    // --- interface ---
     pub identification: IdentificationRaw,
 
     #[serde(default)]

@@ -26,7 +26,7 @@ pub struct MachinesReport {
     pub measurements: MachineMeasurementVec,
 
     /// machine command invocations
-    pub command_traces: Vec<MachineCommandTrace>,
+    pub command_traces: Vec<MachineCommandInvokeTrace>,
 
     /// machine command invocations
     pub command_enabled_mutations: Vec<MachineCommandCapabilityMutation>,
@@ -162,7 +162,7 @@ pub struct MachineMeasurement {
 
 // --- command ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineCommandTrace {
+pub struct MachineCommandInvokeTrace {
     pub request_id: u64,
 
     /// target machine
