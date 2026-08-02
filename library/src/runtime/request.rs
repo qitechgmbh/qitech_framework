@@ -1,5 +1,4 @@
 use chrono::Utc;
-use qitech_framework_core::report::MachineCommandTrace;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::RuntimeTransport;
@@ -12,6 +11,7 @@ use crate::runtime::utils::find_machine;
 
 impl<T: RuntimeTransport> Runtime<T> {
     pub fn process_requests(&mut self) {
+        /*
         for _ in 0..self.config.requests_per_cycle_max {
             let Some(req) = self.session.recv_request().unwrap() else {
                 break;
@@ -20,9 +20,11 @@ impl<T: RuntimeTransport> Runtime<T> {
             let response = self.process_request(req.kind);
             self.report.responses.push((req.request_id, response));
         }
+        */
     }
 
     fn process_request(&mut self, request: RuntimeRequest) {
+        /*
         let request_id = request.request_id;
 
         match request.kind {
@@ -134,5 +136,6 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(())
             }
         }
+        */
     }
 }

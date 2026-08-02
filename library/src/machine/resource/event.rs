@@ -35,7 +35,7 @@ impl<T: Serialize> Emitter<T> {
         self.journal.append(MachineEmittedEvent {
             timestamp: Utc::now(),
             ident: self.machine,
-            path: Cow::Borrowed(self.path),
+            path: self.path.to_string(),
             data: serde_json::to_string(&event)?,
         });
 

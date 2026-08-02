@@ -10,7 +10,6 @@ use thiserror::Error;
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::OperationOrigin;
-use crate::report::OperationResult;
 
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -53,7 +52,7 @@ pub struct MachineConfigValueMutation {
     pub origin: OperationOrigin,
 
     /// operation result
-    pub result: OperationResult,
+    pub result: MachineConfigWriteResult,
 
     /// mutation timestamp
     pub timestamp: DateTime<Utc>,
@@ -77,7 +76,7 @@ pub struct MachineConfigCapabilityMutation {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MachineConfigWriteCapability {
     /// None means writable
     /// Some(reason) means disabled
@@ -107,12 +106,14 @@ pub enum MachineConfigPropertyConstraints {
     String {
         min_length: Option<usize>,
         max_length: Option<usize>,
-        pattern: Option<String>,
     },
     Enum {
         allowed: HashSet<String>,
     },
 }
+
+// --- error ---
+pub type MachineConfigWriteResult = Result<(), MachineConfigWriteError>;
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MachineConfigWriteError {
@@ -129,7 +130,49 @@ pub enum MachineConfigWriteError {
     NotWritable,
 
     #[error("resource not found")]
-    NotFound,
+    ResourceNotFound,
+
+    #[error("machine not found")]
+    MachineNotFound,
+
+    #[error("machine type mismatch")]
+    MachineTypeMismatch,
+
+    #[error("value type mismatch")]
+    ValueTypeMismatch,
+
+    #[error("value had invalid type")]
+    ConstraintViolation(#[from] ConstraintViolation),
+}
+
+#[derive(Debug, Error, Clone, Serialize, Deserialize)]
+pub enum ConstraintViolation {
+    #[error("types didn't match")]
+    TypeMismatch,
+
+    #[error("value {value} is below the minimum {min}")]
+    I64BelowMin { value: i64, min: i64 },
+
+    #[error("value {value} is above the maximum {max}")]
+    I64AboveMax { value: i64, max: i64 },
+
+    #[error("value {value} is below the minimum {min}")]
+    F64BelowMin { value: f64, min: f64 },
+
+    #[error("value {value} is above the maximum {max}")]
+    F64AboveMax { value: f64, max: f64 },
+
+    #[error("string length {length} is below the minimum {min}")]
+    StringTooShort { length: usize, min: usize },
+
+    #[error("string length {length} is above the maximum {max}")]
+    StringTooLong { length: usize, max: usize },
+
+    #[error("string does not match required pattern: {pattern}")]
+    PatternMismatch { pattern: String },
+
+    #[error("value {value:?} is not one of the allowed enum variants")]
+    VariantForbidden { value: String },
 }
 
 // --- state ---

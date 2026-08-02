@@ -17,7 +17,6 @@ pub use config_property::ConfigProperty;
 pub use config_property::ConfigPropertyCapabilities;
 pub use config_property::GetCapabilitiesFn;
 pub use config_property::Manager as ConfigPropertyManager;
-pub use config_property::RegisterOptions as ConfigPropertyRegisterOptions;
 
 mod measurement;
 pub use measurement::Manager as MeasurementManager;

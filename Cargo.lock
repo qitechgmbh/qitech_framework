@@ -1381,6 +1381,7 @@ dependencies = [
  "qitech_framework_core",
  "qitech_framework_macros",
  "qitech_lib",
+ "regex",
  "serde",
  "serde_json",
  "serialport",

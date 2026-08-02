@@ -43,7 +43,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         let mut machine_registry = MachineRegistry::default();
 
         for (schema_str, build_fn) in config.machines {
-            let schema = MachineSchema::from_yaml_str(schema_str)?;
+            let schema = MachineSchema::parse_str(schema_str)?;
 
             if machine_registry
                 .insert(schema.identification, build_fn)

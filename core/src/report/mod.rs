@@ -17,10 +17,12 @@ pub use machines::MachineConfigPropertyConstraints;
 pub use machines::MachineConfigValueMutation;
 pub use machines::MachineConfigWriteCapability;
 pub use machines::MachineConfigWriteError;
+pub use machines::MachineConfigWriteResult;
 pub use machines::MachineEmittedEvent;
 pub use machines::MachineMeasurement;
 pub use machines::MachineStateMutation;
 pub use machines::MachinesReport;
+pub use machines::ConstraintViolation;
 
 mod logs;
 pub use logs::LogLevel;

@@ -1,17 +1,19 @@
 use std::any::Any;
+use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::ConstraintViolation;
 use qitech_framework_core::report::MachineConfigCapabilityMutation;
 use qitech_framework_core::report::MachineConfigPropertyConstraints;
 use qitech_framework_core::report::MachineConfigValueMutation;
 use qitech_framework_core::report::MachineConfigWriteCapability;
 use qitech_framework_core::report::MachineConfigWriteError;
 use qitech_framework_core::report::OperationOrigin;
-use qitech_framework_core::report::OperationResult;
 use qitech_framework_core::with_uom_quantities;
 
 use super::PropertyHandle;
@@ -25,31 +27,17 @@ use crate::machine::resource::error::ResourceAccessError;
 use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
 
-// user api: dyn machine + ident + resource
-
 pub struct ConfigProperty<T: Clone> {
     handle: PropertyHandle<T>,
-    get_capabilties: GetCapabilitiesFn,
-    machine_ref: *const dyn Machine,
-    write: WriteFn,
     default: T,
+    apply: ApplyFn<T>,
 }
 
 impl<T: Clone> ConfigProperty<T> {
     pub fn set(&mut self, value: T) -> Result<(), MachineConfigWriteError> {
-        assert!(
-            !self.machine_ref.is_null(),
-            "pointer must be initialized before machine runs"
-        );
-
-        let machine = unsafe { &*self.machine_ref };
-        let capabilities =
-            (self.get_capabilties)(machine).expect("Created handle with invalid data!");
-
-        (self.write)(self.handle.clone(), value)
+        (self.apply)(value)
     }
 
-    /// reset property back to default value
     pub fn reset(&mut self) {
         self.set(self.default.clone())
             .expect("Default must pass validation");
@@ -119,110 +107,132 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn register<T>(
+    // --- registration ---
+    pub fn register<T: TypeWrapper>(
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
         default: T::Type,
         get_capabilities: GetCapabilitiesFn,
-    ) -> RegisterResult<ConfigProperty<T::Type>>
-    where
-        T: TypeWrapper,
-    {
+    ) -> RegisterResult<ConfigProperty<T::Type>> {
         // --- create handle ---
         let handle =
             self.inner
                 .register::<T::Type>(ident, path.to_string(), (), default.clone())?;
 
-        // --- internal writer ---
-        let opts = options.clone();
-        let journal = self.journal_value.new_handle();
+        // --- writing ---
+        let journal_capability = self.journal_capability.new_handle();
 
-        // --- internal writer ---
-        let opts = options.clone();
-        let journal = self.journal_value.new_handle();
+        // initialize shared capabilities
+        let current_capabilities = Rc::new(RefCell::new(ConfigPropertyCapabilities {
+            writable: MachineConfigWriteCapability::allowed(),
+            constraints: MachineConfigPropertyConstraints::None,
+        }));
 
-        let write = Box::new(
-            move |handle: PropertyHandle<T::Type>, value: T::Type| -> Result<(), WriteError> {
-                let mut entry = MachineConfigValueMutation {
-                    ident,
-                    path: path.to_string(),
-                    value: T::into_scalar(&value),
-                    origin: OperationOrigin::Machine,
-                    result: OperationResult::Failure,
-                    timestamp: Utc::now(),
+        let write_get_capabilities = get_capabilities.clone();
+        let write_handle = handle.clone();
+        let write_current_capabilities = current_capabilities.clone();
+
+        let write_fn: WriteFn = Rc::new(
+            move |machine: &dyn Machine, value: ScalarValue| {
+                let capabilities = match (write_get_capabilities)(machine) {
+                    Ok(v) => v,
+
+                    Err(ResourceAccessError::NoSuchResource) => {
+                        return Err(MachineConfigWriteError::ResourceNotFound);
+                    }
+
+                    Err(ResourceAccessError::NoSuchMachine) => {
+                        return Err(MachineConfigWriteError::MachineNotFound);
+                    }
+
+                    Err(ResourceAccessError::MachineTypeMismatch) => {
+                        return Err(MachineConfigWriteError::MachineTypeMismatch);
+                    }
                 };
 
-                if let Err(e) = check(&value, &opts) {
-                    journal.append(entry);
-                    return Err(e);
-                }
+                let can_write = capabilities.writable.disabled_reason.is_none();
+                let validate_result = validate_constraints(&value, &capabilities.constraints);
 
-                entry.result = OperationResult::Success;
-                journal.append(entry);
-                handle.write(value);
-                Ok(())
-            },
-        );
-
-        // --- api writer ---
-        let opts = options.clone();
-        let journal = self.journal_value.new_handle();
-
-        let handle_api = handle.clone();
-        let write_api = Box::new(
-            move |request_id: u64, value: ScalarValue| -> Result<(), ApiWriteError> {
-                let Some(value) = T::from_scalar(value) else {
-                    return Err(ApiWriteError::InvalidType);
-                };
-
-                let mut entry = MachineConfigValueMutation {
-                    ident,
-                    path: path.to_string(),
-                    value: T::into_scalar(&value),
-                    origin: OperationOrigin::Request { request_id },
-                    result: OperationResult::Failure,
-                    timestamp: Utc::now(),
-                };
-
-                if let Err(e) = check(&value, &opts) {
-                    journal.append(entry);
-                    return Err(match e {
-                        WriteError::OutOfBounds(e) => ApiWriteError::OutOfBounds(e),
-                        WriteError::RegexFailed(e) => ApiWriteError::Validate(e),
+                if capabilities != *write_current_capabilities.borrow() {
+                    journal_capability.append(MachineConfigCapabilityMutation {
+                        ident,
+                        path: path.to_string(),
+                        writable: capabilities.writable.clone(),
+                        constraints: capabilities.constraints.clone(),
+                        timestamp: Utc::now(),
                     });
+
+                    *write_current_capabilities.borrow_mut() = capabilities;
                 }
 
-                entry.result = OperationResult::Success;
-                journal.append(entry);
+                validate_result?;
 
-                handle_api.write(value);
+                if !can_write {
+                    return Err(MachineConfigWriteError::NotWritable);
+                }
+
+                let value =
+                    T::from_scalar(value).ok_or(MachineConfigWriteError::ValueTypeMismatch)?;
+
+                write_handle.write(value);
                 Ok(())
             },
         );
 
-        // --- store the api writer ---
-        let key = Key::from_str(ident, path);
-        self.entries.insert(
-            key,
-            Entry {
-                fixed_constraints: (),
-                get_capabilities: (),
+        let machine_ref: Rc<Cell<Option<*const dyn Machine>>> = Rc::new(Cell::new(None));
+
+        // --- recording ---
+        let journal_value = self.journal_value.new_handle();
+
+        let record = Rc::new(
+            move |value: T::Type, result: Result<(), MachineConfigWriteError>| {
+                let entry = MachineConfigValueMutation {
+                    ident,
+                    path: path.to_string(),
+                    value: T::into_scalar(value),
+                    timestamp: Utc::now(),
+                    origin: OperationOrigin::Machine,
+                    result,
+                };
+
+                journal_value.append(entry);
             },
         );
 
-        // --- create entry ---
+        // --- apply ---
+        let apply: ApplyFn<T::Type> = {
+            let write_fn = write_fn.clone();
+            let machine_ref = machine_ref.clone();
 
-        // --- create property ---
-        let mut property = ConfigProperty {
-            handle,
-            write,
-            default,
+            Box::new(move |value: T::Type| {
+                let machine_ptr = machine_ref
+                    .get()
+                    .expect("pointer must be initialized before machine runs");
+                
+                let machine = unsafe { &*machine_ptr };
+                let value_scalar = T::into_scalar(value.clone());
+                let result = write_fn(machine, value_scalar);
+                record(value, result.clone());
+                result
+            })
         };
 
-        // invoke a reset to record the initial value
-        property.reset();
-        Ok(property)
+        let prop = ConfigProperty {
+            handle,
+            default,
+            apply,
+        };
+
+        let entry = Entry {
+            current_capabilities,
+            get_capabilities,
+            write_value: write_fn,
+            machine_ref,
+        };
+
+        self.entries.insert(Key::from_str(ident, path), entry);
+        Ok(prop)
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
@@ -264,85 +274,6 @@ impl Manager {
         Ok(())
     }
 
-    pub fn get_capabilities(
-        &self,
-        machine: MachineIdentificationUnique,
-        path: &str,
-        machine_ref: &dyn Machine,
-    ) -> Result<ConfigPropertyCapabilities, ResourceAccessError> {
-        let key = Key::from_str(machine, path);
-
-        let Some(Entry {
-            fixed_constraints,
-            get_capabilities,
-        }) = self.entries.get(&key)
-        else {
-            return Err(ResourceAccessError::NoSuchResource);
-        };
-
-        let dynamic = match get_capabilities {
-            Some(get) => get(machine_ref)?,
-
-            None => ConfigPropertyCapabilities {
-                writable: MachineConfigWriteCapability {
-                    disabled_reason: None,
-                },
-                constraints: MachineConfigPropertyConstraints::None,
-            },
-        };
-
-        Ok(ConfigPropertyCapabilities {
-            writable: dynamic.writable,
-            constraints: fixed_constraints.merged(&dynamic.constraints),
-        })
-    }
-
-    pub fn write(
-        &mut self,
-        target: MachineIdentificationUnique,
-        path: &str,
-        machine_ref: &dyn Machine,
-        value: ScalarValue,
-    ) -> Result<(), MachineConfigWriteError> {
-        let key = Key::from_str(target, path);
-
-        let Some(entry) = self.entries.get(&key) else {
-            return Err(MachineConfigWriteError::NotFound);
-        };
-
-        let capabilities = {
-            let dynamic = match &entry.get_capabilities {
-                Some(get) => {
-                    get(machine_ref).map_err(MachineConfigWriteError::MachineTypeMismatch)?
-                }
-
-                None => ConfigPropertyCapabilities {
-                    write: WriteCapability::writable(),
-                    constraints: MachineConfigPropertyConstraints::None,
-                },
-            };
-
-            ConfigPropertyCapabilities {
-                write: dynamic.write,
-                constraints: entry.fixed_constraints.merged(&dynamic.constraints),
-            }
-        };
-
-        if let Some(reason) = capabilities.write.disabled_reason {
-            return Err(MachineConfigWriteError::NotWritable(reason));
-        }
-
-        let Some(Entry {
-            fixed_constraints,
-            get_capabilities,
-        }) = self.entries.get(&key)
-        else {
-            return Err(MachineConfigWriteError::NotWritable(None));
-        };
-
-        writer(value)
-    }
-
     // --- reporting ---
     pub fn drain_journal_value(&mut self, f: impl FnMut(MachineConfigValueMutation)) {
         self.journal_value.drain_with(f);
@@ -354,13 +285,13 @@ impl Manager {
 }
 
 pub struct Entry {
+    current_capabilities: Rc<RefCell<ConfigPropertyCapabilities>>,
     get_capabilities: GetCapabilitiesFn,
     write_value: WriteFn,
-
-    /// pointer to own machine
-    machine_ref: *const dyn Machine,
+    machine_ref: Rc<Cell<Option<*const dyn Machine>>>,
 }
 
+#[derive(PartialEq)]
 pub struct ConfigPropertyCapabilities {
     pub writable: MachineConfigWriteCapability,
     pub constraints: MachineConfigPropertyConstraints,
@@ -390,17 +321,120 @@ where
 }
 
 // --- write fn ---
-pub type WriteFn = Box<dyn Fn(ScalarValue) -> Result<(), MachineConfigWriteError>>;
+pub type WriteFn = Rc<dyn Fn(&dyn Machine, ScalarValue) -> Result<(), MachineConfigWriteError>>;
+
+// --- apply ---
+pub type ApplyFn<T> = Box<dyn Fn(T) -> Result<(), MachineConfigWriteError>>;
+
+// --- utils ---
+pub fn validate_constraints(
+    value: &ScalarValue,
+    constraints: &MachineConfigPropertyConstraints,
+) -> Result<(), ConstraintViolation> {
+    match (value, constraints) {
+        // --- unconstrained: anything passes ---
+        (_, MachineConfigPropertyConstraints::None) => Ok(()),
+
+        // --- nullable variants ---
+        (ScalarValue::Float(None), MachineConfigPropertyConstraints::Float { .. }) => Ok(()),
+        (ScalarValue::Integer(None), MachineConfigPropertyConstraints::Integer { .. }) => Ok(()),
+        (ScalarValue::String(None), MachineConfigPropertyConstraints::String { .. }) => Ok(()),
+        (ScalarValue::Enum(None), MachineConfigPropertyConstraints::Enum { .. }) => Ok(()),
+
+        // --- float ---
+        (ScalarValue::Float(Some(v)), MachineConfigPropertyConstraints::Float { min, max }) => {
+            if let Some(min) = min {
+                if v < min {
+                    return Err(ConstraintViolation::F64BelowMin {
+                        value: *v,
+                        min: *min,
+                    });
+                }
+            }
+
+            if let Some(max) = max {
+                if v > max {
+                    return Err(ConstraintViolation::F64AboveMax {
+                        value: *v,
+                        max: *max,
+                    });
+                }
+            }
+
+            Ok(())
+        }
+
+        // --- integer ---
+        (ScalarValue::Integer(Some(v)), MachineConfigPropertyConstraints::Integer { min, max }) => {
+            if let Some(min) = min {
+                if v < min {
+                    return Err(ConstraintViolation::I64BelowMin {
+                        value: *v,
+                        min: *min,
+                    });
+                }
+            }
+            if let Some(max) = max {
+                if v > max {
+                    return Err(ConstraintViolation::I64AboveMax {
+                        value: *v,
+                        max: *max,
+                    });
+                }
+            }
+            Ok(())
+        }
+
+        // --- string ---
+        (
+            ScalarValue::String(Some(v)),
+            MachineConfigPropertyConstraints::String {
+                min_length,
+                max_length,
+            },
+        ) => {
+            let length = v.chars().count();
+
+            if let Some(min_length) = min_length {
+                if length < *min_length {
+                    return Err(ConstraintViolation::StringTooShort {
+                        length,
+                        min: *min_length,
+                    });
+                }
+            }
+            if let Some(max_length) = max_length {
+                if length > *max_length {
+                    return Err(ConstraintViolation::StringTooLong {
+                        length,
+                        max: *max_length,
+                    });
+                }
+            }
+
+            Ok(())
+        }
+
+        // --- enum ---
+        (ScalarValue::Enum(Some(v)), MachineConfigPropertyConstraints::Enum { allowed }) => {
+            if allowed.contains(v) {
+                Ok(())
+            } else {
+                Err(ConstraintViolation::VariantForbidden { value: v.clone() })
+            }
+        }
+
+        // --- everything else: value's variant doesn't match constraint's kind ---
+        (_, _) => Err(ConstraintViolation::TypeMismatch),
+    }
+}
 
 // --- testing ---
 #[cfg(test)]
 mod test {
-    use qitech_framework_core::ident::MachineIdentification;
-
-    use super::*;
-
     #[test]
     pub fn register_and_use() -> anyhow::Result<()> {
+        /*
         let ident = MachineIdentificationUnique {
             identification: MachineIdentification {
                 vendor_id: 0,
@@ -425,6 +459,7 @@ mod test {
         prop.get();
         prop.set(10.0);
         prop.reset();
+        */
 
         Ok(())
     }

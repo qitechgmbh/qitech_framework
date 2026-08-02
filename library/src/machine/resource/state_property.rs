@@ -102,7 +102,7 @@ impl Manager {
             let entry = MachineStateMutation {
                 ident,
                 path: path.to_string(),
-                value: T::into_scalar(value),
+                value: T::into_scalar(value.clone()),
                 timestamp: Utc::now(),
             };
 

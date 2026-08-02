@@ -2,20 +2,20 @@ use qitech_framework_core::report::MachineConfigPropertyConstraints;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct NumericConfigPropertyConstraints<T: Copy + PartialOrd> {
-    min: Option<T>,
-    max: Option<T>,
+    pub min: Option<T>,
+    pub max: Option<T>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct StringConfigPropertyConstraints {
-    min_length: Option<usize>,
-    max_length: Option<usize>,
-    pattern: Option<String>,
+    pub min_length: Option<usize>,
+    pub max_length: Option<usize>,
+    pub pattern: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct EnumConfigPropertyConstraints<T: PartialEq + ToString> {
-    allowed: Vec<T>,
+    pub allowed: Vec<T>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -32,7 +32,6 @@ impl Into<MachineConfigPropertyConstraints> for StringConfigPropertyConstraints 
         MachineConfigPropertyConstraints::String {
             min_length: self.min_length,
             max_length: self.max_length,
-            pattern: self.pattern,
         }
     }
 }
@@ -68,5 +67,3 @@ impl Into<MachineConfigPropertyConstraints> for NumericConfigPropertyConstraints
         }
     }
 }
-
-// Type millimeter -> user provides millimeter as input NOT Length

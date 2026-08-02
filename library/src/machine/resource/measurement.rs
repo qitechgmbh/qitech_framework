@@ -33,7 +33,7 @@ where
 {
     pub fn set(&mut self, value: T) {
         self.handle.write(value);
-        self.stats.update((self.to_canonical)(value));
+        self.stats.update(value);
     }
 }
 
@@ -177,7 +177,7 @@ impl Manager {
     ) -> RegisterResult<Measurement<T::Type>>
     where
         T: TypeWrapper + Extract<Option<f64>> + 'static,
-        T::Type: Copy + PartialOrd + Default + Into<Option<f64>> + StatisticValue,
+        T::Type: Copy + PartialOrd + Default + StatisticValue,
     {
         // --- create root handle ---
         let handle = self.inner.register::<T::Type>(
