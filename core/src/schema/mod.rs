@@ -20,22 +20,6 @@ mod parser;
 pub use parser::ParseError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaticMachineSchema {
-    // --- meta data ---
-    pub qms_version: Version,
-    pub revision: u32,
-
-    // --- interface ---
-    pub name: String,
-    pub identification: MachineIdentification,
-    pub config_properties: StringMap<ConfigPropertyDefinition>,
-    pub state_properties: StringMap<StatePropertyDefinition>,
-    pub measurements: StringMap<MeasurementDefinition>,
-    pub commands: StringMap<CommandDefinition>,
-    pub events: StringMap<EventDefinition>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineSchema {
     // --- meta data ---
     pub qms_version: Version,
