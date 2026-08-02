@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -105,10 +107,10 @@ pub enum MachineConfigPropertyConstraints {
     String {
         min_length: Option<usize>,
         max_length: Option<usize>,
-        pattern: String,
+        pattern: Option<String>,
     },
     Enum {
-        allowed: Vec<String>,
+        allowed: HashSet<String>,
     },
 }
 

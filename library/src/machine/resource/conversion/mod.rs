@@ -5,6 +5,9 @@ use qitech_framework_core::with_uom_units;
 mod type_wrapper;
 pub use type_wrapper::TypeWrapper;
 
+mod statistics_value;
+pub use statistics_value::StatisticValue;
+
 pub trait Extract<T> {
     /// Extracts a value from a raw byte pointer.
     ///
@@ -13,27 +16,6 @@ pub trait Extract<T> {
     /// The caller must ensure that `bytes` is valid for reads of the required
     /// size and properly aligned for the expected type.
     unsafe fn extract(bytes: *const u8) -> T;
-}
-
-/// trait each measurement types value type must implement
-pub trait StatisticValue: Copy + Default + PartialOrd {
-    fn as_opt_f64(self) -> Option<f64>;
-    fn from_f64(value: f64) -> Self;
-    fn zero() -> Self;
-}
-
-impl StatisticValue for f64 {
-    fn as_opt_f64(self) -> Option<f64> {
-        Some(self)
-    }
-
-    fn from_f64(value: f64) -> Self {
-        value
-    }
-
-    fn zero() -> Self {
-        0.0
-    }
 }
 
 // --- float ---

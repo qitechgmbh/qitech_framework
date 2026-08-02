@@ -25,14 +25,27 @@ use crate::machine::resource::error::ResourceAccessError;
 use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
 
+// user api: dyn machine + ident + resource
+
 pub struct ConfigProperty<T: Clone> {
     handle: PropertyHandle<T>,
+    get_capabilties: GetCapabilitiesFn,
+    machine_ref: *const dyn Machine,
     write: WriteFn,
     default: T,
 }
 
 impl<T: Clone> ConfigProperty<T> {
     pub fn set(&mut self, value: T) -> Result<(), MachineConfigWriteError> {
+        assert!(
+            !self.machine_ref.is_null(),
+            "pointer must be initialized before machine runs"
+        );
+
+        let machine = unsafe { &*self.machine_ref };
+        let capabilities =
+            (self.get_capabilties)(machine).expect("Created handle with invalid data!");
+
         (self.write)(self.handle.clone(), value)
     }
 
@@ -110,14 +123,13 @@ impl Manager {
         &mut self,
         ident: MachineIdentificationUnique,
         path: &'static str,
-        options: RegisterOptions<T::Type>,
+        default: T::Type,
+        get_capabilities: GetCapabilitiesFn,
     ) -> RegisterResult<ConfigProperty<T::Type>>
     where
-        T: TypeWrapper + 'static,
-        // T::Type: Clone,
+        T: TypeWrapper,
     {
         // --- create handle ---
-        let default = options.default.clone();
         let handle =
             self.inner
                 .register::<T::Type>(ident, path.to_string(), (), default.clone())?;
@@ -243,6 +255,15 @@ impl Manager {
         self.inner.sync_cache();
     }
 
+    /// read each properties capabilities and record changed ones
+    pub fn sync_machines_capabilities(
+        &mut self,
+        machine: MachineIdentificationUnique,
+        machine_ref: &dyn Machine,
+    ) -> Result<(), ResourceAccessError> {
+        Ok(())
+    }
+
     pub fn get_capabilities(
         &self,
         machine: MachineIdentificationUnique,
@@ -345,31 +366,19 @@ pub struct ConfigPropertyCapabilities {
     pub constraints: MachineConfigPropertyConstraints,
 }
 
-#[derive(Default)]
-pub struct RegisterOptions<T: TypeWrapper> {
-    pub default: T::Type,
-
-    /// static constraints for values of T
-    pub constraints: Option<T::Constraints>,
-
-    /// getter to compute constraints from machine state.
-    /// If Some overrides `constraints`
-    pub get_constraints: Option<GetCapabilitiesFn>,
-}
-
 // --- get capabilities ---
 pub type GetCapabilitiesFn =
     Rc<dyn Fn(&dyn Machine) -> Result<ConfigPropertyCapabilities, ResourceAccessError>>;
 
-pub trait IntoGetConstraintsFn {
-    fn into_get_constraints_fn(self) -> GetCapabilitiesFn;
+pub trait IntoGetCapabilitiesFn {
+    fn into_get_capabilities_fn(self) -> GetCapabilitiesFn;
 }
 
-impl<M> IntoGetConstraintsFn for fn(&M) -> ConfigPropertyCapabilities
+impl<M> IntoGetCapabilitiesFn for fn(&M) -> ConfigPropertyCapabilities
 where
     M: Machine + 'static,
 {
-    fn into_get_constraints_fn(self) -> GetCapabilitiesFn {
+    fn into_get_capabilities_fn(self) -> GetCapabilitiesFn {
         Rc::new(move |machine: &dyn Machine| {
             let machine = (machine as &dyn Any)
                 .downcast_ref::<M>()

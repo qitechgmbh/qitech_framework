@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::println;
 use std::rc::Rc;
 
 use qitech_framework_core::report::MachineConfigPropertyConstraints;
@@ -13,7 +12,6 @@ use crate::machine::build::BuildResult;
 use crate::machine::resource::CanExecuteFn;
 use crate::machine::resource::ConfigProperty;
 use crate::machine::resource::ConfigPropertyCapabilities;
-use crate::machine::resource::ConfigPropertyRegisterOptions;
 use crate::machine::resource::EventEmitter;
 use crate::machine::resource::ExecuteFn;
 use crate::machine::resource::GetCapabilitiesFn;
@@ -37,7 +35,9 @@ impl<'a> BuildContext<'a> {
         ConfigPropertyBuilder {
             root: self,
             path,
-            options: Default::default(),
+            default: T::Type::default(),
+            constraints: None,
+            get_capabilities: None,
         }
     }
 }
@@ -53,7 +53,7 @@ where
     // --- configuration ---
     default: T::Type,
     constraints: Option<T::Constraints>,
-    get_constraints: Option<GetCapabilitiesFn>,
+    get_capabilities: Option<GetCapabilitiesFn>,
 }
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
@@ -79,12 +79,13 @@ where
     pub fn get_capabilities<M: Machine + 'static>(
         self,
         func: fn(&M) -> ConfigPropertyCapabilities,
-    ) {
-        
+    ) -> Self {
+        self.get_capabilities = Some(func.into_get_capabilities_fn());
+        Self
     }
 
     pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
-        let get_constraints = self.get_constraints.unwrap_or_else(|| {
+        let get_capabilities_fn = self.get_capabilities.unwrap_or_else(|| {
             Rc::new(move |machine: &dyn Machine| {
                 _ = machine;
 
@@ -197,6 +198,16 @@ where
 
     pub fn record_max(mut self) -> Self {
         self.options.record_max = true;
+        self
+    }
+
+    pub fn record_avg(mut self) -> Self {
+        self.options.record_avg = true;
+        self
+    }
+
+    pub fn record_stddev(mut self) -> Self {
+        self.options.record_stddev = true;
         self
     }
 

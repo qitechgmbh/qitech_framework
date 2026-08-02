@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::MachineCommandInvokeError;
-use qitech_framework_core::report::MachineCommandTrace;
+use qitech_framework_core::report::MachineCommandInvokeTrace;
 
 use crate::machine::Machine;
 use crate::machine::resource::Journal;
@@ -17,7 +17,7 @@ use crate::machine::resource::error::ResourceAccessError;
 // --- resource managment ---
 pub struct Manager {
     registry: HashMap<Key<'static>, Entry>,
-    journal: Journal<MachineCommandTrace>,
+    journal: Journal<MachineCommandInvokeTrace>,
 }
 
 impl Manager {
@@ -103,7 +103,7 @@ impl Manager {
         (execute)(machine)
     }
 
-    pub fn drain_journal(&mut self, f: impl FnMut(MachineCommandTrace)) {
+    pub fn drain_journal(&mut self, f: impl FnMut(MachineCommandInvokeTrace)) {
         self.journal.drain_with(f);
     }
 }

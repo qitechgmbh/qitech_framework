@@ -13,12 +13,12 @@ use crate::machine::resource::subscription::SubscribeError;
 use crate::machine::resource::subscription::SubscribedProperty;
 
 #[derive(Debug)]
-pub struct Measurement<T> {
+pub struct Measurement<T: StatisticValue> {
     handle: PropertyHandle<T>,
-    stats: Statistics,
+    stats: Statistics<T>,
 }
 
-impl<T> Measurement<T>
+impl<T: StatisticValue> Measurement<T>
 where
     T: Copy,
 {
@@ -27,7 +27,7 @@ where
     }
 }
 
-impl<T> Measurement<T>
+impl<T: StatisticValue> Measurement<T>
 where
     T: Copy + PartialOrd,
 {
@@ -96,79 +96,50 @@ struct Statistics<T: StatisticValue> {
 impl<T: StatisticValue> Statistics<T> {
     pub fn update(&mut self, value: T) {
         let generation_now = *self.p_generation.read();
+        let is_new_generation = generation_now != self.generation;
 
-        if generation_now != self.generation {
+        if is_new_generation {
             self.generation = generation_now;
-
-            self.count = 1;
-            self.mean = value_f64;
+            self.count = 0;
+            self.mean = 0.0;
             self.m2 = 0.0;
-
-            if let Some(min) = &mut self.min {
-                min.write(value);
-            }
-
-            if let Some(max) = &mut self.max {
-                max.write(value);
-            }
-
-            if let Some(avg) = &mut self.avg {
-                avg.write(value);
-            }
-
-            if let Some(stddev) = &mut self.stddev {
-                stddev.write(Default::default());
-            }
         }
 
         if let Some(min) = &mut self.min {
-            match min.read() {
-                Some(current) if value < *current => {
-                    min.write(Some(value));
-                }
-                None => {
-                    min.write(Some(value));
-                }
-                _ => {}
+            if is_new_generation || value < *min.read() {
+                min.write(value);
             }
         }
 
         if let Some(max) = &mut self.max {
-            match max.read() {
-                Some(current) if value > *current => {
-                    max.write(Some(value));
-                }
-                None => {
-                    max.write(Some(value));
-                }
-                _ => {}
+            if is_new_generation || value > *max.read() {
+                max.write(value);
             }
         }
 
-        // mean/stddev
-        if self.avg.is_some() || self.stddev.is_some() {
-            let value_f64 = value.to_f64();
+        if let Some(value_f64) = value.as_opt_f64() {
+            if self.avg.is_some() || self.stddev.is_some() {
+                self.count += 1;
 
-            self.count += 1;
+                let delta = value_f64 - self.mean;
+                self.mean += delta / self.count as f64;
 
-            let delta = value_f64 - self.mean;
-            self.mean += delta / self.count as f64;
+                let delta2 = value_f64 - self.mean;
+                self.m2 += delta * delta2;
 
-            let delta2 = value_f64 - self.mean;
-            self.m2 += delta * delta2;
+                if let Some(avg) = &mut self.avg {
+                    avg.write(T::from_f64(self.mean));
+                }
 
-            if let Some(avg) = &mut self.avg {
-                avg.write(Some(T::from_f64(self.mean)));
-            }
+                if let Some(stddev) = &mut self.stddev {
+                    let variance = if self.count > 1 {
+                        self.m2 / (self.count - 1) as f64
+                    } else {
+                        0.0
+                    };
 
-            if let Some(stddev) = &mut self.stddev {
-                let variance = if self.count > 1 {
-                    self.m2 / (self.count - 1) as f64
-                } else {
-                    0.0
-                };
-
-                stddev.write(Some(T::from_f64(variance.sqrt())));
+                    stddev.write(T::from_f64(variance.sqrt()));
+                }
             }
         }
     }
@@ -187,12 +158,14 @@ struct Metadata {
 #[derive(Default)]
 pub struct Manager {
     inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
+    generation: u64,
 }
 
 impl Manager {
     pub fn new() -> Self {
         Self {
             inner: Default::default(),
+            generation: 0,
         }
     }
 
@@ -204,7 +177,7 @@ impl Manager {
     ) -> RegisterResult<Measurement<T::Type>>
     where
         T: TypeWrapper + Extract<Option<f64>> + 'static,
-        T::Type: Copy + PartialOrd + Default + Into<Option<f64>>,
+        T::Type: Copy + PartialOrd + Default + Into<Option<f64>> + StatisticValue,
     {
         // --- create root handle ---
         let handle = self.inner.register::<T::Type>(
@@ -228,14 +201,14 @@ impl Manager {
 
         // --- create stat handles ---
         let mut init_stat_handle =
-            |postfix: &'static str| -> RegisterResult<PropertyHandle<Option<f64>>> {
-                self.inner.register::<Option<f64>>(
+            |postfix: &'static str| -> RegisterResult<PropertyHandle<T::Type>> {
+                self.inner.register::<T::Type>(
                     ident,
                     format!("{path}.{postfix}"),
                     Metadata {
                         extract: T::extract,
                     },
-                    None,
+                    T::Type::default(),
                 )
             };
 
@@ -273,11 +246,9 @@ impl Manager {
             count: 0,
             mean: 0.0,
             m2: 0.0,
-            current_min: None,
-            current_max: None,
         };
 
-        // Ok(Measurement { handle, stats, to_canonical: T:: })
+        Ok(Measurement { handle, stats })
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
@@ -365,6 +336,8 @@ mod test {
                 initial: None,
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
         assert_eq!(sp.get(), None);
@@ -380,6 +353,8 @@ mod test {
                 initial: 1,
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
         assert_eq!(sp.get(), 1);
@@ -393,6 +368,8 @@ mod test {
                 initial: None,
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
         assert_eq!(sp.get(), None);
@@ -408,6 +385,8 @@ mod test {
                 initial: false,
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
         assert!(!sp.get());
@@ -423,6 +402,8 @@ mod test {
                 initial: None,
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
         assert_eq!(sp.get(), None);
@@ -439,6 +420,8 @@ mod test {
                 initial: Length::new::<millimeter>(1.0),
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
 
@@ -467,6 +450,8 @@ mod test {
                 initial: None,
                 record_min: true,
                 record_max: true,
+                record_avg: true,
+                record_stddev: true,
             },
         )?;
 
