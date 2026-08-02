@@ -19,16 +19,13 @@ config:
   spindle:
     max_speed: !revolution_per_minute
       default: 12000
-      range: 0..24000
 
     acceleration: !meter_per_second_squared
       default: 5.0
-      range: 0..20
 
   laser:
     power: !percentage
       default: 150.0
-      range: 0..100
 
     diameter: !millimeter
       nullable: true
@@ -73,53 +70,23 @@ measurements:
 
 
 commands:
-
   reset: !command
-
+  
   emergency_stop: !command
-
 
   spindle:
     start: !command
-      speed: !revolution_per_minute
-
     stop: !command
-
     set_speed: !command
-      speed: !revolution_per_minute
-      acceleration: !meter_per_second_squared
-
 
   axis:
     move_absolute: !command
-      position: !object
-        fields:
-          x: !millimeter
-          y: !millimeter
-          z: !millimeter
-
-      velocity: !meter_per_second
-
     jog: !command
-      axis: !enum
-        variants: [x, y, z]
-
-      distance: !millimeter
-      velocity: !millimeter_per_second
-
 
   recipe:
     load: !command
-      name: !string
-
-      parameters: !object
-        fields:
-          speed: !meter_per_minute
-          temperature: !degree_celsius
-
 
 events:
-
   machine_started: !event
     operator: !string
 

@@ -1,52 +1,8 @@
-use super::EnumVariants;
-use super::FloatSemantic;
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ConfigPropertyValue {
-    pub kind: ConfigPropertyValueKind,
-    pub nullable: bool,
-    pub persistent: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub enum ConfigPropertyValueKind {
-    Enum {
-        /// Variants of the enum. Required.
-        variants: EnumVariants,
-        /// Default enum variant. Required.
-        default: Option<String>,
-    },
-    String {
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<String>,
-    },
-    Boolean {
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<bool>,
-    },
-    Integer {
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<i64>,
-    },
-    Float {
-        /// Representation of the float. E.g. plain, fraction, millimeter
-        semantic: FloatSemantic,
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<f64>,
-    },
-}
-
-// --- deserialize implemenations ---
+use std::fmt;
 use std::fmt::Display;
-use std::fmt::{self};
 use std::str::FromStr;
 
 use serde::Deserialize;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;
@@ -54,9 +10,16 @@ use serde::de::Error;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
 
-use super::Type;
+use crate::schema::ConfigPropertyDefinition;
+use crate::schema::ConfigPropertyKind;
+use crate::schema::FloatSemantic;
+use crate::schema::parser::enum_variants::EnumVariantsRaw;
+use crate::schema::parser::keyword::Keyword;
 
-impl<'de> Deserialize<'de> for ConfigPropertyValue {
+#[derive(Debug)]
+pub struct ConfigPropertyInfoRaw(pub ConfigPropertyDefinition);
+
+impl<'de> Deserialize<'de> for ConfigPropertyInfoRaw {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -64,7 +27,7 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
         struct ConfigPropertyVisitor;
 
         impl<'de> Visitor<'de> for ConfigPropertyVisitor {
-            type Value = ConfigPropertyValue;
+            type Value = ConfigPropertyInfoRaw;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a tagged config property value")
@@ -76,28 +39,28 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                match Type::from_str(&tag).map_err(A::Error::custom)? {
-                    Type::Enum => {
+                match Keyword::from_str(&tag).map_err(A::Error::custom)? {
+                    Keyword::Enum => {
                         let helper = variant.newtype_variant()?;
                         process_enum(helper)
                     }
 
-                    Type::String => {
+                    Keyword::String => {
                         let helper = variant.newtype_variant()?;
                         process_string(helper)
                     }
 
-                    Type::Boolean => {
+                    Keyword::Boolean => {
                         let helper = variant.newtype_variant()?;
                         process_bool(helper)
                     }
 
-                    Type::Integer => {
+                    Keyword::Integer => {
                         let helper = variant.newtype_variant()?;
                         process_integer(helper)
                     }
 
-                    Type::Float(semantic) => {
+                    Keyword::Float(semantic) => {
                         let helper = variant.newtype_variant()?;
                         process_float(helper, semantic)
                     }
@@ -116,26 +79,28 @@ impl<'de> Deserialize<'de> for ConfigPropertyValue {
 // --- enum ---
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EnumValueHelper {
+struct EnumValueHelper {
     #[serde(default)]
     nullable: bool,
 
     #[serde(default = "persistent_default")]
     persistent: bool,
 
-    variants: EnumVariants,
+    variants: EnumVariantsRaw,
 
     #[serde(default)]
     default: Option<String>,
 }
 
-fn process_enum<E: Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue, E> {
+fn process_enum<E: Error>(helper: EnumValueHelper) -> Result<ConfigPropertyInfoRaw, E> {
     let EnumValueHelper {
         nullable,
         persistent,
         variants,
         default,
     } = helper;
+
+    let variants = variants.0;
 
     if !nullable {
         let Some(variant) = &default else {
@@ -149,40 +114,35 @@ fn process_enum<E: Error>(helper: EnumValueHelper) -> Result<ConfigPropertyValue
         }
     }
 
-    Ok(ConfigPropertyValue {
-        kind: ConfigPropertyValueKind::Enum { variants, default },
+    Ok(ConfigPropertyInfoRaw(ConfigPropertyDefinition {
+        kind: ConfigPropertyKind::Enum { variants, default },
         nullable,
         persistent,
-    })
+        metadata: Default::default(),
+    }))
 }
 
 // --- string ---
-fn process_string<E: Error>(helper: SimpleValueHelper<String>) -> Result<ConfigPropertyValue, E> {
-    process_simple(helper, |default| ConfigPropertyValueKind::String {
-        default,
-    })
+fn process_string<E: Error>(helper: SimpleValueHelper<String>) -> Result<ConfigPropertyInfoRaw, E> {
+    process_simple(helper, |default| ConfigPropertyKind::String { default })
 }
 
 // --- boolean ---
-fn process_bool<E: Error>(helper: SimpleValueHelper<bool>) -> Result<ConfigPropertyValue, E> {
-    process_simple(helper, |default| ConfigPropertyValueKind::Boolean {
-        default,
-    })
+fn process_bool<E: Error>(helper: SimpleValueHelper<bool>) -> Result<ConfigPropertyInfoRaw, E> {
+    process_simple(helper, |default| ConfigPropertyKind::Boolean { default })
 }
 
 // --- integer ---
-fn process_integer<E: Error>(helper: SimpleValueHelper<i64>) -> Result<ConfigPropertyValue, E> {
-    process_simple(helper, |default| ConfigPropertyValueKind::Integer {
-        default,
-    })
+fn process_integer<E: Error>(helper: SimpleValueHelper<i64>) -> Result<ConfigPropertyInfoRaw, E> {
+    process_simple(helper, |default| ConfigPropertyKind::Integer { default })
 }
 
 // --- float ---
 fn process_float<E: Error>(
     helper: SimpleValueHelper<f64>,
     semantic: FloatSemantic,
-) -> Result<ConfigPropertyValue, E> {
-    process_simple(helper, move |default| ConfigPropertyValueKind::Float {
+) -> Result<ConfigPropertyInfoRaw, E> {
+    process_simple(helper, move |default| ConfigPropertyKind::Float {
         semantic,
         default,
     })
@@ -192,12 +152,12 @@ fn process_float<E: Error>(
 fn process_simple<T, E, F>(
     helper: SimpleValueHelper<T>,
     build_kind: F,
-) -> Result<ConfigPropertyValue, E>
+) -> Result<ConfigPropertyInfoRaw, E>
 where
     T: FromStr,
     T::Err: Display,
     E: Error,
-    F: FnOnce(Option<T>) -> ConfigPropertyValueKind,
+    F: FnOnce(Option<T>) -> ConfigPropertyKind,
 {
     let SimpleValueHelper {
         default,
@@ -211,11 +171,12 @@ where
         ));
     }
 
-    Ok(ConfigPropertyValue {
+    Ok(ConfigPropertyInfoRaw(ConfigPropertyDefinition {
         kind: build_kind(default),
         nullable,
         persistent,
-    })
+        metadata: Default::default(),
+    }))
 }
 
 #[derive(Debug, Clone, Deserialize)]

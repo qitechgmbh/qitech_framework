@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
+use std::io;
 use std::io::BufWriter;
 use std::io::Write;
-use std::io::{self};
 use std::path::Path;
 
 use serde::Deserialize;
@@ -104,7 +104,10 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
         .unwrap_or_else(|e| panic!("failed to parse {QUANTITIES_PATH}: {e}"));
 
     // --- pass one: Quantity definition ---
-    writeln!(file, "#[derive(Debug, Clone, Copy, Serialize)]")?;
+    writeln!(
+        file,
+        "#[derive(Debug, Clone, Copy, Serialize, Deserialize)]"
+    )?;
     writeln!(file, "pub enum Quantity {{")?;
 
     for UomEntry { name, .. } in &quantity {
@@ -115,7 +118,10 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
 
     // --- pass two: emit Quantity unit types ---
     for UomEntry { name, units } in &quantity {
-        writeln!(file, "#[derive(Debug, Clone, Copy, Serialize)]")?;
+        writeln!(
+            file,
+            "#[derive(Debug, Clone, Copy, Serialize, Deserialize)]"
+        )?;
         writeln!(file, "pub enum {name}Unit {{")?;
 
         for unit in units {
@@ -129,7 +135,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     writeln!(file, "impl Display for Quantity {{")?;
     writeln!(
         file,
-        "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{"
+        "    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {{"
     )?;
     writeln!(file, "        match self {{")?;
 
@@ -146,7 +152,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
         writeln!(file, "impl Display for {name}Unit {{")?;
         writeln!(
             file,
-            "    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {{"
+            "    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {{"
         )?;
         writeln!(file, "        match self {{")?;
 

@@ -1,7 +1,7 @@
 use crate::session::protocol::ControllerMessage;
 use crate::session::protocol::RuntimeMessage;
+use crate::session::runtime;
 use crate::session::runtime::SessionHandshake;
-use crate::session::runtime::{self};
 use crate::session::transport::RuntimeTransport;
 use crate::session::transport::TransportError;
 

@@ -1,52 +1,25 @@
-mod version;
+use core::fmt;
+use std::fmt::Display;
+use std::str::FromStr;
+
+use indexmap::IndexMap;
+use serde::Deserialize;
 use serde::Serialize;
+use unic_langid::LanguageIdentifier;
+
+use crate::ident::MachineIdentification;
+
+pub type Map<K, V> = IndexMap<K, V>;
+pub type StringMap<T> = Map<String, T>;
+pub type LocalizedText = Map<LanguageIdentifier, String>;
+
+mod version;
 pub use version::Version;
 
-mod types;
-pub use types::FieldMetadata;
-pub use types::FloatSemantic;
-pub use types::LocalizedText;
-use types::Map;
-pub use types::Node;
-pub use types::NodeKind;
-pub use types::NodeMetadata;
-pub use types::Range;
-use types::StringMap;
-pub use types::Type;
-pub use types::quantity;
-pub use types::quantity::Quantity;
+mod parser;
+pub use parser::ParseError;
 
-mod enum_variants;
-pub use enum_variants::EnumVariants;
-
-mod config_property;
-pub use config_property::ConfigPropertyValue;
-pub use config_property::ConfigPropertyValueKind;
-
-mod state_property;
-pub use state_property::StatePropertyValue;
-pub use state_property::StatePropertyValueKind;
-
-mod measurement;
-pub use measurement::MeasurementStatistics;
-pub use measurement::MeasurementValue;
-pub use measurement::MeasurementValueKind;
-
-mod command;
-pub use command::Command;
-pub use command::CommandField;
-pub use command::CommandFieldKind;
-
-mod event;
-pub use event::Event;
-pub use event::EventField;
-pub use event::EventFieldKind;
-
-mod raw;
-
-pub type ParseError = yaml_serde::Error;
-
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineSchema {
     // --- meta data ---
     pub qms_version: Version,
@@ -55,100 +28,310 @@ pub struct MachineSchema {
     // --- interface ---
     pub name: String,
     pub identification: MachineIdentification,
-    pub config_properties: StringMap<Node<ConfigPropertyValue>>,
-    pub state_properties: StringMap<Node<StatePropertyValue>>,
-    pub measurements: StringMap<Node<MeasurementValue>>,
-    pub commands: StringMap<Node<Command>>,
-    pub events: StringMap<Node<Event>>,
+    pub config_properties: StringMap<ConfigPropertyDefinition>,
+    pub state_properties: StringMap<StatePropertyDefinition>,
+    pub measurements: StringMap<MeasurementDefinition>,
+    pub commands: StringMap<CommandDefinition>,
+    pub events: StringMap<EventDefinition>,
 }
 
 impl MachineSchema {
-    pub fn from_yaml_str(value: &str) -> Result<Self, ParseError> {
-        yaml_serde::from_str(value)
+    pub fn parse_str(s: &str) -> Result<Self, ParseError> {
+        parser::parse_str(s)
     }
 }
 
-impl MachineSchema {
-    pub fn find_config_property<'a>(&'a self, name: &str) -> Option<&'a ConfigPropertyValue> {
-        let mut parts = name.split('.');
-        let first = parts.next()?;
-        let property = self.config_properties.get(first)?;
-        Self::walk_node(property, parts)
+// --- config ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigPropertyDefinition {
+    pub kind: ConfigPropertyKind,
+    pub nullable: bool,
+    pub persistent: bool,
+    pub metadata: Metadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConfigPropertyKind {
+    Enum {
+        /// Variants of the enum. Required.
+        variants: EnumVariants,
+        /// Default enum variant. Required.
+        default: Option<String>,
+    },
+    String {
+        /// Default value. Required if `nullable` is `false`.
+        /// Default is `None` if `nullable` is `true`.
+        default: Option<String>,
+    },
+    Boolean {
+        /// Default value. Required if `nullable` is `false`.
+        /// Default is `None` if `nullable` is `true`.
+        default: Option<bool>,
+    },
+    Integer {
+        /// Default value. Required if `nullable` is `false`.
+        /// Default is `None` if `nullable` is `true`.
+        default: Option<i64>,
+    },
+    Float {
+        /// Representation of the float. E.g. plain, fraction, millimeter
+        semantic: FloatSemantic,
+        /// Default value. Required if `nullable` is `false`.
+        /// Default is `None` if `nullable` is `true`.
+        default: Option<f64>,
+    },
+}
+
+// --- state ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatePropertyDefinition {
+    pub kind: StatePropertyKind,
+    pub nullable: bool,
+    pub metadata: Metadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StatePropertyKind {
+    Enum {
+        /// The set of allowed variants for this value. Required.
+        variants: EnumVariants,
+    },
+    String,
+    Boolean,
+    Integer,
+    Float {
+        /// Representation of the float. E.g. plain, fraction, millimeter
+        semantic: FloatSemantic,
+    },
+}
+
+// --- measurements ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeasurementDefinition {
+    pub kind: MeasurementKind,
+    pub nullable: bool,
+    pub metadata: Metadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MeasurementKind {
+    Boolean,
+    Integer {
+        statistics: MeasurementStatistics,
+    },
+    Float {
+        semantic: FloatSemantic,
+        statistics: MeasurementStatistics,
+    },
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeasurementStatistics {
+    /// Track the minimum observed value during each sampling cycle.
+    /// Default is `false`.
+    #[serde(default)]
+    pub min: bool,
+
+    /// Track the maximum observed value during each sampling cycle.
+    /// Default is `false`.
+    #[serde(default)]
+    pub max: bool,
+
+    /// Track the arithmetic mean of observed values during each sampling cycle.
+    /// Default is `false`.
+    #[serde(default)]
+    pub avg: bool,
+
+    /// Track the standard deviation of observed values during each sampling cycle.
+    /// This provides a measure of variability or stability.
+    /// Default is `false`.
+    #[serde(default)]
+    pub stddev: bool,
+}
+
+// --- command ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandDefinition {
+    pub metadata: Metadata,
+}
+
+// --- event ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventDefinition {
+    pub fields: StringMap<EventField>,
+    pub metadata: Metadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventField {
+    pub kind: EventFieldKind,
+    pub nullable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EventFieldKind {
+    Object { fields: StringMap<EventField> },
+    Array { item: Box<EventField> },
+    Enum { variants: EnumVariants },
+    String,
+    Boolean,
+    Integer,
+    Float { semantic: FloatSemantic },
+}
+
+// --- enum variants ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnumVariants {
+    values: StringMap<i64>,
+    reverse: Map<i64, String>,
+}
+
+impl EnumVariants {
+    pub fn first(&self) -> (&String, &i64) {
+        self.values.first().expect("Cannot be empty")
     }
 
-    pub fn find_state_property<'a>(&'a self, name: &str) -> Option<&'a StatePropertyValue> {
-        let mut parts = name.split('.');
-        let first = parts.next()?;
-        let property = self.state_properties.get(first)?;
-        Self::walk_node(property, parts)
+    pub fn last(&self) -> (&String, &i64) {
+        self.values.last().expect("Cannot be empty")
     }
 
-    pub fn find_measurement<'a>(&'a self, name: &str) -> Option<&'a MeasurementValue> {
-        let mut parts = name.split('.');
-        let first = parts.next()?;
-        let measurement = self.measurements.get(first)?;
-        Self::walk_node(measurement, parts)
+    pub fn contains_name(&self, name: &str) -> bool {
+        self.values.contains_key(name)
     }
 
-    pub fn find_command<'a>(&'a self, name: &str) -> Option<&'a Command> {
-        let mut parts = name.split('.');
-        let first = parts.next()?;
-        let command = self.commands.get(first)?;
-        Self::walk_node(command, parts)
+    pub fn get_int(&self, name: &str) -> Option<i64> {
+        self.values.get(name).copied()
     }
 
-    pub fn find_event<'a>(&'a self, name: &str) -> Option<&'a Event> {
-        let mut parts = name.split('.');
-        let first = parts.next()?;
-        let event = self.events.get(first)?;
-        Self::walk_node(event, parts)
+    pub fn get_name(&self, value: i64) -> Option<&str> {
+        self.reverse.get(&value).map(String::as_str)
     }
 
-    fn walk_node<'a, 'b, T, I>(property: &'a Node<T>, mut parts: I) -> Option<&'a T>
-    where
-        T: Serialize,
-        I: Iterator<Item = &'b str>,
-    {
-        match &property.kind {
-            NodeKind::Leaf(value) => {
-                // leaf: only valid if path is exhausted
-                if parts.next().is_none() {
-                    Some(value)
-                } else {
-                    None
-                }
-            }
+    pub fn iter(&self) -> indexmap::map::Iter<'_, String, i64> {
+        self.values.iter()
+    }
 
-            NodeKind::Branch(children) => {
-                let next = parts.next()?;
-                let child = children.get(next)?;
-                Self::walk_node(child, parts)
-            }
+    pub fn list(&self) -> Vec<String> {
+        self.values.keys().cloned().collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    fn new() -> Self {
+        Self {
+            values: Default::default(),
+            reverse: Default::default(),
         }
     }
 }
 
-// --- deserialize implemenations ---
-use serde::de::Deserialize;
-use serde::de::Deserializer;
-use serde::de::Error;
+impl<'a> IntoIterator for &'a EnumVariants {
+    type Item = (&'a String, &'a i64);
+    type IntoIter = indexmap::map::Iter<'a, String, i64>;
 
-use crate::ident::MachineIdentification;
-
-impl<'de> Deserialize<'de> for MachineSchema {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let raw = raw::MachineSchemaRaw::deserialize(deserializer)?;
-
-        if !Version::is_supported(raw.qms_version) {
-            return Err(D::Error::custom(format!(
-                "Unsupported version: {}",
-                raw.qms_version
-            )));
-        }
-
-        MachineSchema::try_from(raw).map_err(D::Error::custom)
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.iter()
     }
 }
+
+impl IntoIterator for EnumVariants {
+    type Item = (String, i64);
+    type IntoIter = indexmap::map::IntoIter<String, i64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
+// --- metadata ---
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Metadata {
+    pub description: LocalizedText,
+}
+
+impl Display for FloatSemantic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FloatSemantic::Plain => write!(f, "!float"),
+            FloatSemantic::Fraction => write!(f, "!fraction"),
+            FloatSemantic::Percentage => write!(f, "!percentage"),
+            FloatSemantic::Quantity(quantity) => write!(f, "!{quantity}"),
+        }
+    }
+}
+
+// --- float semantic ---
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum FloatSemantic {
+    Plain,
+    Fraction,
+    Percentage,
+    Quantity(Quantity),
+}
+
+impl FromStr for FloatSemantic {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(v) = Quantity::from_str(s) {
+            return Ok(Self::Quantity(v));
+        }
+
+        Ok(match s {
+            "float" => Self::Plain,
+            "fraction" => Self::Fraction,
+            "percentage" => Self::Percentage,
+            other => return Err(format!("invalid type {other}")),
+        })
+    }
+}
+
+impl FloatSemantic {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FloatSemantic::Plain => "float",
+            FloatSemantic::Fraction => "fraction",
+            FloatSemantic::Percentage => "percentage",
+            FloatSemantic::Quantity(quantity) => quantity.as_str(),
+        }
+    }
+}
+
+// --- quantity ---
+pub mod quantity {
+    // generated module needs this
+    use super::*;
+
+    // includes mod generated { ... }
+    include!(concat!(env!("OUT_DIR"), "/quantity.rs"));
+
+    pub use generated::AccelerationUnit;
+    pub use generated::AmountOfSubstanceUnit;
+    pub use generated::AngleUnit;
+    pub use generated::AngularAccelerationUnit;
+    pub use generated::AngularJerkUnit;
+    pub use generated::AngularVelocityUnit;
+    pub use generated::ElectricCurrentUnit;
+    pub use generated::ElectricPotentialUnit;
+    pub use generated::FrequencyUnit;
+    pub use generated::JerkUnit;
+    pub use generated::LengthUnit;
+    pub use generated::LuminousIntensityUnit;
+    pub use generated::MassUnit;
+    pub use generated::PressureUnit;
+    pub use generated::Quantity;
+    pub use generated::RatioUnit;
+    pub use generated::ThermodynamicTemperatureUnit;
+    pub use generated::TimeUnit;
+    pub use generated::VelocityUnit;
+    pub use generated::VolumeRateUnit;
+}
+
+pub use quantity::Quantity;

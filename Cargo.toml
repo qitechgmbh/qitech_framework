@@ -1,10 +1,10 @@
 [workspace]
 members = [
     "core",
-    "macros",
-    "library",
+    # "macros",
+    # "library",
     # "hub",
-    "tui",
+    # "tui",
 ]
 resolver = "2"
 

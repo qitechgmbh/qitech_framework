@@ -1,52 +1,22 @@
-use serde::Deserialize;
-use serde::Serialize;
-
-use super::FloatSemantic;
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MeasurementValue {
-    pub kind: MeasurementValueKind,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub enum MeasurementValueKind {
-    Boolean,
-    Integer {
-        statistics: MeasurementStatistics,
-    },
-    Float {
-        semantic: FloatSemantic,
-        statistics: MeasurementStatistics,
-    },
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MeasurementStatistics {
-    /// Track the minimum observed value each sampling cycle. Optional.
-    /// Default is `false`.
-    #[serde(default)]
-    pub min: bool,
-    /// Track the minimum observed value each sampling cycle. Optional.
-    /// Default is `false`.
-    #[serde(default)]
-    pub max: bool,
-}
-
-// --- deserialize implemenations ---
 use std::fmt;
 use std::str::FromStr;
 
+use serde::Deserialize;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;
 use serde::de::Error;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
 
-use super::Type;
+use crate::schema::MeasurementDefinition;
+use crate::schema::MeasurementKind;
+use crate::schema::MeasurementStatistics;
+use crate::schema::parser::keyword::Keyword;
 
-impl<'de> Deserialize<'de> for MeasurementValue {
+#[derive(Debug)]
+pub struct MeasurementInfoRaw(pub MeasurementDefinition);
+
+impl<'de> Deserialize<'de> for MeasurementInfoRaw {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -54,7 +24,7 @@ impl<'de> Deserialize<'de> for MeasurementValue {
         struct MeasurementValueVisitor;
 
         impl<'de> Visitor<'de> for MeasurementValueVisitor {
-            type Value = MeasurementValue;
+            type Value = MeasurementInfoRaw;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a tagged measurement value")
@@ -66,46 +36,51 @@ impl<'de> Deserialize<'de> for MeasurementValue {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                match Type::from_str(&tag).map_err(A::Error::custom)? {
-                    Type::Boolean => {
+                match Keyword::from_str(&tag).map_err(A::Error::custom)? {
+                    Keyword::Boolean => {
                         let BooleanHelper { nullable } = variant.newtype_variant()?;
 
-                        Ok(MeasurementValue {
-                            kind: MeasurementValueKind::Boolean,
+                        Ok(MeasurementInfoRaw(MeasurementDefinition {
+                            kind: MeasurementKind::Boolean,
                             nullable,
-                        })
+                            metadata: Default::default(),
+                        }))
                     }
 
-                    Type::Integer => {
+                    Keyword::Integer => {
                         let NumericHelper {
                             nullable,
                             statistics,
                         } = variant.newtype_variant()?;
 
-                        Ok(MeasurementValue {
-                            kind: MeasurementValueKind::Integer { statistics },
+                        Ok(MeasurementInfoRaw(MeasurementDefinition {
+                            kind: MeasurementKind::Integer { statistics },
                             nullable,
-                        })
+                            metadata: Default::default(),
+                        }))
                     }
 
-                    Type::Float(semantic) => {
+                    Keyword::Float(semantic) => {
                         let NumericHelper {
                             nullable,
                             statistics,
                         } = variant.newtype_variant()?;
 
-                        Ok(MeasurementValue {
-                            kind: MeasurementValueKind::Float {
+                        Ok(MeasurementInfoRaw(MeasurementDefinition {
+                            kind: MeasurementKind::Float {
                                 semantic,
                                 statistics,
                             },
                             nullable,
-                        })
+                            metadata: Default::default(),
+                        }))
                     }
 
-                    Type::Enum => Err(A::Error::custom("enums are not supported for measurements")),
+                    Keyword::Enum => {
+                        Err(A::Error::custom("enums are not supported for measurements"))
+                    }
 
-                    Type::String => Err(A::Error::custom(
+                    Keyword::String => Err(A::Error::custom(
                         "strings are not supported for measurements",
                     )),
 
@@ -131,7 +106,7 @@ struct BooleanHelper {
 // --- numeric ---
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct NumericHelper {
+struct NumericHelper {
     #[serde(default)]
     pub nullable: bool,
     #[serde(default)]

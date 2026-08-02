@@ -1,44 +1,23 @@
-use super::EnumVariants;
-use super::FieldMetadata;
-use super::FloatSemantic;
-use super::StringMap;
-use super::Type;
-
-#[derive(Debug, Clone, Serialize)]
-pub struct Event {
-    pub fields: StringMap<EventField>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct EventField {
-    pub kind: EventFieldKind,
-    pub nullable: bool,
-    pub metadata: FieldMetadata,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub enum EventFieldKind {
-    Object { fields: StringMap<EventField> },
-    Array { item: Box<EventField> },
-    Enum { variants: EnumVariants },
-    String,
-    Boolean,
-    Integer,
-    Float { semantic: FloatSemantic },
-}
-
-// --- deserialize implemenations ---
 use std::str::FromStr;
 
 use serde::Deserialize;
-use serde::Serialize;
 use serde::de::Deserializer;
 use serde::de::EnumAccess;
 use serde::de::Error;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
 
-impl<'de> Deserialize<'de> for Event {
+use crate::schema::EventDefinition;
+use crate::schema::EventField;
+use crate::schema::EventFieldKind;
+use crate::schema::StringMap;
+use crate::schema::parser::enum_variants::EnumVariantsRaw;
+use crate::schema::parser::keyword::Keyword;
+
+#[derive(Debug)]
+pub struct EventInfoRaw(pub EventDefinition);
+
+impl<'de> Deserialize<'de> for EventInfoRaw {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -46,7 +25,7 @@ impl<'de> Deserialize<'de> for Event {
         struct MyVisitor;
 
         impl<'de> Visitor<'de> for MyVisitor {
-            type Value = Event;
+            type Value = EventInfoRaw;
 
             fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
             where
@@ -54,15 +33,24 @@ impl<'de> Deserialize<'de> for Event {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let ty = Type::from_str(&tag).map_err(A::Error::custom)?;
+                let ty = Keyword::from_str(&tag).map_err(A::Error::custom)?;
 
-                if !matches!(ty, Type::Event) {
+                if !matches!(ty, Keyword::Event) {
                     return Err(Error::custom(format!("expected !event, received: !{tag}.")));
                 }
 
-                let fields = variant.newtype_variant::<StringMap<EventField>>()?;
+                let fields_raw = variant.newtype_variant::<StringMap<EventInfoFieldRaw>>()?;
 
-                Ok(Event { fields })
+                // Unwrap each EventInfoFieldRaw -> EventField
+                let fields: StringMap<EventField> = fields_raw
+                    .into_iter()
+                    .map(|(key, EventInfoFieldRaw(field))| (key, field))
+                    .collect();
+
+                Ok(EventInfoRaw(EventDefinition {
+                    fields,
+                    metadata: Default::default(),
+                }))
             }
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -74,7 +62,11 @@ impl<'de> Deserialize<'de> for Event {
     }
 }
 
-impl<'de> Deserialize<'de> for EventField {
+// --- field ---
+#[derive(Debug)]
+pub struct EventInfoFieldRaw(pub EventField);
+
+impl<'de> Deserialize<'de> for EventInfoFieldRaw {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -82,7 +74,7 @@ impl<'de> Deserialize<'de> for EventField {
         struct MyVisitor;
 
         impl<'de> Visitor<'de> for MyVisitor {
-            type Value = EventField;
+            type Value = EventInfoFieldRaw;
 
             fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
             where
@@ -90,72 +82,81 @@ impl<'de> Deserialize<'de> for EventField {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let ty = Type::from_str(&tag).map_err(A::Error::custom)?;
+                let ty = Keyword::from_str(&tag).map_err(A::Error::custom)?;
 
                 match ty {
-                    Type::Object => {
+                    Keyword::Object => {
                         let ObjectHelper { fields, nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        let fields: StringMap<EventField> = fields
+                            .into_iter()
+                            .map(|(key, EventInfoFieldRaw(field))| (key, field))
+                            .collect();
+
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
                             kind: EventFieldKind::Object { fields },
-                            metadata: Default::default(),
-                        })
+                        }))
                     }
 
-                    Type::Array => {
+                    Keyword::Array => {
                         let ArrayHelper { item, nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        let EventInfoFieldRaw(item) = *item;
+
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
-                            kind: EventFieldKind::Array { item },
-                            metadata: Default::default(),
-                        })
+                            kind: EventFieldKind::Array {
+                                item: Box::new(item),
+                            },
+                        }))
                     }
-                    Type::Enum => {
+
+                    Keyword::Enum => {
                         let EnumHelper { variants, nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
-                            kind: EventFieldKind::Enum { variants },
-                            metadata: Default::default(),
-                        })
+                            kind: EventFieldKind::Enum {
+                                variants: variants.0,
+                            },
+                        }))
                     }
-                    Type::String => {
+
+                    Keyword::String => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
                             kind: EventFieldKind::String,
-                            metadata: Default::default(),
-                        })
+                        }))
                     }
-                    Type::Boolean => {
+
+                    Keyword::Boolean => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
                             kind: EventFieldKind::Boolean,
-                            metadata: Default::default(),
-                        })
+                        }))
                     }
-                    Type::Integer => {
+
+                    Keyword::Integer => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
                             kind: EventFieldKind::Integer,
-                            metadata: Default::default(),
-                        })
+                        }))
                     }
-                    Type::Float(semantic) => {
+
+                    Keyword::Float(semantic) => {
                         let SimpleHelper { nullable } = variant.newtype_variant()?;
 
-                        Ok(EventField {
+                        Ok(EventInfoFieldRaw(EventField {
                             nullable,
                             kind: EventFieldKind::Float { semantic },
-                            metadata: Default::default(),
-                        })
+                        }))
                     }
 
                     other => Err(Error::custom(format!("Unsupported type: {other:?}"))),
@@ -175,7 +176,7 @@ impl<'de> Deserialize<'de> for EventField {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ObjectHelper {
-    fields: StringMap<EventField>,
+    fields: StringMap<EventInfoFieldRaw>,
 
     #[serde(default)]
     nullable: bool,
@@ -184,7 +185,7 @@ struct ObjectHelper {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ArrayHelper {
-    item: Box<EventField>,
+    item: Box<EventInfoFieldRaw>,
 
     #[serde(default)]
     nullable: bool,
@@ -193,7 +194,7 @@ struct ArrayHelper {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EnumHelper {
-    variants: EnumVariants,
+    variants: EnumVariantsRaw,
 
     #[serde(default)]
     nullable: bool,
