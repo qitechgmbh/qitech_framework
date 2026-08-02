@@ -1,3 +1,5 @@
+#![cfg(feature = "session_unix")]
+
 use std::thread;
 use std::time::Duration;
 

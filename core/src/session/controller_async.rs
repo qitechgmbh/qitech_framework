@@ -19,6 +19,7 @@ impl<T> SessionHandshake<T>
 where
     T: AsyncControllerTransport,
 {
+    #[allow(dead_code)]
     pub(crate) fn new(transport: T) -> Self {
         Self { transport }
     }

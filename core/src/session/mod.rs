@@ -9,7 +9,11 @@ pub use transport::AsyncControllerTransport;
 pub use transport::ControllerTransport;
 pub use transport::RuntimeTransport;
 
+#[cfg(feature = "session_crossbeam")]
 mod crossbeam;
+
+#[cfg(feature = "session_crossbeam")]
 pub use crossbeam::crossbeam;
 
+#[cfg(feature = "session_unix")]
 pub mod unix;
