@@ -19,6 +19,7 @@ pub use hardware::Hardware;
 
 pub mod resource;
 pub use resource::IntoExecuteFn;
+pub use resource::ConfigPropertyWriteConstraints;
 pub use resource::SubscribedEvent;
 pub use resource::conversion::TypeWrapper;
 pub use resource::subscription::SubscribedProperty;

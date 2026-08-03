@@ -2,7 +2,7 @@
 members = [
     "core",
     "minimal",
-    # "macros",
+    "macros",
     "library",
     # "hub",
     "tui",

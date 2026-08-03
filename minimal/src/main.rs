@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
+use qitech_framework::EnumProperty;
 use qitech_framework::MachineIdentification;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::Machine;
@@ -35,6 +36,7 @@ pub struct LaserV1 {
     device: Rc<RefCell<LaserDevice>>,
 
     // -- config ---
+    gear_ratio: ConfigProperty<GearRatio>,
     diameter_target: ConfigProperty<Length>,
     diameter_tolerance_upper: ConfigProperty<Length>,
     diameter_tolerance_lower: ConfigProperty<Length>,
@@ -72,6 +74,11 @@ impl MachineBuild for LaserV1 {
     fn build(mut ctx: BuildContext) -> Result<Self, BuildError> {
         let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
 
+        let gear_ratio = ctx
+            .config::<GearRatio>("gear_ratio")
+            .default(GearRatio::OneToOne)
+            .register()?;
+
         let diameter_target = ctx
             .config::<millimeter>("diameter.target")
             .get_capabilities(Self::diameter_target_constraints)
@@ -93,6 +100,7 @@ impl MachineBuild for LaserV1 {
 
         Ok(Self {
             device,
+            gear_ratio,
             diameter_target,
             diameter_tolerance_upper,
             diameter_tolerance_lower,

@@ -2088,6 +2088,7 @@ dependencies = [
 name = "qitech_framework_macros"
 version = "0.1.0"
 dependencies = [
+ "heck 0.5.0",
  "proc-macro2",
  "qitech_framework_core",
  "quote",

@@ -9,7 +9,7 @@ use crate::machine::resource::constraints::StringConfigPropertyConstraints;
 /// on wrapped units. The best example here is uom which allows us to export
 /// a uom Length as millimeter instead of meter (the default with serde feature)
 pub trait TypeWrapper {
-    type Type: Clone + 'static;
+    type Type: Clone + Default + 'static;
     type Input;
     type Constraints: 'static;
 

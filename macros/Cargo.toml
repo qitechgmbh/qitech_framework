@@ -12,3 +12,4 @@ qitech_framework_core = { path = "../core" }
 syn = { version = "3.0.2" , features = ["full", "visit-mut"]}
 quote = "1"
 proc-macro2 = "1"
+heck = "0.5.0"
