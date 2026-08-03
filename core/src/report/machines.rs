@@ -77,17 +77,10 @@ pub struct MachineConfigCapabilityMutation {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MachineConfigWriteCapability {
-    /// None means writable
-    /// Some(reason) means disabled
-    pub disabled_reason: Option<String>,
-}
-
-impl MachineConfigWriteCapability {
-    pub fn allowed() -> Self {
-        Self {
-            disabled_reason: None,
-        }
+pub enum MachineConfigWriteCapability {
+    Allowed,
+    Forbidden {
+        reason: String,
     }
 }
 

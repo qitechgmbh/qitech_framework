@@ -11,7 +11,7 @@ use crate::machine::resource::constraints::StringConfigPropertyConstraints;
 pub trait TypeWrapper {
     type Type: Clone + 'static;
     type Input;
-    type Constraints;
+    type Constraints: 'static;
 
     /// converts input when creating into the actual type.
     /// > example: T is millimeter, Input is f64 and output is a Length
@@ -102,8 +102,7 @@ impl TypeWrapper for bool {
         ScalarValue::Boolean(Some(value))
     }
 
-    fn into_constraints(constraints: Self::Constraints) -> MachineConfigPropertyConstraints {
-        _ = constraints;
+    fn into_constraints(_: Self::Constraints) -> MachineConfigPropertyConstraints {
         MachineConfigPropertyConstraints::None
     }
 }
@@ -128,8 +127,7 @@ impl TypeWrapper for Option<bool> {
         ScalarValue::Boolean(value)
     }
 
-    fn into_constraints(constraints: Self::Constraints) -> MachineConfigPropertyConstraints {
-        _ = constraints;
+    fn into_constraints(_: Self::Constraints) -> MachineConfigPropertyConstraints {
         MachineConfigPropertyConstraints::None
     }
 }
@@ -209,7 +207,7 @@ impl TypeWrapper for f64 {
     }
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Float(Some(value.clone()))
+        ScalarValue::Float(Some(value))
     }
 
     fn into_constraints(constraints: Self::Constraints) -> MachineConfigPropertyConstraints {
@@ -237,7 +235,7 @@ impl TypeWrapper for Option<f64> {
     }
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Float(value.clone())
+        ScalarValue::Float(value)
     }
 
     fn into_constraints(constraints: Self::Constraints) -> MachineConfigPropertyConstraints {

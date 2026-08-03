@@ -1102,6 +1102,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "minimal"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bitvec",
+ "chrono",
+ "crossbeam",
+ "heapless 0.9.3",
+ "postcard",
+ "qitech_framework",
+ "qitech_framework_macros",
+ "qitech_lib",
+ "regex",
+ "serde",
+ "serde_json",
+ "serialport",
+ "thiserror",
+ "tokio",
+ "tokio-serial",
+ "toml 0.8.23",
+ "tracing",
+ "udev",
+ "yaml_serde",
+]
+
+[[package]]
 name = "mio"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

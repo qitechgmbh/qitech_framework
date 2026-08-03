@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "core",
+    "minimal",
     # "macros",
     "library",
     # "hub",

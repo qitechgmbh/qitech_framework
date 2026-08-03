@@ -124,8 +124,8 @@ impl Manager {
         let journal_capability = self.journal_capability.new_handle();
 
         // initialize shared capabilities
-        let current_capabilities = Rc::new(RefCell::new(ConfigPropertyCapabilities {
-            writable: MachineConfigWriteCapability::allowed(),
+        let current_capabilities = Rc::new(RefCell::new(ConfigPropertyCapabilitiesAny {
+            writable: MachineConfigWriteCapability::Allowed,
             constraints: MachineConfigPropertyConstraints::None,
         }));
 
@@ -151,7 +151,7 @@ impl Manager {
                     }
                 };
 
-                let can_write = capabilities.writable.disabled_reason.is_none();
+                let can_write = capabilities.writable == MachineConfigWriteCapability::Allowed;
                 let validate_result = validate_constraints(&value, &capabilities.constraints);
 
                 if capabilities != *write_current_capabilities.borrow() {
@@ -285,28 +285,35 @@ impl Manager {
 }
 
 pub struct Entry {
-    current_capabilities: Rc<RefCell<ConfigPropertyCapabilities>>,
+    current_capabilities: Rc<RefCell<ConfigPropertyCapabilitiesAny>>,
     get_capabilities: GetCapabilitiesFn,
     write_value: WriteFn,
     machine_ref: Rc<Cell<Option<*const dyn Machine>>>,
 }
 
 #[derive(PartialEq)]
-pub struct ConfigPropertyCapabilities {
+pub struct ConfigPropertyCapabilities<T: TypeWrapper> {
+    pub writable: MachineConfigWriteCapability,
+    pub constraints: T::Constraints,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ConfigPropertyCapabilitiesAny {
     pub writable: MachineConfigWriteCapability,
     pub constraints: MachineConfigPropertyConstraints,
 }
 
 // --- get capabilities ---
 pub type GetCapabilitiesFn =
-    Rc<dyn Fn(&dyn Machine) -> Result<ConfigPropertyCapabilities, ResourceAccessError>>;
+    Rc<dyn Fn(&dyn Machine) -> Result<ConfigPropertyCapabilitiesAny, ResourceAccessError>>;
 
 pub trait IntoGetCapabilitiesFn {
     fn into_get_capabilities_fn(self) -> GetCapabilitiesFn;
 }
 
-impl<M> IntoGetCapabilitiesFn for fn(&M) -> ConfigPropertyCapabilities
+impl<T, M> IntoGetCapabilitiesFn for fn(&M) -> ConfigPropertyCapabilities<T>
 where
+    T: TypeWrapper + 'static,
     M: Machine + 'static,
 {
     fn into_get_capabilities_fn(self) -> GetCapabilitiesFn {
@@ -315,7 +322,12 @@ where
                 .downcast_ref::<M>()
                 .ok_or(ResourceAccessError::MachineTypeMismatch)?;
 
-            Ok(self(machine))
+            let capabilities = self(machine);
+
+            Ok(ConfigPropertyCapabilitiesAny {
+                writable: capabilities.writable,
+                constraints: T::into_constraints(capabilities.constraints),
+            })
         })
     }
 }
@@ -343,45 +355,42 @@ pub fn validate_constraints(
 
         // --- float ---
         (ScalarValue::Float(Some(v)), MachineConfigPropertyConstraints::Float { min, max }) => {
-            if let Some(min) = min {
-                if v < min {
+            if let Some(min) = min
+                && v < min {
                     return Err(ConstraintViolation::F64BelowMin {
                         value: *v,
                         min: *min,
                     });
                 }
-            }
 
-            if let Some(max) = max {
-                if v > max {
+            if let Some(max) = max
+                && v > max {
                     return Err(ConstraintViolation::F64AboveMax {
                         value: *v,
                         max: *max,
                     });
                 }
-            }
 
             Ok(())
         }
 
         // --- integer ---
         (ScalarValue::Integer(Some(v)), MachineConfigPropertyConstraints::Integer { min, max }) => {
-            if let Some(min) = min {
-                if v < min {
+            if let Some(min) = min
+                && v < min {
                     return Err(ConstraintViolation::I64BelowMin {
                         value: *v,
                         min: *min,
                     });
                 }
-            }
-            if let Some(max) = max {
-                if v > max {
+                
+            if let Some(max) = max
+                && v > max {
                     return Err(ConstraintViolation::I64AboveMax {
                         value: *v,
                         max: *max,
                     });
                 }
-            }
             Ok(())
         }
 
@@ -395,22 +404,21 @@ pub fn validate_constraints(
         ) => {
             let length = v.chars().count();
 
-            if let Some(min_length) = min_length {
-                if length < *min_length {
+            if let Some(min_length) = min_length
+                && length < *min_length {
                     return Err(ConstraintViolation::StringTooShort {
                         length,
                         min: *min_length,
                     });
                 }
-            }
-            if let Some(max_length) = max_length {
-                if length > *max_length {
+                
+            if let Some(max_length) = max_length
+                && length > *max_length {
                     return Err(ConstraintViolation::StringTooLong {
                         length,
                         max: *max_length,
                     });
                 }
-            }
 
             Ok(())
         }

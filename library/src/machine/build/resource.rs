@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use qitech_framework_core::report::MachineConfigPropertyConstraints;
 use qitech_framework_core::report::MachineConfigWriteCapability;
+use qitech_framework_core::with_uom_units;
 use serde::Serialize;
 
 use crate::machine::BuildContext;
@@ -12,15 +13,20 @@ use crate::machine::build::BuildResult;
 use crate::machine::resource::CanExecuteFn;
 use crate::machine::resource::ConfigProperty;
 use crate::machine::resource::ConfigPropertyCapabilities;
+use crate::machine::resource::ConfigPropertyCapabilitiesAny;
 use crate::machine::resource::EventEmitter;
 use crate::machine::resource::ExecuteFn;
 use crate::machine::resource::GetCapabilitiesFn;
 use crate::machine::resource::IntoCanExecuteFn;
 use crate::machine::resource::IntoExecuteFn;
+use crate::machine::resource::IntoGetCapabilitiesFn;
 use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementRegisterOptions;
 use crate::machine::resource::StateProperty;
+use crate::machine::resource::constraints::NumericConfigPropertyConstraints;
+use crate::machine::resource::constraints::StringConfigPropertyConstraints;
 use crate::machine::resource::conversion::Extract;
+use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterError;
 
@@ -62,47 +68,244 @@ where
     T::Type: Clone,
 {
     pub fn default(mut self, value: T::Input) -> Self {
-        self.options.default = T::convert_input(value);
-        self
-    }
-
-    pub fn minimum(mut self, value: T::Input) -> Self {
-        self.options.min = T::convert_input(value).as_bound();
-        self
-    }
-
-    pub fn max(mut self, value: T::Input) -> Self {
-        self.options.max = T::convert_input(value).as_bound();
+        self.default = T::convert_input(value);
         self
     }
 
     pub fn get_capabilities<M: Machine + 'static>(
-        self,
-        func: fn(&M) -> ConfigPropertyCapabilities,
-    ) -> Self {
+        mut self,
+        func: fn(&M) -> ConfigPropertyCapabilities<T>,
+    ) -> Self
+    where 
+        T::Constraints: 
+    {
         self.get_capabilities = Some(func.into_get_capabilities_fn());
-        Self
+        self
     }
 
     pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
-        let get_capabilities_fn = self.get_capabilities.unwrap_or_else(|| {
+        let get_capabilities_fn: GetCapabilitiesFn = if let Some(func) = self.get_capabilities {
+            func
+        } else if let Some(constraints) = self.constraints {
+            let capabilities = ConfigPropertyCapabilitiesAny {
+                writable: MachineConfigWriteCapability::Allowed,
+                constraints: T::into_constraints(constraints),
+            };
+
             Rc::new(move |machine: &dyn Machine| {
                 _ = machine;
-
-                Ok(ConfigPropertyCapabilities {
-                    writable: MachineConfigWriteCapability::allowed(),
+                Ok(capabilities.clone())
+            })
+        } else {
+            Rc::new(move |machine: &dyn Machine| {
+                _ = machine;
+                Ok(ConfigPropertyCapabilitiesAny {
+                    writable: MachineConfigWriteCapability::Allowed,
                     constraints: MachineConfigPropertyConstraints::None,
                 })
             })
-        });
-
+        };
+        
         Ok(self.root.resources.config_properties.register::<T>(
             self.root.ident,
             self.path,
-            self.options,
+            self.default,
+            get_capabilities_fn,
         )?)
     }
 }
+
+// --- string ---
+impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, String> {
+    pub fn min_length(mut self, value: usize) -> Self {
+        self.constraints
+            .get_or_insert(StringConfigPropertyConstraints {
+                min_length: None,
+                max_length: None,
+                pattern: None,
+            })
+            .min_length = Some(value);
+
+        self
+    }
+
+    pub fn max_length(mut self, value: usize) -> Self {
+        self.constraints
+            .get_or_insert(StringConfigPropertyConstraints {
+                min_length: None,
+                max_length: None,
+                pattern: None,
+            })
+            .max_length = Some(value);
+
+        self
+    }
+
+    pub fn pattern(mut self, pattern: String) -> Self {
+        self.constraints
+            .get_or_insert(StringConfigPropertyConstraints {
+                min_length: None,
+                max_length: None,
+                pattern: None,
+            })
+            .pattern = Some(pattern);
+
+        self
+    }
+}
+
+// --- integer ---
+impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, i64> {
+    pub fn minimum(mut self, value: i64) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .min = Some(value);
+
+        self
+    }
+
+    pub fn maximum(mut self, value: i64) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .max = Some(value);
+
+        self
+    }
+}
+
+impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, Option<i64>> {
+    pub fn minimum(mut self, value: Option<i64>) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .min = value;
+
+        self
+    }
+
+    pub fn maximum(mut self, value: Option<i64>) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .max = value;
+
+        self
+    }
+}
+
+// --- float ---
+impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, f64> {
+    pub fn minimum(mut self, value: f64) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .min = Some(value);
+
+        self
+    }
+
+    pub fn maximum(mut self, value: f64) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .max = Some(value);
+
+        self
+    }
+}
+
+impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, Option<f64>> {
+    pub fn minimum(mut self, value: Option<f64>) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .min = value;
+
+        self
+    }
+
+    pub fn maximum(mut self, value: Option<f64>) -> Self {
+        self.constraints
+            .get_or_insert(NumericConfigPropertyConstraints {
+                min: None,
+                max: None,
+            })
+            .max = value;
+
+        self
+    }
+}
+
+// --- uom ---
+macro_rules! impl_uom_unit {
+    ($quantity:path, $unit:path, $unit_trait:path, $conversion_trait:path) => {
+        impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, $unit> {
+            pub fn minimum(mut self, value: f64) -> Self {
+                self.constraints
+                    .get_or_insert(NumericConfigPropertyConstraints {
+                        min: None,
+                        max: None,
+                    })
+                    .min = Some(<$quantity>::new::<$unit>(value));
+
+                self
+            }
+
+            pub fn maximum(mut self, value: f64) -> Self {
+                self.constraints
+                    .get_or_insert(NumericConfigPropertyConstraints {
+                        min: None,
+                        max: None,
+                    })
+                    .max = Some(<$quantity>::new::<$unit>(value));
+
+                self
+            }
+        }
+
+        impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, Option<$unit>> {
+            pub fn minimum(mut self, value: Option<f64>) -> Self {
+                self.constraints
+                    .get_or_insert(NumericConfigPropertyConstraints {
+                        min: None,
+                        max: None,
+                    })
+                    .min = value.map(|x| <$quantity>::new::<$unit>(x));
+
+                self
+            }
+
+            pub fn maximum(mut self, value: Option<f64>) -> Self {
+                self.constraints
+                    .get_or_insert(NumericConfigPropertyConstraints {
+                        min: None,
+                        max: None,
+                    })
+                    .max = value.map(|x| <$quantity>::new::<$unit>(x));
+
+                self
+            }
+        }
+    };
+}
+
+with_uom_units!(impl_uom_unit);
 
 // --- state property ---
 impl<'a> BuildContext<'a> {
@@ -161,7 +364,7 @@ impl<'a> BuildContext<'a> {
     where
         'a: 'b,
         T: TypeWrapper + Extract<Option<f64>> + 'static,
-        T::Type: Copy + PartialOrd + Default,
+        T::Type: StatisticValue + Copy + PartialOrd + Default,
     {
         MeasurementBuilder {
             root: self,
@@ -174,7 +377,7 @@ impl<'a> BuildContext<'a> {
 pub struct MeasurementBuilder<'a, 'b, T>
 where
     T: TypeWrapper + Extract<Option<f64>> + 'static,
-    T::Type: Copy + PartialOrd + Default,
+    T::Type: StatisticValue + Copy + PartialOrd + Default,
 {
     root: &'b mut BuildContext<'a>,
     path: &'static str,
@@ -184,7 +387,7 @@ where
 impl<'a, 'b, T> MeasurementBuilder<'a, 'b, T>
 where
     T: TypeWrapper + Extract<Option<f64>> + 'static,
-    T::Type: Copy + PartialOrd + Default,
+    T::Type: StatisticValue + Copy + PartialOrd + Default,
 {
     pub fn initial(mut self, value: T::Input) -> Self {
         self.options.initial = T::convert_input(value);
@@ -268,10 +471,16 @@ where
             return Err(BuildError::RegisterError(err));
         };
 
+        let can_execute = 
+            self.can_execute_fn.unwrap_or(Box::new(|machine: &dyn Machine| {
+                _ = machine;
+                Ok(true) 
+            }));
+
         Ok(self.root.resources.commands.register(
             self.root.ident,
             self.path,
-            self.disabled,
+            can_execute,
             execute,
         )?)
     }

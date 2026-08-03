@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
+pub use qitech_framework_core::report::MachineConfigWriteCapability as ConfigPropertyWriteCapability;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 
 pub mod error;
@@ -13,6 +14,8 @@ use property::PropertyHandle;
 use property::PropertyManager;
 
 mod config_property;
+pub use config_property::ConfigPropertyCapabilitiesAny;
+pub use config_property::IntoGetCapabilitiesFn;
 pub use config_property::ConfigProperty;
 pub use config_property::ConfigPropertyCapabilities;
 pub use config_property::GetCapabilitiesFn;
