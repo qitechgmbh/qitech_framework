@@ -76,9 +76,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let result = self
                     .resources
                     .commands
-                    .invoke(target, machine_ref, &resource);
-
-                exit(99);
+                    .invoke(target, machine_ref, &resource).unwrap();
 
                     /*
                 self.report
