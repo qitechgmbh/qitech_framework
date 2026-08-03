@@ -19,6 +19,7 @@ use qitech_framework::machine::resource::ConfigPropertyWriteCapability;
 use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;
 use qitech_framework::machine::resource::constraints::NumericConfigPropertyConstraints;
+use qitech_framework::session;
 use qitech_framework::vendors;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
