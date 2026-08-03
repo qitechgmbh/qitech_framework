@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
+pub use qitech_framework_core::report::MachineConfigPropertyConstraints as ConfigPropertyWriteConstraints;
 pub use qitech_framework_core::report::MachineConfigWriteCapability as ConfigPropertyWriteCapability;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 
