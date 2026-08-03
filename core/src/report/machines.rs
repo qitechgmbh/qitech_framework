@@ -101,7 +101,7 @@ pub enum MachineConfigPropertyConstraints {
         max_length: Option<usize>,
     },
     Enum {
-        allowed: HashSet<String>,
+        allowed: Vec<String>,
     },
 }
 
