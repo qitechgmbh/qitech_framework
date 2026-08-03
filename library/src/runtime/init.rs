@@ -179,6 +179,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(v) => v,
                 Err(e) => {
                     _ = e;
+
+                    panic!("built machine: {:?}", e);
+
                     // println!("Failed to build machine: {e}");
                     continue;
                 }

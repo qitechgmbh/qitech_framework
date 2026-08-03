@@ -220,7 +220,7 @@ impl Manager {
 
         let prop = ConfigProperty {
             handle,
-            default,
+            default: default.clone(),
             apply,
         };
 
@@ -232,6 +232,16 @@ impl Manager {
         };
 
         self.entries.insert(Key::from_str(ident, path), entry);
+
+        self.journal_value.new_handle().append(MachineConfigValueMutation {
+            ident,
+            path: path.to_string(),
+            value: T::into_scalar(default),
+            origin: OperationOrigin::Machine,
+            result: Ok(()),
+            timestamp: Utc::now(),
+        });
+
         Ok(prop)
     }
 

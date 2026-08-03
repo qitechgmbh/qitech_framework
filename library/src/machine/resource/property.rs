@@ -193,6 +193,7 @@ where
 
             let info = unsafe { self.buf_info[i].assume_init_ref() };
             if info.machine == ident && info.path == path {
+                panic!("AH SIKTIR: {path}");
                 return Err(RegisterError::Duplicate);
             }
         }

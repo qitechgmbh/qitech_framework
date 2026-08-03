@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 # --- internal deps ---
 qitech_framework = { path = "../library" }
-qitech_framework_macros = { path = "../macros" }
+qitech_framework_tui = { path = "../tui" }
 
 # --- workspace deps ---
 serde = { workspace = true }

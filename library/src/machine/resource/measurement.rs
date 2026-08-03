@@ -1,3 +1,5 @@
+use std::ptr::NonNull;
+
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::MachineMeasurement;
 use qitech_framework_core::with_uom_quantities;
@@ -80,7 +82,7 @@ with_uom_quantities!(impl_uom);
 #[derive(Debug)]
 struct Statistics<T: StatisticValue> {
     /// cycle generation, used to know when to reset stats
-    p_generation: PropertyHandle<u64>,
+    p_generation: *const u64,
     generation: u64,
 
     min: Option<PropertyHandle<T>>,
@@ -95,7 +97,7 @@ struct Statistics<T: StatisticValue> {
 
 impl<T: StatisticValue> Statistics<T> {
     pub fn update(&mut self, value: T) {
-        let generation_now = *self.p_generation.read();
+        let generation_now = unsafe { *self.p_generation };
         let is_new_generation = generation_now != self.generation;
 
         if is_new_generation {
@@ -189,16 +191,6 @@ impl Manager {
             T::Type::default(),
         )?;
 
-        // --- create cycle generation handle ---
-        let generation_handle = self.inner.register::<u64>(
-            ident,
-            "generation".to_string(),
-            Metadata {
-                extract: T::extract,
-            },
-            0,
-        )?;
-
         // --- create stat handles ---
         let mut init_stat_handle =
             |postfix: &'static str| -> RegisterResult<PropertyHandle<T::Type>> {
@@ -237,7 +229,7 @@ impl Manager {
         };
 
         let stats = Statistics {
-            p_generation: generation_handle,
+            p_generation: &self.generation as *const u64,
             generation: 0,
             min: stat_min_handle,
             max: stat_max_handle,

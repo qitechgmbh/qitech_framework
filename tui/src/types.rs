@@ -54,7 +54,7 @@ impl AppState {
 
     pub fn add_machine(&mut self, ident_unique: MachineIdentificationUnique) {
         let ident = ident_unique.identification;
-
+        
         let Some(schema) = self.schemas.get(&ident) else {
             return;
         };

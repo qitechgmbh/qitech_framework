@@ -1553,7 +1553,7 @@ dependencies = [
  "heapless 0.9.3",
  "postcard",
  "qitech_framework",
- "qitech_framework_macros",
+ "qitech_framework_tui",
  "qitech_lib",
  "regex",
  "serde",

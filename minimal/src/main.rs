@@ -1,10 +1,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
 use qitech_framework::EnumProperty;
 use qitech_framework::MachineIdentification;
+use qitech_framework::MachineIdentificationUnique;
+use qitech_framework::Runtime;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
@@ -19,8 +22,11 @@ use qitech_framework::machine::resource::ConfigPropertyWriteCapability;
 use qitech_framework::machine::resource::Measurement;
 use qitech_framework::machine::resource::StateProperty;
 use qitech_framework::machine::resource::constraints::NumericConfigPropertyConstraints;
+use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::session;
 use qitech_framework::vendors;
+use qitech_framework_tui::Tui;
+use qitech_framework_tui::TuiConfiguration;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
@@ -28,15 +34,44 @@ use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
 
 pub fn main() {
-    
+    let laser_ident = |serial: u16| MachineIdentificationUnique {
+        identification: LaserV1::IDENTIFICATION,
+        serial,
+    };
+
+    // --- configure runtime ---
+    let config = RuntimeConfiguration::new()
+        .requests_per_cycle_max(10)
+        .export_interval(Duration::from_secs_f64(1.0 / 32.0))
+        // .ethercat(ETHERCAT_CONFIG)
+        .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0", laser_ident(1))
+        .modbus_rtu_device("pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0", laser_ident(2))
+        .machine::<LaserV1>();
+
+    run_tui(config).expect("idk")
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, EnumProperty)]
-pub enum GearRatio {
-    #[default]
-    OneToOne,
-    OneToFive,
-    OneToTen,
+fn run_headless(config: RuntimeConfiguration) -> anyhow::Result<()> {
+    let session = session::debug::runtime();
+    let rt = Runtime::init(config, session).unwrap();
+    rt.run();
+    Ok(())
+}
+
+fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
+    let (session_rt, session_tui) = session::crossbeam(64);
+
+    thread::spawn(move || {
+        let rt = Runtime::init(config, session_rt).unwrap();
+        rt.run();
+    });
+
+    // run slightly faster than the export interval so we don't stay behind
+    let config = TuiConfiguration::new()
+        .refresh_rate(Duration::from_secs_f64(1.0 / 40.0));
+
+    let app = Tui::create(config)?;
+    app.run(session_tui)
 }
 
 // #[machine("laser_v1")]
@@ -45,7 +80,6 @@ pub struct LaserV1 {
     device: Rc<RefCell<LaserDevice>>,
 
     // -- config ---
-    gear_ratio: ConfigProperty<GearRatio>,
     diameter_target: ConfigProperty<Length>,
     diameter_tolerance_upper: ConfigProperty<Length>,
     diameter_tolerance_lower: ConfigProperty<Length>,
@@ -64,7 +98,7 @@ pub struct LaserV1 {
 }
 
 impl MachineInterface for LaserV1 {
-    const SCHEMA: &'static str = "nu uh";
+    const SCHEMA: &'static str = include_str!("../laser_v1.yaml");
 }
 
 impl LaserV1 {
@@ -82,11 +116,6 @@ impl LaserV1 {
 impl MachineBuild for LaserV1 {
     fn build(mut ctx: BuildContext) -> Result<Self, BuildError> {
         let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
-
-        let gear_ratio = ctx
-            .config::<GearRatio>("gear_ratio")
-            .default(GearRatio::OneToOne)
-            .register()?;
 
         let diameter_target = ctx
             .config::<millimeter>("diameter.target")
@@ -109,7 +138,6 @@ impl MachineBuild for LaserV1 {
 
         Ok(Self {
             device,
-            gear_ratio,
             diameter_target,
             diameter_tolerance_upper,
             diameter_tolerance_lower,
