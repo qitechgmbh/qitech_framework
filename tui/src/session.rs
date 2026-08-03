@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use qitech_framework::MachineIdentification;
 use qitech_framework::session::ControllerTransport;
@@ -7,7 +8,11 @@ use qitech_framework::session::controller::SessionHandshake;
 use qitech_framework::session::error::SchemaSyncError;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::request::RuntimeRequest;
+use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::MachineSchema;
+
+use crate::types::AppAction;
 
 pub enum SessionMessage {
     Schemas(HashMap<MachineIdentification, MachineSchema>),
@@ -18,8 +23,12 @@ pub enum SessionMessage {
     Disconnected,
 }
 
-pub fn run<T: ControllerTransport>(session: SessionHandshake<T>, tx: Sender<SessionMessage>) {
-    if wrapped_run(session, &tx).is_err() {
+pub fn run<T: ControllerTransport>(
+    session: SessionHandshake<T>, 
+    tx: Sender<SessionMessage>,
+    rx: Receiver<AppAction>,
+) {
+    if wrapped_run(session, &tx, rx).is_err() {
         tx.send(SessionMessage::Disconnected)
             .expect("should not outlive main thread");
     }
@@ -28,6 +37,7 @@ pub fn run<T: ControllerTransport>(session: SessionHandshake<T>, tx: Sender<Sess
 fn wrapped_run<T: ControllerTransport>(
     session: SessionHandshake<T>,
     tx: &Sender<SessionMessage>,
+    rx: Receiver<AppAction>,
 ) -> anyhow::Result<()> {
     let session = session.complete()?;
 
@@ -55,5 +65,21 @@ fn wrapped_run<T: ControllerTransport>(
         let report = session.recv_report()?;
         tx.send(SessionMessage::Report(Box::new(report)))
             .expect("should not outlive main thread");
+
+        match rx.try_recv() {
+            Ok(action) => match action {
+                AppAction::NoAction => {},
+                AppAction::SetConfig { .. } => {},
+                AppAction::ExecuteCommand { machine, resource } => {let _ = session.send_request(RuntimeRequest { 
+                    request_id: 0,
+                    kind: RuntimeRequestKind::InvokeMachineCommand { 
+                        target: machine,
+                        resource,
+                    }
+                });
+            }
+            },
+            Err(_) => continue,
+        }
     }
 }

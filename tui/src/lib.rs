@@ -102,8 +102,9 @@ impl Tui {
         T: ControllerTransport + Send + 'static,
     {
         let (tx, rx) = crossbeam::channel::bounded(128);
+        let (tx_action, rx_action) = crossbeam::channel::bounded(128);
 
-        thread::spawn(move || session::run(session, tx));
+        thread::spawn(move || session::run(session, tx, rx_action));
 
         self.terminal
             .draw(|frame| self.root.render(frame, self.state.as_ctx()))?;
@@ -113,6 +114,17 @@ impl Tui {
             if event::poll(self.config.cycle_time)?
                 && let Event::Key(key) = event::read()?
             {
+                match self.root.on_key(key, self.state.as_ctx()) {
+                    Ok(action) => {
+                        tx_action.send(action).unwrap();
+                    },
+                    Err(_) => {
+                        if key.code == KeyCode::Char('q') {
+                            return Ok(());
+                        }
+                    },
+                }
+
                 if self.root.on_key(key, self.state.as_ctx()).is_err() {
                     if key.code == KeyCode::Char('q') {
                         return Ok(());
