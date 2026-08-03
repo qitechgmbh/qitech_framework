@@ -11,6 +11,7 @@ pub use tab_view::TabView;
 pub mod config;
 pub mod measurements;
 pub mod state;
+pub mod command;
 
 use crate::types::AppAction;
 

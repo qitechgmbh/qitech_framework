@@ -9,9 +9,10 @@ use crate::types::AppAction;
 use crate::types::AppContext;
 use crate::types::MachineEntry;
 use crate::widgets::TabView;
+use crate::widgets::command::CommandsView;
 use crate::widgets::config::ConfigPage;
 use crate::widgets::measurements::MeasurementsView;
-use crate::widgets::state::StatePage;
+use crate::widgets::state::StateView;
 use crate::widgets::tab_view::TabEntry;
 use crate::widgets::tab_view::TabItem;
 
@@ -41,7 +42,7 @@ impl MachinesView {
 
         let state = TabEntry {
             title: "State",
-            item: Box::new(StatePage::default()),
+            item: Box::new(StateView::default()),
         };
 
         let measurements = TabEntry {
@@ -49,10 +50,15 @@ impl MachinesView {
             item: Box::new(MeasurementsView::default()),
         };
 
+        let commands = TabEntry {
+            title: "Commands",
+            item: Box::new(CommandsView::default()),
+        };
+
         Self {
             focus: Focus::Picker,
             drop_down: DropDown::new("machine"),
-            machines: TabView::new(true, vec![config, state, measurements]),
+            machines: TabView::new(true, vec![config, state, measurements, commands]),
         }
     }
 }

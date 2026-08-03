@@ -16,11 +16,11 @@ use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
 #[derive(Default)]
-pub struct StateView {
+pub struct CommandsView {
     selected: usize,
 }
 
-impl TabItem<MachinesContext> for StateView {
+impl TabItem<MachinesContext> for CommandsView {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
         let machine = unsafe { &*ctx.machine };
 
@@ -62,7 +62,7 @@ impl TabItem<MachinesContext> for StateView {
         };
 
         let rows: Vec<Row> = machine
-            .state
+            .commands
             .iter()
             .skip(offset)
             .take(visible)
@@ -76,12 +76,7 @@ impl TabItem<MachinesContext> for StateView {
                     Style::default()
                 };
 
-                let value = match &field.value {
-                    Some(v) => v.to_string(),
-                    None => "N/A".to_string(),
-                };
-
-                Row::new(vec![Cell::from(field.label.as_str()), Cell::from(value)]).style(style)
+                Row::new(vec![Cell::from(field.label.as_str())]).style(style)
             })
             .collect();
 
