@@ -71,8 +71,6 @@ fn wrapped_run<T: ControllerTransport>(
                     AppAction::NoAction => {},
                     AppAction::SetConfig { .. } => {},
                     AppAction::ExecuteCommand { machine, resource } => {
-                        panic!("COMMAND SENDING");
-
                         let _ = session.send_request(RuntimeRequest { 
                         request_id: 0,
                         kind: RuntimeRequestKind::InvokeMachineCommand { 

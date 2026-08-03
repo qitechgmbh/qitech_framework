@@ -1,3 +1,5 @@
+use std::process::exit;
+
 use chrono::Utc;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
@@ -75,6 +77,8 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .resources
                     .commands
                     .invoke(target, machine_ref, &resource);
+
+                exit(99);
 
                     /*
                 self.report
