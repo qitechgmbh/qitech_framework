@@ -43,6 +43,7 @@ pub use event::Manager as EventManager;
 pub use event::SubscribedEvent;
 
 pub mod constraints;
+pub use constraints::EnumConfigPropertyConstraints;
 pub(crate) mod conversion;
 pub(crate) mod subscription;
 
