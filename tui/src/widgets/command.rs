@@ -38,6 +38,14 @@ impl TabItem<MachinesContext> for CommandsView {
                 self.selected = (self.selected + 1).min(max);
             }
 
+            KeyCode::Enter => {
+                let (key, _) = machine.commands.get_index(self.selected).unwrap();
+                return Ok(AppAction::ExecuteCommand {
+                    machine: machine.ident,
+                    resource: key.clone(),
+                });
+            }
+
             _ => return Err(code),
         }
 

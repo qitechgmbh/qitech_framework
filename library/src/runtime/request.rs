@@ -11,20 +11,18 @@ use crate::runtime::utils::find_machine;
 
 impl<T: RuntimeTransport> Runtime<T> {
     pub fn process_requests(&mut self) {
-        /*
         for _ in 0..self.config.requests_per_cycle_max {
             let Some(req) = self.session.recv_request().unwrap() else {
                 break;
             };
 
-            let response = self.process_request(req.kind);
-            self.report.responses.push((req.request_id, response));
+            let kind = req.request_id.clone();
+            let response = self.process_request(req);
+            self.report.responses.push((kind, response));
         }
-        */
     }
 
-    fn process_request(&mut self, request: RuntimeRequest) {
-        /*
+    fn process_request(&mut self, request: RuntimeRequest) -> Result<(), String> {
         let request_id = request.request_id;
 
         match request.kind {
@@ -53,6 +51,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 resource: path,
                 value,
             } => {
+                /*
                 self.resources
                     .config_properties
                     .api_write(
@@ -60,6 +59,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                         target, &path, value,
                     )
                     .map_err(|e| format!("{e}"))
+                    */
+                
+                Ok(())
             }
 
             RuntimeRequestKind::InvokeMachineCommand { target, resource } => {
@@ -74,6 +76,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .commands
                     .invoke(target, machine_ref, &resource);
 
+                    /*
                 self.report
                     .machines
                     .command_traces
@@ -84,12 +87,16 @@ impl<T: RuntimeTransport> Runtime<T> {
                         timestamp: Utc::now(),
                         result,
                     });
+                    */
+
+                Ok(())
             }
 
             RuntimeRequestKind::MachineSubscribe {
                 provider,
                 subscriber,
             } => {
+                /*
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
                     return Err("No Such Machine".to_string());
@@ -118,6 +125,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 // --- register subscription ---
                 subscribers.push(subscriber);
+                */
 
                 Ok(())
             }
@@ -136,6 +144,5 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(())
             }
         }
-        */
     }
 }

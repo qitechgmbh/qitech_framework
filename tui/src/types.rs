@@ -123,6 +123,10 @@ pub enum AppAction {
         resource: String,
         value: String,
     },
+    ExecuteCommand {
+        machine: MachineIdentificationUnique,
+        resource: String,
+    }
 }
 
 // --- types ---
