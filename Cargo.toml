@@ -5,7 +5,7 @@ members = [
     # "macros",
     "library",
     # "hub",
-    # "tui",
+    "tui",
 ]
 resolver = "2"
 

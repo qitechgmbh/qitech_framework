@@ -192,7 +192,7 @@ impl Tui {
         }
 
         for measurement in &report.measurements {
-            let Some(entry) = self.find_machine_mut(*measurement.machine) else {
+            let Some(entry) = self.find_machine_mut(*measurement.ident) else {
                 continue;
             };
 

@@ -8,12 +8,7 @@ use qitech_framework::ScalarValue;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::schema;
-use qitech_framework_core::schema::ConfigPropertyValue;
 use qitech_framework_core::schema::MachineSchema;
-use qitech_framework_core::schema::MeasurementValue;
-use qitech_framework_core::schema::Node;
-use qitech_framework_core::schema::NodeKind;
-use qitech_framework_core::schema::StatePropertyValue;
 
 use crate::utils::Timeseries;
 
@@ -61,21 +56,40 @@ impl AppState {
         let ident = ident_unique.identification;
 
         let Some(schema) = self.schemas.get(&ident) else {
-            panic!("NOOOOO: {} | {:?}", ident, &self.schemas);
             return;
         };
 
         let mut config = IndexMap::new();
-        collect_config_fields("", &schema.config_properties, &mut config);
+        for (name, _) in &schema.config_properties {
+            config.insert(name.clone(), ConfigField { 
+                label: name.clone(),
+                value: None,
+            });
+        }
 
         let mut state = IndexMap::new();
-        collect_state_fields("", &schema.state_properties, &mut state);
+        for (name, _) in &schema.state_properties {
+            state.insert(name.clone(), StateField { 
+                label: name.clone(),
+                value: None,
+            });
+        }
 
         let mut measurements = IndexMap::new();
-        collect_measurement_fields("", &schema.measurements, &mut measurements);
+        for (name, _) in &schema.measurements {
+            measurements.insert(name.clone(), MeasurementField { 
+                label: name.clone(),
+                values: Timeseries::new(4096),
+            });
+        }
 
         let mut commands = IndexMap::new();
-        collect_command_fields("", &schema.commands, &mut commands);
+        for (name, _) in &schema.commands {
+            commands.insert(name.clone(), CommandField {
+                label: name.clone(),
+                enabled: true,
+            });
+        }
 
         self.machines.push(MachineEntry {
             title: schema.name.clone(),
@@ -141,126 +155,3 @@ pub struct CommandField {
     pub label: String,
     pub enabled: bool,
 }
-
-// --- utils ---
-fn collect_config_fields(
-    prefix: &str,
-    properties: &IndexMap<String, Node<ConfigPropertyValue>>,
-    fields: &mut IndexMap<String, ConfigField>,
-) {
-    for (name, node) in properties {
-        let path = if prefix.is_empty() {
-            name.clone()
-        } else {
-            format!("{prefix}.{name}")
-        };
-
-        match &node.kind {
-            NodeKind::Branch(children) => {
-                collect_config_fields(&path, children, fields);
-            }
-
-            NodeKind::Leaf(_) => {
-                fields.insert(
-                    path.clone(),
-                    ConfigField {
-                        label: path.clone(),
-                        value: None,
-                    },
-                );
-            }
-        }
-    }
-}
-
-fn collect_state_fields(
-    prefix: &str,
-    properties: &IndexMap<String, Node<StatePropertyValue>>,
-    fields: &mut IndexMap<String, StateField>,
-) {
-    for (name, node) in properties {
-        let path = if prefix.is_empty() {
-            name.clone()
-        } else {
-            format!("{prefix}.{name}")
-        };
-
-        match &node.kind {
-            NodeKind::Branch(children) => {
-                collect_state_fields(&path, children, fields);
-            }
-
-            NodeKind::Leaf(_) => {
-                fields.insert(
-                    path.clone(),
-                    StateField {
-                        label: path.clone(),
-                        value: None,
-                    },
-                );
-            }
-        }
-    }
-}
-
-fn collect_measurement_fields(
-    prefix: &str,
-    properties: &IndexMap<String, Node<MeasurementValue>>,
-    fields: &mut IndexMap<String, MeasurementField>,
-) {
-    for (name, node) in properties {
-        let path = if prefix.is_empty() {
-            name.clone()
-        } else {
-            format!("{prefix}.{name}")
-        };
-
-        match &node.kind {
-            NodeKind::Branch(children) => {
-                collect_measurement_fields(&path, children, fields);
-            }
-
-            NodeKind::Leaf(_) => {
-                fields.insert(
-                    path.clone(),
-                    MeasurementField {
-                        label: path.clone(),
-                        values: Timeseries::new(4096),
-                    },
-                );
-            }
-        }
-    }
-}
-
-fn collect_command_fields(
-    prefix: &str,
-    properties: &IndexMap<String, Node<schema::Command>>,
-    fields: &mut IndexMap<String, CommandField>,
-) {
-    for (name, node) in properties {
-        let path = if prefix.is_empty() {
-            name.clone()
-        } else {
-            format!("{prefix}.{name}")
-        };
-
-        match &node.kind {
-            NodeKind::Branch(children) => {
-                collect_command_fields(&path, children, fields);
-            }
-
-            NodeKind::Leaf(_) => {
-                fields.insert(
-                    path.clone(),
-                    CommandField {
-                        label: path.to_string(),
-                        enabled: true,
-                    },
-                );
-            }
-        }
-    }
-}
-
-// ---
