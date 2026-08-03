@@ -68,16 +68,19 @@ fn wrapped_run<T: ControllerTransport>(
 
         match rx.try_recv() {
             Ok(action) => match action {
-                AppAction::NoAction => {},
-                AppAction::SetConfig { .. } => {},
-                AppAction::ExecuteCommand { machine, resource } => {let _ = session.send_request(RuntimeRequest { 
-                    request_id: 0,
-                    kind: RuntimeRequestKind::InvokeMachineCommand { 
-                        target: machine,
-                        resource,
-                    }
-                });
-            }
+                    AppAction::NoAction => {},
+                    AppAction::SetConfig { .. } => {},
+                    AppAction::ExecuteCommand { machine, resource } => {
+                        panic!("COMMAND SENDING");
+
+                        let _ = session.send_request(RuntimeRequest { 
+                        request_id: 0,
+                        kind: RuntimeRequestKind::InvokeMachineCommand { 
+                            target: machine,
+                            resource,
+                        }
+                    });
+                }
             },
             Err(_) => continue,
         }
