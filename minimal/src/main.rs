@@ -30,6 +30,14 @@ pub fn main() {
     
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, EnumProperty)]
+pub enum GearRatio {
+    #[default]
+    OneToOne,
+    OneToFive,
+    OneToTen,
+}
+
 // #[machine("laser_v1")]
 pub struct LaserV1 {
     // --- hardware ---
