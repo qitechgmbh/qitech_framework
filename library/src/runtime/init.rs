@@ -78,7 +78,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     continue;
                 };
 
-                let device = match (entry.init)(path) {
+                let device = match (entry.init)(path.clone()) {
                     Ok(v) => v,
                     Err(e) => {
                         session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize {
