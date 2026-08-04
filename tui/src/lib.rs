@@ -117,17 +117,11 @@ impl Tui {
                 match self.root.on_key(key, self.state.as_ctx()) {
                     Ok(action) => {
                         tx_action.send(action).unwrap();
-                    },
+                    }
                     Err(_) => {
                         if key.code == KeyCode::Char('q') {
                             return Ok(());
                         }
-                    },
-                }
-
-                if self.root.on_key(key, self.state.as_ctx()).is_err() {
-                    if key.code == KeyCode::Char('q') {
-                        return Ok(());
                     }
                 }
             }
@@ -140,12 +134,12 @@ impl Tui {
                     SessionMessage::InitEvent(event) => {
                         self.on_init_event(event);
                     }
-                    SessionMessage::Finished => {}
-                    SessionMessage::Running => {}
                     SessionMessage::Report(report) => {
                         self.on_report(*report);
                     }
-                    SessionMessage::Disconnected => {}
+                    SessionMessage::Disconnected => {
+                        self.state.rt_status = RuntimeStatus::Disconnected;
+                    }
                 },
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => return Ok(()),
@@ -188,7 +182,9 @@ impl Tui {
                 continue;
             };
 
-            item.value = Some(mutation.value.clone());
+            if mutation.result.is_ok() {
+                item.value = Some(mutation.value.clone());
+            }
         }
 
         for mutation in &report.state_mutations {
@@ -213,6 +209,18 @@ impl Tui {
             };
 
             item.values.push(timestamp, *measurement.value);
+        }
+
+        for command in &report.command_enabled_mutations {
+            let Some(entry) = self.find_machine_mut(command.ident) else {
+                continue;
+            };
+
+            let Some(item) = entry.commands.get_mut(&command.resource) else {
+                continue;
+            };
+
+            item.enabled = command.can_execute;
         }
     }
 

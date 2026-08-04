@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -79,9 +77,7 @@ pub struct MachineConfigCapabilityMutation {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MachineConfigWriteCapability {
     Allowed,
-    Forbidden {
-        reason: String,
-    }
+    Forbidden { reason: String },
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -123,7 +119,7 @@ pub enum MachineConfigWriteError {
     NotWritable,
 
     #[error("resource not found")]
-    ResourceNotFound,
+    NotFound,
 
     #[error("machine not found")]
     MachineNotFound,
@@ -136,6 +132,9 @@ pub enum MachineConfigWriteError {
 
     #[error("value had invalid type")]
     ConstraintViolation(#[from] ConstraintViolation),
+
+    #[error("failure in callback: {0}")]
+    CallbackFailure(String),
 }
 
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]

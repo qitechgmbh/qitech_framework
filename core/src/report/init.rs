@@ -28,6 +28,13 @@ pub enum RuntimeInitEvent {
 
     // --- modbus rtu ---
     ModbusRTUDiscoveryStarted,
+    ModbusRTUDeviceNotFound {
+        path: String,
+    },
+
+    ModbusRTUCouldNotInitialize {
+        error: String,
+    },
 
     // --- machine ---
     BuildingMachines,
@@ -102,6 +109,8 @@ impl From<&RuntimeInitEvent> for RuntimeInitStatus {
             }
 
             RuntimeInitEvent::ModbusRTUDiscoveryStarted => RuntimeInitStatus::ModbusRTUDiscovery,
+
+            RuntimeInitEvent::ModbusRTUDeviceNotFound { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
 
             RuntimeInitEvent::BuildingMachines => RuntimeInitStatus::BuildingMachines,
 

@@ -9,6 +9,7 @@ use serde::Serialize;
 use crate::ident::MachineIdentificationUnique;
 
 mod machines;
+pub use machines::ConstraintViolation;
 pub use machines::MachineCommandCapabilityMutation;
 pub use machines::MachineCommandInvokeError;
 pub use machines::MachineCommandInvokeTrace;
@@ -22,7 +23,6 @@ pub use machines::MachineEmittedEvent;
 pub use machines::MachineMeasurement;
 pub use machines::MachineStateMutation;
 pub use machines::MachinesReport;
-pub use machines::ConstraintViolation;
 
 mod logs;
 pub use logs::LogLevel;

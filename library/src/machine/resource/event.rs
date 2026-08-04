@@ -86,7 +86,6 @@ impl Manager {
         let key = Key::from_str(ident, path);
 
         if self.registry.contains_key(&key) {
-            panic!("AH SIKTIR");
             return Err(RegisterError::Duplicate);
         }
 

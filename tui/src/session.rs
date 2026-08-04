@@ -17,14 +17,12 @@ use crate::types::AppAction;
 pub enum SessionMessage {
     Schemas(HashMap<MachineIdentification, MachineSchema>),
     InitEvent(RuntimeInitEvent),
-    Finished,
-    Running,
     Report(Box<RuntimeReport>),
     Disconnected,
 }
 
 pub fn run<T: ControllerTransport>(
-    session: SessionHandshake<T>, 
+    session: SessionHandshake<T>,
     tx: Sender<SessionMessage>,
     rx: Receiver<AppAction>,
 ) {
@@ -68,15 +66,28 @@ fn wrapped_run<T: ControllerTransport>(
 
         match rx.try_recv() {
             Ok(action) => match action {
-                    AppAction::NoAction => {},
-                    AppAction::SetConfig { .. } => {},
-                    AppAction::ExecuteCommand { machine, resource } => {
-                        let _ = session.send_request(RuntimeRequest { 
+                AppAction::NoAction => {}
+                AppAction::SetConfig {
+                    machine,
+                    resource,
+                    value,
+                } => {
+                    let _ = session.send_request(RuntimeRequest {
                         request_id: 0,
-                        kind: RuntimeRequestKind::InvokeMachineCommand { 
+                        kind: RuntimeRequestKind::SetMachineConfiguration {
                             target: machine,
                             resource,
-                        }
+                            value,
+                        },
+                    });
+                }
+                AppAction::ExecuteCommand { machine, resource } => {
+                    let _ = session.send_request(RuntimeRequest {
+                        request_id: 0,
+                        kind: RuntimeRequestKind::InvokeMachineCommand {
+                            target: machine,
+                            resource,
+                        },
                     });
                 }
             },

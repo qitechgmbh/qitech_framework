@@ -1,13 +1,9 @@
-use std::process::exit;
-
-use chrono::Utc;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;
 use crate::machine::Machine;
-use crate::machine::SubscribeContext;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 
@@ -18,14 +14,14 @@ impl<T: RuntimeTransport> Runtime<T> {
                 break;
             };
 
-            let kind = req.request_id.clone();
+            let kind = req.request_id;
             let response = self.process_request(req);
             self.report.responses.push((kind, response));
         }
     }
 
     fn process_request(&mut self, request: RuntimeRequest) -> Result<(), String> {
-        let request_id = request.request_id;
+        // let request_id = request.request_id;
 
         match request.kind {
             RuntimeRequestKind::WriteMachineDeviceInfo {
@@ -53,16 +49,22 @@ impl<T: RuntimeTransport> Runtime<T> {
                 resource: path,
                 value,
             } => {
-                /*
+                let Some(machine) = find_machine(&mut self.machines, target) else {
+                    return Err("No Such Machine".to_string());
+                };
+
+                let machine_ref: &mut dyn Machine = &mut *machine;
+
                 self.resources
                     .config_properties
-                    .api_write(
-                        0, // TODO: provide the real one
-                        target, &path, value,
+                    .write_value(
+                        target, 
+                        &path, 
+                        machine_ref,
+                        value,
                     )
-                    .map_err(|e| format!("{e}"))
-                    */
-                
+                    .map_err(|e| format!("{e}")).unwrap();
+
                 Ok(())
             }
 
@@ -76,9 +78,10 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let result = self
                     .resources
                     .commands
-                    .invoke(target, machine_ref, &resource).unwrap();
+                    .invoke(target, machine_ref, &resource)
+                    .unwrap();
 
-                    /*
+                /*
                 self.report
                     .machines
                     .command_traces

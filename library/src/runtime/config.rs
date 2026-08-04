@@ -1,8 +1,12 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::Duration;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::MasterConfiguration;
+use qitech_lib::modbus::ModbusDevice;
+use qitech_lib::modbus::ModbusSettings;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
@@ -45,19 +49,35 @@ impl RuntimeConfiguration {
         self
     }
 
-    pub fn modbus_rtu_device<S: ToString>(
+    pub fn modbus_rtu_device<S: ToString, D: ModbusDevice>(
         mut self,
         id_path: S,
         ident: MachineIdentificationUnique,
+        slave_id: u8, 
+        settings: Option<ModbusSettings>
     ) -> Self {
         let mut config = match self.modbus_rtu_mode {
             ModbusRtuMode::Enabled(config) => config,
             _ => ModbusRtuConfig {
-                bindings: Default::default(),
+                entries: Default::default(),
             },
         };
 
-        config.bindings.insert(id_path.to_string(), ident);
+        let init = Box::new(move |path: String| {
+            let dev = D::new(path, slave_id, settings)
+                .map_err(|e| format!("{e}"))?;
+
+            let dev: Rc<RefCell<dyn ModbusDevice>> =
+                Rc::new(RefCell::new(dev));
+
+            Ok(dev)
+        });
+
+        config.entries.insert(id_path.to_string(), ModbusRtuEntry {
+            ident,
+            init,
+        });
+        
         self.modbus_rtu_mode = ModbusRtuMode::Enabled(config);
         self
     }
@@ -106,5 +126,10 @@ pub enum ModbusRtuMode {
 }
 
 pub struct ModbusRtuConfig {
-    pub bindings: HashMap<String, MachineIdentificationUnique>,
+    pub entries: HashMap<String, ModbusRtuEntry>,
+}
+
+pub struct ModbusRtuEntry {
+    pub ident: MachineIdentificationUnique,
+    pub init: Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String>>,
 }

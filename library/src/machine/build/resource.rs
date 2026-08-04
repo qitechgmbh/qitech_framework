@@ -22,6 +22,7 @@ use crate::machine::resource::IntoExecuteFn;
 use crate::machine::resource::IntoGetCapabilitiesFn;
 use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementRegisterOptions;
+use crate::machine::resource::OnChangedFn;
 use crate::machine::resource::StateProperty;
 use crate::machine::resource::constraints::NumericConfigPropertyConstraints;
 use crate::machine::resource::constraints::StringConfigPropertyConstraints;
@@ -29,6 +30,7 @@ use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterError;
+use crate::machine::resource::IntoOnChangedFn;
 
 // --- config property ---
 impl<'a> BuildContext<'a> {
@@ -44,6 +46,7 @@ impl<'a> BuildContext<'a> {
             default: T::Type::default(),
             constraints: None,
             get_capabilities: None,
+            on_changed: None,
         }
     }
 }
@@ -60,6 +63,7 @@ where
     default: T::Type,
     constraints: Option<T::Constraints>,
     get_capabilities: Option<GetCapabilitiesFn>,
+    on_changed: Option<OnChangedFn>,
 }
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
@@ -76,10 +80,21 @@ where
         mut self,
         func: fn(&M) -> ConfigPropertyCapabilities<T>,
     ) -> Self
-    where 
-        T::Constraints: 
+    where
+        T::Constraints:,
     {
         self.get_capabilities = Some(func.into_get_capabilities_fn());
+        self
+    }
+
+    pub fn on_changed<M: Machine + 'static>(
+        mut self,
+        func: fn(&mut M) -> Result<(), String>,
+    ) -> Self
+    where
+        T::Constraints:,
+    {
+        self.on_changed = Some(func.into_on_changed_fn());
         self
     }
 
@@ -105,12 +120,19 @@ where
                 })
             })
         };
-        
+
+        let on_changed = if let Some(func) = self.on_changed {
+            func
+        } else {
+            Box::new(|_: &mut dyn Machine| { Ok(()) })
+        };
+
         Ok(self.root.resources.config_properties.register::<T>(
             self.root.ident,
             self.path,
             self.default,
             get_capabilities_fn,
+            on_changed,
         )?)
     }
 }
@@ -471,10 +493,11 @@ where
             return Err(BuildError::RegisterError(err));
         };
 
-        let can_execute = 
-            self.can_execute_fn.unwrap_or(Box::new(|machine: &dyn Machine| {
+        let can_execute = self
+            .can_execute_fn
+            .unwrap_or(Box::new(|machine: &dyn Machine| {
                 _ = machine;
-                Ok(true) 
+                Ok(true)
             }));
 
         Ok(self.root.resources.commands.register(

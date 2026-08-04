@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::println;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -59,36 +59,43 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- initialize ethercat ---
         let mut session = session.complete()?;
-        let mut hardware_registry = Default::default();
+        let mut hardware_registry = HashMap::new();
 
         let (ecat_controller, mut sub_devices) =
             if let EtherCATMode::Enabled(config) = config.ethercat_mode {
                 ethercat::init(config, &mut session, &mut hardware_registry)?
             } else {
-                (None, Default::default())
+                (None, Vec::default())
             };
 
         // --- initialize modbus rtu ---
         if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
             session.send_event(RuntimeInitEvent::ModbusRTUDiscoveryStarted)?;
 
-            for (path, ident) in config.bindings {
+            for (path, entry) in config.entries {
                 let Some(path) = modbus_rtu::resolve_serial_by_path(&path) else {
-                    // path not found
+                    session.send_event(RuntimeInitEvent::ModbusRTUDeviceNotFound { path })?;
                     continue;
                 };
 
-                let device: Rc<RefCell<LaserDevice>> = Rc::new(RefCell::new(
-                    LaserDevice::new(path.clone(), 1, None).unwrap(),
-                ));
+                let device = match (entry.init)(path) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize { 
+                            error: e.to_string()
+                        })?;
 
-                hardware_registry.insert(
-                    ident,
-                    vec![Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
+                        continue;
+                    },
+                };
+                
+                hardware_registry
+                    .entry(entry.ident)
+                    .or_insert_with(Vec::new)
+                    .push(Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
                         device,
                         path,
-                    })],
-                );
+                    }));
             }
         }
 
@@ -129,6 +136,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             };
             session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
         }
+
         // --- return initialized runtime ---
         session.send_event(RuntimeInitEvent::Finished)?;
 

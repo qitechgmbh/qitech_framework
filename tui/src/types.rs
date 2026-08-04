@@ -7,16 +7,10 @@ use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::ScalarValue;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
-use qitech_framework_core::schema;
+use qitech_framework_core::schema::ConfigPropertyKind;
 use qitech_framework_core::schema::MachineSchema;
 
 use crate::utils::Timeseries;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Focus {
-    Status,
-    Content,
-}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeStatus {
@@ -60,35 +54,48 @@ impl AppState {
         };
 
         let mut config = IndexMap::new();
-        for (name, _) in &schema.config_properties {
-            config.insert(name.clone(), ConfigField { 
-                label: name.clone(),
-                value: None,
-            });
+        for (name, def) in &schema.config_properties {
+            config.insert(
+                name.clone(),
+                ConfigField {
+                    kind: def.kind.clone(),
+                    label: name.clone(),
+                    value: None,
+                },
+            );
         }
 
         let mut state = IndexMap::new();
         for (name, _) in &schema.state_properties {
-            state.insert(name.clone(), StateField { 
-                label: name.clone(),
-                value: None,
-            });
+            state.insert(
+                name.clone(),
+                StateField {
+                    label: name.clone(),
+                    value: None,
+                },
+            );
         }
 
         let mut measurements = IndexMap::new();
         for (name, _) in &schema.measurements {
-            measurements.insert(name.clone(), MeasurementField { 
-                label: name.clone(),
-                values: Timeseries::new(4096),
-            });
+            measurements.insert(
+                name.clone(),
+                MeasurementField {
+                    label: name.clone(),
+                    values: Timeseries::new(4096),
+                },
+            );
         }
 
         let mut commands = IndexMap::new();
         for (name, _) in &schema.commands {
-            commands.insert(name.clone(), CommandField {
-                label: name.clone(),
-                enabled: true,
-            });
+            commands.insert(
+                name.clone(),
+                CommandField {
+                    label: name.clone(),
+                    enabled: true,
+                },
+            );
         }
 
         self.machines.push(MachineEntry {
@@ -121,12 +128,12 @@ pub enum AppAction {
     SetConfig {
         machine: MachineIdentificationUnique,
         resource: String,
-        value: String,
+        value: ScalarValue,
     },
     ExecuteCommand {
         machine: MachineIdentificationUnique,
         resource: String,
-    }
+    },
 }
 
 // --- types ---
@@ -140,6 +147,7 @@ pub struct MachineEntry {
 }
 
 pub struct ConfigField {
+    pub kind: ConfigPropertyKind,
     pub label: String,
     pub value: Option<ScalarValue>,
 }

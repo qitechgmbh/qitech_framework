@@ -8,10 +8,10 @@ pub use status::StatusDisplay;
 pub mod tab_view;
 pub use tab_view::TabView;
 
+pub mod command;
 pub mod config;
 pub mod measurements;
 pub mod state;
-pub mod command;
 
 use crate::types::AppAction;
 

@@ -67,8 +67,7 @@ fn run_tui(config: RuntimeConfiguration) -> anyhow::Result<()> {
     });
 
     // run slightly faster than the export interval so we don't stay behind
-    let config = TuiConfiguration::new()
-        .refresh_rate(Duration::from_secs_f64(1.0 / 40.0));
+    let config = TuiConfiguration::new().refresh_rate(Duration::from_secs_f64(1.0 / 40.0));
 
     let app = Tui::create(config)?;
     app.run(session_tui)

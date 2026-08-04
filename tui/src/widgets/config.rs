@@ -1,4 +1,6 @@
 use crossterm::event::KeyCode;
+use qitech_framework::ScalarValue;
+use qitech_framework_core::schema::ConfigPropertyKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
@@ -31,11 +33,54 @@ impl TabItem<MachinesContext> for ConfigPage {
             match code {
                 KeyCode::Esc => {}
                 KeyCode::Enter => {
-                    let (key, _) = machine.config.get_index(self.selected).unwrap();
+                    let (key, field) = machine.config.get_index(self.selected).unwrap();
+
+                    let value = match &field.kind {
+                        ConfigPropertyKind::Enum { variants, .. } => {
+                            if !variants.contains_name(&edit.value) {
+                                return Ok(AppAction::NoAction);
+                            }
+
+                            ScalarValue::Enum(Some(edit.value))
+                        }
+
+                        ConfigPropertyKind::String { .. } => {
+                            // TODO: capability check
+                            ScalarValue::String(Some(edit.value))
+                        }
+
+                        ConfigPropertyKind::Boolean { .. } => {
+                            let value = match edit.value.parse::<bool>() {
+                                Ok(v) => v,
+                                Err(_) => return Ok(AppAction::NoAction),
+                            };
+
+                            ScalarValue::Boolean(Some(value))
+                        }
+
+                        ConfigPropertyKind::Integer { .. } => {
+                            let value = match edit.value.parse::<i64>() {
+                                Ok(v) => v,
+                                Err(_) => return Ok(AppAction::NoAction),
+                            };
+
+                            ScalarValue::Integer(Some(value))
+                        }
+
+                        ConfigPropertyKind::Float { .. } => {
+                            let value = match edit.value.parse::<f64>() {
+                                Ok(v) => v,
+                                Err(_) => return Ok(AppAction::NoAction),
+                            };
+
+                            ScalarValue::Float(Some(value))
+                        }
+                    };
+
                     return Ok(AppAction::SetConfig {
                         machine: machine.ident,
                         resource: key.clone(),
-                        value: edit.value,
+                        value,
                     });
                 }
 
