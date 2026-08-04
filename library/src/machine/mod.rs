@@ -5,7 +5,7 @@ use qitech_framework_core::report::MachinesReport;
 
 pub mod error;
 use error::ActResult;
-use error::SubscribeError;
+use error::MachineSubscribeError;
 use error::SubscribeResult;
 
 mod build;
@@ -40,7 +40,7 @@ pub trait Machine: Any {
     /// allows a machine to sync remote resources (from subscriptions)
     fn subscribe(&mut self, ctx: SubscribeContext) -> SubscribeResult<()> {
         _ = ctx;
-        Err(SubscribeError::Rejected)
+        Err(MachineSubscribeError::Rejected)
     }
 
     /// called when the machine is notified a subscription is canceled

@@ -76,7 +76,7 @@ impl SubscriptionRegistry {
         producer: MachineIdentificationUnique,
         consumer: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> Result<Weak<SubscriptionToken>, SubscribeError> {
+    ) -> Result<Weak<SubscriptionToken>, RegisterSubscriptionError> {
         let key = SubscriptionEntry {
             producer,
             consumer,
@@ -84,7 +84,7 @@ impl SubscriptionRegistry {
         };
 
         if self.inner.contains_key(&key) {
-            return Err(SubscribeError::Duplicate);
+            return Err(RegisterSubscriptionError::Duplicate);
         }
 
         let token = Rc::new(SubscriptionToken);
@@ -130,7 +130,7 @@ struct SubscriptionEntry {
 
 // --- error ---
 #[derive(Error, Debug, Clone, Copy)]
-pub enum SubscribeError {
+pub enum RegisterSubscriptionError {
     #[error("Machine is already subscribed to that resource")]
     Duplicate,
 

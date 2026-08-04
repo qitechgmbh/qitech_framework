@@ -7,53 +7,59 @@ use crate::machine::error::SubscribeResult;
 use crate::machine::resource::subscription::SubscribedProperty;
 
 pub struct SubscribeContext<'a> {
-    producer: MachineIdentificationUnique,
-    consumer: MachineIdentificationUnique,
+    provider: MachineIdentificationUnique,
+    subscriber: MachineIdentificationUnique,
     resources: &'a mut Resources,
 }
 
 impl<'a> SubscribeContext<'a> {
     pub(crate) fn new(
-        producer: MachineIdentificationUnique,
-        consumer: MachineIdentificationUnique,
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
         resources: &'a mut Resources,
     ) -> Self {
         Self {
-            producer,
-            consumer,
+            provider,
+            subscriber,
             resources,
         }
     }
 
     pub fn producer(&self) -> MachineIdentificationUnique {
-        self.producer
+        self.provider
     }
 
-    pub fn subscribe_config<T>(
+    pub fn subscribe_config_property<T: 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
-        // self.resources.config_properties
-        //     .create_subscriber(self.producer, self.consumer, resource)?
-        todo!()
+        Ok(self.resources.config_properties.create_subscriber::<T>(
+            self.provider, 
+            self.subscriber, 
+            resource
+        )?)
     }
 
-    pub fn subscribe_state<T>(
+    pub fn subscribe_state_property<T: 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
-        // self.resources.config_properties
-        //     .create_subscriber(self.producer, self.consumer, resource)?
-        todo!()
+        Ok(self.resources.state_properties.create_subscriber::<T>(
+            self.provider, 
+            self.subscriber, 
+            resource
+        )?)
     }
 
-    pub fn subscribe_measurement<T>(
+    pub fn subscribe_measurement<T: 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
-        // self.resources.config_properties
-        //     .create_subscriber(self.producer, self.consumer, resource)?
-        todo!()
+        Ok(self.resources.measurements.create_subscriber::<T>(
+            self.provider, 
+            self.subscriber, 
+            resource
+        )?)
     }
 
     pub fn subscribe_event<T>(
@@ -63,6 +69,10 @@ impl<'a> SubscribeContext<'a> {
     where
         T: DeserializeOwned + 'static,
     {
-        todo!()
+        Ok(self.resources.events.create_subscriber::<T>(
+            self.provider, 
+            self.subscriber, 
+            resource
+        )?)
     }
 }

@@ -9,7 +9,7 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 use super::PropertyKind;
 use super::error::RegisterError;
 use super::error::RegisterResult;
-use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::RegisterSubscriptionError;
 use crate::machine::resource::subscription::SubscribedProperty;
 use crate::machine::resource::subscription::SubscriptionRegistry;
 
@@ -126,7 +126,7 @@ where
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> Result<SubscribedProperty<T>, SubscribeError> {
+    ) -> Result<SubscribedProperty<T>, RegisterSubscriptionError> {
         let result = self.occupied.iter().enumerate().find_map(|(i, occupied)| {
             if !*occupied {
                 return None;
@@ -137,11 +137,11 @@ where
         });
 
         let Some((index, info)) = result else {
-            return Err(SubscribeError::NoSuchProperty);
+            return Err(RegisterSubscriptionError::NoSuchProperty);
         };
 
         if info.type_id != TypeId::of::<T>() {
-            return Err(SubscribeError::InvalidType);
+            return Err(RegisterSubscriptionError::InvalidType);
         }
 
         let p_value = unsafe {

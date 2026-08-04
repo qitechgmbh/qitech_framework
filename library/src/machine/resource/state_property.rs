@@ -8,7 +8,7 @@ use crate::machine::TypeWrapper;
 use crate::machine::resource::Journal;
 use crate::machine::resource::PropertyManager;
 use crate::machine::resource::error::RegisterResult;
-use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::RegisterSubscriptionError;
 use crate::machine::resource::subscription::SubscribedProperty;
 
 pub struct StateProperty<T> {
@@ -129,7 +129,7 @@ impl Manager {
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> Result<SubscribedProperty<T>, SubscribeError> {
+    ) -> Result<SubscribedProperty<T>, RegisterSubscriptionError> {
         self.inner.create_subscriber(provider, subscriber, resource)
     }
 

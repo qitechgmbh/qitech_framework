@@ -43,6 +43,7 @@ pub enum RuntimeInitEvent {
     },
     FailedToBuildMachine {
         ident: MachineIdentificationUnique,
+        // TODO: include full error
     },
 
     // --- finalizing ---

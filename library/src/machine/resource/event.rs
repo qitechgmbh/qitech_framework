@@ -18,7 +18,7 @@ use super::JournalHandle;
 use super::Key;
 use super::error::RegisterError;
 use super::error::RegisterResult;
-use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::RegisterSubscriptionError;
 use crate::machine::resource::subscription::SubscriptionRegistry;
 use crate::machine::resource::subscription::SubscriptionToken;
 
@@ -124,17 +124,17 @@ impl Manager {
         producer: MachineIdentificationUnique,
         consumer: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> Result<SubscribedEvent<T>, SubscribeError> {
+    ) -> Result<SubscribedEvent<T>, RegisterSubscriptionError> {
         let key = Key::from_str(producer, resource);
 
         let (slot, data) = {
             let Some(entry) = self.registry.get(&key) else {
-                return Err(SubscribeError::NoSuchProperty);
+                return Err(RegisterSubscriptionError::NoSuchProperty);
             };
 
             // ensure the user provided the correct Type
             if entry.type_id != TypeId::of::<T>() {
-                return Err(SubscribeError::InvalidType);
+                return Err(RegisterSubscriptionError::InvalidType);
             }
 
             (entry.slot.clone(), &entry.cache)

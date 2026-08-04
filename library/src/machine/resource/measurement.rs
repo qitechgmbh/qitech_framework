@@ -11,7 +11,7 @@ use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::property_kind;
-use crate::machine::resource::subscription::SubscribeError;
+use crate::machine::resource::subscription::RegisterSubscriptionError;
 use crate::machine::resource::subscription::SubscribedProperty;
 
 #[derive(Debug)]
@@ -253,7 +253,7 @@ impl Manager {
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
         resource: &'static str,
-    ) -> Result<SubscribedProperty<T>, SubscribeError> {
+    ) -> Result<SubscribedProperty<T>, RegisterSubscriptionError> {
         self.inner.create_subscriber(provider, subscriber, resource)
     }
 

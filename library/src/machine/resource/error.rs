@@ -19,13 +19,13 @@ pub enum RegisterError {
 
 #[derive(Error, Debug)]
 pub enum ResourceAccessError {
-    #[error("resource not found")]
+    #[error("resource is not of the requested machine type")]
     MachineTypeMismatch,
 
     #[error("resource not found")]
     NoSuchResource,
 
-    #[error("resource not found")]
+    #[error("machine not found")]
     NoSuchMachine,
 }
 

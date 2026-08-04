@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::time::Instant;
 
 use qitech_framework_core::report::EtherCATStatus;
@@ -11,8 +9,6 @@ use qitech_framework_core::session::runtime::SessionHandshake;
 use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
-use qitech_lib::modbus::ModbusDevice;
-use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 
 use crate::Runtime;
 use crate::machine::BuildContext;
@@ -78,7 +74,8 @@ impl<T: RuntimeTransport> Runtime<T> {
                     continue;
                 };
 
-                let device = match (entry.init)(path.clone()) {
+                let dev_path = path.clone();
+                let device = match (entry.init)(dev_path) {
                     Ok(v) => v,
                     Err(e) => {
                         session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize {
@@ -169,6 +166,11 @@ impl<T: RuntimeTransport> Runtime<T> {
             let ident = ident_unique.identification;
 
             let Some(build) = machine_registry.get(&ident) else {
+
+                session.send_event(RuntimeInitEvent::FailedToBuildMachine { 
+                    ident: *ident_unique,
+                })?;
+
                 println!("Failed to build machine `{ident_unique}`. No entry");
                 continue;
                 // bail!("Failed to find registry entry for machine {{{ident}}}");
