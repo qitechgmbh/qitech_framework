@@ -85,42 +85,33 @@ impl fmt::Display for RuntimeInitStatus {
 
 impl From<&RuntimeInitEvent> for RuntimeInitStatus {
     fn from(event: &RuntimeInitEvent) -> Self {
+        use RuntimeInitEvent::*;
+
         match event {
-            RuntimeInitEvent::EtherCATDiscoveryStarted => RuntimeInitStatus::EtherCATDiscovery,
+            EtherCATDiscoveryStarted | EtherCATDiscoveryCompleted { .. } => {
+                RuntimeInitStatus::EtherCATDiscovery
+            }
 
-            RuntimeInitEvent::EtherCATDiscoveryCompleted { .. } => {
+            EtherCATStateUpdate(_)
+            | EtherCATInitializationStarted
+            | EtherCATDeviceInitializationFailed { .. }
+            | EtherCATDeviceInitializationCompleted { .. } => {
                 RuntimeInitStatus::EtherCATInitializingDevices
             }
 
-            RuntimeInitEvent::EtherCATStateUpdate(_) => {
-                RuntimeInitStatus::EtherCATInitializingDevices
+            // --- modbus rtu ---
+            ModbusRTUDiscoveryStarted
+            | ModbusRTUDeviceNotFound { .. }
+            | ModbusRTUCouldNotInitialize { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
+
+            // --- building machines ---
+            BuildingMachines | BuiltMachine { .. } | FailedToBuildMachine { .. } => {
+                RuntimeInitStatus::BuildingMachines
             }
 
-            RuntimeInitEvent::EtherCATInitializationStarted => {
-                RuntimeInitStatus::EtherCATInitializingDevices
-            }
-
-            RuntimeInitEvent::EtherCATDeviceInitializationFailed { .. } => {
-                RuntimeInitStatus::Failed
-            }
-
-            RuntimeInitEvent::EtherCATDeviceInitializationCompleted { .. } => {
-                RuntimeInitStatus::ModbusRTUDiscovery
-            }
-
-            RuntimeInitEvent::ModbusRTUDiscoveryStarted => RuntimeInitStatus::ModbusRTUDiscovery,
-
-            RuntimeInitEvent::ModbusRTUDeviceNotFound { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
-
-            RuntimeInitEvent::BuildingMachines => RuntimeInitStatus::BuildingMachines,
-
-            RuntimeInitEvent::BuiltMachine { .. } => RuntimeInitStatus::BuildingMachines,
-
-            RuntimeInitEvent::FailedToBuildMachine { .. } => RuntimeInitStatus::Failed,
-
-            RuntimeInitEvent::EtherCATFinalizing => RuntimeInitStatus::Finalizing,
-
-            RuntimeInitEvent::Finished => RuntimeInitStatus::Completed,
+            // --- finishing ---
+            EtherCATFinalizing => RuntimeInitStatus::Finalizing,
+            Finished => RuntimeInitStatus::Completed,
         }
     }
 }

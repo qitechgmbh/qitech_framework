@@ -53,8 +53,8 @@ impl RuntimeConfiguration {
         mut self,
         id_path: S,
         ident: MachineIdentificationUnique,
-        slave_id: u8, 
-        settings: Option<ModbusSettings>
+        slave_id: u8,
+        settings: Option<ModbusSettings>,
     ) -> Self {
         let mut config = match self.modbus_rtu_mode {
             ModbusRtuMode::Enabled(config) => config,
@@ -64,20 +64,17 @@ impl RuntimeConfiguration {
         };
 
         let init = Box::new(move |path: String| {
-            let dev = D::new(path, slave_id, settings)
-                .map_err(|e| format!("{e}"))?;
+            let dev = D::new(path, slave_id, settings).map_err(|e| format!("{e}"))?;
 
-            let dev: Rc<RefCell<dyn ModbusDevice>> =
-                Rc::new(RefCell::new(dev));
+            let dev: Rc<RefCell<dyn ModbusDevice>> = Rc::new(RefCell::new(dev));
 
             Ok(dev)
         });
 
-        config.entries.insert(id_path.to_string(), ModbusRtuEntry {
-            ident,
-            init,
-        });
-        
+        config
+            .entries
+            .insert(id_path.to_string(), ModbusRtuEntry { ident, init });
+
         self.modbus_rtu_mode = ModbusRtuMode::Enabled(config);
         self
     }

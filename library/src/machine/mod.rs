@@ -24,14 +24,13 @@ pub use resource::SubscribedEvent;
 pub use resource::conversion::TypeWrapper;
 pub use resource::subscription::SubscribedProperty;
 
-pub use crate::machine::resource::Measurement;
-pub use crate::machine::resource::StateProperty;
-pub use crate::machine::resource::ConfigProperty;
-
 use crate::machine::resource::CommandManager;
+pub use crate::machine::resource::ConfigProperty;
 use crate::machine::resource::ConfigPropertyManager;
 use crate::machine::resource::EventManager;
+pub use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementManager;
+pub use crate::machine::resource::StateProperty;
 use crate::machine::resource::StatePropertyManager;
 
 pub trait Machine: Any {

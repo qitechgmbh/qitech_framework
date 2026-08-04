@@ -81,14 +81,14 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let device = match (entry.init)(path) {
                     Ok(v) => v,
                     Err(e) => {
-                        session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize { 
-                            error: e.to_string()
+                        session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize {
+                            error: e.to_string(),
                         })?;
 
                         continue;
-                    },
+                    }
                 };
-                
+
                 hardware_registry
                     .entry(entry.ident)
                     .or_insert_with(Vec::new)

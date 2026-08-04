@@ -177,7 +177,7 @@ impl Manager {
             let value = T::from_scalar(value).ok_or(MachineConfigWriteError::ValueTypeMismatch)?;
 
             write_handle.write(value);
-            
+
             if let Err(e) = (on_changed)(machine) {
                 return Err(MachineConfigWriteError::CallbackFailure(e));
             }
@@ -294,24 +294,22 @@ impl Manager {
             path: Cow::Owned(path.to_string()),
         };
 
-        let Some(Entry { 
-            write_value, 
-            .. 
-        }) = self.entries.get(&key)
-        else {
+        let Some(Entry { write_value, .. }) = self.entries.get(&key) else {
             return Err(MachineConfigWriteError::NotFound);
         };
 
         let result = (write_value)(machine, value.clone());
 
-        self.journal_value.new_handle().append(MachineConfigValueMutation { 
-            ident: target, 
-            path: path.to_string(),
-            value, 
-            origin: OperationOrigin::Machine, 
-            result: result.clone(),
-            timestamp: Utc::now(),
-        });
+        self.journal_value
+            .new_handle()
+            .append(MachineConfigValueMutation {
+                ident: target,
+                path: path.to_string(),
+                value,
+                origin: OperationOrigin::Machine,
+                result: result.clone(),
+                timestamp: Utc::now(),
+            });
 
         result
     }

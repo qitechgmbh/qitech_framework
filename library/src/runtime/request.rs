@@ -57,13 +57,9 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 self.resources
                     .config_properties
-                    .write_value(
-                        target, 
-                        &path, 
-                        machine_ref,
-                        value,
-                    )
-                    .map_err(|e| format!("{e}")).unwrap();
+                    .write_value(target, &path, machine_ref, value)
+                    .map_err(|e| format!("{e}"))
+                    .unwrap();
 
                 Ok(())
             }

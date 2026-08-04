@@ -20,6 +20,7 @@ use crate::machine::resource::GetCapabilitiesFn;
 use crate::machine::resource::IntoCanExecuteFn;
 use crate::machine::resource::IntoExecuteFn;
 use crate::machine::resource::IntoGetCapabilitiesFn;
+use crate::machine::resource::IntoOnChangedFn;
 use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementRegisterOptions;
 use crate::machine::resource::OnChangedFn;
@@ -30,7 +31,6 @@ use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterError;
-use crate::machine::resource::IntoOnChangedFn;
 
 // --- config property ---
 impl<'a> BuildContext<'a> {
@@ -124,7 +124,7 @@ where
         let on_changed = if let Some(func) = self.on_changed {
             func
         } else {
-            Box::new(|_: &mut dyn Machine| { Ok(()) })
+            Box::new(|_: &mut dyn Machine| Ok(()))
         };
 
         Ok(self.root.resources.config_properties.register::<T>(

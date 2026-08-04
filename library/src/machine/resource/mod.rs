@@ -20,9 +20,9 @@ pub use config_property::ConfigPropertyCapabilities;
 pub use config_property::ConfigPropertyCapabilitiesAny;
 pub use config_property::GetCapabilitiesFn;
 pub use config_property::IntoGetCapabilitiesFn;
-pub use config_property::OnChangedFn;
 pub use config_property::IntoOnChangedFn;
 pub use config_property::Manager as ConfigPropertyManager;
+pub use config_property::OnChangedFn;
 
 mod measurement;
 pub use measurement::Manager as MeasurementManager;
