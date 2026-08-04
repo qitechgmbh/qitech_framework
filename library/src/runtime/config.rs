@@ -49,7 +49,7 @@ impl RuntimeConfiguration {
         self
     }
 
-    pub fn modbus_rtu_device<S: ToString, D: ModbusDevice>(
+    pub fn modbus_rtu_device<S: ToString, D: ModbusDevice + 'static>(
         mut self,
         id_path: S,
         ident: MachineIdentificationUnique,
@@ -65,9 +65,7 @@ impl RuntimeConfiguration {
 
         let init = Box::new(move |path: String| {
             let dev = D::new(path, slave_id, settings).map_err(|e| format!("{e}"))?;
-
             let dev: Rc<RefCell<dyn ModbusDevice>> = Rc::new(RefCell::new(dev));
-
             Ok(dev)
         });
 
