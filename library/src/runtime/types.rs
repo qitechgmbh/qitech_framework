@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -18,11 +19,16 @@ use crate::machine::Machine;
 use crate::machine::error::BuildResult;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
-pub type MachineRegistry = HashMap<MachineIdentification, BuildMachineFn>;
-pub type BuildMachineFn = fn(BuildContext<'_>) -> BuildResult<Box<dyn Machine>>;
+pub type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
+pub type BuildMachineFn = fn(BuildContext) -> BuildResult<MachineInstance>;
 
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
+
+pub struct MachineRegistryEntry {
+    pub type_id: TypeId,
+    pub build: BuildMachineFn,
+}
 
 pub struct Config {
     pub requests_per_cycle_max: usize,
@@ -34,7 +40,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             requests_per_cycle_max: 10,
-            export_interval: Duration::from_secs_f64(1.0 / 30.0),
+            export_interval: Duration::from_secs_f64(1.0 / 32.0),
             cycle_timeout: Duration::from_micros(100),
         }
     }
@@ -42,7 +48,7 @@ impl Default for Config {
 
 pub struct MachineInstance {
     pub ident: MachineIdentificationUnique,
-    pub inner: Box<dyn Machine>,
+    pub machine: Box<dyn Machine>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

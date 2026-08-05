@@ -2,15 +2,15 @@ use std::collections::HashMap;
 
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use qitech_framework::MachineIdentification;
-use qitech_framework::session::ControllerTransport;
-use qitech_framework::session::controller::SessionHandshake;
-use qitech_framework::session::error::SchemaSyncError;
+use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::MachineSchema;
+use qitech_framework_core::session::ControllerTransport;
+use qitech_framework_core::session::controller::SessionHandshake;
+use qitech_framework_core::session::error::SchemaSyncError;
 
 use crate::types::AppAction;
 

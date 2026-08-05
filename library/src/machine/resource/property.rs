@@ -13,7 +13,7 @@ use crate::machine::resource::subscription::RegisterSubscriptionError;
 use crate::machine::resource::subscription::SubscribedProperty;
 use crate::machine::resource::subscription::SubscriptionRegistry;
 
-pub struct PropertyManager<
+pub struct PropertyRegistry<
     const SLOT_SIZE: usize,
     const MAX_ITEMS: usize,
     K: PropertyKind,
@@ -29,7 +29,7 @@ pub struct PropertyManager<
 }
 
 impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M> Default
-    for PropertyManager<SLOT_SIZE, MAX_ITEMS, K, M>
+    for PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, M>
 where
     K: PropertyKind,
 {
@@ -47,7 +47,7 @@ where
 }
 
 impl<const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M>
-    PropertyManager<SLOT_SIZE, MAX_ITEMS, K, M>
+    PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, M>
 where
     K: PropertyKind,
 {
@@ -253,7 +253,7 @@ pub struct IterMut<'a, const SLOT_SIZE: usize, const MAX_ITEMS: usize, K, M>
 where
     K: PropertyKind,
 {
-    manager: &'a mut PropertyManager<SLOT_SIZE, MAX_ITEMS, K, M>,
+    manager: &'a mut PropertyRegistry<SLOT_SIZE, MAX_ITEMS, K, M>,
     index: usize,
 }
 

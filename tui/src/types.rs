@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::ptr;
 
 use indexmap::IndexMap;
-use qitech_framework::MachineIdentification;
-use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::ScalarValue;
+use qitech_framework_core::ScalarValue;
+use qitech_framework_core::ident::MachineIdentification;
+use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::schema::ConfigPropertyKind;

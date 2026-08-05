@@ -9,20 +9,21 @@ use serde::Serialize;
 use crate::ident::MachineIdentificationUnique;
 
 mod machines;
+pub use machines::ConfigPropertyStateMutationKind;
+pub use machines::ConfigPropertyStateRecord;
+pub use machines::ConfigPropertyValueRecord;
+pub use machines::ConfigPropertyWriteError;
+pub use machines::ConfigPropertyWriteResult;
 pub use machines::ConstraintViolation;
 pub use machines::MachineCommandCapabilityMutation;
 pub use machines::MachineCommandInvokeError;
 pub use machines::MachineCommandInvokeTrace;
-pub use machines::MachineConfigCapabilityMutation;
-pub use machines::MachineConfigPropertyConstraints;
-pub use machines::MachineConfigValueMutation;
-pub use machines::MachineConfigWriteCapability;
-pub use machines::MachineConfigWriteError;
-pub use machines::MachineConfigWriteResult;
 pub use machines::MachineEmittedEvent;
 pub use machines::MachineMeasurement;
 pub use machines::MachineStateMutation;
 pub use machines::MachinesReport;
+pub use machines::ParameterConstraints;
+pub use machines::WriteCapability;
 
 mod logs;
 pub use logs::LogLevel;

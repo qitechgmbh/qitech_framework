@@ -15,12 +15,12 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
-use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::session::ControllerTransport;
-use qitech_framework::session::controller::SessionHandshake;
+use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::session::ControllerTransport;
+use qitech_framework_core::session::controller::SessionHandshake;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -173,7 +173,7 @@ impl Tui {
         let timestamp = report.timestamp;
         let report = report.machines;
 
-        for mutation in &report.config_value_mutations {
+        for mutation in &report.config_property_value_records {
             let Some(entry) = self.find_machine_mut(mutation.ident) else {
                 continue;
             };

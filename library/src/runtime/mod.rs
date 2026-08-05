@@ -7,12 +7,11 @@ use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::report::RuntimeRunEvent;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionRunning;
 use types::Config;
 use types::MachineInstance;
-
-use crate::machine::Resources;
 
 pub mod error;
 
@@ -31,17 +30,22 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
+use crate::resource::Journals;
+
 mod request;
 
 pub struct Runtime<T: RuntimeTransport> {
     status: RuntimeStatus,
+
+    // TODO: make measurements use this to reset itself
+    export_cycle: u64,
 
     // // --- registries ---
     // machine_registry: MachineRegistry,
     // hardware_registry: HardwareRegistry,
 
     // --- resource managers ---
-    resources: Box<Resources>,
+    journals: Journals,
     report: RuntimeReport,
 
     // --- instances ---
@@ -81,7 +85,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.write_ecat_inputs();
         self.process_requests();
         self.run_machines();
-        self.resources.sync_caches();
+        // self.resources.sync_caches();
         self.write_ecat_outputs();
         self.export_report_if_due(now);
 
@@ -110,7 +114,11 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- collect data ---
         self.report.timestamp = Utc::now();
-        self.resources.extract_report(&mut self.report.machines);
+        // self.resources.extract_report(&mut self.report.machines);
+
+        self.journals.config_property_value.drain_with(|x| {
+            self.report.machines.config_property_value_records.push(x);
+        });
 
         // --- export report ---
         self.session.send_report(self.report.clone()).unwrap();
@@ -118,7 +126,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- clear buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
-        self.report.machines.config_value_mutations.clear();
+        self.report.machines.config_property_value_records.clear();
         self.report.machines.state_mutations.clear();
         self.report.machines.measurements.clear();
         self.report.machines.events.clear();
@@ -132,7 +140,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         let mut i = 0;
 
         while i < self.machines.len() {
-            match self.machines[i].inner.act() {
+            match self.machines[i].machine.act() {
                 Ok(()) => i += 1,
 
                 Err(e) if e.recoverable => i += 1,
@@ -142,9 +150,12 @@ impl<T: RuntimeTransport> Runtime<T> {
                     let MachineInstance { ident, .. } = self.machines.swap_remove(i);
 
                     // --- free up resources ---
-                    self.resources.clear_machine(ident);
+                    // self.resources.clear_machine(ident);
 
-                    // TODO: handle/log error
+                    // --- record the change ---
+                    self.report
+                        .events
+                        .push(RuntimeRunEvent::RemovedMachine { ident });
                 }
             }
         }

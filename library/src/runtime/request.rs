@@ -55,11 +55,11 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 let machine_ref: &mut dyn Machine = &mut *machine;
 
-                self.resources
-                    .config_properties
-                    .write_value(target, &path, machine_ref, value)
-                    .map_err(|e| format!("{e}"))
-                    .unwrap();
+                // self.resources
+                //     .config_properties
+                //     .write_value(target, &path, machine_ref, value)
+                //     .map_err(|e| format!("{e}"))
+                //     .unwrap();
 
                 Ok(())
             }
@@ -71,11 +71,11 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 let machine_ref: &mut dyn Machine = &mut *machine;
 
-                let result = self
-                    .resources
-                    .commands
-                    .invoke(target, machine_ref, &resource)
-                    .unwrap();
+                // let result = self
+                //     .resources
+                //     .commands
+                //     .invoke(target, machine_ref, &resource)
+                //     .unwrap();
 
                 /*
                 self.report
@@ -140,7 +140,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 };
 
                 entry.retain(|v| *v != subscriber);
-                self.resources.remove_subscription(provider, subscriber);
+                // self.resources.remove_subscription(provider, subscriber);
 
                 Ok(())
             }

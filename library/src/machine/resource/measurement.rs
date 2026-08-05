@@ -1,11 +1,9 @@
-use std::ptr::NonNull;
-
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::MachineMeasurement;
 use qitech_framework_core::with_uom_quantities;
 
 use super::PropertyHandle;
-use crate::machine::resource::PropertyManager;
+use crate::machine::resource::PropertyRegistry;
 use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
@@ -159,7 +157,7 @@ struct Metadata {
 
 #[derive(Default)]
 pub struct Manager {
-    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
+    inner: PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind, Metadata>,
     generation: u64,
 }
 

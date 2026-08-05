@@ -13,8 +13,6 @@ use qitech_framework_core::report::MachineEmittedEvent;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use super::Journal;
-use super::JournalHandle;
 use super::Key;
 use super::error::RegisterError;
 use super::error::RegisterResult;

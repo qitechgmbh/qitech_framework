@@ -14,7 +14,7 @@ pub fn find_machine(
     machines
         .iter_mut()
         .find(|instance| instance.ident == ident)
-        .map(|instance| instance.inner.as_mut())
+        .map(|instance| instance.machine.as_mut())
 }
 
 pub fn write_machine_device_info(

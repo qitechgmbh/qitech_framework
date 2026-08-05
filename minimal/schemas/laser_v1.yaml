@@ -17,12 +17,3 @@ config:
   
       lower: !millimeter
         default: 0.05
-  
-state:
-  in_tolerance: !boolean
-
-measurements:
-  diameter: !millimeter
-  diameter_x: !millimeter
-  diameter_y: !millimeter
-  roundness: !millimeter

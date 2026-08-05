@@ -34,7 +34,7 @@ impl TabItem<MachinesContext> for CommandsView {
             }
 
             KeyCode::Down => {
-                let max = machine.state.len().saturating_sub(1);
+                let max = machine.commands.len().saturating_sub(1);
                 self.selected = (self.selected + 1).min(max);
             }
 
@@ -59,7 +59,7 @@ impl TabItem<MachinesContext> for CommandsView {
         // If you later wrap the table in a Block, subtract 2 for the borders.
         let visible = area.height as usize;
 
-        let total = machine.state.len();
+        let total = machine.commands.len();
 
         let offset = if total <= visible {
             0

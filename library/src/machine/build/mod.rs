@@ -1,33 +1,48 @@
+use std::any::TypeId;
+
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use thiserror::Error;
 
-use crate::machine::Resources;
 use crate::machine::hardware::Hardware;
-use crate::machine::resource::error::RegisterError;
+use crate::resource::ConfigPropertyRegistryCommitHandle;
+use crate::resource::Journals;
 
+//mod command;
+mod config;
 mod hardware;
-mod resource;
+// mod resource;
 
 pub struct BuildContext<'a> {
-    ident: MachineIdentificationUnique,
-    ethercat_interface: Option<EtherCATThreadChannel>,
-    resources: &'a mut Resources,
-    hardware: Vec<Hardware>,
+    pub(crate) ident: MachineIdentificationUnique,
+
+    /// type id of the machine, used for validating builders that accept <M>
+    pub(crate) type_id: TypeId,
+
+    pub(crate) ethercat_interface: Option<EtherCATThreadChannel>,
+    pub(crate) hardware: Vec<Hardware>,
+
+    pub(crate) journals: &'a mut Journals,
+    pub(crate) config_properties: ConfigPropertyRegistryCommitHandle<'a>,
+    // pub(crate) commands: Vec<CommandDefinition>,
 }
 
 impl<'a> BuildContext<'a> {
     pub(crate) fn new(
         ident: MachineIdentificationUnique,
+        type_id: TypeId,
         ethercat_interface: Option<EtherCATThreadChannel>,
-        resources: &'a mut Resources,
         hardware: Vec<Hardware>,
+        journals: &'a mut Journals,
+        config_properties: ConfigPropertyRegistryCommitHandle<'a>,
     ) -> Self {
         Self {
             ident,
+            type_id,
             ethercat_interface,
-            resources,
             hardware,
+            journals,
+            config_properties,
         }
     }
 
@@ -71,6 +86,9 @@ pub enum BuildError {
     },
 
     // --- resource errors ---
-    #[error(transparent)]
-    RegisterError(#[from] RegisterError),
+    #[error("attempted to register resource {0} more than once")]
+    DuplicateResource(&'static str),
+
+    #[error("resource expected {0} to be set")]
+    MissingRequiredField(&'static str),
 }

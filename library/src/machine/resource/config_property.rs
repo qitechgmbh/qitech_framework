@@ -9,12 +9,12 @@ use std::rc::Rc;
 use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::ConfigPropertyStateRecord;
+use qitech_framework_core::report::ParameterConstraints;
+use qitech_framework_core::report::ConfigPropertyValueRecord;
+use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::ConstraintViolation;
-use qitech_framework_core::report::MachineConfigCapabilityMutation;
-use qitech_framework_core::report::MachineConfigPropertyConstraints;
-use qitech_framework_core::report::MachineConfigValueMutation;
 use qitech_framework_core::report::MachineConfigWriteCapability;
-use qitech_framework_core::report::MachineConfigWriteError;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::with_uom_quantities;
 
@@ -23,7 +23,7 @@ use crate::machine::Machine;
 use crate::machine::TypeWrapper;
 use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
-use crate::machine::resource::PropertyManager;
+use crate::machine::resource::PropertyRegistry;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::error::ResourceAccessError;
 use crate::machine::resource::subscription::RegisterSubscriptionError;
@@ -36,7 +36,7 @@ pub struct ConfigProperty<T: Clone> {
 }
 
 impl<T: Clone> ConfigProperty<T> {
-    pub fn set(&mut self, value: T) -> Result<(), MachineConfigWriteError> {
+    pub fn set(&mut self, value: T) -> Result<(), ConfigPropertyWriteError> {
         (self.apply)(value)
     }
 
@@ -102,10 +102,10 @@ type Kind = super::property_kind::ConfigProperty;
 
 #[derive(Default)]
 pub struct Manager {
-    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind>,
+    inner: PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind>,
     entries: HashMap<Key<'static>, Entry>,
-    journal_value: Journal<MachineConfigValueMutation>,
-    journal_capability: Journal<MachineConfigCapabilityMutation>,
+    journal_value: Journal<ConfigPropertyValueRecord>,
+    journal_capability: Journal<ConfigPropertyStateRecord>,
 }
 
 impl Manager {
@@ -129,7 +129,7 @@ impl Manager {
         // initialize shared capabilities
         let current_capabilities = Rc::new(RefCell::new(ConfigPropertyCapabilitiesAny {
             writable: MachineConfigWriteCapability::Allowed,
-            constraints: MachineConfigPropertyConstraints::None,
+            constraints: ParameterConstraints::None,
         }));
 
         let write_get_capabilities = get_capabilities.clone();
@@ -141,15 +141,15 @@ impl Manager {
                 Ok(v) => v,
 
                 Err(ResourceAccessError::NoSuchResource) => {
-                    return Err(MachineConfigWriteError::NotFound);
+                    return Err(ConfigPropertyWriteError::NotFound);
                 }
 
                 Err(ResourceAccessError::NoSuchMachine) => {
-                    return Err(MachineConfigWriteError::MachineNotFound);
+                    return Err(ConfigPropertyWriteError::MachineNotFound);
                 }
 
                 Err(ResourceAccessError::MachineTypeMismatch) => {
-                    return Err(MachineConfigWriteError::MachineTypeMismatch);
+                    return Err(ConfigPropertyWriteError::MachineTypeMismatch);
                 }
             };
 
@@ -157,7 +157,7 @@ impl Manager {
             let validate_result = validate_constraints(&value, &capabilities.constraints);
 
             if capabilities != *write_current_capabilities.borrow() {
-                journal_capability.append(MachineConfigCapabilityMutation {
+                journal_capability.append(ConfigPropertyStateRecord {
                     ident,
                     path: path.to_string(),
                     writable: capabilities.writable.clone(),
@@ -171,15 +171,15 @@ impl Manager {
             validate_result?;
 
             if !can_write {
-                return Err(MachineConfigWriteError::NotWritable);
+                return Err(ConfigPropertyWriteError::NotWritable);
             }
 
-            let value = T::from_scalar(value).ok_or(MachineConfigWriteError::ValueTypeMismatch)?;
+            let value = T::from_scalar(value).ok_or(ConfigPropertyWriteError::ValueTypeMismatch)?;
 
             write_handle.write(value);
 
             if let Err(e) = (on_changed)(machine) {
-                return Err(MachineConfigWriteError::CallbackFailure(e));
+                return Err(ConfigPropertyWriteError::CallbackFailure(e));
             }
 
             Ok(())
@@ -191,8 +191,8 @@ impl Manager {
         let journal_value = self.journal_value.new_handle();
 
         let record = Rc::new(
-            move |value: T::Type, result: Result<(), MachineConfigWriteError>| {
-                let entry = MachineConfigValueMutation {
+            move |value: T::Type, result: Result<(), ConfigPropertyWriteError>| {
+                let entry = ConfigPropertyValueRecord {
                     ident,
                     path: path.to_string(),
                     value: T::into_scalar(value),
@@ -240,7 +240,7 @@ impl Manager {
 
         self.journal_value
             .new_handle()
-            .append(MachineConfigValueMutation {
+            .append(ConfigPropertyValueRecord {
                 ident,
                 path: path.to_string(),
                 value: T::into_scalar(default),
@@ -288,21 +288,21 @@ impl Manager {
         path: &str,
         machine: &mut dyn Machine,
         value: ScalarValue,
-    ) -> Result<(), MachineConfigWriteError> {
+    ) -> Result<(), ConfigPropertyWriteError> {
         let key = Key {
             ident: target,
             path: Cow::Owned(path.to_string()),
         };
 
         let Some(Entry { write_value, .. }) = self.entries.get(&key) else {
-            return Err(MachineConfigWriteError::NotFound);
+            return Err(ConfigPropertyWriteError::NotFound);
         };
 
         let result = (write_value)(machine, value.clone());
 
         self.journal_value
             .new_handle()
-            .append(MachineConfigValueMutation {
+            .append(ConfigPropertyValueRecord {
                 ident: target,
                 path: path.to_string(),
                 value,
@@ -324,11 +324,11 @@ impl Manager {
     }
 
     // --- reporting ---
-    pub fn drain_journal_value(&mut self, f: impl FnMut(MachineConfigValueMutation)) {
+    pub fn drain_journal_value(&mut self, f: impl FnMut(ConfigPropertyValueRecord)) {
         self.journal_value.drain_with(f);
     }
 
-    pub fn drain_journal_capability(&mut self, f: impl FnMut(MachineConfigCapabilityMutation)) {
+    pub fn drain_journal_capability(&mut self, f: impl FnMut(ConfigPropertyStateRecord)) {
         self.journal_capability.drain_with(f);
     }
 }
@@ -349,7 +349,7 @@ pub struct ConfigPropertyCapabilities<T: TypeWrapper> {
 #[derive(Clone, PartialEq)]
 pub struct ConfigPropertyCapabilitiesAny {
     pub writable: MachineConfigWriteCapability,
-    pub constraints: MachineConfigPropertyConstraints,
+    pub constraints: ParameterConstraints,
 }
 
 // --- get capabilities ---
@@ -404,28 +404,29 @@ where
 }
 
 // --- write fn ---
-pub type WriteFn = Rc<dyn Fn(&mut dyn Machine, ScalarValue) -> Result<(), MachineConfigWriteError>>;
+pub type WriteFn =
+    Rc<dyn Fn(&mut dyn Machine, ScalarValue) -> Result<(), ConfigPropertyWriteError>>;
 
 // --- apply ---
-pub type ApplyFn<T> = Box<dyn Fn(T) -> Result<(), MachineConfigWriteError>>;
+pub type ApplyFn<T> = Box<dyn Fn(T) -> Result<(), ConfigPropertyWriteError>>;
 
 // --- utils ---
 pub fn validate_constraints(
     value: &ScalarValue,
-    constraints: &MachineConfigPropertyConstraints,
+    constraints: &ParameterConstraints,
 ) -> Result<(), ConstraintViolation> {
     match (value, constraints) {
         // --- unconstrained: anything passes ---
-        (_, MachineConfigPropertyConstraints::None) => Ok(()),
+        (_, ParameterConstraints::None) => Ok(()),
 
         // --- nullable variants ---
-        (ScalarValue::Float(None), MachineConfigPropertyConstraints::Float { .. }) => Ok(()),
-        (ScalarValue::Integer(None), MachineConfigPropertyConstraints::Integer { .. }) => Ok(()),
-        (ScalarValue::String(None), MachineConfigPropertyConstraints::String { .. }) => Ok(()),
-        (ScalarValue::Enum(None), MachineConfigPropertyConstraints::Enum { .. }) => Ok(()),
+        (ScalarValue::Float(None), ParameterConstraints::Float { .. }) => Ok(()),
+        (ScalarValue::Integer(None), ParameterConstraints::Integer { .. }) => Ok(()),
+        (ScalarValue::String(None), ParameterConstraints::String { .. }) => Ok(()),
+        (ScalarValue::Enum(None), ParameterConstraints::Enum { .. }) => Ok(()),
 
         // --- float ---
-        (ScalarValue::Float(Some(v)), MachineConfigPropertyConstraints::Float { min, max }) => {
+        (ScalarValue::Float(Some(v)), ParameterConstraints::Float { min, max }) => {
             if let Some(min) = min
                 && v < min
             {
@@ -448,7 +449,7 @@ pub fn validate_constraints(
         }
 
         // --- integer ---
-        (ScalarValue::Integer(Some(v)), MachineConfigPropertyConstraints::Integer { min, max }) => {
+        (ScalarValue::Integer(Some(v)), ParameterConstraints::Integer { min, max }) => {
             if let Some(min) = min
                 && v < min
             {
@@ -472,7 +473,7 @@ pub fn validate_constraints(
         // --- string ---
         (
             ScalarValue::String(Some(v)),
-            MachineConfigPropertyConstraints::String {
+            ParameterConstraints::String {
                 min_length,
                 max_length,
             },
@@ -501,7 +502,7 @@ pub fn validate_constraints(
         }
 
         // --- enum ---
-        (ScalarValue::Enum(Some(v)), MachineConfigPropertyConstraints::Enum { allowed }) => {
+        (ScalarValue::Enum(Some(v)), ParameterConstraints::Enum { allowed }) => {
             if allowed.contains(v) {
                 Ok(())
             } else {

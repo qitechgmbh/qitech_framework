@@ -6,8 +6,10 @@ pub mod schema;
 include!(concat!(env!("OUT_DIR"), "/with_uom.rs"));
 
 mod value;
+pub use value::NumericValue;
 pub use value::ScalarValue;
 pub use value::ScalarValueKind;
+pub use value::ScalarValueTypeMismatchError;
 
 pub mod ident;
 pub mod report;

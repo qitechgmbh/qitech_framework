@@ -6,7 +6,6 @@ use thiserror::Error;
 
 pub use crate::machine::build::BuildError;
 pub use crate::machine::build::BuildResult;
-use crate::machine::resource::subscription::RegisterSubscriptionError;
 pub type CommandExecuteResult = Result<(), String>;
 
 // --- act ---
@@ -37,19 +36,19 @@ pub enum ValidateError {
 }
 
 // --- subscribe ---
-pub type SubscribeResult<T> = Result<T, MachineSubscribeError>;
+// pub type SubscribeResult<T> = Result<T, MachineSubscribeError>;
 
-#[derive(Debug, Error)]
-pub enum MachineSubscribeError {
-    #[error("unsupported machine")]
-    UnsupportedMachine,
-
-    #[error("too many subscriptions")]
-    TooManySubscriptions,
-
-    #[error(transparent)]
-    Register(#[from] RegisterSubscriptionError),
-}
+// #[derive(Debug, Error)]
+// pub enum MachineSubscribeError {
+//     #[error("unsupported machine")]
+//     UnsupportedMachine,
+//
+//     #[error("too many subscriptions")]
+//     TooManySubscriptions,
+//
+//     #[error(transparent)]
+//     Register(#[from] RegisterSubscriptionError),
+// }
 
 // --- bounds ---
 #[derive(Debug, Error)]

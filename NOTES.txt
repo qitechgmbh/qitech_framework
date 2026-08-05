@@ -73,3 +73,7 @@ config property can_write
 
 
 config property no more bounds in schema
+
+
+-> 
+Regex: RegexRegistry -> String maps to engine so no recreating

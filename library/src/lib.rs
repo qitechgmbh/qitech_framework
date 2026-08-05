@@ -6,8 +6,6 @@ pub use qitech_framework_core::vendors;
 pub use qitech_framework_macros::EnumProperty;
 
 pub mod machine;
+pub mod resource;
 pub mod runtime;
 pub use runtime::Runtime;
-
-mod types;
-pub use types::BoundsError;

@@ -22,25 +22,26 @@ impl RuntimeTransport for DebugRuntimeTransport {
 
     fn recv(&mut self) -> Result<ControllerMessage, TransportError> {
         match self.state {
-            0 => {
-                self.state = 1;
-                Ok(ControllerMessage::HelloAck)
-            }
-            1 => {
-                self.state = 1;
-                Ok(ControllerMessage::SchemaAck)
-            }
-            _ => unreachable!(),
+            0 => Ok(ControllerMessage::HelloAck),
+            1 => Ok(ControllerMessage::SchemaAck),
+            _ => Err(TransportError::WouldBlock),
         }
     }
 
     fn send(&mut self, msg: RuntimeMessage) -> Result<(), TransportError> {
         match msg {
-            RuntimeMessage::Hello(hello) => println!("{hello:#?}"),
+            RuntimeMessage::Hello(hello) => {
+                self.state = 0;
+                println!("{hello:#?}")
+            }
             RuntimeMessage::Schema(schema) => {
+                self.state = 1;
                 println!("sending schema for: {:#?}", schema.identification)
             }
-            RuntimeMessage::InitEvent(event) => println!("{event:#?}"),
+            RuntimeMessage::InitEvent(event) => {
+                self.state = 2;
+                println!("{event:#?}")
+            }
             RuntimeMessage::Finished => println!("finished"),
             RuntimeMessage::Report(report) => {
                 println!("sending report: {:#?}", report.machines.measurements);

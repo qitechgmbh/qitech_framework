@@ -1,47 +1,28 @@
 use std::any::Any;
 
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::MachinesReport;
 
 pub mod error;
 use error::ActResult;
-use error::MachineSubscribeError;
-use error::SubscribeResult;
 
 mod build;
 pub use build::BuildContext;
 
-mod subscribe;
-pub use subscribe::SubscribeContext;
+// mod subscribe;
+// pub use subscribe::SubscribeContext;
 
 pub(crate) mod hardware;
 pub use hardware::Hardware;
-
-pub mod resource;
-pub use resource::ConfigPropertyWriteConstraints;
-pub use resource::IntoExecuteFn;
-pub use resource::SubscribedEvent;
-pub use resource::conversion::TypeWrapper;
-pub use resource::subscription::SubscribedProperty;
-
-use crate::machine::resource::CommandManager;
-pub use crate::machine::resource::ConfigProperty;
-use crate::machine::resource::ConfigPropertyManager;
-use crate::machine::resource::EventManager;
-pub use crate::machine::resource::Measurement;
-use crate::machine::resource::MeasurementManager;
-pub use crate::machine::resource::StateProperty;
-use crate::machine::resource::StatePropertyManager;
 
 pub trait Machine: Any {
     /// defines the update cycle of a machine
     fn act(&mut self) -> ActResult;
 
-    /// allows a machine to sync remote resources (from subscriptions)
-    fn subscribe(&mut self, ctx: SubscribeContext) -> SubscribeResult<()> {
-        _ = ctx;
-        Err(MachineSubscribeError::Rejected)
-    }
+    // /// allows a machine to sync remote resources (from subscriptions)
+    // fn subscribe(&mut self, ctx: SubscribeContext) -> SubscribeResult<()> {
+    //     _ = ctx;
+    //     Err(MachineSubscribeError::UnsupportedMachine)
+    // }
 
     /// called when the machine is notified a subscription is canceled
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
@@ -50,14 +31,14 @@ pub trait Machine: Any {
 }
 
 pub trait MachineBuild: Sized {
-    fn build(ctx: BuildContext<'_>) -> error::BuildResult<Self>;
+    fn build(ctx: &mut BuildContext) -> error::BuildResult<Self>;
 }
 
 pub trait MachineInterface {
-    // TODO: parse schema at compile time and expose that instead ...
     const SCHEMA: &'static str;
 }
 
+/*
 #[derive(Default)]
 pub(crate) struct Resources {
     pub config_properties: ConfigPropertyManager,
@@ -120,3 +101,4 @@ impl Resources {
         */
     }
 }
+*/

@@ -2,6 +2,24 @@ use core::fmt;
 
 use serde::Deserialize;
 use serde::Serialize;
+use thiserror::Error;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NumericValue {
+    Integer(Option<i64>),
+    Float(Option<f64>),
+}
+
+impl fmt::Display for NumericValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NumericValue::Integer(Some(v)) => write!(f, "{v}"),
+            NumericValue::Float(Some(v)) => write!(f, "{v:.2}"),
+            _ => write!(f, "null"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(i8)]
@@ -89,3 +107,8 @@ impl fmt::Display for ScalarValue {
         }
     }
 }
+
+/// Error when writing fails due to Scalar Value being the wrong representation
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+#[error("scalar value has an incompatible type")]
+pub struct ScalarValueTypeMismatchError;

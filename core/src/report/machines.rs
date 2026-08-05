@@ -5,18 +5,20 @@ use serde::Serialize;
 use soa_derive::StructOfArray;
 use thiserror::Error;
 
+use crate::NumericValue;
 use crate::ScalarValue;
+use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::OperationOrigin;
 
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MachinesReport {
-    /// machine configuration value mutations
-    pub config_value_mutations: Vec<MachineConfigValueMutation>,
+    /// machine configuration value records
+    pub config_property_value_records: Vec<ConfigPropertyValueRecord>,
 
-    /// machine configuration constraints mutations
-    pub config_capability_mutations: Vec<MachineConfigCapabilityMutation>,
+    /// machine configuration state records
+    pub config_property_state_records: Vec<ConfigPropertyStateRecord>,
 
     /// machine state mutations
     pub state_mutations: Vec<MachineStateMutation>,
@@ -36,7 +38,7 @@ pub struct MachinesReport {
 
 // --- config ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineConfigValueMutation {
+pub struct ConfigPropertyValueRecord {
     /// target machine
     pub ident: MachineIdentificationUnique,
 
@@ -50,91 +52,79 @@ pub struct MachineConfigValueMutation {
     pub origin: OperationOrigin,
 
     /// operation result
-    pub result: MachineConfigWriteResult,
+    pub result: ConfigPropertyWriteResult,
 
     /// mutation timestamp
     pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineConfigCapabilityMutation {
+pub struct ConfigPropertyStateRecord {
     /// target machine
     pub ident: MachineIdentificationUnique,
 
     /// configuration resource path
     pub path: String,
 
-    /// whether this value may currently be modified
-    pub writable: MachineConfigWriteCapability,
+    pub kind: ConfigPropertyStateMutationKind,
 
-    /// current operational constraints
-    pub constraints: MachineConfigPropertyConstraints,
-
-    /// when constraints changed
+    /// when state changed
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum MachineConfigWriteCapability {
-    Allowed,
-    Forbidden { reason: String },
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConfigPropertyStateMutationKind {
+    WriteCapability(WriteCapability),
+    Constraints(ParameterConstraints),
+    DefaultValue(ScalarValue),
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub enum MachineConfigPropertyConstraints {
+pub enum WriteCapability {
+    #[default]
+    Allowed,
+    Forbidden {
+        reason: String,
+    },
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ParameterConstraints {
     #[default]
     None,
-    Float {
-        min: Option<f64>,
-        max: Option<f64>,
-    },
-    Integer {
-        min: Option<i64>,
-        max: Option<i64>,
+    Numeric {
+        min: NumericValue,
+        max: NumericValue,
+        nullable: bool,
     },
     String {
         min_length: Option<usize>,
         max_length: Option<usize>,
+        pattern: Option<String>,
+        nullable: bool,
     },
     Enum {
         allowed: Vec<String>,
+        nullable: bool,
     },
 }
 
 // --- error ---
-pub type MachineConfigWriteResult = Result<(), MachineConfigWriteError>;
+pub type ConfigPropertyWriteResult = Result<(), ConfigPropertyWriteError>;
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum MachineConfigWriteError {
-    #[error("value out of bounds")]
-    OutOfBounds { min: Option<f64>, max: Option<f64> },
+pub enum ConfigPropertyWriteError {
+    #[error("resource not found")]
+    NotFound,
 
-    #[error("string does not match required pattern")]
-    PatternMismatch { pattern: String },
-
-    #[error("variant is not allowed: {0}")]
-    ForbiddenVariant(String),
+    #[error("value type mismatch")]
+    ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
 
     #[error("resource is not writable")]
     NotWritable,
 
-    #[error("resource not found")]
-    NotFound,
-
-    #[error("machine not found")]
-    MachineNotFound,
-
-    #[error("machine type mismatch")]
-    MachineTypeMismatch,
-
-    #[error("value type mismatch")]
-    ValueTypeMismatch,
-
     #[error("value had invalid type")]
     ConstraintViolation(#[from] ConstraintViolation),
-
-    #[error("failure in callback: {0}")]
-    CallbackFailure(String),
 }
 
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
@@ -143,16 +133,19 @@ pub enum ConstraintViolation {
     TypeMismatch,
 
     #[error("value {value} is below the minimum {min}")]
-    I64BelowMin { value: i64, min: i64 },
+    BelowMin {
+        value: NumericValue,
+        min: NumericValue,
+    },
 
     #[error("value {value} is above the maximum {max}")]
-    I64AboveMax { value: i64, max: i64 },
+    AboveMax {
+        value: NumericValue,
+        max: NumericValue,
+    },
 
-    #[error("value {value} is below the minimum {min}")]
-    F64BelowMin { value: f64, min: f64 },
-
-    #[error("value {value} is above the maximum {max}")]
-    F64AboveMax { value: f64, max: f64 },
+    #[error("value {value} cannot be null")]
+    CannotBeNull { value: ScalarValue },
 
     #[error("string length {length} is below the minimum {min}")]
     StringTooShort { length: usize, min: usize },
@@ -164,7 +157,7 @@ pub enum ConstraintViolation {
     PatternMismatch { pattern: String },
 
     #[error("value {value:?} is not one of the allowed enum variants")]
-    VariantForbidden { value: String },
+    ForbiddenVariant { value: String },
 }
 
 // --- state ---
@@ -228,17 +221,11 @@ pub struct MachineCommandCapabilityMutation {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MachineCommandInvokeError {
-    #[error("No machine under this identity could be found")]
-    NoSuchMachine,
-
-    #[error("command target machine type mismatch: expected `{expected}`, received `{received}`")]
-    MachineTypeMismatch { expected: String, received: String },
+    #[error("command not found")]
+    NotFound,
 
     #[error("command is disabled")]
     Disabled,
-
-    #[error("command not found")]
-    NotFound,
 
     #[error("command execution failed: {0}")]
     ExecutionError(String),

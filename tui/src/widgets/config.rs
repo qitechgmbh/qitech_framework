@@ -1,5 +1,5 @@
 use crossterm::event::KeyCode;
-use qitech_framework::ScalarValue;
+use qitech_framework_core::ScalarValue;
 use qitech_framework_core::schema::ConfigPropertyKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;

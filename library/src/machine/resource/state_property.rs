@@ -5,8 +5,7 @@ use qitech_framework_core::with_uom_quantities;
 
 use super::PropertyHandle;
 use crate::machine::TypeWrapper;
-use crate::machine::resource::Journal;
-use crate::machine::resource::PropertyManager;
+use crate::machine::resource::PropertyRegistry;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::subscription::RegisterSubscriptionError;
 use crate::machine::resource::subscription::SubscribedProperty;
@@ -79,12 +78,12 @@ const MAX_ITEMS: usize = 512;
 type Kind = super::property_kind::StateProperty;
 
 #[derive(Default)]
-pub struct Manager {
-    inner: PropertyManager<SLOT_SIZE, MAX_ITEMS, Kind>,
-    journal: Journal<MachineStateMutation>,
+pub struct StatePropertyRegistry {
+    inner: PropertyRegistry<SLOT_SIZE, MAX_ITEMS, Kind>,
+    // journal: Journal<MachineStateMutation>,
 }
 
-impl Manager {
+impl StatePropertyRegistry {
     pub fn register<T>(
         &mut self,
         ident: MachineIdentificationUnique,
@@ -176,7 +175,7 @@ mod test {
             serial: 0,
         };
 
-        let mut r = Manager::default();
+        let mut r = StatePropertyRegistry::default();
 
         let mut sp: StateProperty<f64> = r.register::<f64>(ident, "just.some.float", 1.0)?;
         assert_eq!(sp.get(), 1.0);

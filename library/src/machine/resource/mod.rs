@@ -1,18 +1,16 @@
 use core::fmt;
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::fmt::Debug;
-use std::rc::Rc;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
-pub use qitech_framework_core::report::MachineConfigPropertyConstraints as ConfigPropertyWriteConstraints;
+pub use qitech_framework_core::report::ParameterConstraints as ConfigPropertyWriteConstraints;
 pub use qitech_framework_core::report::MachineConfigWriteCapability as ConfigPropertyWriteCapability;
 
 pub mod error;
 
 mod property;
 use property::PropertyHandle;
-use property::PropertyManager;
+use property::PropertyRegistry;
 
 mod config_property;
 pub use config_property::ConfigProperty;
@@ -30,15 +28,15 @@ pub use measurement::Measurement;
 pub use measurement::RegisterOptions as MeasurementRegisterOptions;
 
 mod state_property;
-pub use state_property::Manager as StatePropertyManager;
 pub use state_property::StateProperty;
+pub use state_property::StatePropertyRegistry as StatePropertyManager;
 
 mod command;
 pub use command::CanExecuteFn;
+pub use command::CommandRegistry as CommandManager;
 pub use command::ExecuteFn;
 pub use command::IntoCanExecuteFn;
 pub use command::IntoExecuteFn;
-pub use command::Manager as CommandManager;
 
 mod event;
 pub use event::Emitter as EventEmitter;
@@ -50,6 +48,7 @@ pub use constraints::EnumConfigPropertyConstraints;
 pub(crate) mod conversion;
 pub(crate) mod subscription;
 
+// --- key ---
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Key<'a> {
     ident: MachineIdentificationUnique,
@@ -113,54 +112,5 @@ impl fmt::Display for ResourceKind {
             Self::Event => "event",
         };
         f.write_str(s)
-    }
-}
-
-// --- journal ---
-#[derive(Debug)]
-pub struct Journal<T> {
-    buffer: Rc<RefCell<Vec<T>>>,
-}
-
-// my_command[]
-// my_command["target_diameter"].set_bounds(0.0, 1.0)
-
-impl<T> Journal<T> {
-    pub fn new() -> Self {
-        Self {
-            buffer: Default::default(),
-        }
-    }
-
-    fn new_handle(&self) -> JournalHandle<T> {
-        JournalHandle {
-            buffer: self.buffer.clone(),
-        }
-    }
-
-    fn drain_with(&mut self, mut f: impl FnMut(T)) {
-        for entry in self.buffer.borrow_mut().drain(..) {
-            f(entry);
-        }
-    }
-}
-
-// compiler is too stupid to implement derive for this... sigh
-impl<T> Default for Journal<T> {
-    fn default() -> Self {
-        Self {
-            buffer: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct JournalHandle<T> {
-    buffer: Rc<RefCell<Vec<T>>>,
-}
-
-impl<T: Debug> JournalHandle<T> {
-    fn append(&self, entry: T) {
-        self.buffer.borrow_mut().push(entry);
     }
 }

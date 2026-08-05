@@ -27,15 +27,11 @@ udev = "0.9.3"
 tokio-serial = "5.5.0"
 bitvec = "1"
 
+# TODO: common should export IndexMap or provide other struct
+indexmap = { version = "2", default-features = false, features = ["serde"] }
+
 # --- uom ---
 crossbeam = "0.8.4"
 tracing.workspace = true
-regex = "1.13.1"
-
-[build-dependencies]
-toml = "0.8"
-serde = { version = "1", features = ["derive"] }
-
-[features]
-default = []
-runtime = []
+ratatui = "0.30.2"
+crossterm = "0.29.0"

@@ -13,8 +13,9 @@ use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use crate::Runtime;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
-use crate::machine::Resources;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
+use crate::resource::ConfigPropertyRegistry;
+use crate::resource::Journals;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::RuntimeStatus;
@@ -26,6 +27,7 @@ use crate::runtime::ethercat;
 use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
+use crate::runtime::types::MachineRegistryEntry;
 
 impl<T: RuntimeTransport> Runtime<T> {
     pub fn init(
@@ -38,11 +40,17 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
 
-        for (schema_str, build_fn) in config.machines {
+        for (schema_str, build_fn, type_id) in config.machines {
             let schema = MachineSchema::parse_str(schema_str)?;
 
             if machine_registry
-                .insert(schema.identification, build_fn)
+                .insert(
+                    schema.identification,
+                    MachineRegistryEntry {
+                        build: build_fn,
+                        type_id,
+                    },
+                )
                 .is_some()
             {
                 return Err(RuntimeInitializeError::DuplicateMachine(
@@ -75,7 +83,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                 };
 
                 let dev_path = path.clone();
-                let device = match (entry.init)(dev_path) {
+                let result = (entry.init)(dev_path);
+
+                let device = match result {
                     Ok(v) => v,
                     Err(e) => {
                         session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize {
@@ -99,13 +109,17 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- build machines ---
         session.send_event(RuntimeInitEvent::BuildingMachines)?;
 
-        let mut resources = Box::new(Resources::default());
+        // let mut resources = Box::new(Resources::default());
+        let mut journals = Journals::default();
+        let mut config_properties = ConfigPropertyRegistry::new(4096, 128);
+
         let machines = Self::init_machines(
             &mut session,
             &machine_registry,
             &hardware_registry,
             ecat_controller.as_ref().map(|v| v.channel.clone()),
-            &mut resources,
+            &mut journals,
+            &mut config_properties,
         )?;
 
         // --- finalize ethercat ---
@@ -141,7 +155,8 @@ impl<T: RuntimeTransport> Runtime<T> {
             status: RuntimeStatus::Initialized,
             // machine_registry,
             // hardware_registry,
-            resources,
+            export_cycle: 0,
+            journals,
             report: Default::default(),
             machines,
             sub_devices,
@@ -158,50 +173,43 @@ impl<T: RuntimeTransport> Runtime<T> {
         machine_registry: &MachineRegistry,
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,
-        resources: &mut Resources,
+        journals: &mut Journals,
+        config_properties: &mut ConfigPropertyRegistry,
     ) -> RuntimeInitializeResult<Vec<MachineInstance>> {
         let mut machines: Vec<MachineInstance> = Vec::new();
 
         for (ident_unique, hardware) in hardware_registry {
             let ident = ident_unique.identification;
 
-            let Some(build) = machine_registry.get(&ident) else {
-
-                session.send_event(RuntimeInitEvent::FailedToBuildMachine { 
+            let Some(entry) = machine_registry.get(&ident) else {
+                session.send_event(RuntimeInitEvent::FailedToBuildMachine {
                     ident: *ident_unique,
                 })?;
 
-                println!("Failed to build machine `{ident_unique}`. No entry");
                 continue;
-                // bail!("Failed to find registry entry for machine {{{ident}}}");
             };
 
             let ctx = BuildContext::new(
                 *ident_unique,
+                entry.type_id,
                 ecat_interface.clone(),
-                resources,
                 hardware.clone(),
+                journals,
+                config_properties.begin_commit(*ident_unique),
             );
 
-            // println!("Building machine `{ident_unique}`");
-
-            let inner = match (build)(ctx) {
+            let instance = match (entry.build)(ctx) {
                 Ok(v) => v,
-                Err(e) => {
-                    _ = e;
+                Err(_) => {
+                    session.send_event(RuntimeInitEvent::FailedToBuildMachine {
+                        ident: *ident_unique,
+                    })?;
 
-                    panic!("built machine: {:?}", e);
-
-                    // println!("Failed to build machine: {e}");
                     continue;
                 }
             };
 
-            machines.push(MachineInstance {
-                ident: *ident_unique,
-                inner,
-            });
-
+            machines.push(instance);
             session.send_event(RuntimeInitEvent::BuiltMachine {
                 ident: *ident_unique,
             })?;

@@ -34,9 +34,9 @@ impl<'a> SubscribeContext<'a> {
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
         Ok(self.resources.config_properties.create_subscriber::<T>(
-            self.provider, 
-            self.subscriber, 
-            resource
+            self.provider,
+            self.subscriber,
+            resource,
         )?)
     }
 
@@ -45,9 +45,9 @@ impl<'a> SubscribeContext<'a> {
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
         Ok(self.resources.state_properties.create_subscriber::<T>(
-            self.provider, 
-            self.subscriber, 
-            resource
+            self.provider,
+            self.subscriber,
+            resource,
         )?)
     }
 
@@ -56,9 +56,9 @@ impl<'a> SubscribeContext<'a> {
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
         Ok(self.resources.measurements.create_subscriber::<T>(
-            self.provider, 
-            self.subscriber, 
-            resource
+            self.provider,
+            self.subscriber,
+            resource,
         )?)
     }
 
@@ -70,9 +70,9 @@ impl<'a> SubscribeContext<'a> {
         T: DeserializeOwned + 'static,
     {
         Ok(self.resources.events.create_subscriber::<T>(
-            self.provider, 
-            self.subscriber, 
-            resource
+            self.provider,
+            self.subscriber,
+            resource,
         )?)
     }
 }

@@ -8,22 +8,24 @@ use qitech_framework_core::report::MachineCommandInvokeError;
 use qitech_framework_core::report::MachineCommandInvokeTrace;
 
 use crate::machine::Machine;
-use crate::machine::resource::Journal;
 use crate::machine::resource::Key;
 use crate::machine::resource::error::RegisterError;
 use crate::machine::resource::error::RegisterResult;
 use crate::machine::resource::error::ResourceAccessError;
 
 // --- resource managment ---
-pub struct Manager {
-    registry: HashMap<Key<'static>, Entry>,
+pub struct CommandRegistry {
+    commands: Vec<Entry>,
+    entries: HashMap<Key<'static>, usize>,
     journal: Journal<MachineCommandInvokeTrace>,
 }
 
-impl Manager {
+impl CommandRegistry {
     pub fn new() -> Self {
         Self::default()
     }
+
+    //
 
     pub fn register(
         &mut self,
@@ -34,11 +36,11 @@ impl Manager {
     ) -> RegisterResult<()> {
         let key = Key::from_str(ident, path);
 
-        if self.registry.contains_key(&key) {
+        if self.entries.contains_key(&key) {
             return Err(RegisterError::Duplicate);
         }
 
-        self.registry.insert(
+        self.entries.insert(
             key,
             Entry {
                 can_execute,
@@ -49,7 +51,7 @@ impl Manager {
     }
 
     pub fn unregister_machine(&mut self, ident: MachineIdentificationUnique) {
-        self.registry.retain(|k, _| k.ident != ident);
+        self.entries.retain(|k, _| k.ident != ident);
     }
 
     pub fn can_invoke(
@@ -63,12 +65,14 @@ impl Manager {
             path: Cow::Owned(path.to_string()),
         };
 
-        let Some(Entry { can_execute, .. }) = self.registry.get(&key) else {
+        let Some(Entry { can_execute, .. }) = self.entries.get(&key) else {
             return Err(ResourceAccessError::NoSuchResource);
         };
 
         (can_execute)(machine)
     }
+
+    pub fn bind() {}
 
     pub fn invoke(
         &mut self,
@@ -84,7 +88,7 @@ impl Manager {
         let Some(Entry {
             can_execute,
             execute,
-        }) = self.registry.get(&key)
+        }) = self.entries.get(&key)
         else {
             return Err(MachineCommandInvokeError::NotFound);
         };
@@ -108,10 +112,10 @@ impl Manager {
     }
 }
 
-impl Default for Manager {
+impl Default for CommandRegistry {
     fn default() -> Self {
         Self {
-            registry: Default::default(),
+            entries: Default::default(),
             journal: Journal::new(),
         }
     }
@@ -210,7 +214,7 @@ mod test {
             }
         }
 
-        let mut r = Manager::new();
+        let mut r = CommandRegistry::new();
 
         let cmd: fn(&TestMachine) -> bool = TestMachine::can_execute;
         let can_execute = cmd.into_can_execute_fn();

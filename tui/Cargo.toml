@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 # --- internal deps ---
 qitech_framework_core = { path = "../core" }
-qitech_framework = { path = "../library" }
 
 # --- workspace deps ---
 serde = { workspace = true }

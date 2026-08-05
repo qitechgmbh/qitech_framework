@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -15,11 +16,12 @@ use crate::machine::MachineInterface;
 use crate::machine::error::BuildResult;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
+use crate::runtime::types::MachineInstance;
 
 #[derive(Default)]
 pub struct RuntimeConfiguration {
     pub(crate) config: Config,
-    pub(crate) machines: Vec<(&'static str, BuildMachineFn)>,
+    pub(crate) machines: Vec<(&'static str, BuildMachineFn, TypeId)>,
     pub(crate) ethercat_mode: EtherCATMode,
     pub(crate) modbus_rtu_mode: ModbusRtuMode,
 }
@@ -49,9 +51,9 @@ impl RuntimeConfiguration {
         self
     }
 
-    pub fn modbus_rtu_device<S: ToString, D: ModbusDevice + 'static>(
+    pub fn modbus_rtu_device<D: ModbusDevice + 'static>(
         mut self,
-        id_path: S,
+        id_path: String,
         ident: MachineIdentificationUnique,
         slave_id: u8,
         settings: Option<ModbusSettings>,
@@ -81,14 +83,22 @@ impl RuntimeConfiguration {
     where
         M: Machine + MachineBuild + MachineInterface + 'static,
     {
-        fn build_adapter<T>(builder: BuildContext<'_>) -> BuildResult<Box<dyn Machine>>
+        fn build_adapter<M>(mut ctx: BuildContext) -> BuildResult<MachineInstance>
         where
-            T: MachineBuild + Machine + 'static,
+            M: MachineBuild + Machine + 'static,
         {
-            Ok(Box::new(T::build(builder)?))
+            let ident = ctx.ident;
+            let machine = Box::new(M::build(&mut ctx)?);
+
+            // --- commit all reserved resources to make them usable ---
+            ctx.config_properties.commit();
+
+            Ok(MachineInstance { ident, machine })
         }
 
-        self.machines.push((M::SCHEMA, build_adapter::<M>));
+        self.machines
+            .push((M::SCHEMA, build_adapter::<M>, TypeId::of::<M>()));
+        
         self
     }
 }
@@ -126,5 +136,5 @@ pub struct ModbusRtuConfig {
 
 pub struct ModbusRtuEntry {
     pub ident: MachineIdentificationUnique,
-    pub init: Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String>>,
+    pub init: Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>,
 }

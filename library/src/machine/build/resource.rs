@@ -1,8 +1,5 @@
 use std::marker::PhantomData;
-use std::rc::Rc;
 
-use qitech_framework_core::report::MachineConfigPropertyConstraints;
-use qitech_framework_core::report::MachineConfigWriteCapability;
 use qitech_framework_core::with_uom_units;
 use serde::Serialize;
 
@@ -11,19 +8,12 @@ use crate::machine::Machine;
 use crate::machine::build::BuildError;
 use crate::machine::build::BuildResult;
 use crate::machine::resource::CanExecuteFn;
-use crate::machine::resource::ConfigProperty;
-use crate::machine::resource::ConfigPropertyCapabilities;
-use crate::machine::resource::ConfigPropertyCapabilitiesAny;
 use crate::machine::resource::EventEmitter;
 use crate::machine::resource::ExecuteFn;
-use crate::machine::resource::GetCapabilitiesFn;
 use crate::machine::resource::IntoCanExecuteFn;
 use crate::machine::resource::IntoExecuteFn;
-use crate::machine::resource::IntoGetCapabilitiesFn;
-use crate::machine::resource::IntoOnChangedFn;
 use crate::machine::resource::Measurement;
 use crate::machine::resource::MeasurementRegisterOptions;
-use crate::machine::resource::OnChangedFn;
 use crate::machine::resource::StateProperty;
 use crate::machine::resource::constraints::NumericConfigPropertyConstraints;
 use crate::machine::resource::constraints::StringConfigPropertyConstraints;
@@ -31,111 +21,6 @@ use crate::machine::resource::conversion::Extract;
 use crate::machine::resource::conversion::StatisticValue;
 use crate::machine::resource::conversion::TypeWrapper;
 use crate::machine::resource::error::RegisterError;
-
-// --- config property ---
-impl<'a> BuildContext<'a> {
-    pub fn config<'b, T>(&'b mut self, path: &'static str) -> ConfigPropertyBuilder<'a, 'b, T>
-    where
-        'a: 'b,
-        T: TypeWrapper + 'static,
-        T::Type: Clone + Default,
-    {
-        ConfigPropertyBuilder {
-            root: self,
-            path,
-            default: T::Type::default(),
-            constraints: None,
-            get_capabilities: None,
-            on_changed: None,
-        }
-    }
-}
-
-pub struct ConfigPropertyBuilder<'a, 'b, T>
-where
-    T: TypeWrapper + 'static,
-    T::Type: Clone,
-{
-    root: &'b mut BuildContext<'a>,
-    path: &'static str,
-
-    // --- configuration ---
-    default: T::Type,
-    constraints: Option<T::Constraints>,
-    get_capabilities: Option<GetCapabilitiesFn>,
-    on_changed: Option<OnChangedFn>,
-}
-
-impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
-where
-    T: TypeWrapper + 'static,
-    T::Type: Clone,
-{
-    pub fn default(mut self, value: T::Input) -> Self {
-        self.default = T::convert_input(value);
-        self
-    }
-
-    pub fn get_capabilities<M: Machine + 'static>(
-        mut self,
-        func: fn(&M) -> ConfigPropertyCapabilities<T>,
-    ) -> Self
-    where
-        T::Constraints:,
-    {
-        self.get_capabilities = Some(func.into_get_capabilities_fn());
-        self
-    }
-
-    pub fn on_changed<M: Machine + 'static>(
-        mut self,
-        func: fn(&mut M) -> Result<(), String>,
-    ) -> Self
-    where
-        T::Constraints:,
-    {
-        self.on_changed = Some(func.into_on_changed_fn());
-        self
-    }
-
-    pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
-        let get_capabilities_fn: GetCapabilitiesFn = if let Some(func) = self.get_capabilities {
-            func
-        } else if let Some(constraints) = self.constraints {
-            let capabilities = ConfigPropertyCapabilitiesAny {
-                writable: MachineConfigWriteCapability::Allowed,
-                constraints: T::into_constraints(constraints),
-            };
-
-            Rc::new(move |machine: &dyn Machine| {
-                _ = machine;
-                Ok(capabilities.clone())
-            })
-        } else {
-            Rc::new(move |machine: &dyn Machine| {
-                _ = machine;
-                Ok(ConfigPropertyCapabilitiesAny {
-                    writable: MachineConfigWriteCapability::Allowed,
-                    constraints: MachineConfigPropertyConstraints::None,
-                })
-            })
-        };
-
-        let on_changed = if let Some(func) = self.on_changed {
-            func
-        } else {
-            Box::new(|_: &mut dyn Machine| Ok(()))
-        };
-
-        Ok(self.root.resources.config_properties.register::<T>(
-            self.root.ident,
-            self.path,
-            self.default,
-            get_capabilities_fn,
-            on_changed,
-        )?)
-    }
-}
 
 // --- string ---
 impl<'a, 'b> ConfigPropertyBuilder<'a, 'b, String> {
@@ -445,22 +330,10 @@ where
     }
 }
 
-// --- command ---
-impl<'a> BuildContext<'a> {
-    pub fn command<'b, M>(&'b mut self, path: &'static str) -> CommandBuilder<'a, 'b, M>
-    where
-        'a: 'b,
-        M: Machine + 'static,
-    {
-        CommandBuilder {
-            root: self,
-            path,
-            can_execute_fn: None,
-            execute_fn: None,
-            _marker: PhantomData,
-        }
-    }
-}
+// runtime wants to read every one only
+// when registering a machine we take each cached command and then
+// create one function that dereferences the pointer of the machine
+// then calls each function to fetch it per machine
 
 pub struct CommandBuilder<'a, 'b, M>
 where
