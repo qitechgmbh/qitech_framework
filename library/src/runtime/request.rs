@@ -5,6 +5,7 @@ use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::OperationOrigin;
+use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
@@ -173,6 +174,14 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .push(subscription)
                     .expect("Exceeded global subscription limit");
 
+                self.report.events.push(RuntimeEvent::SubscriptionAdded {
+                    provider,
+                    subscriber,
+
+                    // TODO: record resources
+                    resources: Default::default(),
+                });
+
                 Ok(())
             }
 
@@ -180,19 +189,26 @@ impl<T: RuntimeTransport> Runtime<T> {
                 provider,
                 subscriber,
             } => {
-                let Some(entry) = self
+                let Some(index) = self
                     .subscriptions
                     .iter()
-                    .find(|s| s.provider == provider && s.subscriber == subscriber)
+                    .position(|s| s.provider == provider && s.subscriber == subscriber)
                 else {
                     return Err(UnsubscribeError::SubscriptionNotFound)?;
                 };
+
+                self.subscriptions.remove(index);
 
                 let machine = find_machine(&mut self.machines, subscriber)
                     .expect("No machine when subscription present");
 
                 // --- tell machine that the subscription is not longer valid ---
                 machine.unsubscribe(provider);
+
+                self.report.events.push(RuntimeEvent::SubscriptionRemoved {
+                    provider,
+                    subscriber,
+                });
 
                 Ok(())
             }

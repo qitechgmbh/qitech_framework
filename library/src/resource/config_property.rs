@@ -288,7 +288,8 @@ pub struct ExecuteContext {
     /// type-erased property state
     state: Erased,
 
-    /// function to write scalar value into the property
+    /// function to write scalar value into the property.
+    /// returns Some if value changed, None otherwise
     write: fn(Erased, ScalarValue, Erased) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
 
     /// callback invoked when a external write succeeds and the value changed
@@ -319,15 +320,13 @@ pub struct ConfigPropertyState<T: PropertyType> {
     pub(crate) writable: WriteCapability,
 }
 
-/// bump allocation based registry
 pub struct ConfigPropertyRegistry {
     machines: heapless::Vec<MachineInfo, 64>,
 
-    // --- item ---
-    pool_items_pos: usize,
-    pool_slot: Box<[SlotInfo]>,
-    pool_info: Box<[MaybeUninit<PropertyDescriptor>]>,
-    pool_exec: Box<[MaybeUninit<ExecuteContext>]>,
+    buf_len: usize,
+    buf_slot_info: Box<[SlotInfo]>,
+    buf_descriptor: Box<[MaybeUninit<PropertyDescriptor>]>,
+    pool_exec_ctx: Box<[MaybeUninit<ExecuteContext>]>,
 
     alloc_value: BumpAllocator,
     alloc_cache: BumpAllocator,
@@ -339,10 +338,10 @@ impl ConfigPropertyRegistry {
         Self {
             machines: heapless::Vec::new(),
 
-            pool_items_pos: 0,
-            pool_slot: vec![SlotInfo::default(); items_max].into_boxed_slice(),
-            pool_info: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
-            pool_exec: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
+            buf_len: 0,
+            buf_slot_info: vec![SlotInfo::default(); items_max].into_boxed_slice(),
+            buf_descriptor: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
+            pool_exec_ctx: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
 
             alloc_value: BumpAllocator::new(pool_size),
             alloc_cache: BumpAllocator::new(pool_size),
@@ -360,8 +359,8 @@ impl ConfigPropertyRegistry {
         // invalidate all current properties. Using any property
         // associated with this machine will lead to a panic.
         for index in machine.pos..machine.pos + machine.len {
-            self.pool_slot[index].state = SlotState::Deactivated;
-            self.pool_slot[index].generation += 1;
+            self.buf_slot_info[index].state = SlotState::Deactivated;
+            self.buf_slot_info[index].generation += 1;
         }
     }
 
@@ -369,7 +368,7 @@ impl ConfigPropertyRegistry {
         &'_ mut self,
         ident: MachineIdentificationUnique,
     ) -> ConfigPropertyRegistryRegisterHandle<'_> {
-        let item_pos = self.pool_items_pos;
+        let item_pos = self.buf_len;
         let value_mark = self.alloc_value.mark();
         let cache_mark = self.alloc_cache.mark();
         let state_mark = self.alloc_state.mark();
@@ -402,10 +401,10 @@ impl ConfigPropertyRegistry {
 
         for i in pos..pos + len {
             unsafe {
-                let info = self.pool_info[i].assume_init_read();
+                let info = self.buf_descriptor[i].assume_init_read();
 
                 if info.path == resource {
-                    return Some(self.pool_exec[i].assume_init_read());
+                    return Some(self.pool_exec_ctx[i].assume_init_read());
                 }
             }
         }
@@ -441,10 +440,10 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
         on_changed: Option<OnExternalChangedCallback>,
     ) -> ConfigPropertyHandle<T> {
-        let index = self.registry.pool_items_pos;
+        let index = self.registry.buf_len;
 
         assert!(
-            index < self.registry.pool_info.len(),
+            index < self.registry.buf_descriptor.len(),
             "Property registry exhausted"
         );
 
@@ -487,25 +486,26 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
             on_external_changed: on_changed,
         };
 
-        self.registry.pool_info[index].write(descriptor);
-        self.registry.pool_exec[index].write(exec_ctx);
-        self.registry.pool_items_pos += 1;
+        self.registry.buf_descriptor[index].write(descriptor);
+        self.registry.pool_exec_ctx[index].write(exec_ctx);
+        self.registry.buf_len += 1;
 
         let p_descriptor = unsafe {
             NonNull::new_unchecked(
                 self.registry
-                    .pool_info
+                    .buf_descriptor
                     .as_mut_ptr()
                     .add(index)
                     .cast::<PropertyDescriptor>(),
             )
         };
 
-        let p_slot =
-            unsafe { NonNull::new_unchecked(&mut self.registry.pool_slot[index] as *mut SlotInfo) };
+        let p_slot = unsafe {
+            NonNull::new_unchecked(&mut self.registry.buf_slot_info[index] as *mut SlotInfo)
+        };
 
         ConfigPropertyHandle {
-            generation: self.registry.pool_slot[index].generation,
+            generation: self.registry.buf_slot_info[index].generation,
             p_slot,
             p_descriptor,
             p_state,
@@ -514,8 +514,8 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
     }
 
     pub fn commit(mut self) {
-        for index in self.item_pos..self.registry.pool_items_pos {
-            let slot_info = &mut self.registry.pool_slot[index];
+        for index in self.item_pos..self.registry.buf_len {
+            let slot_info = &mut self.registry.buf_slot_info[index];
             slot_info.state = SlotState::Activated;
         }
 
@@ -524,7 +524,7 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
             .push(MachineInfo {
                 ident: self.ident,
                 pos: self.item_pos,
-                len: self.registry.pool_items_pos - self.item_pos,
+                len: self.registry.buf_len - self.item_pos,
             })
             .expect("machine registry exhausted");
 
@@ -540,14 +540,14 @@ impl Drop for ConfigPropertyRegistryRegisterHandle<'_> {
 
         // mark all reserved slots as unused again and increment generation
         // so any created handles cannot access the memory
-        for index in self.item_pos..self.registry.pool_items_pos {
-            let slot_info = &mut self.registry.pool_slot[index];
+        for index in self.item_pos..self.registry.buf_len {
+            let slot_info = &mut self.registry.buf_slot_info[index];
             slot_info.state = SlotState::Unused;
             slot_info.generation += 1;
         }
 
         // --- roll back item count ---
-        self.registry.pool_items_pos = self.item_pos;
+        self.registry.buf_len = self.item_pos;
 
         // Revert the bump allocations
         self.registry.alloc_value.rollback(self.value_mark);

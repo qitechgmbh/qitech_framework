@@ -19,6 +19,7 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
+use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
@@ -175,9 +176,54 @@ impl Tui {
     pub fn on_report(&mut self, report: RuntimeReport) {
         self.state.rt_status = RuntimeStatus::Running;
 
+        for event in report.events {
+            match event {
+                RuntimeEvent::AddedMachine { ident } => {
+                    _ = ident;
+                }
+
+                RuntimeEvent::RemovedMachine { ident } => {
+                    _ = ident;
+                }
+
+                RuntimeEvent::SubscriptionAdded {
+                    provider,
+                    subscriber,
+                    ..
+                } => {
+                    let Some(entry) = self
+                        .state
+                        .machines
+                        .iter_mut()
+                        .find(|m| m.ident == subscriber)
+                    else {
+                        continue;
+                    };
+
+                    entry.subscriptions.insert(provider);
+                }
+
+                RuntimeEvent::SubscriptionRemoved {
+                    provider,
+                    subscriber,
+                } => {
+                    let Some(entry) = self
+                        .state
+                        .machines
+                        .iter_mut()
+                        .find(|m| m.ident == subscriber)
+                    else {
+                        continue;
+                    };
+
+                    entry.subscriptions.retain(|m| *m != provider);
+                }
+            }
+        }
+
+        // --- machines ---
         let timestamp = report.timestamp;
         let report = report.machines;
-
         for record in report.config_property_records {
             let Some(entry) = self.find_machine_mut(record.machine) else {
                 continue;
