@@ -98,7 +98,7 @@ impl RuntimeConfiguration {
 
         self.machines
             .push((M::SCHEMA, build_adapter::<M>, TypeId::of::<M>()));
-        
+
         self
     }
 }

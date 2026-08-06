@@ -62,7 +62,7 @@ impl<T: PropertyType> ConfigProperty<T> {
         unsafe { self.handle.p_value.as_ref() }
     }
 
-    pub fn set(&mut self, value: T) -> Result<bool, ConfigPropertyWriteError> {
+    pub fn set(&mut self, value: T) -> Result<bool, ConstraintViolation> {
         self.validate();
 
         if value == *self.get_ref() {
@@ -77,7 +77,9 @@ impl<T: PropertyType> ConfigProperty<T> {
             path: descriptor.resource.to_string(),
             value: (self.into_scalar)(value),
             origin: OperationOrigin::Machine,
-            result: res.clone(),
+            result: res
+                .clone()
+                .map_err(ConfigPropertyWriteError::ConstraintViolation),
             timestamp: Utc::now(),
         });
 
@@ -85,7 +87,7 @@ impl<T: PropertyType> ConfigProperty<T> {
     }
 
     /// resets property back to the assigned default value
-    pub fn reset(&mut self) -> Result<bool, ConfigPropertyWriteError> {
+    pub fn reset(&mut self) -> Result<bool, ConstraintViolation> {
         self.validate();
 
         unsafe {
@@ -124,46 +126,64 @@ impl<T: PropertyType> ConfigProperty<T> {
         });
     }
 
-    pub fn set_default(&mut self, value: T) {
+    pub fn set_default(&mut self, value: T) -> Result<bool, ConstraintViolation> {
         self.validate();
+
         let state = unsafe { self.handle.p_state.as_mut() };
 
         if value == state.default_value {
-            return;
+            return Ok(false);
         }
 
-        let descriptor = self.descriptor();
+        // ensure new default value adheres to the constraints
+        (self.validate_constraints)(&state.constraints, &value)?;
         state.default_value = value.clone();
 
+        let descriptor = self.descriptor();
         self.journal_state.append(ConfigPropertyStateRecord {
             ident: descriptor.ident,
             path: descriptor.resource.to_string(),
             kind: ConfigPropertyStateChange::DefaultValue((self.into_scalar)(value)),
             timestamp: Utc::now(),
         });
+
+        Ok(true)
+    }
+
+    pub fn constraints(&self) -> &T::Constraints {
+        self.validate();
+        let state = unsafe { self.handle.p_state.as_ref() };
+        &state.constraints
     }
 
     // TODO: don't let strings mutate constraints !!!
-    pub fn set_constraints(&mut self, value: T::Constraints) {
+    pub fn set_constraints(
+        &mut self,
+        constraints: T::Constraints,
+    ) -> Result<bool, ConstraintViolation> {
         self.validate();
-
         let state = unsafe { self.handle.p_state.as_mut() };
 
-        if value == state.constraints {
-            return;
+        if constraints == state.constraints {
+            return Ok(false);
         }
 
-        state.constraints = value.clone();
+        // ensure both current and default value are still valid with new constraints
+        (self.validate_constraints)(&constraints, self.get_ref())?;
+        (self.validate_constraints)(&constraints, &state.default_value)?;
 
-        let descriptor = self.descriptor();
+        state.constraints = constraints.clone();
         let constraints = (self.as_parameter_constraints)(&state.constraints);
 
+        let descriptor = self.descriptor();
         self.journal_state.append(ConfigPropertyStateRecord {
             ident: descriptor.ident,
             path: descriptor.resource.to_string(),
             kind: ConfigPropertyStateChange::Constraints(constraints),
             timestamp: Utc::now(),
         });
+
+        Ok(true)
     }
 
     // --- utils ---
@@ -171,24 +191,16 @@ impl<T: PropertyType> ConfigProperty<T> {
         unsafe { self.handle.p_descriptor.read() }
     }
 
-    fn write(&mut self, value: T) -> ConfigPropertyWriteResult {
+    fn write(&mut self, value: T) -> Result<(), ConstraintViolation> {
         unsafe {
             let state = self.handle.p_state.as_ref();
-
-            if let WriteCapability::Forbidden { .. } = state.writable {
-                return Err(ConfigPropertyWriteError::NotWritable);
-            };
-
-            if let Err(e) = (self.validate_constraints)(&state.constraints, &value) {
-                return Err(ConfigPropertyWriteError::ConstraintViolation(e));
-            }
-
+            (self.validate_constraints)(&state.constraints, &value)?;
             self.handle.p_value.write(value);
         }
 
         Ok(())
     }
-    
+
     /// ensures that the slot is activated and the generation matches
     fn validate(&self) {
         let slot_info = unsafe { self.handle.p_slot.read() };
@@ -253,7 +265,6 @@ pub struct ConfigPropertyRegistry {
     pool_slot: Box<[SlotInfo]>,
     pool_info: Box<[MaybeUninit<PropertyDescriptor>]>,
     pool_exec: Box<[MaybeUninit<ExecuteContext>]>,
-    pool_dirty: Box<[MaybeUninit<bool>]>,
 
     alloc_value: BumpAllocator,
     alloc_cache: BumpAllocator,
@@ -275,7 +286,6 @@ impl ConfigPropertyRegistry {
             pool_items_pos: 0,
             pool_slot: vec![SlotInfo::default(); items_max].into_boxed_slice(),
             pool_info: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
-            pool_dirty: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
             pool_exec: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
 
             alloc_value: BumpAllocator::new(pool_size),
@@ -291,7 +301,7 @@ impl ConfigPropertyRegistry {
             .find(|m| m.ident == ident)
             .expect("machine not registered");
 
-        // invalidate all current properties. Using any property 
+        // invalidate all current properties. Using any property
         // associated with this machine will lead to a panic.
         for index in machine.pos..machine.pos + machine.len {
             self.pool_slot[index].state = SlotState::Deactivated;
@@ -299,27 +309,7 @@ impl ConfigPropertyRegistry {
         }
     }
 
-    pub fn execute_context(
-        &self,
-        ident: MachineIdentificationUnique,
-        resource: &str,
-    ) -> Option<ExecuteContext> {
-        let machine_info = self.machines.iter().find(|m| m.ident == ident)?;
-
-        for i in machine_info.pos..machine_info.len {
-            unsafe {
-                let info = self.pool_info[i].assume_init_read();
-
-                if info.resource == resource {
-                    return Some(self.pool_exec[i].assume_init_read());
-                }
-            }
-        }
-
-        None
-    }
-
-    pub fn begin_registration(
+    pub fn register_machine(
         &'_ mut self,
         ident: MachineIdentificationUnique,
     ) -> ConfigPropertyRegistryRegisterHandle<'_> {
@@ -338,10 +328,38 @@ impl ConfigPropertyRegistry {
             committed: false,
         }
     }
+
+    pub fn sync(&mut self) {
+        // --- copy snapshot of values into cache ---
+        self.alloc_cache.sync(&self.alloc_value);
+    }
+
+    pub fn execute_context(
+        &self,
+        ident: MachineIdentificationUnique,
+        resource: &str,
+    ) -> Option<ExecuteContext> {
+        let machine_info = self.machines.iter().find(|m| m.ident == ident)?;
+
+        let pos = machine_info.pos;
+        let len = machine_info.len;
+
+        for i in pos..pos + len {
+            unsafe {
+                let info = self.pool_info[i].assume_init_read();
+
+                if info.resource == resource {
+                    return Some(self.pool_exec[i].assume_init_read());
+                }
+            }
+        }
+
+        None
+    }
 }
 
 /// Handle used to register properties for a given machine ident.
-/// If .commit() is not used the bump allocator will be reset 
+/// If .commit() is not used the bump allocator will be reset
 /// and all allocated resources will be invalidated.
 pub struct ConfigPropertyRegistryRegisterHandle<'a> {
     registry: &'a mut ConfigPropertyRegistry,
@@ -377,6 +395,12 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
             .alloc_state
             .allocate::<ConfigPropertyState<T>>();
 
+        assert_eq!(
+            self.registry.alloc_value.used(),
+            self.registry.alloc_cache.used(),
+            "value/cache allocator layout diverged"
+        );
+
         unsafe {
             p_value.write(default.clone());
             p_cache.write(default.clone());
@@ -405,7 +429,6 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
 
         self.registry.pool_info[index].write(descriptor);
         self.registry.pool_exec[index].write(exec_ctx);
-        self.registry.pool_dirty[index].write(false);
         self.registry.pool_items_pos += 1;
 
         let p_descriptor = unsafe {
@@ -418,11 +441,8 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
             )
         };
 
-        let p_slot = unsafe {
-            NonNull::new_unchecked(
-                &mut self.registry.pool_slot[index] as *mut SlotInfo,
-            )
-        };
+        let p_slot =
+            unsafe { NonNull::new_unchecked(&mut self.registry.pool_slot[index] as *mut SlotInfo) };
 
         ConfigPropertyHandle {
             generation: self.registry.pool_slot[index].generation,
@@ -458,9 +478,6 @@ impl Drop for ConfigPropertyRegistryRegisterHandle<'_> {
             return;
         }
 
-        // --- roll back item count ---
-        self.registry.pool_items_pos = self.item_pos;
-
         // mark all reserved slots as unused again and increment generation
         // so any created handles cannot access the memory
         for index in self.item_pos..self.registry.pool_items_pos {
@@ -468,6 +485,9 @@ impl Drop for ConfigPropertyRegistryRegisterHandle<'_> {
             slot_info.state = SlotState::Unused;
             slot_info.generation += 1;
         }
+
+        // --- roll back item count ---
+        self.registry.pool_items_pos = self.item_pos;
 
         // Revert the bump allocations
         self.registry.alloc_value.rollback(self.value_mark);

@@ -66,11 +66,13 @@ where
 
     pub fn allow_external_writes(mut self, value: bool) -> Self {
         self.writable = if value {
-            WriteCapability::Forbidden { reason: "Initial state".to_string() }
+            WriteCapability::Forbidden {
+                reason: "Initial state".to_string(),
+            }
         } else {
             WriteCapability::Allowed
         };
-        
+
         self
     }
 
@@ -84,7 +86,6 @@ where
                 .expect("machine type mismatch");
 
             let func: fn(&mut M) = unsafe { transmute(func) };
-
             func(machine)
         }
 
@@ -104,9 +105,7 @@ where
         ) -> ConfigPropertyWriteResult {
             let value = T::from_scalar(value_in)?;
 
-            let state = unsafe {
-                &*(state as *const ConfigPropertyState<T::Type>)
-            };
+            let state = unsafe { &*(state as *const ConfigPropertyState<T::Type>) };
 
             if let WriteCapability::Forbidden { .. } = state.writable {
                 return Err(ConfigPropertyWriteError::NotWritable);
@@ -122,64 +121,71 @@ where
             Ok(())
         }
 
-        let default = self.default.ok_or(BuildError::MissingRequiredField("default"))?;
+        let default = self
+            .default
+            .ok_or(BuildError::MissingRequiredField("default"))?;
         let writable = self.writable;
 
         // TODO: catch register error
-        let handle =
-            self.root
-                .config_properties
-                .register::<T::Type>(
-                    self.path, 
-                    default.clone(),
-                    writable.clone(),
-                    self.constraints.clone(),
-                    write::<T>, 
-                    self.on_external_changed
-                );
+        let handle = self.root.config_properties.register::<T::Type>(
+            self.path,
+            default.clone(),
+            writable.clone(),
+            self.constraints.clone(),
+            write::<T>,
+            self.on_external_changed,
+        );
 
         let timestamp = Utc::now();
 
         // TODO: expose a temp journal so on failure we don't send this out
-        self.root.journals.config_property_write.new_handle().append(
-            ConfigPropertyValueRecord {
+        self.root
+            .journals
+            .config_property_write
+            .new_handle()
+            .append(ConfigPropertyValueRecord {
                 ident: self.root.ident,
                 path: self.path.to_string(),
                 value: T::into_scalar(default.clone()),
                 origin: OperationOrigin::Machine,
                 result: Ok(()),
                 timestamp,
-            }
-        );
+            });
 
         // TODO: expose a temp journal so on failure we don't send this out
-        self.root.journals.config_property_state.new_handle().append(
-            ConfigPropertyStateRecord {
+        self.root
+            .journals
+            .config_property_state
+            .new_handle()
+            .append(ConfigPropertyStateRecord {
                 ident: self.root.ident,
                 path: self.path.to_string(),
                 kind: ConfigPropertyStateChange::DefaultValue(T::into_scalar(default)),
                 timestamp,
-            }
-        );
+            });
 
-        self.root.journals.config_property_state.new_handle().append(
-            ConfigPropertyStateRecord {
+        self.root
+            .journals
+            .config_property_state
+            .new_handle()
+            .append(ConfigPropertyStateRecord {
                 ident: self.root.ident,
                 path: self.path.to_string(),
                 kind: ConfigPropertyStateChange::WriteCapability(WriteCapability::Allowed),
                 timestamp,
-            }
-        );
+            });
 
         let constraints = T::as_parameter_constraints(&self.constraints);
-        self.root.journals.config_property_state.new_handle().append(
-            ConfigPropertyStateRecord {
+        self.root
+            .journals
+            .config_property_state
+            .new_handle()
+            .append(ConfigPropertyStateRecord {
                 ident: self.root.ident,
                 path: self.path.to_string(),
                 kind: ConfigPropertyStateChange::Constraints(constraints),
                 timestamp,
-            }
-        );
+            });
 
         let prop = ConfigProperty::new(
             handle,

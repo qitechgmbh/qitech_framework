@@ -6,7 +6,9 @@ use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::ParameterConstraints;
 use qitech_framework_core::report::RuntimeInitStatus;
+use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::schema::ConfigPropertyKind;
 use qitech_framework_core::schema::MachineSchema;
 
@@ -60,8 +62,7 @@ impl AppState {
                 ConfigField {
                     kind: def.kind.clone(),
                     label: name.clone(),
-                    value: None,
-                    can_write: false,
+                    state: ConfigFieldState::NotInitialized,
                 },
             );
         }
@@ -150,8 +151,17 @@ pub struct MachineEntry {
 pub struct ConfigField {
     pub kind: ConfigPropertyKind,
     pub label: String,
-    pub value: Option<ScalarValue>,
-    pub can_write: bool,
+    pub state: ConfigFieldState,
+}
+
+pub enum ConfigFieldState {
+    NotInitialized,
+    Initialized {
+        value: ScalarValue,
+        default: ScalarValue,
+        writeable: WriteCapability,
+        constraints: ParameterConstraints,
+    },
 }
 
 pub struct StateField {

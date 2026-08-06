@@ -65,7 +65,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 // --- write the value ---
                 let result = context.execute(machine_ref, value.clone());
-                
+
                 // TODO: only record if actually changed !!!
                 // We use a different mechanism for tracking user requests
 
@@ -79,7 +79,10 @@ impl<T: RuntimeTransport> Runtime<T> {
                     timestamp: Utc::now(),
                 };
 
-                self.journals.config_property_write.new_handle().append(record);
+                self.journals
+                    .config_property_write
+                    .new_handle()
+                    .append(record);
 
                 Ok(())
             }

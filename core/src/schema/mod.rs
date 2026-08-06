@@ -53,32 +53,15 @@ pub struct ConfigPropertyDefinition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConfigPropertyKind {
     Enum {
-        /// Variants of the enum. Required.
+        /// Variants of the enum.
         variants: EnumVariants,
-        /// Default enum variant. Required.
-        default: Option<String>,
     },
-    String {
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<String>,
-    },
-    Boolean {
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<bool>,
-    },
-    Integer {
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<i64>,
-    },
+    String,
+    Boolean,
+    Integer,
     Float {
         /// Representation of the float. E.g. plain, fraction, millimeter
         semantic: FloatSemantic,
-        /// Default value. Required if `nullable` is `false`.
-        /// Default is `None` if `nullable` is `true`.
-        default: Option<f64>,
     },
 }
 

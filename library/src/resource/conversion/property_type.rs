@@ -1,12 +1,16 @@
+use std::fmt::Debug;
+use std::fmt::Display;
+
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::constraints::NumericConstraints;
 use crate::resource::constraints::OptionalNumericConstraints;
 use crate::resource::constraints::OptionalStringConstraints;
 use crate::resource::constraints::StringConstraints;
+use crate::resource::constraints::Unconstrained;
 
-pub trait PropertyType: Clone + PartialEq + Default + 'static {
-    type Constraints: Clone + PartialEq + Default + 'static;
+pub trait PropertyType: Debug + Clone + PartialEq + Default + 'static {
+    type Constraints: Debug + Display + Clone + PartialEq + Default + 'static;
 }
 
 impl PropertyType for f64 {
@@ -26,18 +30,18 @@ impl PropertyType for Option<i64> {
 }
 
 impl PropertyType for bool {
-    type Constraints = ();
+    type Constraints = Unconstrained;
 }
 
 impl PropertyType for Option<bool> {
-    type Constraints = ();
+    type Constraints = Unconstrained;
 }
 
-impl PropertyType for String {
+impl<const CAPACITY: usize> PropertyType for heapless::String<CAPACITY> {
     type Constraints = StringConstraints;
 }
 
-impl PropertyType for Option<String> {
+impl<const CAPACITY: usize> PropertyType for Option<heapless::String<CAPACITY>> {
     type Constraints = OptionalStringConstraints;
 }
 

@@ -1,4 +1,4 @@
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 
 /// bump allocator with rollback feature
 pub struct BumpAllocator {
@@ -12,6 +12,24 @@ impl BumpAllocator {
             buffer: vec![0u8; size].into_boxed_slice(),
             pos: 0,
         }
+    }
+
+    pub fn sync(&mut self, other: &BumpAllocator) {
+        assert_eq!(
+            self.buffer.len(),
+            other.buffer.len(),
+            "allocator size mismatch during sync"
+        );
+
+        unsafe {
+            ptr::copy_nonoverlapping(
+                other.buffer.as_ptr(),
+                self.buffer.as_mut_ptr(),
+                other.pos,
+            );
+        }
+
+        self.pos = other.pos;
     }
 
     pub fn allocate<T>(&mut self) -> NonNull<T> {

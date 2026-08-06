@@ -17,6 +17,7 @@ use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ConfigPropertyStateChange;
+use qitech_framework_core::report::ParameterConstraints;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
@@ -38,6 +39,7 @@ mod widgets;
 
 use crate::session::SessionMessage;
 use crate::types::AppState;
+use crate::types::ConfigFieldState;
 use crate::types::MachineEntry;
 use crate::types::RuntimeStatus;
 
@@ -180,12 +182,28 @@ impl Tui {
                 continue;
             };
 
-            let Some(item) = entry.config.get_mut(&mutation.path) else {
+            let Some(field) = entry.config.get_mut(&mutation.path) else {
                 continue;
             };
 
-            if mutation.result.is_ok() {
-                item.value = Some(mutation.value.clone());
+            if mutation.result.is_err() {
+                continue;
+            }
+
+            match &mut field.state {
+                ConfigFieldState::NotInitialized => {
+                    field.state = ConfigFieldState::Initialized {
+                        value: mutation.value.clone(),
+                        default: mutation.value.clone(),
+                        writeable: WriteCapability::Forbidden {
+                            reason: "not_initialized".to_string(),
+                        },
+                        constraints: ParameterConstraints::None,
+                    }
+                }
+                ConfigFieldState::Initialized { value, .. } => {
+                    *value = mutation.value.clone();
+                }
             }
         }
 
@@ -197,22 +215,30 @@ impl Tui {
             let Some(field) = entry.config.get_mut(&record.path) else {
                 continue;
             };
-            
+
+            let ConfigFieldState::Initialized {
+                default,
+                writeable,
+                constraints,
+                ..
+            } = &mut field.state
+            else {
+                // TODO: print err or ?
+                continue;
+            };
+
             match &record.kind {
-                ConfigPropertyStateChange::WriteCapability(capability) => {
-                    field.can_write = match capability {
-                        WriteCapability::Allowed => true,
-                        WriteCapability::Forbidden { .. } => false,
-                    };
-                },
+                ConfigPropertyStateChange::WriteCapability(c) => {
+                    *writeable = c.clone();
+                }
 
-                ConfigPropertyStateChange::Constraints(constraints) => {
-                    _ = constraints;
-                },
+                ConfigPropertyStateChange::Constraints(c) => {
+                    *constraints = c.clone();
+                }
 
-                ConfigPropertyStateChange::DefaultValue(value) => {
-                    _ = value;
-                },
+                ConfigPropertyStateChange::DefaultValue(v) => {
+                    *default = v.clone();
+                }
             }
         }
 

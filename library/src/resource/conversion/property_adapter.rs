@@ -32,9 +32,9 @@ pub trait PropertyAdapter {
 }
 
 // --- string ---
-impl PropertyAdapter for String {
-    type Type = String;
-    type Input = String;
+impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
+    type Type = heapless::String<CAPACITY>;
+    type Input = heapless::String<CAPACITY>;
 
     fn convert_input(input: Self::Input) -> Self::Type {
         input
@@ -42,13 +42,18 @@ impl PropertyAdapter for String {
 
     fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
         match value {
-            ScalarValue::String(Some(value)) => Ok(value),
+            ScalarValue::String(Some(value)) => {
+                // TODO: return error our of bounds
+                let mut out = Self::Type::default();
+                out.push_str(&value).unwrap();
+                Ok(out)
+            },
             _ => Err(ScalarValueTypeMismatchError),
         }
     }
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::String(Some(value.clone()))
+        ScalarValue::String(Some(value.to_string()))
     }
 
     fn validate_constraints(
@@ -99,9 +104,9 @@ impl PropertyAdapter for String {
     }
 }
 
-impl PropertyAdapter for Option<String> {
-    type Type = Option<String>;
-    type Input = Option<String>;
+impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY>> {
+    type Type = Option<heapless::String<CAPACITY>>;
+    type Input = Option<heapless::String<CAPACITY>>;
 
     fn convert_input(input: Self::Input) -> Self::Type {
         input
@@ -109,13 +114,19 @@ impl PropertyAdapter for Option<String> {
 
     fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
         match value {
-            ScalarValue::String(value) => Ok(value),
+            ScalarValue::String(Some(value)) => {
+                // TODO: return error our of bounds
+                let mut out = heapless::String::<CAPACITY>::default();
+                out.push_str(&value).unwrap();
+                Ok(Some(out))
+            }
+            ScalarValue::String(None) => Ok(None),
             _ => Err(ScalarValueTypeMismatchError),
         }
     }
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::String(value)
+        ScalarValue::String(value.map(|v| v.to_string()))
     }
 
     fn validate_constraints(
@@ -276,7 +287,7 @@ impl PropertyAdapter for i64 {
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolation> {
-        if let Some(min) = constraints.min
+        if let Some(min) = constraints.min()
             && *value < min
         {
             return Err(ConstraintViolation::BelowMin {
@@ -285,7 +296,7 @@ impl PropertyAdapter for i64 {
             });
         }
 
-        if let Some(max) = constraints.max
+        if let Some(max) = constraints.max()
             && *value > max
         {
             return Err(ConstraintViolation::AboveMax {
@@ -301,8 +312,8 @@ impl PropertyAdapter for i64 {
         constraints: &<Self::Type as PropertyType>::Constraints,
     ) -> ParameterConstraints {
         ParameterConstraints::Numeric {
-            min: NumericValue::Integer(constraints.min),
-            max: NumericValue::Integer(constraints.max),
+            min: NumericValue::Integer(constraints.min()),
+            max: NumericValue::Integer(constraints.max()),
             nullable: false,
         }
     }
@@ -400,7 +411,7 @@ impl PropertyAdapter for f64 {
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolation> {
-        if let Some(min) = constraints.min
+        if let Some(min) = constraints.min()
             && *value < min
         {
             return Err(ConstraintViolation::BelowMin {
@@ -409,7 +420,7 @@ impl PropertyAdapter for f64 {
             });
         }
 
-        if let Some(max) = constraints.max
+        if let Some(max) = constraints.max()
             && *value > max
         {
             return Err(ConstraintViolation::AboveMax {
@@ -425,8 +436,8 @@ impl PropertyAdapter for f64 {
         constraints: &<Self::Type as PropertyType>::Constraints,
     ) -> ParameterConstraints {
         ParameterConstraints::Numeric {
-            min: NumericValue::Float(constraints.min),
-            max: NumericValue::Float(constraints.max),
+            min: NumericValue::Float(constraints.min()),
+            max: NumericValue::Float(constraints.max()),
             nullable: false,
         }
     }
@@ -526,7 +537,7 @@ macro_rules! impl_uom_unit {
                 constraints: &<Self::Type as PropertyType>::Constraints,
                 value: &Self::Type,
             ) -> Result<(), ConstraintViolation> {
-                if let Some(min) = constraints.min {
+                if let Some(min) = constraints.min() {
                     if *value < min {
                         return Err(ConstraintViolation::BelowMin {
                             value: NumericValue::Float(Some(value.get::<$unit>())),
@@ -535,7 +546,7 @@ macro_rules! impl_uom_unit {
                     }
                 }
 
-                if let Some(max) = constraints.max {
+                if let Some(max) = constraints.max() {
                     if *value > max {
                         return Err(ConstraintViolation::AboveMax {
                             value: NumericValue::Float(Some(value.get::<$unit>())),
@@ -551,8 +562,8 @@ macro_rules! impl_uom_unit {
                 constraints: &<Self::Type as PropertyType>::Constraints,
             ) -> ParameterConstraints {
                 ParameterConstraints::Numeric {
-                    min: NumericValue::Float(constraints.min.map(|x| x.get::<$unit>())),
-                    max: NumericValue::Float(constraints.max.map(|x| x.get::<$unit>())),
+                    min: NumericValue::Float(constraints.min().map(|x| x.get::<$unit>())),
+                    max: NumericValue::Float(constraints.max().map(|x| x.get::<$unit>())),
                     nullable: false,
                 }
             }

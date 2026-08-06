@@ -196,7 +196,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ecat_interface.clone(),
                 hardware.clone(),
                 journals,
-                config_properties.begin_registration(*ident_unique),
+                config_properties.register_machine(*ident_unique),
             );
 
             let instance = match (entry.build)(ctx) {

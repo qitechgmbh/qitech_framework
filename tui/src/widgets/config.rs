@@ -1,5 +1,6 @@
 use crossterm::event::KeyCode;
 use qitech_framework_core::ScalarValue;
+use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::schema::ConfigPropertyKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
@@ -12,6 +13,7 @@ use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 
 use crate::types::AppAction;
+use crate::types::ConfigFieldState;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
@@ -45,12 +47,12 @@ impl TabItem<MachinesContext> for ConfigPage {
                             ScalarValue::Enum(Some(edit.value))
                         }
 
-                        ConfigPropertyKind::String { .. } => {
+                        ConfigPropertyKind::String => {
                             // TODO: capability check
                             ScalarValue::String(Some(edit.value))
                         }
 
-                        ConfigPropertyKind::Boolean { .. } => {
+                        ConfigPropertyKind::Boolean => {
                             let value = match edit.value.parse::<bool>() {
                                 Ok(v) => v,
                                 Err(_) => return Ok(AppAction::NoAction),
@@ -59,7 +61,7 @@ impl TabItem<MachinesContext> for ConfigPage {
                             ScalarValue::Boolean(Some(value))
                         }
 
-                        ConfigPropertyKind::Integer { .. } => {
+                        ConfigPropertyKind::Integer => {
                             let value = match edit.value.parse::<i64>() {
                                 Ok(v) => v,
                                 Err(_) => return Ok(AppAction::NoAction),
@@ -123,15 +125,38 @@ impl TabItem<MachinesContext> for ConfigPage {
                     self.selected = (self.selected + 1).min(max);
                 }
 
-                KeyCode::Enter => {
-                    let (_, field) = machine.config.get_index(self.selected).expect("oops");
+                KeyCode::Backspace => {
+                    let (key, field) = machine.config.get_index(self.selected).expect("oops");
 
-                    // if value is N/A we can't set it
-                    let Some(value) = &field.value else {
+                    let ConfigFieldState::Initialized {
+                        default, writeable, ..
+                    } = &field.state
+                    else {
                         return Ok(AppAction::NoAction);
                     };
 
-                    if !field.can_write {
+                    if writeable.forbidden() {
+                        return Ok(AppAction::NoAction);
+                    }
+
+                    return Ok(AppAction::SetConfig { 
+                        machine: machine.ident, 
+                        resource: key.clone(), 
+                        value: default.clone(),
+                    });
+                }
+
+                KeyCode::Enter => {
+                    let (_, field) = machine.config.get_index(self.selected).expect("oops");
+
+                    let ConfigFieldState::Initialized {
+                        value, writeable, ..
+                    } = &field.state
+                    else {
+                        return Ok(AppAction::NoAction);
+                    };
+
+                    if writeable.forbidden() {
                         return Ok(AppAction::NoAction);
                     }
 
@@ -159,34 +184,50 @@ impl TabItem<MachinesContext> for ConfigPage {
                 let selected = i == self.selected;
                 let editing = selected && self.edit.is_some();
 
+                let (display_value, writeable) = match &field.state {
+                    ConfigFieldState::NotInitialized => (
+                        "N/A".to_string(),
+                        &WriteCapability::Forbidden {
+                            reason: "Not initialized".to_string(),
+                        },
+                    ),
+
+                    ConfigFieldState::Initialized {
+                        value,
+                        default: _,
+                        writeable,
+                        constraints: _,
+                    } => {
+                        let display = format!("{value}");
+                        (display, writeable)
+                    }
+                };
+
+                let writable = writeable.is_allowed();
+
                 let style = if editing {
                     Style::reset().fg(Color::Red)
                 } else if selected && in_focus {
-                    if field.can_write {
+                    if writable {
                         Style::reset().fg(Color::LightBlue)
                     } else {
                         Style::reset()
                             .fg(Color::LightBlue)
                             .add_modifier(Modifier::DIM)
                     }
-                } else if !field.can_write {
+                } else if !writable {
                     Style::reset().fg(Color::Gray)
                 } else {
                     Style::reset()
                 };
 
-                let default = match &field.value {
-                    Some(v) => format!("{v}"),
-                    None => "N/A".to_string(),
-                };
-
                 let value = if selected {
                     match &self.edit {
                         Some(edit) => edit.value.clone(),
-                        None => default,
+                        None => display_value,
                     }
                 } else {
-                    default
+                    display_value
                 };
 
                 Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)

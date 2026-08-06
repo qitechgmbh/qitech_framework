@@ -88,6 +88,16 @@ pub enum WriteCapability {
     },
 }
 
+impl WriteCapability {
+    pub const fn is_allowed(&self) -> bool {
+        matches!(self, WriteCapability::Allowed)
+    }
+
+    pub const fn forbidden(&self) -> bool {
+        matches!(self, WriteCapability::Forbidden { .. })
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ParameterConstraints {
     #[default]
