@@ -13,3 +13,12 @@ config:
     target_enabled: !boolean
     target_min: !millimeter
     target_max: !millimeter
+
+state:
+  in_tolerance: !boolean
+
+measurements:
+  diameter: !millimeter
+  diameter_x: !millimeter
+  diameter_y: !millimeter
+  roundness: !millimeter

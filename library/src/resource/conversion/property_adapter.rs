@@ -47,7 +47,7 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
                 let mut out = Self::Type::default();
                 out.push_str(&value).unwrap();
                 Ok(out)
-            },
+            }
             _ => Err(ScalarValueTypeMismatchError),
         }
     }

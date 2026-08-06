@@ -1,4 +1,5 @@
-use std::ptr::{self, NonNull};
+use std::ptr::NonNull;
+use std::ptr::{self};
 
 /// bump allocator with rollback feature
 pub struct BumpAllocator {
@@ -22,11 +23,7 @@ impl BumpAllocator {
         );
 
         unsafe {
-            ptr::copy_nonoverlapping(
-                other.buffer.as_ptr(),
-                self.buffer.as_mut_ptr(),
-                other.pos,
-            );
+            ptr::copy_nonoverlapping(other.buffer.as_ptr(), self.buffer.as_mut_ptr(), other.pos);
         }
 
         self.pos = other.pos;

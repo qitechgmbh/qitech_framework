@@ -139,9 +139,9 @@ impl TabItem<MachinesContext> for ConfigPage {
                         return Ok(AppAction::NoAction);
                     }
 
-                    return Ok(AppAction::SetConfig { 
-                        machine: machine.ident, 
-                        resource: key.clone(), 
+                    return Ok(AppAction::SetConfig {
+                        machine: machine.ident,
+                        resource: key.clone(),
                         value: default.clone(),
                     });
                 }

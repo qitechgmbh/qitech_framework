@@ -14,6 +14,7 @@ use qitech_framework_core::report::ConstraintViolation;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::report::ParameterConstraints;
 use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::with_uom_quantities;
 
 use super::Machine;
 use crate::resource::BumpAllocator;
@@ -21,6 +22,7 @@ use crate::resource::JournalHandle;
 use crate::resource::MachineInfo;
 use crate::resource::OnExternalChangedCallback;
 use crate::resource::PropertyDescriptor;
+use crate::resource::SlotInfo;
 use crate::resource::SlotState;
 use crate::resource::bump_allocator::BumpAllocatorMark;
 use crate::resource::conversion::PropertyType;
@@ -209,6 +211,52 @@ impl<T: PropertyType> ConfigProperty<T> {
     }
 }
 
+impl<T: PropertyType + Copy> ConfigProperty<T> {
+    pub fn get(&self) -> T {
+        self.validate();
+        unsafe { self.handle.p_value.read() }
+    }
+}
+
+// --- uom impl ---
+macro_rules! impl_uom {
+    ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
+        impl ConfigProperty<$quantity> {
+            pub fn get_as<N>(&self) -> f64
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.get().get::<N>()
+            }
+
+            pub fn set_as<N>(&mut self, value: f64) -> Result<bool, ConstraintViolation>
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.set(<$quantity>::new::<N>(value))
+            }
+        }
+
+        impl ConfigProperty<Option<$quantity>> {
+            pub fn get_as<N>(&self) -> Option<f64>
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.get().map(|q| q.get::<N>())
+            }
+
+            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<bool, ConstraintViolation>
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.set(value.map(<$quantity>::new::<N>))
+            }
+        }
+    };
+}
+
+with_uom_quantities!(impl_uom);
+
 pub struct ConfigPropertyHandle<T: PropertyType> {
     generation: u64,
     p_slot: NonNull<SlotInfo>,
@@ -269,13 +317,6 @@ pub struct ConfigPropertyRegistry {
     alloc_value: BumpAllocator,
     alloc_cache: BumpAllocator,
     alloc_state: BumpAllocator,
-}
-
-/// Safety mechanism for ensuring invalid handles cannot accidentaly write
-#[derive(Clone, Copy, Default)]
-pub struct SlotInfo {
-    state: SlotState,
-    generation: u64,
 }
 
 impl ConfigPropertyRegistry {

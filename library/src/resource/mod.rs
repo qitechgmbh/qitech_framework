@@ -6,6 +6,9 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 
 pub mod error;
 
+mod erased;
+pub use erased::Erased;
+
 mod journal;
 pub(crate) use journal::Journal;
 pub(crate) use journal::JournalHandle;
@@ -21,6 +24,16 @@ pub use config_property::ConfigProperty;
 pub use config_property::ConfigPropertyRegistry;
 pub use config_property::ConfigPropertyRegistryRegisterHandle;
 pub use config_property::ConfigPropertyState;
+
+mod state_property;
+pub use state_property::StateProperty;
+pub use state_property::StatePropertyRegistry;
+pub use state_property::StatePropertyRegistryRegisterHandle;
+
+mod measurements;
+pub use measurements::Measurement;
+pub use measurements::MeasurementRegistry;
+pub use measurements::MeasurementRegistryRegisterHandle;
 
 use crate::machine::Machine;
 
@@ -123,3 +136,9 @@ fn align_up(value: usize, align: usize) -> usize {
 }
 
 // --- subscribe
+/// Safety mechanism for ensuring invalid handles cannot accidentaly write
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SlotInfo {
+    state: SlotState,
+    generation: u64,
+}

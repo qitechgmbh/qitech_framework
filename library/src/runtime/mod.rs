@@ -32,6 +32,8 @@ pub use config::RuntimeConfiguration;
 
 use crate::resource::ConfigPropertyRegistry;
 use crate::resource::Journals;
+use crate::resource::MeasurementRegistry;
+use crate::resource::StatePropertyRegistry;
 
 mod request;
 
@@ -50,6 +52,8 @@ pub struct Runtime<T: RuntimeTransport> {
     report: RuntimeReport,
 
     config_properties: ConfigPropertyRegistry,
+    state_properties: StatePropertyRegistry,
+    measurements: MeasurementRegistry,
 
     // --- instances ---
     machines: Vec<MachineInstance>,
@@ -127,6 +131,10 @@ impl<T: RuntimeTransport> Runtime<T> {
             self.report.machines.config_property_state_records.push(x);
         });
 
+        self.journals.state_property_write.drain_with(|x| {
+            self.report.machines.state_property_write_records.push(x);
+        });
+
         // --- export report ---
         self.session.send_report(self.report.clone()).unwrap();
 
@@ -135,7 +143,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.report.responses.clear();
         self.report.machines.config_property_write_records.clear();
         self.report.machines.config_property_state_records.clear();
-        self.report.machines.state_mutations.clear();
+        self.report.machines.state_property_write_records.clear();
         self.report.machines.measurements.clear();
         self.report.machines.events.clear();
         self.report.machines.command_traces.clear();

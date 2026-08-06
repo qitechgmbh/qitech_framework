@@ -20,9 +20,9 @@ pub use machines::MachineCommandInvokeError;
 pub use machines::MachineCommandInvokeTrace;
 pub use machines::MachineEmittedEvent;
 pub use machines::MachineMeasurement;
-pub use machines::MachineStateMutation;
 pub use machines::MachinesReport;
 pub use machines::ParameterConstraints;
+pub use machines::StatePropertyWriteRecord;
 pub use machines::WriteCapability;
 
 mod logs;

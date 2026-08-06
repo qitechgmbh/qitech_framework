@@ -92,6 +92,8 @@ impl RuntimeConfiguration {
 
             // --- commit all reserved resources to make them usable ---
             ctx.config_properties.commit();
+            ctx.state_properties.commit();
+            ctx.measurements.commit();
 
             Ok(MachineInstance { ident, machine })
         }

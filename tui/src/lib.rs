@@ -242,7 +242,7 @@ impl Tui {
             }
         }
 
-        for mutation in &report.state_mutations {
+        for mutation in &report.state_property_write_records {
             let Some(entry) = self.find_machine_mut(mutation.ident) else {
                 continue;
             };

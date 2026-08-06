@@ -7,10 +7,14 @@ use thiserror::Error;
 use crate::machine::hardware::Hardware;
 use crate::resource::ConfigPropertyRegistryRegisterHandle;
 use crate::resource::Journals;
+use crate::resource::MeasurementRegistryRegisterHandle;
+use crate::resource::StatePropertyRegistryRegisterHandle;
 
 //mod command;
 mod config;
 mod hardware;
+mod measurements;
+mod state_property;
 // mod resource;
 
 pub struct BuildContext<'a> {
@@ -24,7 +28,8 @@ pub struct BuildContext<'a> {
 
     pub(crate) journals: &'a mut Journals,
     pub(crate) config_properties: ConfigPropertyRegistryRegisterHandle<'a>,
-    // pub(crate) commands: Vec<CommandDefinition>,
+    pub(crate) state_properties: StatePropertyRegistryRegisterHandle<'a>,
+    pub(crate) measurements: MeasurementRegistryRegisterHandle<'a>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -35,6 +40,8 @@ impl<'a> BuildContext<'a> {
         hardware: Vec<Hardware>,
         journals: &'a mut Journals,
         config_properties: ConfigPropertyRegistryRegisterHandle<'a>,
+        state_properties: StatePropertyRegistryRegisterHandle<'a>,
+        measurements: MeasurementRegistryRegisterHandle<'a>,
     ) -> Self {
         Self {
             ident,
@@ -43,6 +50,8 @@ impl<'a> BuildContext<'a> {
             hardware,
             journals,
             config_properties,
+            state_properties,
+            measurements,
         }
     }
 

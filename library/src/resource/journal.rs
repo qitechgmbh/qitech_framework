@@ -4,11 +4,13 @@ use std::rc::Rc;
 
 use qitech_framework_core::report::ConfigPropertyStateRecord;
 use qitech_framework_core::report::ConfigPropertyValueRecord;
+use qitech_framework_core::report::StatePropertyWriteRecord;
 
 #[derive(Debug, Default)]
 pub struct Journals {
     pub config_property_write: Journal<ConfigPropertyValueRecord>,
     pub config_property_state: Journal<ConfigPropertyStateRecord>,
+    pub state_property_write: Journal<StatePropertyWriteRecord>,
 }
 
 #[derive(Debug)]
@@ -17,12 +19,6 @@ pub struct Journal<T> {
 }
 
 impl<T> Journal<T> {
-    pub fn new() -> Self {
-        Self {
-            buffer: Default::default(),
-        }
-    }
-
     pub fn new_handle(&self) -> JournalHandle<T> {
         JournalHandle {
             buffer: self.buffer.clone(),

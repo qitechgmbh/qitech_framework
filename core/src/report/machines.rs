@@ -21,7 +21,7 @@ pub struct MachinesReport {
     pub config_property_state_records: Vec<ConfigPropertyStateRecord>,
 
     /// machine state mutations
-    pub state_mutations: Vec<MachineStateMutation>,
+    pub state_property_write_records: Vec<StatePropertyWriteRecord>,
 
     /// machine measurement snapshot
     pub measurements: MachineMeasurementVec,
@@ -172,7 +172,7 @@ pub enum ConstraintViolation {
 
 // --- state ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineStateMutation {
+pub struct StatePropertyWriteRecord {
     /// source machine
     pub ident: MachineIdentificationUnique,
 
