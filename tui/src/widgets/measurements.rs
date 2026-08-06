@@ -61,7 +61,7 @@ impl MeasurementsView {
         code: KeyCode,
         ctx: MachinesContext,
     ) -> Result<AppAction, KeyCode> {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         match code {
             KeyCode::Char(' ') => {
@@ -97,7 +97,7 @@ impl MeasurementsView {
         ctx: MachinesContext,
         in_focus: bool,
     ) {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         let rows: Vec<Row> = machine
             .measurements
@@ -186,7 +186,7 @@ impl MeasurementsView {
     }
 
     fn render_chart(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         let Some((name, field)) = machine.measurements.get_index(self.selected) else {
             return;

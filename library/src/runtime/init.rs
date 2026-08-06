@@ -17,6 +17,7 @@ use crate::machine::hardware::ModbusRTUDeviceIdentified;
 use crate::resource::ConfigPropertyRegistry;
 use crate::resource::Journals;
 use crate::resource::MeasurementRegistry;
+use crate::resource::Resources;
 use crate::resource::StatePropertyRegistry;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
@@ -113,9 +114,12 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // let mut resources = Box::new(Resources::default());
         let mut journals = Journals::default();
-        let mut config_properties = ConfigPropertyRegistry::new(4096, 128);
-        let mut state_properties = StatePropertyRegistry::new(4096, 128);
-        let mut measurements = MeasurementRegistry::new(4096, 128);
+
+        let mut resources = Resources {
+            config_properties: ConfigPropertyRegistry::new(4096, 128),
+            state_properties: StatePropertyRegistry::new(4096, 128),
+            measurements: MeasurementRegistry::new(4096, 128),
+        };
 
         let machines = Self::init_machines(
             &mut session,
@@ -123,9 +127,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             &hardware_registry,
             ecat_controller.as_ref().map(|v| v.channel.clone()),
             &mut journals,
-            &mut config_properties,
-            &mut state_properties,
-            &mut measurements,
+            &mut resources,
         )?;
 
         // --- finalize ethercat ---
@@ -161,12 +163,9 @@ impl<T: RuntimeTransport> Runtime<T> {
             status: RuntimeStatus::Initialized,
             // machine_registry,
             // hardware_registry,
-            export_cycle: 0,
             journals,
+            resources,
             report: Default::default(),
-            config_properties,
-            state_properties,
-            measurements,
             machines,
             sub_devices,
             ecat_controller,
@@ -183,9 +182,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,
         journals: &mut Journals,
-        config_properties: &mut ConfigPropertyRegistry,
-        state_properties: &mut StatePropertyRegistry,
-        measurements: &mut MeasurementRegistry,
+        resources: &mut Resources,
     ) -> RuntimeInitializeResult<Vec<MachineInstance>> {
         let mut machines: Vec<MachineInstance> = Vec::new();
 
@@ -206,9 +203,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ecat_interface.clone(),
                 hardware.clone(),
                 journals,
-                config_properties.register_machine(*ident_unique),
-                state_properties.register_machine(*ident_unique),
-                measurements.register_machine(*ident_unique),
+                resources.config_properties.register_machine(*ident_unique),
+                resources.state_properties.register_machine(*ident_unique),
+                resources.measurements.register_machine(*ident_unique),
             );
 
             let instance = match (entry.build)(ctx) {

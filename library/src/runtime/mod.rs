@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Instant;
 
@@ -30,41 +30,37 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
-use crate::resource::ConfigPropertyRegistry;
 use crate::resource::Journals;
-use crate::resource::MeasurementRegistry;
-use crate::resource::StatePropertyRegistry;
+use crate::resource::Resources;
+use crate::resource::SubscriptionToken;
 
 mod request;
 
 pub struct Runtime<T: RuntimeTransport> {
     status: RuntimeStatus,
-
-    // TODO: make measurements use this to reset itself
-    export_cycle: u64,
-
-    // // --- registries ---
-    // machine_registry: MachineRegistry,
-    // hardware_registry: HardwareRegistry,
+    report: RuntimeReport,
+    session: SessionRunning<T>,
 
     // --- resource managers ---
     journals: Journals,
-    report: RuntimeReport,
-
-    config_properties: ConfigPropertyRegistry,
-    state_properties: StatePropertyRegistry,
-    measurements: MeasurementRegistry,
+    resources: Resources,
 
     // --- instances ---
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
-    subscriptions: HashMap<MachineIdentificationUnique, Vec<MachineIdentificationUnique>>,
+    subscriptions: heapless::Vec<Subscription, 128>,
+    ecat_controller: Option<EtherCATController>,
 
     // --- misc ---
-    ecat_controller: Option<EtherCATController>,
     config: Config,
-    session: SessionRunning<T>,
     last_export_ts: Instant,
+}
+
+#[derive(Debug, Clone)]
+pub struct Subscription {
+    provider: MachineIdentificationUnique,
+    subscriber: MachineIdentificationUnique,
+    token: Rc<SubscriptionToken>,
 }
 
 impl<T: RuntimeTransport> Runtime<T> {
@@ -92,6 +88,9 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.write_ecat_inputs();
         self.process_requests();
         self.run_machines();
+
+        self.resources.measurements.sync_cache();
+
         // self.resources.sync_caches();
         self.write_ecat_outputs();
         self.export_report_if_due(now);
@@ -133,6 +132,10 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         self.journals.state_property_write.drain_with(|x| {
             self.report.machines.state_property_write_records.push(x);
+        });
+
+        self.resources.measurements.extract(|measurement| {
+            self.report.machines.measurements.push(measurement);
         });
 
         // --- export report ---

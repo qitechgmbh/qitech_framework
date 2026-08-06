@@ -90,6 +90,32 @@ fn wrapped_run<T: ControllerTransport>(
                         },
                     });
                 }
+
+                AppAction::Subscribe {
+                    provider,
+                    subscriber,
+                } => {
+                    let _ = session.send_request(RuntimeRequest {
+                        request_id: 0,
+                        kind: RuntimeRequestKind::MachineSubscribe {
+                            provider,
+                            subscriber,
+                        },
+                    });
+                }
+
+                AppAction::Unsubscribe {
+                    provider,
+                    subscriber,
+                } => {
+                    let _ = session.send_request(RuntimeRequest {
+                        request_id: 0,
+                        kind: RuntimeRequestKind::MachineUnsubscribe {
+                            provider,
+                            subscriber,
+                        },
+                    });
+                }
             },
             Err(_) => continue,
         }

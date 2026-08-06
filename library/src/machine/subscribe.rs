@@ -1,78 +1,130 @@
+use std::rc::Rc;
+use std::rc::Weak;
+
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use serde::de::DeserializeOwned;
+use qitech_framework_core::with_uom_quantities;
+use thiserror::Error;
 
-use crate::machine::Resources;
-use crate::machine::SubscribedEvent;
-use crate::machine::error::SubscribeResult;
-use crate::machine::resource::subscription::SubscribedProperty;
+use crate::resource::CachedPropertyView;
+use crate::resource::Resources;
+use crate::resource::SubscriptionToken;
 
+// --- property ---
+pub struct SubscribedProperty<T: Clone> {
+    view: CachedPropertyView<T>,
+    token: Weak<SubscriptionToken>,
+}
+
+impl<T: Clone> SubscribedProperty<T> {
+    pub fn get_ref(&self) -> &T {
+        _ = self.token.upgrade().expect("Subscription expired");
+
+        self.view.read()
+    }
+}
+
+impl<T: Copy> SubscribedProperty<T> {
+    pub fn get(&self) -> T {
+        *self.get_ref()
+    }
+}
+
+// --- uom impl ---
+macro_rules! impl_uom {
+    ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
+        impl SubscribedProperty<$quantity> {
+            pub fn get_as<N>(&self) -> f64
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.get().get::<N>()
+            }
+        }
+
+        impl SubscribedProperty<Option<$quantity>> {
+            pub fn get_as<N>(&self) -> Option<f64>
+            where
+                N: $unit_trait + $conversion_trait,
+            {
+                self.get().map(|q| q.get::<N>())
+            }
+        }
+    };
+}
+
+with_uom_quantities!(impl_uom);
+
+// --- context ---
 pub struct SubscribeContext<'a> {
+    token: Rc<SubscriptionToken>,
     provider: MachineIdentificationUnique,
-    subscriber: MachineIdentificationUnique,
     resources: &'a mut Resources,
 }
 
 impl<'a> SubscribeContext<'a> {
     pub(crate) fn new(
         provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
         resources: &'a mut Resources,
+        token: Rc<SubscriptionToken>,
     ) -> Self {
         Self {
             provider,
-            subscriber,
             resources,
+            token,
         }
     }
 
-    pub fn producer(&self) -> MachineIdentificationUnique {
+    pub fn provider(&self) -> MachineIdentificationUnique {
         self.provider
     }
 
+    /*
     pub fn subscribe_config_property<T: 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
-        Ok(self.resources.config_properties.create_subscriber::<T>(
-            self.provider,
-            self.subscriber,
-            resource,
-        )?)
+
     }
 
     pub fn subscribe_state_property<T: 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
-        Ok(self.resources.state_properties.create_subscriber::<T>(
-            self.provider,
-            self.subscriber,
-            resource,
-        )?)
     }
+    */
 
-    pub fn subscribe_measurement<T: 'static>(
+    pub fn subscribe_measurement<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
-        Ok(self.resources.measurements.create_subscriber::<T>(
-            self.provider,
-            self.subscriber,
-            resource,
-        )?)
-    }
+        let view = self
+            .resources
+            .measurements
+            .new_cached_view(self.provider, resource)
+            .unwrap();
 
-    pub fn subscribe_event<T>(
-        &mut self,
-        resource: &'static str,
-    ) -> SubscribeResult<SubscribedEvent<T>>
-    where
-        T: DeserializeOwned + 'static,
-    {
-        Ok(self.resources.events.create_subscriber::<T>(
-            self.provider,
-            self.subscriber,
-            resource,
-        )?)
+        let prop = SubscribedProperty {
+            view,
+            token: Rc::downgrade(&self.token),
+        };
+
+        Ok(prop)
     }
+}
+
+pub type SubscribeResult<T> = Result<T, SubscribeError>;
+
+#[derive(Debug, Error)]
+pub enum SubscribeError {
+    #[error("unsupported machine")]
+    UnsupportedMachine,
+
+    #[error("too many subscriptions")]
+    TooManySubscriptions,
+
+    #[error("too many subscriptions")]
+    TypeMismatch,
+
+    #[error("provider does not have requested resource")]
+    NoSuchResource,
 }

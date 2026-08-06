@@ -30,7 +30,7 @@ pub struct ConfigPage {
 
 impl TabItem<MachinesContext> for ConfigPage {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         if let Some(mut edit) = self.edit.take() {
             match code {
@@ -174,7 +174,7 @@ impl TabItem<MachinesContext> for ConfigPage {
     }
 
     fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         let rows: Vec<Row> = machine
             .config

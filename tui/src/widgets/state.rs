@@ -22,7 +22,7 @@ pub struct StateView {
 
 impl TabItem<MachinesContext> for StateView {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         match code {
             KeyCode::Up => {
@@ -45,7 +45,7 @@ impl TabItem<MachinesContext> for StateView {
     }
 
     fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
-        let machine = unsafe { &*ctx.machine };
+        let machine = unsafe { &*ctx.selected };
 
         // Number of rows that fit in the available area.
         // If you later wrap the table in a Block, subtract 2 for the borders.

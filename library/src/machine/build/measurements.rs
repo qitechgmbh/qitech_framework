@@ -4,6 +4,7 @@ use qitech_framework_core::report::StatePropertyWriteRecord;
 use crate::machine::BuildContext;
 use crate::machine::build::BuildResult;
 use crate::resource::Measurement;
+use crate::resource::conversion::Extract;
 use crate::resource::conversion::PropertyAdapter;
 
 impl<'a> BuildContext<'a> {
@@ -33,7 +34,7 @@ where
 
 impl<'a, 'b, T> MeasurementBuilder<'a, 'b, T>
 where
-    T: PropertyAdapter + 'static,
+    T: PropertyAdapter + Extract<Option<f64>> + 'static,
     T::Type: Copy,
 {
     pub fn initial(mut self, value: T::Input) -> Self {
@@ -46,7 +47,7 @@ where
         let handle = self
             .root
             .measurements
-            .register::<T::Type>(self.path, self.value.clone());
+            .register::<T::Type>(self.path, self.value, T::extract);
 
         let timestamp = Utc::now();
 
@@ -58,7 +59,7 @@ where
             .append(StatePropertyWriteRecord {
                 ident: self.root.ident,
                 path: self.path.to_string(),
-                value: T::into_scalar(self.value.clone()),
+                value: T::into_scalar(self.value),
                 timestamp,
             });
 

@@ -10,8 +10,10 @@ pub use tab_view::TabView;
 
 pub mod command;
 pub mod config;
+pub mod events;
 pub mod measurements;
 pub mod state;
+pub mod subscriptions;
 
 use crate::types::AppAction;
 

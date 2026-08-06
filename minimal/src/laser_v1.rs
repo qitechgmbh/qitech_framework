@@ -4,10 +4,15 @@ use std::time::Duration;
 use std::time::Instant;
 
 use qitech_framework::MachineIdentification;
+use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::MachineInterface;
+use qitech_framework::machine::SubscribeContext;
+use qitech_framework::machine::SubscribeError;
+use qitech_framework::machine::SubscribeResult;
+use qitech_framework::machine::SubscribedProperty;
 use qitech_framework::machine::error::ActError;
 use qitech_framework::machine::error::ActErrorKind;
 use qitech_framework::machine::error::ActResult;
@@ -21,6 +26,14 @@ use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
 use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
+
+pub struct LaserV1Subscription {
+    ident: MachineIdentificationUnique,
+    diameter: SubscribedProperty<Length>,
+    diameter_x: SubscribedProperty<Option<Length>>,
+    diameter_y: SubscribedProperty<Option<Length>>,
+    roundness: SubscribedProperty<Option<f64>>,
+}
 
 pub struct LaserV1 {
     // --- hardware ---
@@ -45,6 +58,14 @@ pub struct LaserV1 {
     diameter_x: Measurement<Option<Length>>,
     diameter_y: Measurement<Option<Length>>,
     roundness: Measurement<Option<f64>>,
+
+    // --- subscriptions ---
+    subscription: Option<LaserV1Subscription>,
+
+    subscribed_diameter: Measurement<Option<Length>>,
+    subscribed_diameter_x: Measurement<Option<Length>>,
+    subscribed_diameter_y: Measurement<Option<Length>>,
+    subscribed_roundness: Measurement<Option<f64>>,
 
     // -- misc ---
     last_request: Instant,
@@ -118,6 +139,22 @@ impl MachineBuild for LaserV1 {
             .initial(false)
             .register()?;
 
+        let subscribed_diameter = ctx
+            .measurement::<Option<millimeter>>("subscribed.diameter")
+            .register()?;
+
+        let subscribed_diameter_x = ctx
+            .measurement::<Option<millimeter>>("subscribed.diameter_x")
+            .register()?;
+
+        let subscribed_diameter_y = ctx
+            .measurement::<Option<millimeter>>("subscribed.diameter_y")
+            .register()?;
+
+        let subscribed_roundness = ctx
+            .measurement::<Option<f64>>("subscribed.roundness")
+            .register()?;
+
         Ok(Self {
             device,
             diameter_target,
@@ -136,6 +173,11 @@ impl MachineBuild for LaserV1 {
                 .measurement::<Option<millimeter>>("diameter_y")
                 .register()?,
             roundness: ctx.measurement::<Option<f64>>("roundness").register()?,
+            subscription: None,
+            subscribed_diameter,
+            subscribed_diameter_x,
+            subscribed_diameter_y,
+            subscribed_roundness,
             last_request: Instant::now(),
         })
     }
@@ -161,7 +203,49 @@ impl Machine for LaserV1 {
         let in_tolerance = self.compute_in_tolerance();
         self.in_tolerance.set(in_tolerance);
 
+        if let Some(subscription) = &mut self.subscription {
+            self.subscribed_diameter.set(Some(subscription.diameter.get()));
+            self.subscribed_diameter_x.set(subscription.diameter_x.get());
+            self.subscribed_diameter_y.set(subscription.diameter_y.get());
+            self.subscribed_roundness.set(subscription.roundness.get());
+        } else {
+            self.subscribed_diameter.set(None);
+            self.subscribed_diameter_x.set(None);
+            self.subscribed_diameter_y.set(None);
+            self.subscribed_roundness.set(None);
+        }
+
         Ok(())
+    }
+
+    fn subscribe(&mut self, mut ctx: SubscribeContext) -> SubscribeResult<()> {
+        if ctx.provider().identification != LaserV1::IDENTIFICATION {
+            return Err(SubscribeError::UnsupportedMachine);
+        }
+
+        if self.subscription.is_some() {
+            return Err(SubscribeError::TooManySubscriptions);
+        }
+
+        let ident = ctx.provider();
+
+        self.subscription = Some(LaserV1Subscription { 
+            ident, 
+            diameter: ctx.subscribe_measurement("diameter")?,
+            diameter_x: ctx.subscribe_measurement("diameter_x")?,
+            diameter_y: ctx.subscribe_measurement("diameter_y")?,
+            roundness: ctx.subscribe_measurement("roundness")?,
+        });
+
+        Ok(())
+    }
+
+    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
+        if let Some(subscription) = self.subscription.as_ref()
+            && subscription.ident == ident
+        {
+            self.subscription = None;
+        }
     }
 }
 

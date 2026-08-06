@@ -3,10 +3,12 @@ use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::MachineMeasurement;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::BumpAllocator;
 use crate::resource::BumpAllocatorMark;
+use crate::resource::CachedPropertyView;
 use crate::resource::MachineInfo;
 use crate::resource::SlotInfo;
 use crate::resource::SlotState;
@@ -104,12 +106,18 @@ pub struct MeasurementRegistry {
 
 impl MeasurementRegistry {
     pub fn new(pool_size: usize, items_max: usize) -> Self {
+        let pool_desc = {
+            let mut v = Vec::with_capacity(items_max);
+            v.resize_with(items_max, MaybeUninit::uninit);
+            v.into_boxed_slice()
+        };
+
         Self {
             machines: heapless::Vec::new(),
 
             pool_items_pos: 0,
             pool_slot: vec![SlotInfo::default(); items_max].into_boxed_slice(),
-            pool_desc: vec![MaybeUninit::uninit(); items_max].into_boxed_slice(),
+            pool_desc,
 
             alloc_value: BumpAllocator::new(pool_size),
             alloc_cache: BumpAllocator::new(pool_size),
@@ -149,23 +157,75 @@ impl MeasurementRegistry {
         }
     }
 
-    pub fn sync(&mut self) {
+    pub fn sync_cache(&mut self) {
         // --- copy snapshot of values into cache ---
         self.alloc_cache.sync(&self.alloc_value);
     }
+
+    // TODO: return result
+    pub fn new_cached_view<T: Clone + 'static>(
+        &self,
+        ident: MachineIdentificationUnique,
+        resource: &str,
+    ) -> Option<CachedPropertyView<T>> {
+        let Some(entry) = self.machines.iter().find(|m| m.ident == ident) else {
+            return panic!("No such resource");
+        };
+
+        for i in entry.pos..entry.pos + entry.len {
+            if self.pool_slot[i].state != SlotState::Activated {
+                continue;
+            }
+
+            let descriptor = unsafe { self.pool_desc[i].assume_init_ref() };
+
+            if descriptor.path != resource {
+                continue;
+            }
+
+            if descriptor.type_id != TypeId::of::<T>() {
+                return None;
+            }
+
+            let p_value = unsafe { NonNull::new_unchecked(descriptor.p_cache as *mut T) };
+
+            return Some(CachedPropertyView::new(p_value));
+        }
+
+        None
+    }
+
+    pub fn extract(&self, mut f: impl FnMut(MachineMeasurement)) {
+        for i in 0..self.pool_items_pos {
+            if self.pool_slot[i].state != SlotState::Activated {
+                continue;
+            }
+
+            let descriptor = unsafe { self.pool_desc[i].assume_init_ref() };
+            let value = unsafe { (descriptor.extract)(descriptor.p_value) };
+
+            let entry = MachineMeasurement {
+                ident: descriptor.ident,
+                path: descriptor.path.clone(),
+                value,
+            };
+
+            (f)(entry);
+        }
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct SlotDescriptor {
     // --- metadata ---
     ident: MachineIdentificationUnique,
-    resource: &'static str,
-    stat_name: Option<&'static str>,
+    path: String,
 
     // --- typed info ---
     type_id: TypeId,
     p_value: *mut (),
     p_cache: *mut (),
+    extract: unsafe fn(*const ()) -> Option<f64>,
 }
 
 pub struct MeasurementRegistryRegisterHandle<'a> {
@@ -182,6 +242,7 @@ impl<'a> MeasurementRegistryRegisterHandle<'a> {
         &mut self,
         path: &'static str,
         value: T,
+        extract: unsafe fn(*const ()) -> Option<f64>,
     ) -> MeasurementHandle<T> {
         let index = self.registry.pool_items_pos;
 
@@ -207,10 +268,10 @@ impl<'a> MeasurementRegistryRegisterHandle<'a> {
         let descriptor = SlotDescriptor {
             type_id: TypeId::of::<T>(),
             ident: self.ident,
-            resource: path,
-            stat_name: None,
+            path: path.to_string(),
             p_value: p_value.as_ptr() as *mut (),
             p_cache: p_cache.as_ptr() as *mut (),
+            extract,
         };
 
         self.registry.pool_desc[index].write(descriptor);

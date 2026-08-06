@@ -17,7 +17,9 @@ pub(crate) use journal::Journals;
 pub mod conversion;
 
 pub mod constraints;
+
 mod property_view;
+pub use property_view::CachedPropertyView;
 
 mod config_property;
 pub use config_property::ConfigProperty;
@@ -41,14 +43,15 @@ mod bump_allocator;
 pub use bump_allocator::BumpAllocator;
 pub use bump_allocator::BumpAllocatorMark;
 
+pub struct Resources {
+    pub config_properties: ConfigPropertyRegistry,
+    pub state_properties: StatePropertyRegistry,
+    pub measurements: MeasurementRegistry,
+}
+
 // mod command;
 // pub use command::CommandDefinition;
 // pub use command::CommandRegistry;
-
-// --- registry ---
-pub struct Resources {
-    pub config_properties: ConfigPropertyRegistry,
-}
 
 // --- machine ---
 #[derive(Debug)]
@@ -142,3 +145,6 @@ pub struct SlotInfo {
     state: SlotState,
     generation: u64,
 }
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SubscriptionToken;

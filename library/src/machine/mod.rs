@@ -8,8 +8,11 @@ use error::ActResult;
 mod build;
 pub use build::BuildContext;
 
-// mod subscribe;
-// pub use subscribe::SubscribeContext;
+mod subscribe;
+pub use subscribe::SubscribeContext;
+pub use subscribe::SubscribeError;
+pub use subscribe::SubscribeResult;
+pub use subscribe::SubscribedProperty;
 
 pub(crate) mod hardware;
 pub use hardware::Hardware;
@@ -19,10 +22,10 @@ pub trait Machine: Any {
     fn act(&mut self) -> ActResult;
 
     // /// allows a machine to sync remote resources (from subscriptions)
-    // fn subscribe(&mut self, ctx: SubscribeContext) -> SubscribeResult<()> {
-    //     _ = ctx;
-    //     Err(MachineSubscribeError::UnsupportedMachine)
-    // }
+    fn subscribe(&mut self, ctx: SubscribeContext) -> SubscribeResult<()> {
+        _ = ctx;
+        Err(SubscribeError::UnsupportedMachine)
+    }
 
     /// called when the machine is notified a subscription is canceled
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {

@@ -53,7 +53,7 @@ impl RuntimeConfiguration {
 
     pub fn modbus_rtu_device<D: ModbusDevice + 'static>(
         mut self,
-        id_path: String,
+        id_path: impl ToString,
         ident: MachineIdentificationUnique,
         slave_id: u8,
         settings: Option<ModbusSettings>,

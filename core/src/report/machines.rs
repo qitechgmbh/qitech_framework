@@ -34,6 +34,9 @@ pub struct MachinesReport {
 
     /// machine events emitted during this cycle
     pub events: Vec<MachineEmittedEvent>,
+
+    /// subscriptions established this
+    pub subscriptions: Vec<SubscriptionRecord>,
 }
 
 // --- config ---
@@ -255,4 +258,32 @@ pub struct MachineEmittedEvent {
 
     /// event timestamp
     pub timestamp: DateTime<Utc>,
+}
+
+// --- subscription ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionRecord {
+    pub provider: MachineIdentificationUnique,
+    pub subscriber: MachineIdentificationUnique,
+    pub kind: SubscriptionKind,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SubscriptionKind {
+    Subscribe(Vec<SubscriptionResource>),
+    Unsubscribe,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionResource {
+    path: String,
+    kind: SubscriptionResourceKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SubscriptionResourceKind {
+    Config,
+    State,
+    Measurement,
 }

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use chrono::Utc;
 use qitech_framework_core::report::ConfigPropertyValueRecord;
 use qitech_framework_core::report::OperationOrigin;
@@ -7,6 +9,8 @@ use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;
 use crate::machine::Machine;
+use crate::machine::SubscribeContext;
+use crate::runtime::Subscription;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 
@@ -19,6 +23,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             let kind = req.request_id;
             let response = self.process_request(req);
+
             self.report.responses.push((kind, response));
         }
     }
@@ -58,7 +63,10 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 let machine_ref: &mut dyn Machine = &mut *machine;
 
-                let context = self.config_properties.execute_context(target, &resource);
+                let context = self
+                    .resources
+                    .config_properties
+                    .execute_context(target, &resource);
                 let Some(context) = context else {
                     return Err("No Such Resource".to_string());
                 };
@@ -120,36 +128,45 @@ impl<T: RuntimeTransport> Runtime<T> {
                 provider,
                 subscriber,
             } => {
-                /*
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
                     return Err("No Such Machine".to_string());
                 }
 
-                // --- find consumer ---
+                // --- find subscriber ---
                 let Some(machine) = find_machine(&mut self.machines, subscriber) else {
                     return Err("No Such Machine".to_string());
                 };
 
-                // --- prevent duplicate subscription ---
-                let subscribers = self.subscriptions.entry(provider).or_default();
+                let duplicate = self
+                    .subscriptions
+                    .iter()
+                    .any(|s| s.provider == provider && s.subscriber == subscriber);
 
-                if subscribers.contains(&subscriber) {
-                    return Err("Already subscribed".to_string());
+                if duplicate {
+                    return Err("Machine Already Subscribed".to_string());
                 }
+
+                let subscription = Subscription {
+                    provider,
+                    subscriber,
+                    token: Rc::new(Default::default()),
+                };
 
                 // --- let machine allocate resources ---
-                let ctx = SubscribeContext::new(provider, subscriber, &mut self.resources);
+                let ctx = SubscribeContext::new(
+                    provider,
+                    &mut self.resources,
+                    subscription.token.clone(),
+                );
 
-                if let Err(e) = machine.subscribe(ctx).map_err(|e| e.to_string()) {
-                    // failed, clean up any created handles
-                    self.resources.remove_subscription(provider, subscriber);
-                    return Err(e);
-                }
+                // --- allow machine to handle subscription ---
+                machine.subscribe(ctx).map_err(|e| e.to_string())?;
 
                 // --- register subscription ---
-                subscribers.push(subscriber);
-                */
+                self.subscriptions
+                    .push(subscription)
+                    .expect("Exceeded global subscription limit");
 
                 Ok(())
             }
@@ -158,12 +175,19 @@ impl<T: RuntimeTransport> Runtime<T> {
                 provider,
                 subscriber,
             } => {
-                let Some(entry) = self.subscriptions.get_mut(&provider) else {
-                    return Err("No such provider".to_string());
+                let Some(entry) = self
+                    .subscriptions
+                    .iter()
+                    .find(|s| s.provider == provider && s.subscriber == subscriber)
+                else {
+                    return Err("Subscription not found".to_string());
                 };
 
-                entry.retain(|v| *v != subscriber);
-                // self.resources.remove_subscription(provider, subscriber);
+                let machine = find_machine(&mut self.machines, subscriber)
+                    .expect("No machine when subscription present");
+
+                // --- tell machine that the subscription is not longer valid ---
+                machine.unsubscribe(provider);
 
                 Ok(())
             }

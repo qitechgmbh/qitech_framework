@@ -11,14 +11,17 @@ use crate::types::MachineEntry;
 use crate::widgets::TabView;
 use crate::widgets::command::CommandsView;
 use crate::widgets::config::ConfigPage;
+use crate::widgets::events::EventsView;
 use crate::widgets::measurements::MeasurementsView;
 use crate::widgets::state::StateView;
+use crate::widgets::subscriptions::SubscriptionsView;
 use crate::widgets::tab_view::TabEntry;
 use crate::widgets::tab_view::TabItem;
 
 #[derive(Clone, Copy)]
 pub struct MachinesContext {
-    pub machine: *const MachineEntry,
+    pub selected: *const MachineEntry,
+    pub machines: *const [MachineEntry],
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -55,10 +58,23 @@ impl MachinesView {
             item: Box::new(CommandsView::default()),
         };
 
+        let events = TabEntry {
+            title: "Events",
+            item: Box::new(EventsView::default()),
+        };
+
+        let subscriptions = TabEntry {
+            title: "Subscriptions",
+            item: Box::new(SubscriptionsView::new()),
+        };
+
         Self {
             focus: Focus::Picker,
             drop_down: DropDown::new("machine"),
-            machines: TabView::new(true, vec![config, state, measurements, commands]),
+            machines: TabView::new(
+                true,
+                vec![config, state, measurements, commands, events, subscriptions],
+            ),
         }
     }
 }
@@ -89,7 +105,10 @@ impl TabItem<AppContext> for MachinesView {
 
             Focus::Tabs => {
                 let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
-                let ctx = MachinesContext { machine };
+                let ctx = MachinesContext {
+                    selected: machine,
+                    machines,
+                };
 
                 match self.machines.on_key(code, ctx) {
                     Ok(action) => Ok(action),
@@ -133,8 +152,8 @@ impl TabItem<AppContext> for MachinesView {
             return;
         }
 
-        let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
-        let machines_ctx = MachinesContext { machine };
+        let selected = &machines[self.drop_down.selected()] as *const MachineEntry;
+        let machines_ctx = MachinesContext { selected, machines };
 
         // Render remaining area
         self.machines.render(

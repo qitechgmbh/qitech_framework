@@ -22,3 +22,9 @@ measurements:
   diameter_x: !millimeter
   diameter_y: !millimeter
   roundness: !millimeter
+
+  # test
+  subscribed.diameter: !millimeter
+  subscribed.diameter_x: !millimeter
+  subscribed.diameter_y: !millimeter
+  subscribed.roundness: !millimeter

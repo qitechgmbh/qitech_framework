@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ptr;
 
 use indexmap::IndexMap;
+use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
@@ -107,6 +108,7 @@ impl AppState {
             state,
             measurements,
             commands,
+            subscriptions: IndexSet::new(),
         });
     }
 }
@@ -136,6 +138,14 @@ pub enum AppAction {
         machine: MachineIdentificationUnique,
         resource: String,
     },
+    Subscribe {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    },
+    Unsubscribe {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    },
 }
 
 // --- types ---
@@ -146,6 +156,7 @@ pub struct MachineEntry {
     pub state: IndexMap<String, StateField>,
     pub measurements: IndexMap<String, MeasurementField>,
     pub commands: IndexMap<String, CommandField>,
+    pub subscriptions: IndexSet<MachineIdentificationUnique>,
 }
 
 pub struct ConfigField {
@@ -177,4 +188,8 @@ pub struct MeasurementField {
 pub struct CommandField {
     pub label: String,
     pub enabled: bool,
+}
+
+pub struct SubscriptionField {
+    pub label: String,
 }

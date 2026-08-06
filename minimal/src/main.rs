@@ -20,9 +20,16 @@ pub fn main() -> anyhow::Result<()> {
 
     // --- configure runtime ---
     let config = RuntimeConfiguration::new()
+        .cycle_timeout(Duration::from_millis(100))
         .modbus_rtu_device::<LaserDevice>(
-            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0".to_string(),
+            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0",
             laser_ident(1),
+            1,
+            None,
+        )
+        .modbus_rtu_device::<LaserDevice>(
+            "pci-0000:c6:00.3-usbv2-0:1.4:1.0-port0",
+            laser_ident(2),
             1,
             None,
         )
