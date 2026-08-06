@@ -129,7 +129,9 @@ impl TabItem<MachinesContext> for ConfigPage {
                     let (key, field) = machine.config.get_index(self.selected).expect("oops");
 
                     let ConfigFieldState::Initialized {
-                        default, capability: writeable, ..
+                        default,
+                        capability: writeable,
+                        ..
                     } = &field.state
                     else {
                         return Ok(AppAction::NoAction);
@@ -150,7 +152,9 @@ impl TabItem<MachinesContext> for ConfigPage {
                     let (_, field) = machine.config.get_index(self.selected).expect("oops");
 
                     let ConfigFieldState::Initialized {
-                        value, capability: writeable, ..
+                        value,
+                        capability: writeable,
+                        ..
                     } = &field.state
                     else {
                         return Ok(AppAction::NoAction);

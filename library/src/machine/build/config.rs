@@ -106,7 +106,8 @@ where
         {
             let value = T::from_scalar(value_in)?;
 
-            let state = state.downcast::<ConfigPropertyState<T::Type>>()
+            let state = state
+                .downcast::<ConfigPropertyState<T::Type>>()
                 .expect("Expected pointer to state");
 
             let state = unsafe { state.read() };
@@ -119,9 +120,10 @@ where
                 return Err(ConfigPropertyWriteError::ConstraintViolation(e));
             }
 
-            let mut value_out = value_out.downcast::<T::Type>()
+            let mut value_out = value_out
+                .downcast::<T::Type>()
                 .expect("Expected pointer to value type");
-            
+
             let value_out = unsafe { value_out.as_mut() };
 
             if value_out == &value {

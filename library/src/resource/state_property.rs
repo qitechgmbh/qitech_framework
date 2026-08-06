@@ -56,10 +56,10 @@ impl<T: PropertyType> StateProperty<T> {
         let after = (self.into_scalar)(value);
 
         let descriptor = unsafe { self.handle.p_desc.read() };
-        self.journal_value.append(StatePropertyRecord { 
-            timestamp: Utc::now(), 
+        self.journal_value.append(StatePropertyRecord {
+            timestamp: Utc::now(),
             machine: descriptor.ident,
-            path: descriptor.path.to_string(), 
+            path: descriptor.path.to_string(),
             event: StatePropertyEvent::ValueChanged { before, after },
         });
     }

@@ -81,6 +81,7 @@ fn wrapped_run<T: ControllerTransport>(
                         },
                     });
                 }
+
                 AppAction::ExecuteCommand { machine, resource } => {
                     let _ = session.send_request(RuntimeRequest {
                         request_id: 0,

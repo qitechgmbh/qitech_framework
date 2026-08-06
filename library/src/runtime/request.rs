@@ -92,7 +92,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     timestamp: Utc::now(),
                     machine: target,
                     path: resource.to_string(),
-                    event: ConfigPropertyEvent::Written { 
+                    event: ConfigPropertyEvent::Written {
                         value,
                         origin: OperationOrigin::Request { request_id },
                         outcome,
@@ -103,7 +103,10 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(())
             }
 
-            RuntimeRequestKind::InvokeMachineCommand { target, path: resource } => {
+            RuntimeRequestKind::InvokeMachineCommand {
+                target,
+                path: resource,
+            } => {
                 // let result = self
                 //     .resources
                 //     .commands

@@ -66,9 +66,9 @@ impl<T: PropertyType> ConfigProperty<T> {
         self.validate();
 
         if value == *self.get_ref() {
-            self.record(ConfigPropertyEvent::Written { 
+            self.record(ConfigPropertyEvent::Written {
                 value: (self.into_scalar)(value),
-                origin: OperationOrigin::Machine, 
+                origin: OperationOrigin::Machine,
                 outcome: ConfigPropertyWriteOutcome::Unchanged,
             });
 
@@ -81,18 +81,18 @@ impl<T: PropertyType> ConfigProperty<T> {
 
         match &res {
             Ok(_) => {
-                self.record(ConfigPropertyEvent::Written { 
+                self.record(ConfigPropertyEvent::Written {
                     value: input,
-                    origin: OperationOrigin::Machine, 
+                    origin: OperationOrigin::Machine,
                     outcome: ConfigPropertyWriteOutcome::Changed { before },
                 });
             }
 
             Err(e) => {
                 let err = ConfigPropertyWriteError::ConstraintViolation(e.clone());
-                self.record(ConfigPropertyEvent::Written { 
+                self.record(ConfigPropertyEvent::Written {
                     value: input,
-                    origin: OperationOrigin::Machine, 
+                    origin: OperationOrigin::Machine,
                     outcome: ConfigPropertyWriteOutcome::Failed(err),
                 });
             }
@@ -434,7 +434,11 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         default: T,
         writable: WriteCapability,
         constraints: T::Constraints,
-        write: fn(Erased, ScalarValue, Erased) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
+        write: fn(
+            Erased,
+            ScalarValue,
+            Erased,
+        ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
         on_changed: Option<OnExternalChangedCallback>,
     ) -> ConfigPropertyHandle<T> {
         let index = self.registry.pool_items_pos;

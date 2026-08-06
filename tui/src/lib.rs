@@ -188,10 +188,10 @@ impl Tui {
             };
 
             match record.event {
-                ConfigPropertyEvent::Registered { 
-                    default, 
-                    capability, 
-                    constraints 
+                ConfigPropertyEvent::Registered {
+                    default,
+                    capability,
+                    constraints,
                 } => {
                     field.state = ConfigFieldState::Initialized {
                         value: default.clone(),
@@ -208,18 +208,20 @@ impl Tui {
                 }
 
                 ConfigPropertyEvent::CapabilityChanged { after, .. } => {
-                   if let ConfigFieldState::Initialized { capability, .. } = &mut field.state {
+                    if let ConfigFieldState::Initialized { capability, .. } = &mut field.state {
                         *capability = after;
                     }
                 }
 
                 ConfigPropertyEvent::ConstraintsChanged { after, .. } => {
-                   if let ConfigFieldState::Initialized { constraints, .. } = &mut field.state {
+                    if let ConfigFieldState::Initialized { constraints, .. } = &mut field.state {
                         *constraints = after
                     }
                 }
 
-                ConfigPropertyEvent::Written { value: v, outcome, .. } => {
+                ConfigPropertyEvent::Written {
+                    value: v, outcome, ..
+                } => {
                     if !matches!(outcome, ConfigPropertyWriteOutcome::Changed { .. }) {
                         continue;
                     }
@@ -271,15 +273,13 @@ impl Tui {
             };
 
             match record.event {
-                CommandEvent::Registered => {
-
-                },
+                CommandEvent::Registered => {}
                 CommandEvent::CapabilityChanged { after, .. } => {
                     item.enabled = after;
-                },
+                }
                 CommandEvent::Invoke(result) => {
                     _ = result;
-                },
+                }
             }
         }
     }
