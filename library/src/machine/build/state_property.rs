@@ -1,5 +1,6 @@
 use chrono::Utc;
-use qitech_framework_core::report::StatePropertyWriteRecord;
+use qitech_framework_core::report::StatePropertyEvent;
+use qitech_framework_core::report::StatePropertyRecord;
 
 use crate::machine::BuildContext;
 use crate::machine::build::BuildResult;
@@ -48,24 +49,24 @@ where
             .state_properties
             .register::<T::Type>(self.path, self.value.clone());
 
-        let timestamp = Utc::now();
-
         // TODO: expose a temp journal so on failure we don't send this out
         self.root
             .journals
-            .state_property_write
+            .state_property
             .new_handle()
-            .append(StatePropertyWriteRecord {
-                ident: self.root.ident,
+            .append(StatePropertyRecord {
+                timestamp: Utc::now(),
+                machine: self.root.ident,
                 path: self.path.to_string(),
-                value: T::into_scalar(self.value.clone()),
-                timestamp,
+                event: StatePropertyEvent::Registered {
+                    value: T::into_scalar(self.value),
+                },
             });
 
         let prop = StateProperty::new(
             handle,
             T::into_scalar,
-            self.root.journals.state_property_write.new_handle(),
+            self.root.journals.state_property.new_handle(),
         );
 
         Ok(prop)

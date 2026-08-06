@@ -6,8 +6,8 @@ use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EtherCATStatus;
-use qitech_framework_core::report::ParameterConstraints;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::schema::ConfigPropertyKind;
@@ -171,7 +171,7 @@ pub enum ConfigFieldState {
         value: ScalarValue,
         default: ScalarValue,
         writeable: WriteCapability,
-        constraints: ParameterConstraints,
+        constraints: Constraints,
     },
 }
 

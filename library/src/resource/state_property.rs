@@ -5,7 +5,8 @@ use std::ptr::NonNull;
 use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::StatePropertyWriteRecord;
+use qitech_framework_core::report::StatePropertyEvent;
+use qitech_framework_core::report::StatePropertyRecord;
 
 use crate::resource::BumpAllocator;
 use crate::resource::BumpAllocatorMark;
@@ -22,14 +23,14 @@ pub struct StateProperty<T: PropertyType> {
     into_scalar: fn(T) -> ScalarValue,
 
     // --- journals ---
-    journal_value: JournalHandle<StatePropertyWriteRecord>,
+    journal_value: JournalHandle<StatePropertyRecord>,
 }
 
 impl<T: PropertyType> StateProperty<T> {
     pub(crate) fn new(
         handle: StatePropertyHandle<T>,
         into_scalar: fn(T) -> ScalarValue,
-        journal_value: JournalHandle<StatePropertyWriteRecord>,
+        journal_value: JournalHandle<StatePropertyRecord>,
     ) -> Self {
         Self {
             handle,
@@ -46,17 +47,20 @@ impl<T: PropertyType> StateProperty<T> {
     pub fn set(&mut self, value: T) {
         self.validate();
 
-        unsafe {
+        let before = unsafe {
+            let before = (self.into_scalar)(self.handle.p_value.as_ref().clone());
             self.handle.p_value.write(value.clone());
-        }
+            before
+        };
+
+        let after = (self.into_scalar)(value);
 
         let descriptor = unsafe { self.handle.p_desc.read() };
-
-        self.journal_value.append(StatePropertyWriteRecord {
-            ident: descriptor.ident,
-            path: descriptor.resource.to_string(),
-            value: (self.into_scalar)(value),
-            timestamp: Utc::now(),
+        self.journal_value.append(StatePropertyRecord { 
+            timestamp: Utc::now(), 
+            machine: descriptor.ident,
+            path: descriptor.path.to_string(), 
+            event: StatePropertyEvent::ValueChanged { before, after },
         });
     }
 
@@ -146,7 +150,7 @@ impl StatePropertyRegistry {
 pub struct SlotDescriptor {
     type_id: TypeId,
     ident: MachineIdentificationUnique,
-    resource: &'static str,
+    path: &'static str,
     p_value: *mut (),
     p_cache: *mut (),
 }
@@ -190,7 +194,7 @@ impl<'a> StatePropertyRegistryRegisterHandle<'a> {
         let descriptor = SlotDescriptor {
             type_id: TypeId::of::<T>(),
             ident: self.ident,
-            resource: path,
+            path,
             p_value: p_value.as_ptr() as *mut (),
             p_cache: p_cache.as_ptr() as *mut (),
         };

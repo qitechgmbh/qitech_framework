@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::MachineMeasurement;
+use qitech_framework_core::report::MeasurementSnapshot;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::BumpAllocator;
@@ -195,7 +195,7 @@ impl MeasurementRegistry {
         None
     }
 
-    pub fn extract(&self, mut f: impl FnMut(MachineMeasurement)) {
+    pub fn extract(&self, mut f: impl FnMut(MeasurementSnapshot)) {
         for i in 0..self.pool_items_pos {
             if self.pool_slot[i].state != SlotState::Activated {
                 continue;
@@ -204,7 +204,7 @@ impl MeasurementRegistry {
             let descriptor = unsafe { self.pool_desc[i].assume_init_ref() };
             let value = unsafe { (descriptor.extract)(descriptor.p_value) };
 
-            let entry = MachineMeasurement {
+            let entry = MeasurementSnapshot {
                 ident: descriptor.ident,
                 path: descriptor.path.clone(),
                 value,

@@ -17,7 +17,7 @@ use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ConfigPropertyStateChange;
-use qitech_framework_core::report::ParameterConstraints;
+use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
@@ -198,7 +198,7 @@ impl Tui {
                         writeable: WriteCapability::Forbidden {
                             reason: "not_initialized".to_string(),
                         },
-                        constraints: ParameterConstraints::None,
+                        constraints: Constraints::None,
                     }
                 }
                 ConfigFieldState::Initialized { value, .. } => {
@@ -242,8 +242,8 @@ impl Tui {
             }
         }
 
-        for mutation in &report.state_property_write_records {
-            let Some(entry) = self.find_machine_mut(mutation.ident) else {
+        for mutation in &report.state_property_records {
+            let Some(entry) = self.find_machine_mut(mutation.machine) else {
                 continue;
             };
 
@@ -254,7 +254,7 @@ impl Tui {
             item.value = Some(mutation.value.clone());
         }
 
-        for measurement in &report.measurements {
+        for measurement in &report.measurement_snapshots {
             let Some(entry) = self.find_machine_mut(*measurement.ident) else {
                 continue;
             };

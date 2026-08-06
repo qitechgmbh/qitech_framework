@@ -8,6 +8,7 @@ use crate::machine::hardware::Hardware;
 use crate::resource::ConfigPropertyRegistryRegisterHandle;
 use crate::resource::Journals;
 use crate::resource::MeasurementRegistryRegisterHandle;
+use crate::resource::Resources;
 use crate::resource::StatePropertyRegistryRegisterHandle;
 
 //mod command;
@@ -39,9 +40,7 @@ impl<'a> BuildContext<'a> {
         ethercat_interface: Option<EtherCATThreadChannel>,
         hardware: Vec<Hardware>,
         journals: &'a mut Journals,
-        config_properties: ConfigPropertyRegistryRegisterHandle<'a>,
-        state_properties: StatePropertyRegistryRegisterHandle<'a>,
-        measurements: MeasurementRegistryRegisterHandle<'a>,
+        resources: &'a mut Resources,
     ) -> Self {
         Self {
             ident,
@@ -49,9 +48,9 @@ impl<'a> BuildContext<'a> {
             ethercat_interface,
             hardware,
             journals,
-            config_properties,
-            state_properties,
-            measurements,
+            config_properties: resources.config_properties.register_machine(ident),
+            state_properties: resources.state_properties.register_machine(ident),
+            measurements: resources.measurements.register_machine(ident),
         }
     }
 

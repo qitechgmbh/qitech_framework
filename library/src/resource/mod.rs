@@ -10,7 +10,6 @@ mod erased;
 pub use erased::Erased;
 
 mod journal;
-pub(crate) use journal::Journal;
 pub(crate) use journal::JournalHandle;
 pub(crate) use journal::Journals;
 
@@ -65,7 +64,7 @@ pub struct MachineInfo {
 pub struct PropertyDescriptor {
     type_id: TypeId,
     ident: MachineIdentificationUnique,
-    resource: &'static str,
+    path: &'static str,
     p_value: *mut (),
     p_cache: *mut (),
     p_state: *mut (),

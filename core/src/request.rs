@@ -1,8 +1,10 @@
 use serde::Deserialize;
 use serde::Serialize;
+use thiserror::Error;
 
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
+use crate::report::ConfigPropertyWriteError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeRequest {
@@ -51,6 +53,105 @@ pub enum RuntimeRequestKind {
     },
 
     MachineUnsubscribe {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeResponse {
+    /// identifier the controller can use to map request back to response
+    pub request_id: u64,
+
+    /// result of the requested operation
+    pub result: Result<(), RuntimeRequestError>,
+}
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum RuntimeRequestError {
+    #[error("write machine device info failed")]
+    WriteMachineDeviceInfo(#[from] WriteMachineDeviceInfoError),
+
+    #[error("write config property failed")]
+    WriteConfigProperty(#[from] WriteConfigPropertyError),
+
+    #[error("invoke machine command failed")]
+    InvokeMachineCommand,
+
+    #[error(transparent)]
+    MachineSubscribe(#[from] SubscribeError),
+
+    #[error(transparent)]
+    MachineUnsubscribe(#[from] UnsubscribeError),
+}
+
+// --- errors ---
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum WriteMachineDeviceInfoError {
+    #[error("no EtherCAT controller available")]
+    NoEtherCATController,
+
+    #[error(transparent)]
+    ReadMachineDeviceInfo(#[from] ReadMachineDeviceInfoError),
+
+    #[error("failed to write machine device info to EEPROM: {0}")]
+    WriteMachineDeviceInfoEeprom(String),
+}
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum ReadMachineDeviceInfoError {
+    #[error("failed to check if machine device info file exists")]
+    CheckExists,
+
+    #[error("failed to read machine device info file")]
+    ReadFile,
+
+    #[error("failed to parse machine device info JSON")]
+    ParseJson,
+
+    #[error("root JSON value is not an array")]
+    RootNotArray,
+
+    #[error("missing device address")]
+    MissingDeviceAddress,
+}
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum WriteConfigPropertyError {
+    #[error("...")]
+    MachineNotFound,
+
+    #[error("...")]
+    ResourceNotFound,
+
+    #[error("value type mismatch")]
+    WriteError(ConfigPropertyWriteError),
+}
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum SubscribeError {
+    #[error("unsupported machine: {0}")]
+    UnsupportedMachine(MachineIdentificationUnique),
+
+    #[error("too many subscriptions")]
+    TooManySubscriptions,
+
+    #[error("type mismatch: expected {expected}, received {received}")]
+    TypeMismatch { expected: String, received: String },
+
+    #[error("provider does not have requested resource: {resource}")]
+    NoSuchResource { resource: String },
+}
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum UnsubscribeError {
+    #[error("provider does not have requested machine: {resource}")]
+    NoSuchMachine {
+        resource: MachineIdentificationUnique,
+    },
+
+    #[error("provider {provider} does not have a subscription for subscriber {subscriber}")]
+    NoSuchSubscription {
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
     },

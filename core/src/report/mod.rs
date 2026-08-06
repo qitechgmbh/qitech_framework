@@ -7,23 +7,26 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::ident::MachineIdentificationUnique;
+use crate::request::RuntimeResponse;
+
+mod types;
+pub use types::ConstraintViolationError;
+pub use types::Constraints;
+pub use types::OperationOrigin;
+pub use types::WriteCapability;
 
 mod machines;
-pub use machines::ConfigPropertyStateChange;
-pub use machines::ConfigPropertyStateRecord;
-pub use machines::ConfigPropertyValueRecord;
+pub use machines::CommandInvokeError;
+pub use machines::CommandRecord;
+pub use machines::ConfigPropertyEvent;
+pub use machines::ConfigPropertyRecord;
 pub use machines::ConfigPropertyWriteError;
-pub use machines::ConfigPropertyWriteResult;
-pub use machines::ConstraintViolation;
-pub use machines::MachineCommandCapabilityMutation;
-pub use machines::MachineCommandInvokeError;
-pub use machines::MachineCommandInvokeTrace;
-pub use machines::MachineEmittedEvent;
-pub use machines::MachineMeasurement;
+pub use machines::ConfigPropertyWriteOutcome;
+pub use machines::EventRecord;
 pub use machines::MachinesReport;
-pub use machines::ParameterConstraints;
-pub use machines::StatePropertyWriteRecord;
-pub use machines::WriteCapability;
+pub use machines::MeasurementSnapshot;
+pub use machines::StatePropertyEvent;
+pub use machines::StatePropertyRecord;
 
 mod logs;
 pub use logs::LogLevel;
@@ -42,7 +45,7 @@ pub struct RuntimeReport {
     pub timestamp: DateTime<Utc>,
 
     /// results for completed requests
-    pub responses: Vec<(u64, Result<(), String>)>,
+    pub responses: Vec<RuntimeResponse>,
 
     /// timings data
     pub timings: TimingsReport,
@@ -51,7 +54,7 @@ pub struct RuntimeReport {
     pub machines: MachinesReport,
 
     /// runtime events
-    pub events: Vec<RuntimeRunEvent>,
+    pub events: Vec<RuntimeEvent>,
 
     /// runtime log records
     pub logs: Vec<LogRecord>,
@@ -59,13 +62,26 @@ pub struct RuntimeReport {
 
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeRunEvent {
-    AddedMachine { ident: MachineIdentificationUnique },
-    RemovedMachine { ident: MachineIdentificationUnique },
-}
+pub enum RuntimeEvent {
+    AddedMachine {
+        ident: MachineIdentificationUnique,
+    },
 
-// --- response ---
-pub struct RequestResults {}
+    RemovedMachine {
+        ident: MachineIdentificationUnique,
+    },
+
+    SubscriptionAdded {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+        resources: Vec<MachineResource>,
+    },
+
+    SubscriptionRemoved {
+        provider: MachineIdentificationUnique,
+        subscriber: MachineIdentificationUnique,
+    },
+}
 
 // --- timing ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -126,43 +142,16 @@ pub struct StatsReport {
     pub processed_requests: u32,
 }
 
-// --- misc ---
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum OperationOrigin {
-    Request { request_id: u64 },
-    Machine,
+// --- subscription ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MachineResource {
+    path: String,
+    kind: MachineResourceKind,
 }
 
-impl From<OperationOrigin> for u64 {
-    fn from(value: OperationOrigin) -> Self {
-        match value {
-            OperationOrigin::Request { request_id } => request_id,
-            OperationOrigin::Machine => 0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[repr(i8)]
-pub enum OperationResult {
-    Success = 0,
-    Failure = 1,
-}
-
-impl From<OperationResult> for i8 {
-    fn from(v: OperationResult) -> Self {
-        v as i8
-    }
-}
-
-impl TryFrom<i8> for OperationResult {
-    type Error = String;
-
-    fn try_from(v: i8) -> Result<Self, Self::Error> {
-        match v {
-            0 => Ok(Self::Success),
-            1 => Ok(Self::Failure),
-            _ => Err(format!("invalid ConfigMutationOrigin: {v}")),
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MachineResourceKind {
+    Config,
+    State,
+    Measurement,
 }

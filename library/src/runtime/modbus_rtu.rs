@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+// TODO: read once and find multiple ones at once
 pub fn resolve_serial_by_path(binding: &str) -> Option<String> {
     let base = Path::new("/dev/serial/by-path");
 

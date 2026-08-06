@@ -43,16 +43,13 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
 
-        for (schema_str, build_fn, type_id) in config.machines {
+        for (schema_str, build, type_id) in config.machines {
             let schema = MachineSchema::parse_str(schema_str)?;
 
             if machine_registry
                 .insert(
                     schema.identification,
-                    MachineRegistryEntry {
-                        build: build_fn,
-                        type_id,
-                    },
+                    MachineRegistryEntry { build, type_id },
                 )
                 .is_some()
             {
@@ -112,7 +109,6 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- build machines ---
         session.send_event(RuntimeInitEvent::BuildingMachines)?;
 
-        // let mut resources = Box::new(Resources::default());
         let mut journals = Journals::default();
 
         let mut resources = Resources {
@@ -203,9 +199,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ecat_interface.clone(),
                 hardware.clone(),
                 journals,
-                resources.config_properties.register_machine(*ident_unique),
-                resources.state_properties.register_machine(*ident_unique),
-                resources.measurements.register_machine(*ident_unique),
+                resources,
             );
 
             let instance = match (entry.build)(ctx) {

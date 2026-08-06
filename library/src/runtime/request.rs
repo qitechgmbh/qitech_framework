@@ -1,10 +1,14 @@
 use std::rc::Rc;
 
 use chrono::Utc;
-use qitech_framework_core::report::ConfigPropertyValueRecord;
+use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::request::RuntimeRequest;
+use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework_core::request::RuntimeResponse;
+use qitech_framework_core::request::WriteConfigPropertyError;
+use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;
@@ -21,14 +25,16 @@ impl<T: RuntimeTransport> Runtime<T> {
                 break;
             };
 
-            let kind = req.request_id;
-            let response = self.process_request(req);
+            let request_id = req.request_id;
+            let result = self.process_request(req);
 
-            self.report.responses.push((kind, response));
+            self.report
+                .responses
+                .push(RuntimeResponse { request_id, result });
         }
     }
 
-    fn process_request(&mut self, request: RuntimeRequest) -> Result<(), String> {
+    fn process_request(&mut self, request: RuntimeRequest) -> Result<(), RuntimeRequestError> {
         let request_id = request.request_id;
 
         match request.kind {
@@ -38,18 +44,15 @@ impl<T: RuntimeTransport> Runtime<T> {
                 subdevice_index,
             } => {
                 let Some(controller) = &self.ecat_controller else {
-                    return Err("No EtherCAT controller available".into());
+                    return Err(WriteMachineDeviceInfoError::NoEtherCATController)?;
                 };
 
-                // TODO: submit error
-                _ = utils::write_machine_device_info(
+                Ok(utils::write_machine_device_info(
                     controller,
                     machine_ident,
                     role,
                     subdevice_index,
-                );
-
-                Ok(())
+                )?)
             }
 
             RuntimeRequestKind::WriteConfigProperty {
@@ -58,28 +61,27 @@ impl<T: RuntimeTransport> Runtime<T> {
                 value,
             } => {
                 let Some(machine) = find_machine(&mut self.machines, target) else {
-                    return Err("No Such Machine".to_string());
+                    return Err(WriteConfigPropertyError::MachineNotFound)?;
                 };
-
-                let machine_ref: &mut dyn Machine = &mut *machine;
 
                 let context = self
                     .resources
                     .config_properties
                     .execute_context(target, &resource);
+
                 let Some(context) = context else {
-                    return Err("No Such Resource".to_string());
+                    return Err(WriteConfigPropertyError::ResourceNotFound)?;
                 };
 
                 // --- write the value ---
-                let result = context.execute(machine_ref, value.clone());
+                let result = context.execute(machine, value.clone());
 
                 // TODO: only record if actually changed !!!
                 // We use a different mechanism for tracking user requests
 
                 // --- record the result ---
-                let record = ConfigPropertyValueRecord {
-                    ident: target,
+                let record = ConfigPropertyRecord {
+                    machine: target,
                     path: resource.to_string(),
                     value,
                     origin: OperationOrigin::Request { request_id },
@@ -87,10 +89,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     timestamp: Utc::now(),
                 };
 
-                self.journals
-                    .config_property_write
-                    .new_handle()
-                    .append(record);
+                self.journals.config_property.new_handle().append(record);
 
                 Ok(())
             }

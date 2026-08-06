@@ -1,8 +1,8 @@
 use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ScalarValueTypeMismatchError;
-use qitech_framework_core::report::ConstraintViolation;
-use qitech_framework_core::report::ParameterConstraints;
+use qitech_framework_core::report::ConstraintViolationError;
+use qitech_framework_core::report::Constraints;
 use qitech_framework_core::with_uom_units;
 
 use crate::resource::conversion::property_type::PropertyType;
@@ -24,11 +24,11 @@ pub trait PropertyAdapter {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation>;
+    ) -> Result<(), ConstraintViolationError>;
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints;
+    ) -> Constraints;
 }
 
 // --- string ---
@@ -59,11 +59,11 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         if let Some(min) = constraints.min_length
             && value.len() < min
         {
-            return Err(ConstraintViolation::StringTooShort {
+            return Err(ConstraintViolationError::StringTooShort {
                 length: value.len(),
                 min,
             });
@@ -72,7 +72,7 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
         if let Some(max) = constraints.max_length
             && value.len() > max
         {
-            return Err(ConstraintViolation::StringTooLong {
+            return Err(ConstraintViolationError::StringTooLong {
                 length: value.len(),
                 max,
             });
@@ -81,7 +81,7 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
         if let Some((pattern, regex)) = &constraints.pattern
             && !regex.is_match(value)
         {
-            return Err(ConstraintViolation::PatternMismatch {
+            return Err(ConstraintViolationError::PatternMismatch {
                 pattern: (*pattern).to_owned(),
             });
         }
@@ -91,8 +91,8 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
-        ParameterConstraints::String {
+    ) -> Constraints {
+        Constraints::String {
             min_length: constraints.min_length,
             max_length: constraints.max_length,
             pattern: constraints
@@ -132,7 +132,7 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         let value = match value {
             Some(value) => value,
             None => {
@@ -140,7 +140,7 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
                     return Ok(());
                 }
 
-                return Err(ConstraintViolation::CannotBeNull {
+                return Err(ConstraintViolationError::CannotBeNull {
                     value: ScalarValue::String(None),
                 });
             }
@@ -149,7 +149,7 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
         if let Some(min) = constraints.min_length
             && value.len() < min
         {
-            return Err(ConstraintViolation::StringTooShort {
+            return Err(ConstraintViolationError::StringTooShort {
                 length: value.len(),
                 min,
             });
@@ -158,7 +158,7 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
         if let Some(max) = constraints.max_length
             && value.len() > max
         {
-            return Err(ConstraintViolation::StringTooLong {
+            return Err(ConstraintViolationError::StringTooLong {
                 length: value.len(),
                 max,
             });
@@ -167,7 +167,7 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
         if let Some((pattern, regex)) = &constraints.pattern
             && !regex.is_match(value)
         {
-            return Err(ConstraintViolation::PatternMismatch {
+            return Err(ConstraintViolationError::PatternMismatch {
                 pattern: (*pattern).to_owned(),
             });
         }
@@ -177,8 +177,8 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
-        ParameterConstraints::String {
+    ) -> Constraints {
+        Constraints::String {
             min_length: constraints.min_length,
             max_length: constraints.max_length,
             pattern: constraints
@@ -213,7 +213,7 @@ impl PropertyAdapter for bool {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         _ = constraints;
         _ = value;
         Ok(())
@@ -221,9 +221,9 @@ impl PropertyAdapter for bool {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
+    ) -> Constraints {
         _ = constraints;
-        ParameterConstraints::None
+        Constraints::None
     }
 }
 
@@ -249,7 +249,7 @@ impl PropertyAdapter for Option<bool> {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         _ = constraints;
         _ = value;
         Ok(())
@@ -257,9 +257,9 @@ impl PropertyAdapter for Option<bool> {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
+    ) -> Constraints {
         _ = constraints;
-        ParameterConstraints::None
+        Constraints::None
     }
 }
 
@@ -286,11 +286,11 @@ impl PropertyAdapter for i64 {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         if let Some(min) = constraints.min()
             && *value < min
         {
-            return Err(ConstraintViolation::BelowMin {
+            return Err(ConstraintViolationError::BelowMin {
                 value: NumericValue::Integer(Some(*value)),
                 min: NumericValue::Integer(Some(min)),
             });
@@ -299,7 +299,7 @@ impl PropertyAdapter for i64 {
         if let Some(max) = constraints.max()
             && *value > max
         {
-            return Err(ConstraintViolation::AboveMax {
+            return Err(ConstraintViolationError::AboveMax {
                 value: NumericValue::Integer(Some(*value)),
                 max: NumericValue::Integer(Some(max)),
             });
@@ -310,8 +310,8 @@ impl PropertyAdapter for i64 {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
-        ParameterConstraints::Numeric {
+    ) -> Constraints {
+        Constraints::Numeric {
             min: NumericValue::Integer(constraints.min()),
             max: NumericValue::Integer(constraints.max()),
             nullable: false,
@@ -341,7 +341,7 @@ impl PropertyAdapter for Option<i64> {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         let value = match value {
             Some(value) => value,
             None => {
@@ -349,7 +349,7 @@ impl PropertyAdapter for Option<i64> {
                     return Ok(());
                 }
 
-                return Err(ConstraintViolation::CannotBeNull {
+                return Err(ConstraintViolationError::CannotBeNull {
                     value: ScalarValue::Integer(None),
                 });
             }
@@ -358,7 +358,7 @@ impl PropertyAdapter for Option<i64> {
         if let Some(min) = constraints.min
             && *value < min
         {
-            return Err(ConstraintViolation::BelowMin {
+            return Err(ConstraintViolationError::BelowMin {
                 value: NumericValue::Integer(Some(*value)),
                 min: NumericValue::Integer(Some(min)),
             });
@@ -367,7 +367,7 @@ impl PropertyAdapter for Option<i64> {
         if let Some(max) = constraints.max
             && *value > max
         {
-            return Err(ConstraintViolation::AboveMax {
+            return Err(ConstraintViolationError::AboveMax {
                 value: NumericValue::Integer(Some(*value)),
                 max: NumericValue::Integer(Some(max)),
             });
@@ -378,8 +378,8 @@ impl PropertyAdapter for Option<i64> {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
-        ParameterConstraints::Numeric {
+    ) -> Constraints {
+        Constraints::Numeric {
             min: NumericValue::Integer(constraints.min),
             max: NumericValue::Integer(constraints.max),
             nullable: constraints.allow_none,
@@ -410,11 +410,11 @@ impl PropertyAdapter for f64 {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         if let Some(min) = constraints.min()
             && *value < min
         {
-            return Err(ConstraintViolation::BelowMin {
+            return Err(ConstraintViolationError::BelowMin {
                 value: NumericValue::Float(Some(*value)),
                 min: NumericValue::Float(Some(min)),
             });
@@ -423,7 +423,7 @@ impl PropertyAdapter for f64 {
         if let Some(max) = constraints.max()
             && *value > max
         {
-            return Err(ConstraintViolation::AboveMax {
+            return Err(ConstraintViolationError::AboveMax {
                 value: NumericValue::Float(Some(*value)),
                 max: NumericValue::Float(Some(max)),
             });
@@ -434,8 +434,8 @@ impl PropertyAdapter for f64 {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
-        ParameterConstraints::Numeric {
+    ) -> Constraints {
+        Constraints::Numeric {
             min: NumericValue::Float(constraints.min()),
             max: NumericValue::Float(constraints.max()),
             nullable: false,
@@ -465,7 +465,7 @@ impl PropertyAdapter for Option<f64> {
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
-    ) -> Result<(), ConstraintViolation> {
+    ) -> Result<(), ConstraintViolationError> {
         let value = match value {
             Some(value) => value,
             None => {
@@ -473,7 +473,7 @@ impl PropertyAdapter for Option<f64> {
                     return Ok(());
                 }
 
-                return Err(ConstraintViolation::CannotBeNull {
+                return Err(ConstraintViolationError::CannotBeNull {
                     value: ScalarValue::Float(None),
                 });
             }
@@ -482,7 +482,7 @@ impl PropertyAdapter for Option<f64> {
         if let Some(min) = constraints.min
             && *value < min
         {
-            return Err(ConstraintViolation::BelowMin {
+            return Err(ConstraintViolationError::BelowMin {
                 value: NumericValue::Float(Some(*value)),
                 min: NumericValue::Float(Some(min)),
             });
@@ -491,7 +491,7 @@ impl PropertyAdapter for Option<f64> {
         if let Some(max) = constraints.max
             && *value > max
         {
-            return Err(ConstraintViolation::AboveMax {
+            return Err(ConstraintViolationError::AboveMax {
                 value: NumericValue::Float(Some(*value)),
                 max: NumericValue::Float(Some(max)),
             });
@@ -502,8 +502,8 @@ impl PropertyAdapter for Option<f64> {
 
     fn as_parameter_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> ParameterConstraints {
-        ParameterConstraints::Numeric {
+    ) -> Constraints {
+        Constraints::Numeric {
             min: NumericValue::Float(constraints.min),
             max: NumericValue::Float(constraints.max),
             nullable: constraints.allow_none,
@@ -536,10 +536,10 @@ macro_rules! impl_uom_unit {
             fn validate_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
                 value: &Self::Type,
-            ) -> Result<(), ConstraintViolation> {
+            ) -> Result<(), ConstraintViolationError> {
                 if let Some(min) = constraints.min() {
                     if *value < min {
-                        return Err(ConstraintViolation::BelowMin {
+                        return Err(ConstraintViolationError::BelowMin {
                             value: NumericValue::Float(Some(value.get::<$unit>())),
                             min: NumericValue::Float(Some(min.get::<$unit>())),
                         });
@@ -548,7 +548,7 @@ macro_rules! impl_uom_unit {
 
                 if let Some(max) = constraints.max() {
                     if *value > max {
-                        return Err(ConstraintViolation::AboveMax {
+                        return Err(ConstraintViolationError::AboveMax {
                             value: NumericValue::Float(Some(value.get::<$unit>())),
                             max: NumericValue::Float(Some(max.get::<$unit>())),
                         });
@@ -560,8 +560,8 @@ macro_rules! impl_uom_unit {
 
             fn as_parameter_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
-            ) -> ParameterConstraints {
-                ParameterConstraints::Numeric {
+            ) -> Constraints {
+                Constraints::Numeric {
                     min: NumericValue::Float(constraints.min().map(|x| x.get::<$unit>())),
                     max: NumericValue::Float(constraints.max().map(|x| x.get::<$unit>())),
                     nullable: false,
@@ -591,7 +591,7 @@ macro_rules! impl_uom_unit {
             fn validate_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
                 value: &Self::Type,
-            ) -> Result<(), ConstraintViolation> {
+            ) -> Result<(), ConstraintViolationError> {
                 let value = match value {
                     Some(value) => value,
                     None => {
@@ -599,7 +599,7 @@ macro_rules! impl_uom_unit {
                             return Ok(());
                         }
 
-                        return Err(ConstraintViolation::CannotBeNull {
+                        return Err(ConstraintViolationError::CannotBeNull {
                             value: ScalarValue::Float(None),
                         });
                     }
@@ -607,7 +607,7 @@ macro_rules! impl_uom_unit {
 
                 if let Some(min) = constraints.min {
                     if *value < min {
-                        return Err(ConstraintViolation::BelowMin {
+                        return Err(ConstraintViolationError::BelowMin {
                             value: NumericValue::Float(Some(value.get::<$unit>())),
                             min: NumericValue::Float(Some(min.get::<$unit>())),
                         });
@@ -616,7 +616,7 @@ macro_rules! impl_uom_unit {
 
                 if let Some(max) = constraints.max {
                     if *value > max {
-                        return Err(ConstraintViolation::AboveMax {
+                        return Err(ConstraintViolationError::AboveMax {
                             value: NumericValue::Float(Some(value.get::<$unit>())),
                             max: NumericValue::Float(Some(max.get::<$unit>())),
                         });
@@ -628,8 +628,8 @@ macro_rules! impl_uom_unit {
 
             fn as_parameter_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
-            ) -> ParameterConstraints {
-                ParameterConstraints::Numeric {
+            ) -> Constraints {
+                Constraints::Numeric {
                     min: NumericValue::Float(constraints.min.map(|x| x.get::<$unit>())),
                     max: NumericValue::Float(constraints.max.map(|x| x.get::<$unit>())),
                     nullable: constraints.allow_none,

@@ -1,18 +1,18 @@
 use std::any::TypeId;
+use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::ConfigPropertyStateChange;
-use qitech_framework_core::report::ConfigPropertyStateRecord;
-use qitech_framework_core::report::ConfigPropertyValueRecord;
+use qitech_framework_core::report::ConfigPropertyEvent;
+use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteError;
-use qitech_framework_core::report::ConfigPropertyWriteResult;
-use qitech_framework_core::report::ConstraintViolation;
+use qitech_framework_core::report::ConfigPropertyWriteOutcome;
+use qitech_framework_core::report::ConstraintViolationError;
+use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationOrigin;
-use qitech_framework_core::report::ParameterConstraints;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::with_uom_quantities;
 
@@ -32,30 +32,27 @@ pub struct ConfigProperty<T: PropertyType> {
 
     // --- conversion functions ---
     into_scalar: fn(T) -> ScalarValue,
-    validate_constraints: fn(&T::Constraints, &T) -> Result<(), ConstraintViolation>,
-    as_parameter_constraints: fn(&T::Constraints) -> ParameterConstraints,
+    validate_constraints: fn(&T::Constraints, &T) -> Result<(), ConstraintViolationError>,
+    as_parameter_constraints: fn(&T::Constraints) -> Constraints,
 
     // --- journals ---
-    journal_value: JournalHandle<ConfigPropertyValueRecord>,
-    journal_state: JournalHandle<ConfigPropertyStateRecord>,
+    journal: JournalHandle<ConfigPropertyRecord>,
 }
 
 impl<T: PropertyType> ConfigProperty<T> {
     pub(crate) fn new(
         handle: ConfigPropertyHandle<T>,
         into_scalar: fn(T) -> ScalarValue,
-        validate_constraints: fn(&T::Constraints, &T) -> Result<(), ConstraintViolation>,
-        as_parameter_constraints: fn(&T::Constraints) -> ParameterConstraints,
-        journal_value: JournalHandle<ConfigPropertyValueRecord>,
-        journal_state: JournalHandle<ConfigPropertyStateRecord>,
+        validate_constraints: fn(&T::Constraints, &T) -> Result<(), ConstraintViolationError>,
+        as_parameter_constraints: fn(&T::Constraints) -> Constraints,
+        journal: JournalHandle<ConfigPropertyRecord>,
     ) -> Self {
         Self {
             handle,
             into_scalar,
             validate_constraints,
             as_parameter_constraints,
-            journal_value,
-            journal_state,
+            journal,
         }
     }
 
@@ -64,32 +61,47 @@ impl<T: PropertyType> ConfigProperty<T> {
         unsafe { self.handle.p_value.as_ref() }
     }
 
-    pub fn set(&mut self, value: T) -> Result<bool, ConstraintViolation> {
+    pub fn set(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         self.validate();
 
         if value == *self.get_ref() {
+            self.record(ConfigPropertyEvent::Written { 
+                value: (self.into_scalar)(value),
+                origin: OperationOrigin::Machine, 
+                outcome: ConfigPropertyWriteOutcome::Unchanged,
+            });
+
             return Ok(false);
         }
 
+        let before = (self.into_scalar)(self.get_ref().clone());
+        let input = (self.into_scalar)(value.clone());
         let res = self.write(value.clone());
-        let descriptor = self.descriptor();
 
-        self.journal_value.append(ConfigPropertyValueRecord {
-            ident: descriptor.ident,
-            path: descriptor.resource.to_string(),
-            value: (self.into_scalar)(value),
-            origin: OperationOrigin::Machine,
-            result: res
-                .clone()
-                .map_err(ConfigPropertyWriteError::ConstraintViolation),
-            timestamp: Utc::now(),
-        });
+        match &res {
+            Ok(_) => {
+                self.record(ConfigPropertyEvent::Written { 
+                    value: input,
+                    origin: OperationOrigin::Machine, 
+                    outcome: ConfigPropertyWriteOutcome::Changed { before },
+                });
+            }
+
+            Err(e) => {
+                let err = ConfigPropertyWriteError::ConstraintViolation(e.clone());
+                self.record(ConfigPropertyEvent::Written { 
+                    value: input,
+                    origin: OperationOrigin::Machine, 
+                    outcome: ConfigPropertyWriteOutcome::Failed(err),
+                });
+            }
+        }
 
         res.map(|_| true)
     }
 
     /// resets property back to the assigned default value
-    pub fn reset(&mut self) -> Result<bool, ConstraintViolation> {
+    pub fn reset(&mut self) -> Result<bool, ConstraintViolationError> {
         self.validate();
 
         unsafe {
@@ -117,18 +129,14 @@ impl<T: PropertyType> ConfigProperty<T> {
             return;
         }
 
-        state.writable = value.clone();
-
-        let descriptor = self.descriptor();
-        self.journal_state.append(ConfigPropertyStateRecord {
-            ident: descriptor.ident,
-            path: descriptor.resource.to_string(),
-            kind: ConfigPropertyStateChange::WriteCapability(value),
-            timestamp: Utc::now(),
+        let before = mem::replace(&mut state.writable, value);
+        self.record(ConfigPropertyEvent::CapabilityChanged {
+            before,
+            after: state.writable.clone(),
         });
     }
 
-    pub fn set_default(&mut self, value: T) -> Result<bool, ConstraintViolation> {
+    pub fn set_default(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         self.validate();
 
         let state = unsafe { self.handle.p_state.as_mut() };
@@ -139,14 +147,11 @@ impl<T: PropertyType> ConfigProperty<T> {
 
         // ensure new default value adheres to the constraints
         (self.validate_constraints)(&state.constraints, &value)?;
-        state.default_value = value.clone();
 
-        let descriptor = self.descriptor();
-        self.journal_state.append(ConfigPropertyStateRecord {
-            ident: descriptor.ident,
-            path: descriptor.resource.to_string(),
-            kind: ConfigPropertyStateChange::DefaultValue((self.into_scalar)(value)),
-            timestamp: Utc::now(),
+        let before = mem::replace(&mut state.default_value, value);
+        self.record(ConfigPropertyEvent::DefaultChanged {
+            before: (self.into_scalar)(before),
+            after: (self.into_scalar)(state.default_value.clone()),
         });
 
         Ok(true)
@@ -162,7 +167,7 @@ impl<T: PropertyType> ConfigProperty<T> {
     pub fn set_constraints(
         &mut self,
         constraints: T::Constraints,
-    ) -> Result<bool, ConstraintViolation> {
+    ) -> Result<bool, ConstraintViolationError> {
         self.validate();
         let state = unsafe { self.handle.p_state.as_mut() };
 
@@ -174,17 +179,13 @@ impl<T: PropertyType> ConfigProperty<T> {
         (self.validate_constraints)(&constraints, self.get_ref())?;
         (self.validate_constraints)(&constraints, &state.default_value)?;
 
-        state.constraints = constraints.clone();
-        let constraints = (self.as_parameter_constraints)(&state.constraints);
+        let before = (self.as_parameter_constraints)(&state.constraints);
 
-        let descriptor = self.descriptor();
-        self.journal_state.append(ConfigPropertyStateRecord {
-            ident: descriptor.ident,
-            path: descriptor.resource.to_string(),
-            kind: ConfigPropertyStateChange::Constraints(constraints),
-            timestamp: Utc::now(),
-        });
+        state.constraints = constraints;
 
+        let after = (self.as_parameter_constraints)(&state.constraints);
+
+        self.record(ConfigPropertyEvent::ConstraintsChanged { before, after });
         Ok(true)
     }
 
@@ -193,7 +194,7 @@ impl<T: PropertyType> ConfigProperty<T> {
         unsafe { self.handle.p_descriptor.read() }
     }
 
-    fn write(&mut self, value: T) -> Result<(), ConstraintViolation> {
+    fn write(&mut self, value: T) -> Result<(), ConstraintViolationError> {
         unsafe {
             let state = self.handle.p_state.as_ref();
             (self.validate_constraints)(&state.constraints, &value)?;
@@ -208,6 +209,16 @@ impl<T: PropertyType> ConfigProperty<T> {
         let slot_info = unsafe { self.handle.p_slot.read() };
         assert_eq!(slot_info.state, SlotState::Activated);
         assert_eq!(slot_info.generation, self.handle.generation)
+    }
+
+    fn record(&mut self, event: ConfigPropertyEvent) {
+        let descriptor = self.descriptor();
+        self.journal.append(ConfigPropertyRecord {
+            timestamp: Utc::now(),
+            machine: descriptor.ident,
+            path: descriptor.path.to_string(),
+            event,
+        });
     }
 }
 
@@ -229,7 +240,7 @@ macro_rules! impl_uom {
                 self.get().get::<N>()
             }
 
-            pub fn set_as<N>(&mut self, value: f64) -> Result<bool, ConstraintViolation>
+            pub fn set_as<N>(&mut self, value: f64) -> Result<bool, ConstraintViolationError>
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -245,7 +256,10 @@ macro_rules! impl_uom {
                 self.get().map(|q| q.get::<N>())
             }
 
-            pub fn set_as<N>(&mut self, value: Option<f64>) -> Result<bool, ConstraintViolation>
+            pub fn set_as<N>(
+                &mut self,
+                value: Option<f64>,
+            ) -> Result<bool, ConstraintViolationError>
             where
                 N: $unit_trait + $conversion_trait,
             {
@@ -274,7 +288,7 @@ pub struct ExecuteContext {
     state: *const (),
 
     /// function to write scalar value into the property
-    write: fn(*const (), ScalarValue, *mut ()) -> ConfigPropertyWriteResult,
+    write: fn(*const (), ScalarValue, *mut ()) -> Result<(), ConfigPropertyWriteError>,
 
     /// callback invoked when a external write succeeds and the value changed
     on_external_changed: Option<OnExternalChangedCallback>,
@@ -285,7 +299,7 @@ impl ExecuteContext {
         self,
         machine: &mut dyn Machine,
         value: ScalarValue,
-    ) -> ConfigPropertyWriteResult {
+    ) -> Result<(), ConfigPropertyWriteError> {
         let result = (self.write)(self.state, value, self.value);
 
         if let Some(callback) = self.on_external_changed
@@ -389,7 +403,7 @@ impl ConfigPropertyRegistry {
             unsafe {
                 let info = self.pool_info[i].assume_init_read();
 
-                if info.resource == resource {
+                if info.path == resource {
                     return Some(self.pool_exec[i].assume_init_read());
                 }
             }
@@ -419,7 +433,7 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         default: T,
         writable: WriteCapability,
         constraints: T::Constraints,
-        write: fn(*const (), ScalarValue, *mut ()) -> ConfigPropertyWriteResult,
+        write: fn(*const (), ScalarValue, *mut ()) -> Result<(), ConfigPropertyWriteError>,
         on_changed: Option<OnExternalChangedCallback>,
     ) -> ConfigPropertyHandle<T> {
         let index = self.registry.pool_items_pos;
@@ -455,7 +469,7 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         let descriptor = PropertyDescriptor {
             type_id: TypeId::of::<T>(),
             ident: self.ident,
-            resource: path,
+            path,
             p_value: p_value.as_ptr() as *mut (),
             p_cache: p_cache.as_ptr() as *mut (),
             p_state: p_state.as_ptr() as *mut (),

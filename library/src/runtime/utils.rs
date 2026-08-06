@@ -1,6 +1,8 @@
 use std::fs;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::request::ReadMachineDeviceInfoError;
+use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
 use crate::machine::Machine;
@@ -22,16 +24,16 @@ pub fn write_machine_device_info(
     machine_ident: MachineIdentificationUnique,
     role: u16,
     subdevice_index: usize,
-) -> Result<(), String> {
+) -> Result<(), WriteMachineDeviceInfoError> {
     let mut idents = read_machine_device_info()?;
 
     let dev_addr = subdevice_index as u16;
-    let mut ident = idents.iter_mut().find(|i| i.device_address == dev_addr);
+    let ident = idents.iter_mut().find(|i| i.device_address == dev_addr);
 
     let m_serial = machine_ident.serial;
     let m_ident = machine_ident.identification;
 
-    if let Some(ident) = ident.as_mut() {
+    if let Some(ident) = ident {
         ident.role = role;
         ident.machine_vendor = m_ident.vendor_id;
         ident.machine_id = m_ident.machine_id;
@@ -46,47 +48,45 @@ pub fn write_machine_device_info(
         });
     }
 
-    // legacy eeprom ?
-    if let Err(e) = controller
+    controller
         .channel
-        .write_machine_device_info_eeprom(idents.clone())
-    {
-        return Err(e.to_string());
-    }
+        .write_machine_device_info_eeprom(idents)
+        .map_err(|e| WriteMachineDeviceInfoError::WriteMachineDeviceInfoEeprom(e.to_string()))?;
 
     Ok(())
 }
 
-pub fn read_machine_device_info() -> Result<Vec<MachineDeviceInfo>, &'static str> {
+pub fn read_machine_device_info() -> Result<Vec<MachineDeviceInfo>, ReadMachineDeviceInfoError> {
     let path = get_machine_device_info_path();
 
-    let exists =
-        fs::exists(&path).map_err(|_| "failed to check if machine device info file exists")?;
+    let exists = fs::exists(&path).map_err(|_| ReadMachineDeviceInfoError::CheckExists)?;
     if !exists {
         return Ok(vec![]);
     }
 
-    let json = fs::read_to_string(&path).map_err(|_| "failed to read machine device info file")?;
+    let json = fs::read_to_string(&path).map_err(|_| ReadMachineDeviceInfoError::ReadFile)?;
 
-    let value =
-        serde_json::to_value(&json).map_err(|_| "failed to parse machine device info as JSON")?;
+    let value = serde_json::to_value(&json).map_err(|_| ReadMachineDeviceInfoError::ParseJson)?;
 
     let infos = value
         .as_array()
-        .ok_or("root value is not an array")?
+        .ok_or(ReadMachineDeviceInfoError::RootNotArray)?
         .iter()
-        .map(|value| -> Result<MachineDeviceInfo, &'static str> {
-            Ok(MachineDeviceInfo {
-                role: value["role"].as_u64().unwrap_or(0) as u16,
-                machine_id: value["machine_id"].as_u64().unwrap_or(0) as u16,
-                machine_vendor: value["machine_vendor"].as_u64().unwrap_or(0) as u16,
-                machine_serial: value["machine_serial"].as_u64().unwrap_or(0) as u16,
-                device_address: value["device_address"]
-                    .as_u64()
-                    .ok_or("no device address given")? as u16,
-            })
-        })
-        .collect::<Result<Vec<_>, &'static str>>()?;
+        .map(
+            |value| -> Result<MachineDeviceInfo, ReadMachineDeviceInfoError> {
+                Ok(MachineDeviceInfo {
+                    role: value["role"].as_u64().unwrap_or(0) as u16,
+                    machine_id: value["machine_id"].as_u64().unwrap_or(0) as u16,
+                    machine_vendor: value["machine_vendor"].as_u64().unwrap_or(0) as u16,
+                    machine_serial: value["machine_serial"].as_u64().unwrap_or(0) as u16,
+                    device_address: value["device_address"]
+                        .as_u64()
+                        .ok_or(ReadMachineDeviceInfoError::MissingDeviceAddress)?
+                        as u16,
+                })
+            },
+        )
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(infos)
 }

@@ -2,15 +2,13 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use qitech_framework_core::report::ConfigPropertyStateRecord;
-use qitech_framework_core::report::ConfigPropertyValueRecord;
-use qitech_framework_core::report::StatePropertyWriteRecord;
+use qitech_framework_core::report::ConfigPropertyRecord;
+use qitech_framework_core::report::StatePropertyRecord;
 
 #[derive(Debug, Default)]
 pub struct Journals {
-    pub config_property_write: Journal<ConfigPropertyValueRecord>,
-    pub config_property_state: Journal<ConfigPropertyStateRecord>,
-    pub state_property_write: Journal<StatePropertyWriteRecord>,
+    pub config_property: Journal<ConfigPropertyRecord>,
+    pub state_property: Journal<StatePropertyRecord>,
 }
 
 #[derive(Debug)]

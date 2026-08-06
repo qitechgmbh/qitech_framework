@@ -6,8 +6,8 @@ use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
-use qitech_framework_core::report::RuntimeRunEvent;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionRunning;
 use types::Config;
@@ -122,7 +122,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.report.timestamp = Utc::now();
         // self.resources.extract_report(&mut self.report.machines);
 
-        self.journals.config_property_write.drain_with(|x| {
+        self.journals.config_property.drain_with(|x| {
             self.report.machines.config_property_write_records.push(x);
         });
 
@@ -130,12 +130,12 @@ impl<T: RuntimeTransport> Runtime<T> {
             self.report.machines.config_property_state_records.push(x);
         });
 
-        self.journals.state_property_write.drain_with(|x| {
-            self.report.machines.state_property_write_records.push(x);
+        self.journals.state_property.drain_with(|x| {
+            self.report.machines.state_property_records.push(x);
         });
 
         self.resources.measurements.extract(|measurement| {
-            self.report.machines.measurements.push(measurement);
+            self.report.machines.measurement_snapshots.push(measurement);
         });
 
         // --- export report ---
@@ -146,10 +146,10 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.report.responses.clear();
         self.report.machines.config_property_write_records.clear();
         self.report.machines.config_property_state_records.clear();
-        self.report.machines.state_property_write_records.clear();
-        self.report.machines.measurements.clear();
-        self.report.machines.events.clear();
-        self.report.machines.command_traces.clear();
+        self.report.machines.state_property_records.clear();
+        self.report.machines.measurement_snapshots.clear();
+        self.report.machines.event_records.clear();
+        self.report.machines.command_records.clear();
 
         // --- reset timer ---
         self.last_export_ts = now;
@@ -174,7 +174,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     // --- record the change ---
                     self.report
                         .events
-                        .push(RuntimeRunEvent::RemovedMachine { ident });
+                        .push(RuntimeEvent::RemovedMachine { ident });
                 }
             }
         }

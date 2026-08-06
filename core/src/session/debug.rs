@@ -44,7 +44,10 @@ impl RuntimeTransport for DebugRuntimeTransport {
             }
             RuntimeMessage::Finished => println!("finished"),
             RuntimeMessage::Report(report) => {
-                println!("sending report: {:#?}", report.machines.measurements);
+                println!(
+                    "sending report: {:#?}",
+                    report.machines.measurement_snapshots
+                );
             }
         }
 

@@ -1,6 +1,3 @@
-use chrono::Utc;
-use qitech_framework_core::report::StatePropertyWriteRecord;
-
 use crate::machine::BuildContext;
 use crate::machine::build::BuildResult;
 use crate::resource::Measurement;
@@ -48,20 +45,6 @@ where
             .root
             .measurements
             .register::<T::Type>(self.path, self.value, T::extract);
-
-        let timestamp = Utc::now();
-
-        // TODO: expose a temp journal so on failure we don't send this out
-        self.root
-            .journals
-            .state_property_write
-            .new_handle()
-            .append(StatePropertyWriteRecord {
-                ident: self.root.ident,
-                path: self.path.to_string(),
-                value: T::into_scalar(self.value),
-                timestamp,
-            });
 
         let prop = Measurement::new(handle);
         Ok(prop)

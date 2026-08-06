@@ -9,9 +9,6 @@ serde = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 
-# --- report ---
-soa_derive = "0.14.0"
-
 # --- schema ---
 indexmap = { version = "2", default-features = false, features = ["serde"], optional = true }
 yaml_serde = { version = "0.10.4", default-features = false, optional = true }

@@ -2,134 +2,70 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
-use soa_derive::StructOfArray;
 use thiserror::Error;
 
-use crate::NumericValue;
 use crate::ScalarValue;
 use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineIdentificationUnique;
+use crate::report::Constraints;
 use crate::report::OperationOrigin;
+use crate::report::WriteCapability;
+use crate::report::types::ConstraintViolationError;
 
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MachinesReport {
-    /// machine configuration value records
-    pub config_property_write_records: Vec<ConfigPropertyValueRecord>,
-
-    /// machine configuration state records
-    pub config_property_state_records: Vec<ConfigPropertyStateRecord>,
-
-    /// machine state mutations
-    pub state_property_write_records: Vec<StatePropertyWriteRecord>,
-
-    /// machine measurement snapshot
-    pub measurements: MachineMeasurementVec,
-
-    /// machine command invocations
-    pub command_traces: Vec<MachineCommandInvokeTrace>,
-
-    /// machine command invocations
-    pub command_enabled_mutations: Vec<MachineCommandCapabilityMutation>,
-
-    /// machine events emitted during this cycle
-    pub events: Vec<MachineEmittedEvent>,
-
-    /// subscriptions established this
-    pub subscriptions: Vec<SubscriptionRecord>,
+    pub config_property_records: Vec<ConfigPropertyRecord>,
+    pub state_property_records: Vec<StatePropertyRecord>,
+    pub measurement_snapshots: Vec<MeasurementSnapshot>,
+    pub command_records: Vec<CommandRecord>,
+    pub event_records: Vec<EventRecord>,
 }
 
 // --- config ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigPropertyValueRecord {
-    /// target machine
-    pub ident: MachineIdentificationUnique,
-
-    /// configuration resource path (e.g. "laser.power")
-    pub path: String,
-
-    /// assigned value
-    pub value: ScalarValue,
-
-    /// operation origin
-    pub origin: OperationOrigin,
-
-    /// operation result
-    pub result: ConfigPropertyWriteResult,
-
-    /// mutation timestamp
+pub struct ConfigPropertyRecord {
     pub timestamp: DateTime<Utc>,
+    pub machine: MachineIdentificationUnique,
+    pub path: String,
+    pub event: ConfigPropertyEvent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigPropertyStateRecord {
-    /// target machine
-    pub ident: MachineIdentificationUnique,
-
-    /// configuration resource path
-    pub path: String,
-
-    pub kind: ConfigPropertyStateChange,
-
-    /// when state changed
-    pub timestamp: DateTime<Utc>,
+pub enum ConfigPropertyEvent {
+    Registered {
+        default: ScalarValue,
+        capability: WriteCapability,
+        constraints: Constraints,
+    },
+    DefaultChanged {
+        before: ScalarValue,
+        after: ScalarValue,
+    },
+    CapabilityChanged {
+        before: WriteCapability,
+        after: WriteCapability,
+    },
+    ConstraintsChanged {
+        before: Constraints,
+        after: Constraints,
+    },
+    Written {
+        value: ScalarValue,
+        origin: OperationOrigin,
+        outcome: ConfigPropertyWriteOutcome,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigPropertyStateChange {
-    WriteCapability(WriteCapability),
-    Constraints(ParameterConstraints),
-    DefaultValue(ScalarValue),
+pub enum ConfigPropertyWriteOutcome {
+    Changed { before: ScalarValue },
+    Unchanged,
+    Failed(ConfigPropertyWriteError),
 }
-
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub enum WriteCapability {
-    #[default]
-    Allowed,
-    Forbidden {
-        reason: String,
-    },
-}
-
-impl WriteCapability {
-    pub const fn is_allowed(&self) -> bool {
-        matches!(self, WriteCapability::Allowed)
-    }
-
-    pub const fn forbidden(&self) -> bool {
-        matches!(self, WriteCapability::Forbidden { .. })
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub enum ParameterConstraints {
-    #[default]
-    None,
-    Numeric {
-        min: NumericValue,
-        max: NumericValue,
-        nullable: bool,
-    },
-    String {
-        min_length: Option<usize>,
-        max_length: Option<usize>,
-        pattern: Option<String>,
-        nullable: bool,
-    },
-    Enum {
-        allowed: Vec<String>,
-        nullable: bool,
-    },
-}
-
-// --- error ---
-pub type ConfigPropertyWriteResult = Result<(), ConfigPropertyWriteError>;
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ConfigPropertyWriteError {
-    #[error("resource not found")]
-    NotFound,
-
     #[error("value type mismatch")]
     ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
 
@@ -137,103 +73,55 @@ pub enum ConfigPropertyWriteError {
     NotWritable,
 
     #[error("value had invalid type")]
-    ConstraintViolation(#[from] ConstraintViolation),
-}
-
-#[derive(Debug, Error, Clone, Serialize, Deserialize)]
-pub enum ConstraintViolation {
-    #[error("types didn't match")]
-    TypeMismatch,
-
-    #[error("value {value} is below the minimum {min}")]
-    BelowMin {
-        value: NumericValue,
-        min: NumericValue,
-    },
-
-    #[error("value {value} is above the maximum {max}")]
-    AboveMax {
-        value: NumericValue,
-        max: NumericValue,
-    },
-
-    #[error("value {value} cannot be null")]
-    CannotBeNull { value: ScalarValue },
-
-    #[error("string length {length} is below the minimum {min}")]
-    StringTooShort { length: usize, min: usize },
-
-    #[error("string length {length} is above the maximum {max}")]
-    StringTooLong { length: usize, max: usize },
-
-    #[error("string does not match required pattern: {pattern}")]
-    PatternMismatch { pattern: String },
-
-    #[error("value {value:?} is not one of the allowed enum variants")]
-    ForbiddenVariant { value: String },
+    ConstraintViolation(#[from] ConstraintViolationError),
 }
 
 // --- state ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatePropertyWriteRecord {
-    /// source machine
-    pub ident: MachineIdentificationUnique,
-
-    /// state resource path (e.g. "laser.diameter")
-    pub path: String,
-
-    /// updated value
-    pub value: ScalarValue,
-
-    /// mutation timestamp
+pub struct StatePropertyRecord {
     pub timestamp: DateTime<Utc>,
+    pub machine: MachineIdentificationUnique,
+    pub path: String,
+    pub event: StatePropertyEvent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StatePropertyEvent {
+    Registered {
+        value: ScalarValue,
+    },
+    ValueChanged {
+        before: ScalarValue,
+        after: ScalarValue,
+    },
 }
 
 // --- measurements ---
-#[derive(StructOfArray, Debug, Serialize, Deserialize)]
-#[soa_derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineMeasurement {
-    /// source machine
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeasurementSnapshot {
     pub ident: MachineIdentificationUnique,
-
-    /// measurement resource path
     pub path: String,
-
-    /// measured value
     pub value: Option<f64>,
 }
 
 // --- command ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineCommandInvokeTrace {
-    pub request_id: u64,
-
-    /// target machine
-    pub ident: MachineIdentificationUnique,
-
-    /// command resource path
-    pub resource: String,
-
-    /// when the runtime processed the request
+pub struct CommandRecord {
     pub timestamp: DateTime<Utc>,
-
-    /// invoke result
-    pub result: Result<(), MachineCommandInvokeError>,
+    pub machine: MachineIdentificationUnique,
+    pub resource: String,
+    pub event: CommandEvent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineCommandCapabilityMutation {
-    pub ident: MachineIdentificationUnique,
-
-    /// command resource path
-    pub resource: String,
-
-    /// if the command can be executed
-    pub can_execute: bool,
+pub enum CommandEvent {
+    Registered,
+    CapabilityChanged { before: bool, after: bool },
+    Invoke(Result<(), CommandInvokeError>),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum MachineCommandInvokeError {
+pub enum CommandInvokeError {
     #[error("command not found")]
     NotFound,
 
@@ -246,44 +134,9 @@ pub enum MachineCommandInvokeError {
 
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineEmittedEvent {
-    /// source machine
-    pub ident: MachineIdentificationUnique,
-
-    /// event resource path
+pub struct EventRecord {
+    pub timestamp: DateTime<Utc>,
+    pub machine: MachineIdentificationUnique,
     pub path: String,
-
-    /// event payload as json
-    pub data: String,
-
-    /// event timestamp
-    pub timestamp: DateTime<Utc>,
-}
-
-// --- subscription ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscriptionRecord {
-    pub provider: MachineIdentificationUnique,
-    pub subscriber: MachineIdentificationUnique,
-    pub kind: SubscriptionKind,
-    pub timestamp: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SubscriptionKind {
-    Subscribe(Vec<SubscriptionResource>),
-    Unsubscribe,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscriptionResource {
-    path: String,
-    kind: SubscriptionResourceKind,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SubscriptionResourceKind {
-    Config,
-    State,
-    Measurement,
+    pub data: Vec<u8>,
 }

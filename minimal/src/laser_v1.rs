@@ -204,9 +204,12 @@ impl Machine for LaserV1 {
         self.in_tolerance.set(in_tolerance);
 
         if let Some(subscription) = &mut self.subscription {
-            self.subscribed_diameter.set(Some(subscription.diameter.get()));
-            self.subscribed_diameter_x.set(subscription.diameter_x.get());
-            self.subscribed_diameter_y.set(subscription.diameter_y.get());
+            self.subscribed_diameter
+                .set(Some(subscription.diameter.get()));
+            self.subscribed_diameter_x
+                .set(subscription.diameter_x.get());
+            self.subscribed_diameter_y
+                .set(subscription.diameter_y.get());
             self.subscribed_roundness.set(subscription.roundness.get());
         } else {
             self.subscribed_diameter.set(None);
@@ -229,8 +232,8 @@ impl Machine for LaserV1 {
 
         let ident = ctx.provider();
 
-        self.subscription = Some(LaserV1Subscription { 
-            ident, 
+        self.subscription = Some(LaserV1Subscription {
+            ident,
             diameter: ctx.subscribe_measurement("diameter")?,
             diameter_x: ctx.subscribe_measurement("diameter_x")?,
             diameter_y: ctx.subscribe_measurement("diameter_y")?,
