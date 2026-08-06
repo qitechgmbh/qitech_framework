@@ -3,6 +3,7 @@ pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
 pub use qitech_framework_core::session;
 pub use qitech_framework_core::vendors;
+pub use qitech_framework_core::report::WriteCapability;
 pub use qitech_framework_macros::EnumProperty;
 
 pub mod machine;

@@ -7,7 +7,7 @@ use qitech_framework_core::report::ConfigPropertyValueRecord;
 
 #[derive(Debug, Default)]
 pub struct Journals {
-    pub config_property_value: Journal<ConfigPropertyValueRecord>,
+    pub config_property_write: Journal<ConfigPropertyValueRecord>,
     pub config_property_state: Journal<ConfigPropertyStateRecord>,
 }
 

@@ -5,6 +5,7 @@ use ratatui::Frame;
 use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
+use ratatui::style::Modifier;
 use ratatui::style::Style;
 use ratatui::widgets::Cell;
 use ratatui::widgets::Row;
@@ -130,6 +131,10 @@ impl TabItem<MachinesContext> for ConfigPage {
                         return Ok(AppAction::NoAction);
                     };
 
+                    if !field.can_write {
+                        return Ok(AppAction::NoAction);
+                    }
+
                     self.edit = Some(Edit {
                         dirty: false,
                         value: value.to_string(),
@@ -157,7 +162,15 @@ impl TabItem<MachinesContext> for ConfigPage {
                 let style = if editing {
                     Style::reset().fg(Color::Red)
                 } else if selected && in_focus {
-                    Style::reset().fg(Color::LightBlue)
+                    if field.can_write {
+                        Style::reset().fg(Color::LightBlue)
+                    } else {
+                        Style::reset()
+                            .fg(Color::LightBlue)
+                            .add_modifier(Modifier::DIM)
+                    }
+                } else if !field.can_write {
+                    Style::reset().fg(Color::Gray)
                 } else {
                     Style::reset()
                 };

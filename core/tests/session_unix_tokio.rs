@@ -163,7 +163,7 @@ fn controller(path: String) {
         session
             .send_request(RuntimeRequest {
                 request_id: 0,
-                kind: RuntimeRequestKind::SetMachineConfiguration {
+                kind: RuntimeRequestKind::WriteConfigProperty {
                     target: MachineIdentificationUnique {
                         identification: MachineIdentification {
                             vendor_id: 0,

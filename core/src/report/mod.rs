@@ -9,7 +9,7 @@ use serde::Serialize;
 use crate::ident::MachineIdentificationUnique;
 
 mod machines;
-pub use machines::ConfigPropertyStateMutationKind;
+pub use machines::ConfigPropertyStateChange;
 pub use machines::ConfigPropertyStateRecord;
 pub use machines::ConfigPropertyValueRecord;
 pub use machines::ConfigPropertyWriteError;

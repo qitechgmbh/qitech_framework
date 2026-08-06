@@ -158,6 +158,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             export_cycle: 0,
             journals,
             report: Default::default(),
+            config_properties,
             machines,
             sub_devices,
             ecat_controller,
@@ -195,7 +196,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ecat_interface.clone(),
                 hardware.clone(),
                 journals,
-                config_properties.begin_commit(*ident_unique),
+                config_properties.begin_registration(*ident_unique),
             );
 
             let instance = match (entry.build)(ctx) {

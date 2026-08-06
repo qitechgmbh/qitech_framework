@@ -5,7 +5,7 @@ use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use thiserror::Error;
 
 use crate::machine::hardware::Hardware;
-use crate::resource::ConfigPropertyRegistryCommitHandle;
+use crate::resource::ConfigPropertyRegistryRegisterHandle;
 use crate::resource::Journals;
 
 //mod command;
@@ -23,7 +23,7 @@ pub struct BuildContext<'a> {
     pub(crate) hardware: Vec<Hardware>,
 
     pub(crate) journals: &'a mut Journals,
-    pub(crate) config_properties: ConfigPropertyRegistryCommitHandle<'a>,
+    pub(crate) config_properties: ConfigPropertyRegistryRegisterHandle<'a>,
     // pub(crate) commands: Vec<CommandDefinition>,
 }
 
@@ -34,7 +34,7 @@ impl<'a> BuildContext<'a> {
         ethercat_interface: Option<EtherCATThreadChannel>,
         hardware: Vec<Hardware>,
         journals: &'a mut Journals,
-        config_properties: ConfigPropertyRegistryCommitHandle<'a>,
+        config_properties: ConfigPropertyRegistryRegisterHandle<'a>,
     ) -> Self {
         Self {
             ident,

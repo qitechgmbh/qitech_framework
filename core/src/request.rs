@@ -26,7 +26,7 @@ pub enum RuntimeRequestKind {
         subdevice_index: usize,
     },
 
-    SetMachineConfiguration {
+    WriteConfigProperty {
         /// target machine
         target: MachineIdentificationUnique,
 

@@ -16,9 +16,11 @@ use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::ConfigPropertyStateChange;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::controller::SessionHandshake;
 use ratatui::Terminal;
@@ -173,7 +175,7 @@ impl Tui {
         let timestamp = report.timestamp;
         let report = report.machines;
 
-        for mutation in &report.config_property_value_records {
+        for mutation in &report.config_property_write_records {
             let Some(entry) = self.find_machine_mut(mutation.ident) else {
                 continue;
             };
@@ -184,6 +186,33 @@ impl Tui {
 
             if mutation.result.is_ok() {
                 item.value = Some(mutation.value.clone());
+            }
+        }
+
+        for record in &report.config_property_state_records {
+            let Some(entry) = self.find_machine_mut(record.ident) else {
+                continue;
+            };
+
+            let Some(field) = entry.config.get_mut(&record.path) else {
+                continue;
+            };
+            
+            match &record.kind {
+                ConfigPropertyStateChange::WriteCapability(capability) => {
+                    field.can_write = match capability {
+                        WriteCapability::Allowed => true,
+                        WriteCapability::Forbidden { .. } => false,
+                    };
+                },
+
+                ConfigPropertyStateChange::Constraints(constraints) => {
+                    _ = constraints;
+                },
+
+                ConfigPropertyStateChange::DefaultValue(value) => {
+                    _ = value;
+                },
             }
         }
 

@@ -30,6 +30,7 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
+use crate::resource::ConfigPropertyRegistry;
 use crate::resource::Journals;
 
 mod request;
@@ -47,6 +48,8 @@ pub struct Runtime<T: RuntimeTransport> {
     // --- resource managers ---
     journals: Journals,
     report: RuntimeReport,
+
+    config_properties: ConfigPropertyRegistry,
 
     // --- instances ---
     machines: Vec<MachineInstance>,
@@ -116,8 +119,12 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.report.timestamp = Utc::now();
         // self.resources.extract_report(&mut self.report.machines);
 
-        self.journals.config_property_value.drain_with(|x| {
-            self.report.machines.config_property_value_records.push(x);
+        self.journals.config_property_write.drain_with(|x| {
+            self.report.machines.config_property_write_records.push(x);
+        });
+
+        self.journals.config_property_state.drain_with(|x| {
+            self.report.machines.config_property_state_records.push(x);
         });
 
         // --- export report ---
@@ -126,7 +133,8 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- clear buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
-        self.report.machines.config_property_value_records.clear();
+        self.report.machines.config_property_write_records.clear();
+        self.report.machines.config_property_state_records.clear();
         self.report.machines.state_mutations.clear();
         self.report.machines.measurements.clear();
         self.report.machines.events.clear();

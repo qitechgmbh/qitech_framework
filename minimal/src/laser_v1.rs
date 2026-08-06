@@ -4,6 +4,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use qitech_framework::MachineIdentification;
+use qitech_framework::WriteCapability;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
@@ -20,7 +21,6 @@ use qitech_lib::modbus::devices::qitech_laser::LaserError;
 use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
 
-// #[machine("laser_v1")]
 pub struct LaserV1 {
     // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,
@@ -45,6 +45,9 @@ impl MachineBuild for LaserV1 {
         let diameter_target = ctx
             .config::<millimeter>("diameter.target")
             .default(1.75)
+            .on_external_write(|m: &mut Self| {
+                m.diameter_target.forbid_external_write("single use only");
+            })
             // .minimum(0.0)
             .register()?;
 

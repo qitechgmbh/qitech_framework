@@ -19,7 +19,7 @@ mod property_view;
 mod config_property;
 pub use config_property::ConfigProperty;
 pub use config_property::ConfigPropertyRegistry;
-pub use config_property::ConfigPropertyRegistryCommitHandle;
+pub use config_property::ConfigPropertyRegistryRegisterHandle;
 pub use config_property::ConfigPropertyState;
 
 use crate::machine::Machine;
@@ -47,7 +47,6 @@ pub struct MachineInfo {
 
 #[derive(Clone, Copy)]
 pub struct PropertyDescriptor {
-    state: SlotState,
     type_id: TypeId,
     ident: MachineIdentificationUnique,
     resource: &'static str,
@@ -56,8 +55,12 @@ pub struct PropertyDescriptor {
     p_state: *mut (),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum SlotState {
+    /// slot was never used before
+    #[default]
+    Unused,
+
     /// slot is reserved but net yet commited, writing data to it in this state will panic
     Reserved,
 
@@ -109,7 +112,7 @@ impl fmt::Display for ResourceKind {
 
 // --- misc ---
 #[derive(Clone, Copy)]
-pub struct OnChangedCallback {
+pub struct OnExternalChangedCallback {
     pub func: *const (),
     pub adapter: fn(&mut dyn Machine, *const ()),
 }

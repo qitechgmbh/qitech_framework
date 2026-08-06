@@ -74,7 +74,7 @@ fn wrapped_run<T: ControllerTransport>(
                 } => {
                     let _ = session.send_request(RuntimeRequest {
                         request_id: 0,
-                        kind: RuntimeRequestKind::SetMachineConfiguration {
+                        kind: RuntimeRequestKind::WriteConfigProperty {
                             target: machine,
                             resource,
                             value,

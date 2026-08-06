@@ -15,7 +15,7 @@ use crate::report::OperationOrigin;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MachinesReport {
     /// machine configuration value records
-    pub config_property_value_records: Vec<ConfigPropertyValueRecord>,
+    pub config_property_write_records: Vec<ConfigPropertyValueRecord>,
 
     /// machine configuration state records
     pub config_property_state_records: Vec<ConfigPropertyStateRecord>,
@@ -66,14 +66,14 @@ pub struct ConfigPropertyStateRecord {
     /// configuration resource path
     pub path: String,
 
-    pub kind: ConfigPropertyStateMutationKind,
+    pub kind: ConfigPropertyStateChange,
 
     /// when state changed
     pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigPropertyStateMutationKind {
+pub enum ConfigPropertyStateChange {
     WriteCapability(WriteCapability),
     Constraints(ParameterConstraints),
     DefaultValue(ScalarValue),

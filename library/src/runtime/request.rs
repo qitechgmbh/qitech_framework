@@ -1,3 +1,6 @@
+use chrono::Utc;
+use qitech_framework_core::report::ConfigPropertyValueRecord;
+use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::RuntimeTransport;
@@ -21,7 +24,7 @@ impl<T: RuntimeTransport> Runtime<T> {
     }
 
     fn process_request(&mut self, request: RuntimeRequest) -> Result<(), String> {
-        // let request_id = request.request_id;
+        let request_id = request.request_id;
 
         match request.kind {
             RuntimeRequestKind::WriteMachineDeviceInfo {
@@ -44,9 +47,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(())
             }
 
-            RuntimeRequestKind::SetMachineConfiguration {
+            RuntimeRequestKind::WriteConfigProperty {
                 target,
-                resource: path,
+                resource,
                 value,
             } => {
                 let Some(machine) = find_machine(&mut self.machines, target) else {
@@ -55,11 +58,28 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 let machine_ref: &mut dyn Machine = &mut *machine;
 
-                // self.resources
-                //     .config_properties
-                //     .write_value(target, &path, machine_ref, value)
-                //     .map_err(|e| format!("{e}"))
-                //     .unwrap();
+                let context = self.config_properties.execute_context(target, &resource);
+                let Some(context) = context else {
+                    return Err("No Such Resource".to_string());
+                };
+
+                // --- write the value ---
+                let result = context.execute(machine_ref, value.clone());
+                
+                // TODO: only record if actually changed !!!
+                // We use a different mechanism for tracking user requests
+
+                // --- record the result ---
+                let record = ConfigPropertyValueRecord {
+                    ident: target,
+                    path: resource.to_string(),
+                    value,
+                    origin: OperationOrigin::Request { request_id },
+                    result: result.clone(),
+                    timestamp: Utc::now(),
+                };
+
+                self.journals.config_property_write.new_handle().append(record);
 
                 Ok(())
             }

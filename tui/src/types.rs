@@ -61,6 +61,7 @@ impl AppState {
                     kind: def.kind.clone(),
                     label: name.clone(),
                     value: None,
+                    can_write: false,
                 },
             );
         }
@@ -150,6 +151,7 @@ pub struct ConfigField {
     pub kind: ConfigPropertyKind,
     pub label: String,
     pub value: Option<ScalarValue>,
+    pub can_write: bool,
 }
 
 pub struct StateField {
