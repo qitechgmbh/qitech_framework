@@ -205,7 +205,7 @@ impl MeasurementRegistry {
             let value = unsafe { (descriptor.extract)(descriptor.p_value) };
 
             let entry = MeasurementSnapshot {
-                ident: descriptor.ident,
+                machine: descriptor.ident,
                 path: descriptor.path.clone(),
                 value,
             };

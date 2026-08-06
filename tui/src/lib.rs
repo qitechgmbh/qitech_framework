@@ -16,12 +16,13 @@ use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::ConfigPropertyStateChange;
-use qitech_framework_core::report::Constraints;
+use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::ConfigPropertyEvent;
+use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
-use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::controller::SessionHandshake;
 use ratatui::Terminal;
@@ -177,38 +178,8 @@ impl Tui {
         let timestamp = report.timestamp;
         let report = report.machines;
 
-        for mutation in &report.config_property_write_records {
-            let Some(entry) = self.find_machine_mut(mutation.ident) else {
-                continue;
-            };
-
-            let Some(field) = entry.config.get_mut(&mutation.path) else {
-                continue;
-            };
-
-            if mutation.result.is_err() {
-                continue;
-            }
-
-            match &mut field.state {
-                ConfigFieldState::NotInitialized => {
-                    field.state = ConfigFieldState::Initialized {
-                        value: mutation.value.clone(),
-                        default: mutation.value.clone(),
-                        writeable: WriteCapability::Forbidden {
-                            reason: "not_initialized".to_string(),
-                        },
-                        constraints: Constraints::None,
-                    }
-                }
-                ConfigFieldState::Initialized { value, .. } => {
-                    *value = mutation.value.clone();
-                }
-            }
-        }
-
-        for record in &report.config_property_state_records {
-            let Some(entry) = self.find_machine_mut(record.ident) else {
+        for record in report.config_property_records {
+            let Some(entry) = self.find_machine_mut(record.machine) else {
                 continue;
             };
 
@@ -216,66 +187,100 @@ impl Tui {
                 continue;
             };
 
-            let ConfigFieldState::Initialized {
-                default,
-                writeable,
-                constraints,
-                ..
-            } = &mut field.state
-            else {
-                // TODO: print err or ?
-                continue;
-            };
-
-            match &record.kind {
-                ConfigPropertyStateChange::WriteCapability(c) => {
-                    *writeable = c.clone();
+            match record.event {
+                ConfigPropertyEvent::Registered { 
+                    default, 
+                    capability, 
+                    constraints 
+                } => {
+                    field.state = ConfigFieldState::Initialized {
+                        value: default.clone(),
+                        default: default.clone(),
+                        capability,
+                        constraints,
+                    }
                 }
 
-                ConfigPropertyStateChange::Constraints(c) => {
-                    *constraints = c.clone();
+                ConfigPropertyEvent::DefaultChanged { after, .. } => {
+                    if let ConfigFieldState::Initialized { default, .. } = &mut field.state {
+                        *default = after
+                    }
                 }
 
-                ConfigPropertyStateChange::DefaultValue(v) => {
-                    *default = v.clone();
+                ConfigPropertyEvent::CapabilityChanged { after, .. } => {
+                   if let ConfigFieldState::Initialized { capability, .. } = &mut field.state {
+                        *capability = after;
+                    }
+                }
+
+                ConfigPropertyEvent::ConstraintsChanged { after, .. } => {
+                   if let ConfigFieldState::Initialized { constraints, .. } = &mut field.state {
+                        *constraints = after
+                    }
+                }
+
+                ConfigPropertyEvent::Written { value: v, outcome, .. } => {
+                    if !matches!(outcome, ConfigPropertyWriteOutcome::Changed { .. }) {
+                        continue;
+                    }
+
+                    if let ConfigFieldState::Initialized { value, .. } = &mut field.state {
+                        *value = v;
+                    }
                 }
             }
         }
 
-        for mutation in &report.state_property_records {
-            let Some(entry) = self.find_machine_mut(mutation.machine) else {
+        for record in report.state_property_records {
+            let Some(entry) = self.find_machine_mut(record.machine) else {
                 continue;
             };
 
-            let Some(item) = entry.state.get_mut(&mutation.path) else {
+            let Some(item) = entry.state.get_mut(&record.path) else {
                 continue;
             };
 
-            item.value = Some(mutation.value.clone());
+            match record.event {
+                StatePropertyEvent::Registered { .. } => {}
+
+                StatePropertyEvent::ValueChanged { after, .. } => {
+                    item.value = Some(after);
+                }
+            }
         }
 
-        for measurement in &report.measurement_snapshots {
-            let Some(entry) = self.find_machine_mut(*measurement.ident) else {
+        for snapshot in report.measurement_snapshots {
+            let Some(entry) = self.find_machine_mut(snapshot.machine) else {
                 continue;
             };
 
-            let Some(item) = entry.measurements.get_mut(measurement.path) else {
+            let Some(item) = entry.measurements.get_mut(&snapshot.path) else {
                 continue;
             };
 
-            item.values.push(timestamp, *measurement.value);
+            item.values.push(timestamp, snapshot.value);
         }
 
-        for command in &report.command_enabled_mutations {
-            let Some(entry) = self.find_machine_mut(command.ident) else {
+        for record in report.command_records {
+            let Some(entry) = self.find_machine_mut(record.machine) else {
                 continue;
             };
 
-            let Some(item) = entry.commands.get_mut(&command.resource) else {
+            let Some(item) = entry.commands.get_mut(&record.path) else {
                 continue;
             };
 
-            item.enabled = command.can_execute;
+            match record.event {
+                CommandEvent::Registered => {
+
+                },
+                CommandEvent::CapabilityChanged { after, .. } => {
+                    item.enabled = after;
+                },
+                CommandEvent::Invoke(result) => {
+                    _ = result;
+                },
+            }
         }
     }
 

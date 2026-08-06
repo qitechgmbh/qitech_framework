@@ -2,12 +2,14 @@ use std::rc::Rc;
 use std::rc::Weak;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::request::SubscribeError;
 use qitech_framework_core::with_uom_quantities;
-use thiserror::Error;
 
 use crate::resource::CachedPropertyView;
 use crate::resource::Resources;
 use crate::resource::SubscriptionToken;
+
+pub type SubscribeResult<T> = Result<T, SubscribeError>;
 
 // --- property ---
 pub struct SubscribedProperty<T: Clone> {
@@ -110,21 +112,4 @@ impl<'a> SubscribeContext<'a> {
 
         Ok(prop)
     }
-}
-
-pub type SubscribeResult<T> = Result<T, SubscribeError>;
-
-#[derive(Debug, Error)]
-pub enum SubscribeError {
-    #[error("unsupported machine")]
-    UnsupportedMachine,
-
-    #[error("too many subscriptions")]
-    TooManySubscriptions,
-
-    #[error("too many subscriptions")]
-    TypeMismatch,
-
-    #[error("provider does not have requested resource")]
-    NoSuchResource,
 }

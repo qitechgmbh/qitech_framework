@@ -99,7 +99,7 @@ pub enum StatePropertyEvent {
 // --- measurements ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasurementSnapshot {
-    pub ident: MachineIdentificationUnique,
+    pub machine: MachineIdentificationUnique,
     pub path: String,
     pub value: Option<f64>,
 }
@@ -109,7 +109,7 @@ pub struct MeasurementSnapshot {
 pub struct CommandRecord {
     pub timestamp: DateTime<Utc>,
     pub machine: MachineIdentificationUnique,
-    pub resource: String,
+    pub path: String,
     pub event: CommandEvent,
 }
 

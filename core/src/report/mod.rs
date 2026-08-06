@@ -18,6 +18,7 @@ pub use types::WriteCapability;
 mod machines;
 pub use machines::CommandInvokeError;
 pub use machines::CommandRecord;
+pub use machines::CommandEvent;
 pub use machines::ConfigPropertyEvent;
 pub use machines::ConfigPropertyRecord;
 pub use machines::ConfigPropertyWriteError;

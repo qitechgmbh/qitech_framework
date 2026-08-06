@@ -18,6 +18,7 @@ use qitech_framework_core::with_uom_quantities;
 
 use super::Machine;
 use crate::resource::BumpAllocator;
+use crate::resource::Erased;
 use crate::resource::JournalHandle;
 use crate::resource::MachineInfo;
 use crate::resource::OnExternalChangedCallback;
@@ -282,13 +283,13 @@ pub struct ConfigPropertyHandle<T: PropertyType> {
 #[derive(Clone, Copy)]
 pub struct ExecuteContext {
     /// type-erased property value
-    value: *mut (),
+    value: Erased,
 
     /// type-erased property state
-    state: *const (),
+    state: Erased,
 
     /// function to write scalar value into the property
-    write: fn(*const (), ScalarValue, *mut ()) -> Result<(), ConfigPropertyWriteError>,
+    write: fn(Erased, ScalarValue, Erased) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
 
     /// callback invoked when a external write succeeds and the value changed
     on_external_changed: Option<OnExternalChangedCallback>,
@@ -299,7 +300,7 @@ impl ExecuteContext {
         self,
         machine: &mut dyn Machine,
         value: ScalarValue,
-    ) -> Result<(), ConfigPropertyWriteError> {
+    ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError> {
         let result = (self.write)(self.state, value, self.value);
 
         if let Some(callback) = self.on_external_changed
@@ -433,7 +434,7 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         default: T,
         writable: WriteCapability,
         constraints: T::Constraints,
-        write: fn(*const (), ScalarValue, *mut ()) -> Result<(), ConfigPropertyWriteError>,
+        write: fn(Erased, ScalarValue, Erased) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
         on_changed: Option<OnExternalChangedCallback>,
     ) -> ConfigPropertyHandle<T> {
         let index = self.registry.pool_items_pos;
@@ -476,8 +477,8 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         };
 
         let exec_ctx = ExecuteContext {
-            value: p_value.as_ptr() as *mut (),
-            state: p_state.as_ptr() as *const (),
+            value: Erased::new(p_value),
+            state: Erased::new(p_state),
             write,
             on_external_changed: on_changed,
         };

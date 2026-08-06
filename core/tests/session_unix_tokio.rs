@@ -163,7 +163,7 @@ fn controller(path: String) {
         session
             .send_request(RuntimeRequest {
                 request_id: 0,
-                kind: RuntimeRequestKind::WriteConfigProperty {
+                kind: RuntimeRequestKind::SetConfigProperty {
                     target: MachineIdentificationUnique {
                         identification: MachineIdentification {
                             vendor_id: 0,
@@ -171,7 +171,7 @@ fn controller(path: String) {
                         },
                         serial: 0,
                     },
-                    resource: "just_some_config".to_string(),
+                    path: "just_some_config".to_string(),
                     value: ScalarValue::Float(Some(1.0)),
                 },
             })

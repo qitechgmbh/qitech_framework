@@ -123,11 +123,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         // self.resources.extract_report(&mut self.report.machines);
 
         self.journals.config_property.drain_with(|x| {
-            self.report.machines.config_property_write_records.push(x);
-        });
-
-        self.journals.config_property_state.drain_with(|x| {
-            self.report.machines.config_property_state_records.push(x);
+            self.report.machines.config_property_records.push(x);
         });
 
         self.journals.state_property.drain_with(|x| {
@@ -144,8 +140,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- clear buffers ---
         self.report.logs.clear();
         self.report.responses.clear();
-        self.report.machines.config_property_write_records.clear();
-        self.report.machines.config_property_state_records.clear();
+        self.report.machines.config_property_records.clear();
         self.report.machines.state_property_records.clear();
         self.report.machines.measurement_snapshots.clear();
         self.report.machines.event_records.clear();

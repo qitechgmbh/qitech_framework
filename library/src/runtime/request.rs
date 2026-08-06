@@ -1,18 +1,21 @@
 use std::rc::Rc;
 
 use chrono::Utc;
+use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyRecord;
+use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::request::RuntimeResponse;
+use qitech_framework_core::request::SubscribeError;
+use qitech_framework_core::request::UnsubscribeError;
 use qitech_framework_core::request::WriteConfigPropertyError;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;
-use crate::machine::Machine;
 use crate::machine::SubscribeContext;
 use crate::runtime::Subscription;
 use crate::runtime::utils;
@@ -55,15 +58,17 @@ impl<T: RuntimeTransport> Runtime<T> {
                 )?)
             }
 
-            RuntimeRequestKind::WriteConfigProperty {
+            RuntimeRequestKind::SetConfigProperty {
                 target,
-                resource,
+                path: resource,
                 value,
             } => {
+                // --- find the machine ---
                 let Some(machine) = find_machine(&mut self.machines, target) else {
                     return Err(WriteConfigPropertyError::MachineNotFound)?;
                 };
 
+                // --- retrieve the context ---
                 let context = self
                     .resources
                     .config_properties
@@ -76,31 +81,29 @@ impl<T: RuntimeTransport> Runtime<T> {
                 // --- write the value ---
                 let result = context.execute(machine, value.clone());
 
-                // TODO: only record if actually changed !!!
-                // We use a different mechanism for tracking user requests
+                let outcome = match result.clone() {
+                    Ok(Some(before)) => ConfigPropertyWriteOutcome::Changed { before },
+                    Ok(None) => ConfigPropertyWriteOutcome::Unchanged,
+                    Err(e) => ConfigPropertyWriteOutcome::Failed(e),
+                };
 
                 // --- record the result ---
                 let record = ConfigPropertyRecord {
+                    timestamp: Utc::now(),
                     machine: target,
                     path: resource.to_string(),
-                    value,
-                    origin: OperationOrigin::Request { request_id },
-                    result: result.clone(),
-                    timestamp: Utc::now(),
+                    event: ConfigPropertyEvent::Written { 
+                        value,
+                        origin: OperationOrigin::Request { request_id },
+                        outcome,
+                    },
                 };
 
                 self.journals.config_property.new_handle().append(record);
-
                 Ok(())
             }
 
-            RuntimeRequestKind::InvokeMachineCommand { target, resource } => {
-                let Some(machine) = find_machine(&mut self.machines, target) else {
-                    return Err("No Such Machine".to_string());
-                };
-
-                let machine_ref: &mut dyn Machine = &mut *machine;
-
+            RuntimeRequestKind::InvokeMachineCommand { target, path: resource } => {
                 // let result = self
                 //     .resources
                 //     .commands
@@ -123,18 +126,18 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(())
             }
 
-            RuntimeRequestKind::MachineSubscribe {
+            RuntimeRequestKind::SubscribeMachine {
                 provider,
                 subscriber,
             } => {
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
-                    return Err("No Such Machine".to_string());
+                    return Err(SubscribeError::ProviderNotFound)?;
                 }
 
                 // --- find subscriber ---
                 let Some(machine) = find_machine(&mut self.machines, subscriber) else {
-                    return Err("No Such Machine".to_string());
+                    return Err(SubscribeError::SubscriberNotFound)?;
                 };
 
                 let duplicate = self
@@ -143,7 +146,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .any(|s| s.provider == provider && s.subscriber == subscriber);
 
                 if duplicate {
-                    return Err("Machine Already Subscribed".to_string());
+                    return Err(SubscribeError::DuplicateSubscription)?;
                 }
 
                 let subscription = Subscription {
@@ -152,7 +155,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     token: Rc::new(Default::default()),
                 };
 
-                // --- let machine allocate resources ---
+                // --- let machine subscribe to resources ---
                 let ctx = SubscribeContext::new(
                     provider,
                     &mut self.resources,
@@ -160,7 +163,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 );
 
                 // --- allow machine to handle subscription ---
-                machine.subscribe(ctx).map_err(|e| e.to_string())?;
+                machine.subscribe(ctx)?;
 
                 // --- register subscription ---
                 self.subscriptions
@@ -170,7 +173,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 Ok(())
             }
 
-            RuntimeRequestKind::MachineUnsubscribe {
+            RuntimeRequestKind::UnsubscribeMachine {
                 provider,
                 subscriber,
             } => {
@@ -179,7 +182,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .iter()
                     .find(|s| s.provider == provider && s.subscriber == subscriber)
                 else {
-                    return Err("Subscription not found".to_string());
+                    return Err(UnsubscribeError::SubscriptionNotFound)?;
                 };
 
                 let machine = find_machine(&mut self.machines, subscriber)

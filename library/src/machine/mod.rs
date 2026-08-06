@@ -1,6 +1,7 @@
 use std::any::Any;
 
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
+pub use qitech_framework_core::request::SubscribeError;
 
 pub mod error;
 use error::ActResult;
@@ -10,7 +11,6 @@ pub use build::BuildContext;
 
 mod subscribe;
 pub use subscribe::SubscribeContext;
-pub use subscribe::SubscribeError;
 pub use subscribe::SubscribeResult;
 pub use subscribe::SubscribedProperty;
 

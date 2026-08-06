@@ -170,7 +170,7 @@ pub enum ConfigFieldState {
     Initialized {
         value: ScalarValue,
         default: ScalarValue,
-        writeable: WriteCapability,
+        capability: WriteCapability,
         constraints: Constraints,
     },
 }

@@ -15,6 +15,7 @@ use crate::machine::build::BuildError;
 use crate::machine::build::BuildResult;
 use crate::resource::ConfigProperty;
 use crate::resource::ConfigPropertyState;
+use crate::resource::Erased;
 use crate::resource::OnExternalChangedCallback;
 use crate::resource::conversion::PropertyAdapter;
 use crate::resource::conversion::PropertyType;
@@ -96,13 +97,19 @@ where
 
     pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
         fn write<T: PropertyAdapter>(
-            state: *const (),
+            state: Erased,
             value_in: ScalarValue,
-            value_out: *mut (),
-        ) -> Result<(), ConfigPropertyWriteError> {
+            value_out: Erased,
+        ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>
+        where
+            T::Type: PartialEq,
+        {
             let value = T::from_scalar(value_in)?;
 
-            let state = unsafe { &*(state as *const ConfigPropertyState<T::Type>) };
+            let state = state.downcast::<ConfigPropertyState<T::Type>>()
+                .expect("Expected pointer to state");
+
+            let state = unsafe { state.read() };
 
             if let WriteCapability::Forbidden { .. } = state.writable {
                 return Err(ConfigPropertyWriteError::NotWritable);
@@ -112,10 +119,18 @@ where
                 return Err(ConfigPropertyWriteError::ConstraintViolation(e));
             }
 
-            let value_out = unsafe { &mut *(value_out as *mut T::Type) };
-            *value_out = value;
+            let mut value_out = value_out.downcast::<T::Type>()
+                .expect("Expected pointer to value type");
+            
+            let value_out = unsafe { value_out.as_mut() };
 
-            Ok(())
+            if value_out == &value {
+                return Ok(None);
+            }
+
+            let before = T::into_scalar(value_out.clone());
+            *value_out = value;
+            Ok(Some(before))
         }
 
         let default = self

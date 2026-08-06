@@ -74,9 +74,9 @@ fn wrapped_run<T: ControllerTransport>(
                 } => {
                     let _ = session.send_request(RuntimeRequest {
                         request_id: 0,
-                        kind: RuntimeRequestKind::WriteConfigProperty {
+                        kind: RuntimeRequestKind::SetConfigProperty {
                             target: machine,
-                            resource,
+                            path: resource,
                             value,
                         },
                     });
@@ -86,7 +86,7 @@ fn wrapped_run<T: ControllerTransport>(
                         request_id: 0,
                         kind: RuntimeRequestKind::InvokeMachineCommand {
                             target: machine,
-                            resource,
+                            path: resource,
                         },
                     });
                 }
@@ -97,7 +97,7 @@ fn wrapped_run<T: ControllerTransport>(
                 } => {
                     let _ = session.send_request(RuntimeRequest {
                         request_id: 0,
-                        kind: RuntimeRequestKind::MachineSubscribe {
+                        kind: RuntimeRequestKind::SubscribeMachine {
                             provider,
                             subscriber,
                         },
@@ -110,7 +110,7 @@ fn wrapped_run<T: ControllerTransport>(
                 } => {
                     let _ = session.send_request(RuntimeRequest {
                         request_id: 0,
-                        kind: RuntimeRequestKind::MachineUnsubscribe {
+                        kind: RuntimeRequestKind::UnsubscribeMachine {
                             provider,
                             subscriber,
                         },

@@ -28,31 +28,23 @@ pub enum RuntimeRequestKind {
         subdevice_index: usize,
     },
 
-    WriteConfigProperty {
-        /// target machine
+    SetConfigProperty {
         target: MachineIdentificationUnique,
-
-        /// resource path
-        resource: String,
-
-        /// value to write
+        path: String,
         value: ScalarValue,
     },
 
     InvokeMachineCommand {
-        /// target machine
         target: MachineIdentificationUnique,
-
-        /// command resource path
-        resource: String,
+        path: String,
     },
 
-    MachineSubscribe {
+    SubscribeMachine {
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
     },
 
-    MachineUnsubscribe {
+    UnsubscribeMachine {
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
     },
@@ -60,10 +52,7 @@ pub enum RuntimeRequestKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeResponse {
-    /// identifier the controller can use to map request back to response
     pub request_id: u64,
-
-    /// result of the requested operation
     pub result: Result<(), RuntimeRequestError>,
 }
 
@@ -130,8 +119,17 @@ pub enum WriteConfigPropertyError {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum SubscribeError {
-    #[error("unsupported machine: {0}")]
-    UnsupportedMachine(MachineIdentificationUnique),
+    #[error("provider does not have requested machine")]
+    ProviderNotFound,
+
+    #[error("provider does not have requested machine")]
+    SubscriberNotFound,
+
+    #[error("provider does not have a subscription for subscriber")]
+    DuplicateSubscription,
+
+    #[error("unsupported machine")]
+    UnsupportedMachine,
 
     #[error("too many subscriptions")]
     TooManySubscriptions,
@@ -140,19 +138,11 @@ pub enum SubscribeError {
     TypeMismatch { expected: String, received: String },
 
     #[error("provider does not have requested resource: {resource}")]
-    NoSuchResource { resource: String },
+    ResourceNotFound { resource: String },
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum UnsubscribeError {
-    #[error("provider does not have requested machine: {resource}")]
-    NoSuchMachine {
-        resource: MachineIdentificationUnique,
-    },
-
-    #[error("provider {provider} does not have a subscription for subscriber {subscriber}")]
-    NoSuchSubscription {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
-    },
+    #[error("provider does not have a subscription for subscriber")]
+    SubscriptionNotFound,
 }
