@@ -10,6 +10,7 @@ use qitech_framework_core::report::StatePropertyRecord;
 
 use crate::resource::BumpAllocator;
 use crate::resource::BumpAllocatorMark;
+use crate::resource::CachedPropertyView;
 use crate::resource::JournalHandle;
 use crate::resource::MachineInfo;
 use crate::resource::SlotInfo;
@@ -140,9 +141,42 @@ impl StatePropertyRegistry {
         }
     }
 
-    pub fn sync(&mut self) {
+    pub fn sync_cache(&mut self) {
         // --- copy snapshot of values into cache ---
         self.alloc_cache.sync(&self.alloc_value);
+    }
+
+    // TODO: return result
+    pub fn new_cached_view<T: Clone + 'static>(
+        &self,
+        ident: MachineIdentificationUnique,
+        resource: &str,
+    ) -> Option<CachedPropertyView<T>> {
+        let Some(entry) = self.machines.iter().find(|m| m.ident == ident) else {
+            return panic!("No such resource");
+        };
+
+        for i in entry.pos..entry.pos + entry.len {
+            if self.pool_slot[i].state != SlotState::Activated {
+                continue;
+            }
+
+            let descriptor = unsafe { self.pool_desc[i].assume_init_ref() };
+
+            if descriptor.path != resource {
+                continue;
+            }
+
+            if descriptor.type_id != TypeId::of::<T>() {
+                return None;
+            }
+
+            let p_value = unsafe { NonNull::new_unchecked(descriptor.p_cache as *mut T) };
+
+            return Some(CachedPropertyView::new(p_value));
+        }
+
+        None
     }
 }
 

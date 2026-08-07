@@ -2,6 +2,7 @@ use std::rc::Rc;
 use std::rc::Weak;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::request::SubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
@@ -80,20 +81,47 @@ impl<'a> SubscribeContext<'a> {
         self.provider
     }
 
-    /*
-    pub fn subscribe_config_property<T: 'static>(
+    pub fn subscribe_config_property<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
+        let view = self
+            .resources
+            .config_properties
+            .new_cached_view(self.provider, resource)
+            .ok_or(SubscribeError::ResourceNotFound {
+                resource: resource.to_string(),
+                kind: ResourceKind::ConfigProperty
+            })?;
 
+        let prop = SubscribedProperty {
+            view,
+            token: Rc::downgrade(&self.token),
+        };
+
+        Ok(prop)
     }
 
-    pub fn subscribe_state_property<T: 'static>(
+    pub fn subscribe_state_property<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
     ) -> SubscribeResult<SubscribedProperty<T>> {
+        let view = self
+            .resources
+            .state_properties
+            .new_cached_view(self.provider, resource)
+            .ok_or(SubscribeError::ResourceNotFound {
+                resource: resource.to_string(),
+                kind: ResourceKind::StateProperty
+            })?;
+
+        let prop = SubscribedProperty {
+            view,
+            token: Rc::downgrade(&self.token),
+        };
+
+        Ok(prop)
     }
-    */
 
     pub fn subscribe_measurement<T: Clone + 'static>(
         &mut self,
@@ -103,7 +131,10 @@ impl<'a> SubscribeContext<'a> {
             .resources
             .measurements
             .new_cached_view(self.provider, resource)
-            .unwrap();
+            .ok_or(SubscribeError::ResourceNotFound {
+                resource: resource.to_string(),
+                kind: ResourceKind::Measurement
+            })?;
 
         let prop = SubscribedProperty {
             view,

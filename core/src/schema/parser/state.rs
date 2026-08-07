@@ -108,7 +108,7 @@ struct EnumValueHelper {
     variants: EnumVariantsRaw,
 }
 
-// --- scalar ---
+// --- simple ---
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SimpleValueHelper {

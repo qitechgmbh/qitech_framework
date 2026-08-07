@@ -1,3 +1,5 @@
+use core::fmt;
+
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
@@ -5,6 +7,7 @@ use thiserror::Error;
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::ConfigPropertyWriteError;
+use crate::report::ResourceKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeRequest {
@@ -48,6 +51,28 @@ pub enum RuntimeRequestKind {
         provider: MachineIdentificationUnique,
         subscriber: MachineIdentificationUnique,
     },
+}
+
+impl fmt::Display for RuntimeRequestKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RuntimeRequestKind::WriteMachineDeviceInfo { .. } => {
+                write!(f, "WriteMachineDeviceInfo")
+            }
+            RuntimeRequestKind::SetConfigProperty { .. } => {
+                write!(f, "SetConfigProperty")
+            }
+            RuntimeRequestKind::InvokeMachineCommand { .. } => {
+                write!(f, "InvokeMachineCommand")
+            }
+            RuntimeRequestKind::SubscribeMachine { .. } => {
+                write!(f, "SubscribeMachine")
+            }
+            RuntimeRequestKind::UnsubscribeMachine { .. } => {
+                write!(f, "UnsubscribeMachine")
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,7 +163,10 @@ pub enum SubscribeError {
     TypeMismatch { expected: String, received: String },
 
     #[error("provider does not have requested resource: {resource}")]
-    ResourceNotFound { resource: String },
+    ResourceNotFound { 
+        resource: String,
+        kind: ResourceKind,
+    },
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]

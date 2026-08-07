@@ -18,6 +18,7 @@ use qitech_framework_core::with_uom_quantities;
 
 use super::Machine;
 use crate::resource::BumpAllocator;
+use crate::resource::CachedPropertyView;
 use crate::resource::Erased;
 use crate::resource::JournalHandle;
 use crate::resource::MachineInfo;
@@ -384,9 +385,42 @@ impl ConfigPropertyRegistry {
         }
     }
 
-    pub fn sync(&mut self) {
+    pub fn sync_cache(&mut self) {
         // --- copy snapshot of values into cache ---
         self.alloc_cache.sync(&self.alloc_value);
+    }
+
+    // TODO: return result
+    pub fn new_cached_view<T: Clone + 'static>(
+        &self,
+        ident: MachineIdentificationUnique,
+        resource: &str,
+    ) -> Option<CachedPropertyView<T>> {
+        let Some(entry) = self.machines.iter().find(|m| m.ident == ident) else {
+            return panic!("No such resource");
+        };
+
+        for i in entry.pos..entry.pos + entry.len {
+            if self.buf_slot_info[i].state != SlotState::Activated {
+                continue;
+            }
+
+            let descriptor = unsafe { self.buf_descriptor[i].assume_init_ref() };
+
+            if descriptor.path != resource {
+                continue;
+            }
+
+            if descriptor.type_id != TypeId::of::<T>() {
+                return None;
+            }
+
+            let p_value = unsafe { NonNull::new_unchecked(descriptor.p_cache as *mut T) };
+
+            return Some(CachedPropertyView::new(p_value));
+        }
+
+        None
     }
 
     pub fn execute_context(

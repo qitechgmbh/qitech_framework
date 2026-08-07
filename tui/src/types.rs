@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::ptr;
 
+use chrono::DateTime;
+use chrono::Local;
+use chrono::Utc;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
@@ -10,6 +13,9 @@ use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::request::RuntimeRequest;
+use qitech_framework_core::request::RuntimeRequestError;
+use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::ConfigPropertyKind;
 use qitech_framework_core::schema::MachineSchema;
 
@@ -28,6 +34,7 @@ pub struct AppState {
     pub ecat_status: EtherCATStatus,
     pub schemas: HashMap<MachineIdentification, MachineSchema>,
     pub machines: Vec<MachineEntry>,
+    pub transactions: Vec<Transaction>,
 }
 
 impl AppState {
@@ -37,6 +44,7 @@ impl AppState {
             ecat_status: EtherCATStatus::NoInterface,
             schemas: Default::default(),
             machines: Default::default(),
+            transactions: Default::default(),
         }
     }
 
@@ -46,6 +54,7 @@ impl AppState {
             ecat_status: self.ecat_status,
             schemas: ptr::from_ref(&self.schemas),
             machines: ptr::from_ref(self.machines.as_slice()),
+            transactions: ptr::from_ref(self.transactions.as_slice()),
         }
     }
 
@@ -119,6 +128,7 @@ pub struct AppContext {
     pub ecat_status: EtherCATStatus,
     pub schemas: *const HashMap<MachineIdentification, MachineSchema>,
     pub machines: *const [MachineEntry],
+    pub transactions: *const [Transaction],
 }
 
 impl AppContext {
@@ -149,6 +159,14 @@ pub enum AppAction {
 }
 
 // --- types ---
+#[derive(Debug)]
+pub struct Transaction {
+    pub id: u64,
+    pub timestamp: DateTime<Local>,
+    pub request: RuntimeRequestKind,
+    pub result: Result<(), RuntimeRequestError>,
+}
+
 pub struct MachineEntry {
     pub title: String,
     pub ident: MachineIdentificationUnique,

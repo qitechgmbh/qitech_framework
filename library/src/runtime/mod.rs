@@ -89,6 +89,9 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.process_requests();
         self.run_machines();
 
+        // --- sync cache so subscribed properties get the latest data next cycle ---
+        self.resources.config_properties.sync_cache();
+        self.resources.state_properties.sync_cache();
         self.resources.measurements.sync_cache();
 
         // self.resources.sync_caches();

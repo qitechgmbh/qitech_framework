@@ -14,8 +14,27 @@ config:
     target_min: !millimeter
     target_max: !millimeter
 
+    tolerance:
+      upper: !millimeter
+      lower: !millimeter
+
+  subscribed:
+    diameter:
+      target: !millimeter
+        nullable: true
+
+      tolerance.lower: !millimeter
+        nullable: true
+
+      tolerance.upper: !millimeter
+        nullable: true
+
 state:
   in_tolerance: !boolean
+
+  # subscribed test
+  subscribed.in_tolerance: !boolean
+      nullable: true
 
 measurements:
   diameter: !millimeter
@@ -23,8 +42,15 @@ measurements:
   diameter_y: !millimeter
   roundness: !millimeter
 
-  # test
+  # subscribed test
   subscribed.diameter: !millimeter
+    nullable: true
+
   subscribed.diameter_x: !millimeter
+    nullable: true
+
   subscribed.diameter_y: !millimeter
+    nullable: true
+
   subscribed.roundness: !millimeter
+    nullable: true

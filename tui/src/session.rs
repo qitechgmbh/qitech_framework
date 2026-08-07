@@ -6,7 +6,6 @@ use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequest;
-use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::controller::SessionHandshake;
@@ -24,7 +23,7 @@ pub enum SessionMessage {
 pub fn run<T: ControllerTransport>(
     session: SessionHandshake<T>,
     tx: Sender<SessionMessage>,
-    rx: Receiver<AppAction>,
+    rx: Receiver<RuntimeRequest>,
 ) {
     if wrapped_run(session, &tx, rx).is_err() {
         tx.send(SessionMessage::Disconnected)
@@ -35,7 +34,7 @@ pub fn run<T: ControllerTransport>(
 fn wrapped_run<T: ControllerTransport>(
     session: SessionHandshake<T>,
     tx: &Sender<SessionMessage>,
-    rx: Receiver<AppAction>,
+    rx: Receiver<RuntimeRequest>,
 ) -> anyhow::Result<()> {
     let session = session.complete()?;
 
@@ -65,59 +64,7 @@ fn wrapped_run<T: ControllerTransport>(
             .expect("should not outlive main thread");
 
         match rx.try_recv() {
-            Ok(action) => match action {
-                AppAction::NoAction => {}
-                AppAction::SetConfig {
-                    machine,
-                    resource,
-                    value,
-                } => {
-                    let _ = session.send_request(RuntimeRequest {
-                        request_id: 0,
-                        kind: RuntimeRequestKind::SetConfigProperty {
-                            target: machine,
-                            path: resource,
-                            value,
-                        },
-                    });
-                }
-
-                AppAction::ExecuteCommand { machine, resource } => {
-                    let _ = session.send_request(RuntimeRequest {
-                        request_id: 0,
-                        kind: RuntimeRequestKind::InvokeMachineCommand {
-                            target: machine,
-                            path: resource,
-                        },
-                    });
-                }
-
-                AppAction::Subscribe {
-                    provider,
-                    subscriber,
-                } => {
-                    let _ = session.send_request(RuntimeRequest {
-                        request_id: 0,
-                        kind: RuntimeRequestKind::SubscribeMachine {
-                            provider,
-                            subscriber,
-                        },
-                    });
-                }
-
-                AppAction::Unsubscribe {
-                    provider,
-                    subscriber,
-                } => {
-                    let _ = session.send_request(RuntimeRequest {
-                        request_id: 0,
-                        kind: RuntimeRequestKind::UnsubscribeMachine {
-                            provider,
-                            subscriber,
-                        },
-                    });
-                }
-            },
+            Ok(request) => session.send_request(request).expect("idk"),
             Err(_) => continue,
         }
     }

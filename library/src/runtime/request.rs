@@ -61,7 +61,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             RuntimeRequestKind::SetConfigProperty {
                 target,
-                path: resource,
+                path,
                 value,
             } => {
                 // --- find the machine ---
@@ -73,7 +73,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let context = self
                     .resources
                     .config_properties
-                    .execute_context(target, &resource);
+                    .execute_context(target, &path);
 
                 let Some(context) = context else {
                     return Err(WriteConfigPropertyError::ResourceNotFound)?;
@@ -82,17 +82,17 @@ impl<T: RuntimeTransport> Runtime<T> {
                 // --- write the value ---
                 let result = context.execute(machine, value.clone());
 
+                // --- record the outcome ---
                 let outcome = match result.clone() {
                     Ok(Some(before)) => ConfigPropertyWriteOutcome::Changed { before },
                     Ok(None) => ConfigPropertyWriteOutcome::Unchanged,
                     Err(e) => ConfigPropertyWriteOutcome::Failed(e),
                 };
 
-                // --- record the result ---
                 let record = ConfigPropertyRecord {
                     timestamp: Utc::now(),
                     machine: target,
-                    path: resource.to_string(),
+                    path: path.to_string(),
                     event: ConfigPropertyEvent::Written {
                         value,
                         origin: OperationOrigin::Request { request_id },
@@ -101,7 +101,12 @@ impl<T: RuntimeTransport> Runtime<T> {
                 };
 
                 self.journals.config_property.new_handle().append(record);
-                Ok(())
+
+                // --- yield the result ---
+                match result {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(WriteConfigPropertyError::WriteError(e))?,
+                }
             }
 
             RuntimeRequestKind::InvokeMachineCommand {

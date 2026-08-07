@@ -147,12 +147,14 @@ pub struct StatsReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineResource {
     path: String,
-    kind: MachineResourceKind,
+    kind: ResourceKind,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MachineResourceKind {
-    Config,
-    State,
+pub enum ResourceKind {
+    ConfigProperty,
+    StateProperty,
     Measurement,
+    Command,
+    Event,
 }

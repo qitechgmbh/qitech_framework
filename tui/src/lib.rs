@@ -4,6 +4,8 @@ use std::panic;
 use std::thread;
 use std::time::Duration;
 
+use chrono::Local;
+use chrono::Utc;
 use crossbeam::channel::TryRecvError;
 use crossterm::event;
 use crossterm::event::DisableMouseCapture;
@@ -24,6 +26,8 @@ use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::StatePropertyEvent;
+use qitech_framework_core::request::RuntimeRequest;
+use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::controller::SessionHandshake;
 use ratatui::Terminal;
@@ -40,10 +44,12 @@ mod controls;
 mod widgets;
 
 use crate::session::SessionMessage;
+use crate::types::AppAction;
 use crate::types::AppState;
 use crate::types::ConfigFieldState;
 use crate::types::MachineEntry;
 use crate::types::RuntimeStatus;
+use crate::types::Transaction;
 
 pub struct TuiConfiguration {
     cycle_time: Duration,
@@ -108,7 +114,7 @@ impl Tui {
         T: ControllerTransport + Send + 'static,
     {
         let (tx, rx) = crossbeam::channel::bounded(128);
-        let (tx_action, rx_action) = crossbeam::channel::bounded(128);
+        let (tx_req, rx_action) = crossbeam::channel::bounded(128);
 
         thread::spawn(move || session::run(session, tx, rx_action));
 
@@ -122,7 +128,57 @@ impl Tui {
             {
                 match self.root.on_key(key, self.state.as_ctx()) {
                     Ok(action) => {
-                        tx_action.send(action).unwrap();
+                        let request = match action {
+                            AppAction::NoAction => None,
+                            AppAction::SetConfig {
+                                machine,
+                                resource,
+                                value,
+                            } => Some(RuntimeRequestKind::SetConfigProperty {
+                                target: machine,
+                                path: resource,
+                                value,
+                            }),
+
+                            AppAction::ExecuteCommand { machine, resource } => {
+                                Some(RuntimeRequestKind::InvokeMachineCommand {
+                                    target: machine,
+                                    path: resource,
+                                })
+                            }
+
+                            AppAction::Subscribe {
+                                provider,
+                                subscriber,
+                            } => Some(RuntimeRequestKind::SubscribeMachine {
+                                provider,
+                                subscriber,
+                            }),
+
+                            AppAction::Unsubscribe {
+                                provider,
+                                subscriber,
+                            } => Some(RuntimeRequestKind::UnsubscribeMachine {
+                                provider,
+                                subscriber,
+                            }),
+                        };
+
+                        if let Some(kind) = request {
+                            let request_id = self.state.transactions.len() as u64;
+
+                            self.state.transactions.push(Transaction {
+                                id: request_id,
+                                timestamp: Local::now(),
+                                request: kind.clone(),
+                                result: Ok(()),
+                            });
+
+                            tx_req.send(RuntimeRequest { 
+                                request_id, 
+                                kind, 
+                            }).unwrap();
+                        }
                     }
                     Err(_) => {
                         if key.code == KeyCode::Char('q') {
@@ -175,6 +231,16 @@ impl Tui {
 
     pub fn on_report(&mut self, report: RuntimeReport) {
         self.state.rt_status = RuntimeStatus::Running;
+
+        for response in report.responses {
+            let entry = self
+                .state
+                .transactions
+                .get_mut(response.request_id as usize)
+                .expect("should map");
+
+            entry.result = response.result;
+        }
 
         for event in report.events {
             match event {
@@ -289,9 +355,15 @@ impl Tui {
             };
 
             match record.event {
-                StatePropertyEvent::Registered { .. } => {}
+                StatePropertyEvent::Registered { value } => {
+                    item.value = Some(value);
+                }
 
                 StatePropertyEvent::ValueChanged { after, .. } => {
+                    if item.value.is_none() {
+                        continue;
+                    }
+
                     item.value = Some(after);
                 }
             }

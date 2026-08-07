@@ -15,6 +15,7 @@ use crate::widgets::StatusDisplay;
 use crate::widgets::TabView;
 use crate::widgets::Widget;
 use crate::widgets::tab_view::TabEntry;
+use crate::widgets::transactions::TransactionsView;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Focus {
@@ -41,9 +42,13 @@ impl UIRoot {
                         item: Box::new(MachinesView::new()),
                     },
                     TabEntry {
-                        title: "EtherCAT",
-                        item: Box::new(MachinesView::new()),
+                        title: "Transactions",
+                        item: Box::new(TransactionsView::new()),
                     },
+                    // TabEntry {
+                    //     title: "EtherCAT",
+                    //     item: Box::new(MachinesView::new()),
+                    // },
                 ],
             ),
         }

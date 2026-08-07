@@ -29,6 +29,16 @@ use qitech_lib::units::length::millimeter;
 
 pub struct LaserV1Subscription {
     ident: MachineIdentificationUnique,
+
+    // --- config ---
+    diameter_target: SubscribedProperty<Length>,
+    diameter_tolerance_upper: SubscribedProperty<Length>,
+    diameter_tolerance_lower: SubscribedProperty<Length>,
+
+    // --- state ----
+    in_tolerance: SubscribedProperty<bool>,
+
+    // --- measurements ---
     diameter: SubscribedProperty<Length>,
     diameter_x: SubscribedProperty<Option<Length>>,
     diameter_y: SubscribedProperty<Option<Length>>,
@@ -50,8 +60,13 @@ pub struct LaserV1 {
     diameter_target_min: ConfigProperty<Option<Length>>,
     diameter_target_max: ConfigProperty<Option<Length>>,
 
+    subscribed_diameter_target: ConfigProperty<Option<Length>>,
+    subscribed_diameter_tolerance_upper: ConfigProperty<Option<Length>>,
+    subscribed_diameter_tolerance_lower: ConfigProperty<Option<Length>>,
+
     // --- state ---
     in_tolerance: StateProperty<bool>,
+    subscribed_in_tolerance: StateProperty<Option<bool>>,
 
     // --- measurements ---
     diameter: Measurement<Length>,
@@ -134,11 +149,33 @@ impl MachineBuild for LaserV1 {
             })
             .register()?;
 
+        let subscribed_diameter_target = ctx
+            .config::<Option<millimeter>>("subscribed.diameter.target")
+            .default(None)
+            .register()?;
+
+        let subscribed_diameter_tolerance_lower = ctx
+            .config::<Option<millimeter>>("subscribed.diameter.tolerance.lower")
+            .default(None)
+            .register()?;
+
+        let subscribed_diameter_tolerance_upper = ctx
+            .config::<Option<millimeter>>("subscribed.diameter.tolerance.upper")
+            .default(None)
+            .register()?;
+
+        // --- state ---
         let in_tolerance = ctx
             .state::<bool>("in_tolerance")
             .initial(false)
             .register()?;
 
+        let subscribed_in_tolerance = ctx
+            .state::<Option<bool>>("subscribed.in_tolerance")
+            .initial(None)
+            .register()?;
+
+        // --- measurements ---
         let subscribed_diameter = ctx
             .measurement::<Option<millimeter>>("subscribed.diameter")
             .register()?;
@@ -164,7 +201,11 @@ impl MachineBuild for LaserV1 {
             diameter_target_enabled,
             diameter_target_min,
             diameter_target_max,
+            subscribed_diameter_target,
+            subscribed_diameter_tolerance_lower,
+            subscribed_diameter_tolerance_upper,
             in_tolerance,
+            subscribed_in_tolerance,
             diameter: ctx.measurement::<millimeter>("diameter").register()?,
             diameter_x: ctx
                 .measurement::<Option<millimeter>>("diameter_x")
@@ -204,6 +245,24 @@ impl Machine for LaserV1 {
         self.in_tolerance.set(in_tolerance);
 
         if let Some(subscription) = &mut self.subscription {
+            // --- config ---
+            self.subscribed_diameter_target
+                .set(Some(subscription.diameter_target.get()))
+                .unwrap();
+
+            self.subscribed_diameter_tolerance_lower
+                .set(Some(subscription.diameter_tolerance_lower.get()))
+                .unwrap();
+
+            self.subscribed_diameter_tolerance_upper
+                .set(Some(subscription.diameter_tolerance_upper.get()))
+                .unwrap();
+
+            // --- state ---
+            self.subscribed_in_tolerance
+                .set(Some(subscription.in_tolerance.get()));
+
+            // --- measurements ---
             self.subscribed_diameter
                 .set(Some(subscription.diameter.get()));
             self.subscribed_diameter_x
@@ -211,11 +270,6 @@ impl Machine for LaserV1 {
             self.subscribed_diameter_y
                 .set(subscription.diameter_y.get());
             self.subscribed_roundness.set(subscription.roundness.get());
-        } else {
-            self.subscribed_diameter.set(None);
-            self.subscribed_diameter_x.set(None);
-            self.subscribed_diameter_y.set(None);
-            self.subscribed_roundness.set(None);
         }
 
         Ok(())
@@ -234,6 +288,16 @@ impl Machine for LaserV1 {
 
         self.subscription = Some(LaserV1Subscription {
             ident,
+
+            // --- config ---
+            diameter_target: ctx.subscribe_config_property("diameter.target")?,
+            diameter_tolerance_lower: ctx.subscribe_config_property("diameter.tolerance.lower")?,
+            diameter_tolerance_upper: ctx.subscribe_config_property("diameter.tolerance.upper")?,
+
+            // --- state ---
+            in_tolerance: ctx.subscribe_state_property("in_tolerance")?,
+
+            // --- measurements ---
             diameter: ctx.subscribe_measurement("diameter")?,
             diameter_x: ctx.subscribe_measurement("diameter_x")?,
             diameter_y: ctx.subscribe_measurement("diameter_y")?,
@@ -248,6 +312,22 @@ impl Machine for LaserV1 {
             && subscription.ident == ident
         {
             self.subscription = None;
+
+            // --- config ---
+            self.subscribed_diameter_target.set(None).unwrap();
+
+            self.subscribed_diameter_tolerance_lower.set(None).unwrap();
+
+            self.subscribed_diameter_tolerance_upper.set(None).unwrap();
+
+            // --- state ---
+            self.subscribed_in_tolerance.set(None);
+
+            // --- measurements ---
+            self.subscribed_diameter.set(None);
+            self.subscribed_diameter_x.set(None);
+            self.subscribed_diameter_y.set(None);
+            self.subscribed_roundness.set(None);
         }
     }
 }

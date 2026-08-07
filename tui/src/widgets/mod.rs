@@ -14,6 +14,7 @@ pub mod events;
 pub mod measurements;
 pub mod state;
 pub mod subscriptions;
+pub mod transactions;
 
 use crate::types::AppAction;
 

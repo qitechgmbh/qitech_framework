@@ -120,14 +120,10 @@ impl SubscriptionsView {
                     Style::reset()
                 };
 
-                let entry = machines.iter().find(|x| x.ident == *subscription)
-                    .unwrap();
+                let entry = machines.iter().find(|x| x.ident == *subscription).unwrap();
 
-                ListItem::new(format!(
-                    "{} ({})",
-                    entry.title.as_str(),
-                    entry.ident.serial
-                )).style(style)
+                ListItem::new(format!("{} ({})", entry.title.as_str(), entry.ident.serial))
+                    .style(style)
             })
             .collect();
 
@@ -234,12 +230,12 @@ impl SubscriptionsView {
             })
             .collect();
 
-        let list = List::new(items)
-            .block(
-                Block::default()
-                    .title(" Select ")
-                    .title_style(Style::default().fg(Color::Red))
-                    .borders(Borders::all()).border_style(Style::default().fg(Color::Red)),
+        let list = List::new(items).block(
+            Block::default()
+                .title(" Select ")
+                .title_style(Style::default().fg(Color::Red))
+                .borders(Borders::all())
+                .border_style(Style::default().fg(Color::Red)),
         );
 
         frame.render_widget(list, area);
