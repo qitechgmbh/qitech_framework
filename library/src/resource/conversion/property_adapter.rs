@@ -10,7 +10,7 @@ use crate::resource::conversion::property_type::PropertyType;
 /// Trait to allow defining conversion and extract operations
 /// on wrapped units. The best example here is uom which allows us to export
 /// a uom Length as millimeter instead of meter (the default with serde feature)
-pub trait PropertyAdapter {
+pub trait PropertyAdapter: 'static {
     type Type: PropertyType;
     type Input;
 

@@ -2,7 +2,6 @@ use std::rc::Rc;
 use std::rc::Weak;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::request::SubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
@@ -88,11 +87,7 @@ impl<'a> SubscribeContext<'a> {
         let view = self
             .resources
             .config_properties
-            .new_cached_view(self.provider, resource)
-            .ok_or(SubscribeError::ResourceNotFound {
-                resource: resource.to_string(),
-                kind: ResourceKind::ConfigProperty
-            })?;
+            .new_cached_view(self.provider, resource)?;
 
         let prop = SubscribedProperty {
             view,
@@ -109,11 +104,7 @@ impl<'a> SubscribeContext<'a> {
         let view = self
             .resources
             .state_properties
-            .new_cached_view(self.provider, resource)
-            .ok_or(SubscribeError::ResourceNotFound {
-                resource: resource.to_string(),
-                kind: ResourceKind::StateProperty
-            })?;
+            .new_cached_view(self.provider, resource)?;
 
         let prop = SubscribedProperty {
             view,
@@ -130,11 +121,7 @@ impl<'a> SubscribeContext<'a> {
         let view = self
             .resources
             .measurements
-            .new_cached_view(self.provider, resource)
-            .ok_or(SubscribeError::ResourceNotFound {
-                resource: resource.to_string(),
-                kind: ResourceKind::Measurement
-            })?;
+            .new_cached_view(self.provider, resource)?;
 
         let prop = SubscribedProperty {
             view,

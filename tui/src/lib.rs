@@ -5,7 +5,6 @@ use std::thread;
 use std::time::Duration;
 
 use chrono::Local;
-use chrono::Utc;
 use crossbeam::channel::TryRecvError;
 use crossterm::event;
 use crossterm::event::DisableMouseCapture;
@@ -174,10 +173,7 @@ impl Tui {
                                 result: Ok(()),
                             });
 
-                            tx_req.send(RuntimeRequest { 
-                                request_id, 
-                                kind, 
-                            }).unwrap();
+                            tx_req.send(RuntimeRequest { request_id, kind }).unwrap();
                         }
                     }
                     Err(_) => {
@@ -221,8 +217,10 @@ impl Tui {
                 self.state.ecat_status = status;
             }
 
-            RuntimeInitEvent::BuiltMachine { ident } => {
-                self.state.add_machine(ident);
+            RuntimeInitEvent::MachineBuildCompleted { ident, result } => {
+                if result.is_ok() {
+                    self.state.add_machine(ident);
+                }
             }
 
             _ => {}

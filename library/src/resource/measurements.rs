@@ -1,9 +1,12 @@
 use std::any::TypeId;
+use std::any::type_name;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::MeasurementSnapshot;
+use qitech_framework_core::report::ResourceAccessError;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::BumpAllocator;
@@ -86,7 +89,6 @@ with_uom_quantities!(impl_uom);
 pub struct MeasurementHandle<T: PropertyType> {
     generation: u64,
     p_info: NonNull<SlotInfo>,
-    p_desc: NonNull<SlotDescriptor>,
     p_value: NonNull<T>,
 }
 
@@ -167,9 +169,9 @@ impl MeasurementRegistry {
         &self,
         ident: MachineIdentificationUnique,
         resource: &str,
-    ) -> Option<CachedPropertyView<T>> {
+    ) -> Result<CachedPropertyView<T>, ResourceAccessError> {
         let Some(entry) = self.machines.iter().find(|m| m.ident == ident) else {
-            return panic!("No such resource");
+            return Err(ResourceAccessError::MachineNotFound(ident));
         };
 
         for i in entry.pos..entry.pos + entry.len {
@@ -184,15 +186,21 @@ impl MeasurementRegistry {
             }
 
             if descriptor.type_id != TypeId::of::<T>() {
-                return None;
+                return Err(ResourceAccessError::TypeMismatch {
+                    actual: descriptor.type_name.to_string(),
+                    received: type_name::<T>().to_string(),
+                });
             }
 
             let p_value = unsafe { NonNull::new_unchecked(descriptor.p_cache as *mut T) };
 
-            return Some(CachedPropertyView::new(p_value));
+            return Ok(CachedPropertyView::new(p_value));
         }
 
-        None
+        Err(ResourceAccessError::ResourceNotFound {
+            path: resource.to_string(),
+            kind: ResourceKind::Measurement,
+        })
     }
 
     pub fn extract(&self, mut f: impl FnMut(MeasurementSnapshot)) {
@@ -223,6 +231,7 @@ pub struct SlotDescriptor {
 
     // --- typed info ---
     type_id: TypeId,
+    type_name: &'static str,
     p_value: *mut (),
     p_cache: *mut (),
     extract: unsafe fn(*const ()) -> Option<f64>,
@@ -267,6 +276,7 @@ impl<'a> MeasurementRegistryRegisterHandle<'a> {
 
         let descriptor = SlotDescriptor {
             type_id: TypeId::of::<T>(),
+            type_name: type_name::<T>(),
             ident: self.ident,
             path: path.to_string(),
             p_value: p_value.as_ptr() as *mut (),
@@ -277,23 +287,12 @@ impl<'a> MeasurementRegistryRegisterHandle<'a> {
         self.registry.pool_desc[index].write(descriptor);
         self.registry.pool_items_pos += 1;
 
-        let p_desc = unsafe {
-            NonNull::new_unchecked(
-                self.registry
-                    .pool_desc
-                    .as_mut_ptr()
-                    .add(index)
-                    .cast::<SlotDescriptor>(),
-            )
-        };
-
         let p_info =
             unsafe { NonNull::new_unchecked(&mut self.registry.pool_slot[index] as *mut SlotInfo) };
 
         MeasurementHandle {
             generation: self.registry.pool_slot[index].generation,
             p_info,
-            p_desc,
             p_value,
         }
     }

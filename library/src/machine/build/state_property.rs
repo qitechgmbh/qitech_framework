@@ -1,9 +1,9 @@
 use chrono::Utc;
 use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::report::StatePropertyRecord;
+use qitech_framework_core::report::error::BuildResult;
 
 use crate::machine::BuildContext;
-use crate::machine::build::BuildResult;
 use crate::resource::StateProperty;
 use crate::resource::conversion::PropertyAdapter;
 

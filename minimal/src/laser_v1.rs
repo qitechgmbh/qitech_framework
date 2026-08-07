@@ -298,7 +298,7 @@ impl Machine for LaserV1 {
             in_tolerance: ctx.subscribe_state_property("in_tolerance")?,
 
             // --- measurements ---
-            diameter: ctx.subscribe_measurement("diameter")?,
+            diameter: ctx.subscribe_measurement("diameterz")?,
             diameter_x: ctx.subscribe_measurement("diameter_x")?,
             diameter_y: ctx.subscribe_measurement("diameter_y")?,
             roundness: ctx.subscribe_measurement("roundness")?,

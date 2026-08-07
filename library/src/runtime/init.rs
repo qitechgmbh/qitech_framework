@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionHandshake;
@@ -23,6 +24,7 @@ use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::RuntimeStatus;
 use crate::runtime::config::EtherCATMode;
+use crate::runtime::config::MachineRegistration;
 use crate::runtime::config::ModbusRtuMode;
 use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::error::RuntimeInitializeResult;
@@ -43,13 +45,23 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
 
-        for (schema_str, build, type_id) in config.machines {
-            let schema = MachineSchema::parse_str(schema_str)?;
+        for MachineRegistration {
+            schema,
+            build,
+            type_id,
+            type_name,
+        } in config.machines
+        {
+            let schema = MachineSchema::parse_str(schema)?;
 
             if machine_registry
                 .insert(
                     schema.identification,
-                    MachineRegistryEntry { build, type_id },
+                    MachineRegistryEntry {
+                        build,
+                        type_id,
+                        type_name,
+                    },
                 )
                 .is_some()
             {
@@ -186,8 +198,9 @@ impl<T: RuntimeTransport> Runtime<T> {
             let ident = ident_unique.identification;
 
             let Some(entry) = machine_registry.get(&ident) else {
-                session.send_event(RuntimeInitEvent::FailedToBuildMachine {
+                session.send_event(RuntimeInitEvent::MachineBuildCompleted {
                     ident: *ident_unique,
+                    result: Err(BuildError::MachineTypeNotRegistered),
                 })?;
 
                 continue;
@@ -196,6 +209,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             let ctx = BuildContext::new(
                 *ident_unique,
                 entry.type_id,
+                entry.type_name,
                 ecat_interface.clone(),
                 hardware.clone(),
                 journals,
@@ -204,9 +218,10 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             let instance = match (entry.build)(ctx) {
                 Ok(v) => v,
-                Err(_) => {
-                    session.send_event(RuntimeInitEvent::FailedToBuildMachine {
+                Err(e) => {
+                    session.send_event(RuntimeInitEvent::MachineBuildCompleted {
                         ident: *ident_unique,
+                        result: Err(e),
                     })?;
 
                     continue;
@@ -214,8 +229,9 @@ impl<T: RuntimeTransport> Runtime<T> {
             };
 
             machines.push(instance);
-            session.send_event(RuntimeInitEvent::BuiltMachine {
+            session.send_event(RuntimeInitEvent::MachineBuildCompleted {
                 ident: *ident_unique,
+                result: Ok(()),
             })?;
         }
 

@@ -4,7 +4,23 @@ use thiserror::Error;
 
 use crate::NumericValue;
 use crate::ScalarValue;
+use crate::ident::MachineIdentificationUnique;
+use crate::report::ResourceKind;
 
+// --- resource error ---
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
+pub enum ResourceAccessError {
+    #[error("machine not found")]
+    MachineNotFound(MachineIdentificationUnique),
+
+    #[error("resource not found")]
+    ResourceNotFound { kind: ResourceKind, path: String },
+
+    #[error("resource type mismatch: expected {actual}, received {received}")]
+    TypeMismatch { actual: String, received: String },
+}
+
+// --- write capability ---
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WriteCapability {
     #[default]

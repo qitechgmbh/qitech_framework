@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::any::TypeId;
 use std::mem::transmute;
 
 use chrono::Utc;
@@ -8,11 +9,11 @@ use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::report::error::BuildResult;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
-use crate::machine::build::BuildError;
-use crate::machine::build::BuildResult;
 use crate::resource::ConfigProperty;
 use crate::resource::ConfigPropertyState;
 use crate::resource::Erased;
@@ -20,7 +21,6 @@ use crate::resource::OnExternalChangedCallback;
 use crate::resource::conversion::PropertyAdapter;
 use crate::resource::conversion::PropertyType;
 
-// --- config property ---
 impl<'a> BuildContext<'a> {
     pub fn config<'b, T>(&'b mut self, path: &'static str) -> ConfigPropertyBuilder<'a, 'b, T>
     where
@@ -54,8 +54,7 @@ where
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
 where
-    T: PropertyAdapter + 'static,
-    T::Type: Clone,
+    T: PropertyAdapter,
 {
     pub fn default(mut self, value: T::Input) -> Self {
         self.default = Some(T::convert_input(value));
@@ -86,6 +85,9 @@ where
             let func: fn(&mut M) = unsafe { transmute(func) };
             func(machine)
         }
+
+        // TODO: yield as error instead
+        assert_eq!(self.root.type_id, TypeId::of::<M>());
 
         self.on_external_changed = Some(OnExternalChangedCallback {
             func: func as *const (),
@@ -137,7 +139,7 @@ where
 
         let default = self
             .default
-            .ok_or(BuildError::MissingRequiredField("default"))?;
+            .ok_or(BuildError::MissingRequiredField("default".to_string()))?;
         let writable = self.writable;
 
         // TODO: catch register error

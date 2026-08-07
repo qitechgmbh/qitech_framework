@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::any::type_name;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -21,7 +22,7 @@ use crate::runtime::types::MachineInstance;
 #[derive(Default)]
 pub struct RuntimeConfiguration {
     pub(crate) config: Config,
-    pub(crate) machines: Vec<(&'static str, BuildMachineFn, TypeId)>,
+    pub(crate) machines: Vec<MachineRegistration>,
     pub(crate) ethercat_mode: EtherCATMode,
     pub(crate) modbus_rtu_mode: ModbusRtuMode,
 }
@@ -87,19 +88,23 @@ impl RuntimeConfiguration {
         where
             M: MachineBuild + Machine + 'static,
         {
-            let ident = ctx.ident;
+            // --- build the machine ---
             let machine = Box::new(M::build(&mut ctx)?);
 
-            // --- commit all reserved resources to make them usable ---
-            ctx.config_properties.commit();
-            ctx.state_properties.commit();
-            ctx.measurements.commit();
+            // --- commit all staged resources ---
+            let ident = ctx.ident();
+            ctx.commit_all();
 
+            // --- return ---
             Ok(MachineInstance { ident, machine })
         }
 
-        self.machines
-            .push((M::SCHEMA, build_adapter::<M>, TypeId::of::<M>()));
+        self.machines.push(MachineRegistration {
+            schema: M::SCHEMA,
+            build: build_adapter::<M>,
+            type_id: TypeId::of::<M>(),
+            type_name: type_name::<M>(),
+        });
 
         self
     }
@@ -139,4 +144,11 @@ pub struct ModbusRtuConfig {
 pub struct ModbusRtuEntry {
     pub ident: MachineIdentificationUnique,
     pub init: Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>,
+}
+
+pub(crate) struct MachineRegistration {
+    pub schema: &'static str,
+    pub build: BuildMachineFn,
+    pub type_id: TypeId,
+    pub type_name: &'static str,
 }

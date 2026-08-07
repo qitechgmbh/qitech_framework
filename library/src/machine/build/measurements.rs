@@ -1,5 +1,6 @@
+use qitech_framework_core::report::error::BuildResult;
+
 use crate::machine::BuildContext;
-use crate::machine::build::BuildResult;
 use crate::resource::Measurement;
 use crate::resource::conversion::Extract;
 use crate::resource::conversion::PropertyAdapter;

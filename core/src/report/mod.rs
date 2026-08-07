@@ -13,6 +13,7 @@ mod types;
 pub use types::ConstraintViolationError;
 pub use types::Constraints;
 pub use types::OperationOrigin;
+pub use types::ResourceAccessError;
 pub use types::WriteCapability;
 
 mod machines;
@@ -28,6 +29,8 @@ pub use machines::MachinesReport;
 pub use machines::MeasurementSnapshot;
 pub use machines::StatePropertyEvent;
 pub use machines::StatePropertyRecord;
+
+pub mod error;
 
 mod logs;
 pub use logs::LogLevel;
@@ -150,7 +153,7 @@ pub struct MachineResource {
     kind: ResourceKind,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResourceKind {
     ConfigProperty,
     StateProperty,

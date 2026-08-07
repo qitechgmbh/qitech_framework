@@ -2,13 +2,13 @@ use std::any::type_name;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::report::error::BuildResult;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use qitech_lib::modbus::ModbusDevice;
 
 use crate::machine::BuildContext;
-use crate::machine::build::BuildError;
-use crate::machine::build::BuildResult;
 use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::machine::hardware::Hardware;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
@@ -109,7 +109,7 @@ fn downcast_ecat_dev<T: 'static>(
     device: Rc<RefCell<dyn EthercatDevice>>,
 ) -> BuildResult<Rc<RefCell<T>>> {
     if !device.borrow().as_any().is::<T>() {
-        let expected = type_name::<T>();
+        let expected = type_name::<T>().to_string();
         return Err(BuildError::DeviceTypeMismatch { index, expected });
     }
     let raw_trait_ptr = Rc::into_raw(device);
@@ -122,7 +122,7 @@ fn downcast_modbus_dev<T: 'static>(
     device: Rc<RefCell<dyn ModbusDevice>>,
 ) -> BuildResult<Rc<RefCell<T>>> {
     if !device.borrow().as_any().is::<T>() {
-        let expected = type_name::<T>();
+        let expected = type_name::<T>().to_string();
         return Err(BuildError::DeviceTypeMismatch { index, expected });
     }
     let raw_trait_ptr = Rc::into_raw(device);

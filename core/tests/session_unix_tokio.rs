@@ -13,6 +13,7 @@ use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::TimingsReport;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework_core::request::RuntimeResponse;
 use qitech_framework_core::session;
 
 #[test]
@@ -95,7 +96,10 @@ fn runtime(path: String) {
             Ok(Some(request)) => {
                 println!("[Runtime] received request: {request:?}");
 
-                let response = (request.request_id, Ok(()));
+                let response = RuntimeResponse {
+                    request_id: 0,
+                    result: Ok(()),
+                };
 
                 let report = RuntimeReport {
                     timestamp: Utc::now(),

@@ -63,6 +63,7 @@ pub struct MachineInfo {
 #[derive(Clone, Copy)]
 pub struct PropertyDescriptor {
     type_id: TypeId,
+    type_name: &'static str,
     ident: MachineIdentificationUnique,
     path: &'static str,
     p_value: *mut (),

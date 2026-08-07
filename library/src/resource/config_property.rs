@@ -1,4 +1,5 @@
 use std::any::TypeId;
+use std::any::type_name;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -13,6 +14,8 @@ use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::ConstraintViolationError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationOrigin;
+use qitech_framework_core::report::ResourceAccessError;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::with_uom_quantities;
 
@@ -395,9 +398,9 @@ impl ConfigPropertyRegistry {
         &self,
         ident: MachineIdentificationUnique,
         resource: &str,
-    ) -> Option<CachedPropertyView<T>> {
+    ) -> Result<CachedPropertyView<T>, ResourceAccessError> {
         let Some(entry) = self.machines.iter().find(|m| m.ident == ident) else {
-            return panic!("No such resource");
+            return Err(ResourceAccessError::MachineNotFound(ident));
         };
 
         for i in entry.pos..entry.pos + entry.len {
@@ -412,15 +415,21 @@ impl ConfigPropertyRegistry {
             }
 
             if descriptor.type_id != TypeId::of::<T>() {
-                return None;
+                return Err(ResourceAccessError::TypeMismatch {
+                    actual: descriptor.type_name.to_string(),
+                    received: type_name::<T>().to_string(),
+                });
             }
 
             let p_value = unsafe { NonNull::new_unchecked(descriptor.p_cache as *mut T) };
 
-            return Some(CachedPropertyView::new(p_value));
+            return Ok(CachedPropertyView::new(p_value));
         }
 
-        None
+        Err(ResourceAccessError::ResourceNotFound {
+            path: resource.to_string(),
+            kind: ResourceKind::ConfigProperty,
+        })
     }
 
     pub fn execute_context(
@@ -506,6 +515,7 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
 
         let descriptor = PropertyDescriptor {
             type_id: TypeId::of::<T>(),
+            type_name: type_name::<T>(),
             ident: self.ident,
             path,
             p_value: p_value.as_ptr() as *mut (),

@@ -30,7 +30,10 @@ pub struct TransactionsView {
 
 impl TransactionsView {
     pub fn new() -> Self {
-        Self { mode: Mode::Navigate, selected: 0 }
+        Self {
+            mode: Mode::Navigate,
+            selected: 0,
+        }
     }
 }
 
@@ -90,13 +93,13 @@ impl TransactionsView {
         ])
         .style(Style::default().add_modifier(Modifier::BOLD));
 
-    let rows = transactions
-        .iter()
-        .enumerate()
-        .rev()
-        .map(|(i, t)| {
+        let rows = transactions.iter().enumerate().rev().map(|(i, t)| {
             let selected = transactions.len().saturating_sub(1 + self.selected);
-            let result = if t.result.is_err() { "Failure" } else { "Success" };
+            let result = if t.result.is_err() {
+                "Failure"
+            } else {
+                "Success"
+            };
 
             let mut row = Row::new([
                 Cell::from(t.id.to_string()),
@@ -124,7 +127,8 @@ impl TransactionsView {
                 Constraint::Fill(1),
                 Constraint::Fill(1),
             ],
-        ).header(header);
+        )
+        .header(header);
 
         frame.render_widget(table, area);
     }
@@ -161,7 +165,7 @@ impl TransactionsView {
                             .add_modifier(Modifier::BOLD),
                     ),
             );
- 
+
             frame.render_widget(paragraph, area);
         }
     }

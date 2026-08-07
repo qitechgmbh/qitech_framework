@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use crate::ident::DeviceIdentification;
 use crate::ident::MachineIdentificationUnique;
+use crate::report::error::BuildError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeInitEvent {
@@ -38,12 +39,12 @@ pub enum RuntimeInitEvent {
 
     // --- machine ---
     BuildingMachines,
-    BuiltMachine {
+    MachineBuildStarted {
         ident: MachineIdentificationUnique,
     },
-    FailedToBuildMachine {
+    MachineBuildCompleted {
         ident: MachineIdentificationUnique,
-        // TODO: include full error
+        result: Result<(), BuildError>,
     },
 
     // --- finalizing ---
@@ -106,7 +107,7 @@ impl From<&RuntimeInitEvent> for RuntimeInitStatus {
             | ModbusRTUCouldNotInitialize { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
 
             // --- building machines ---
-            BuildingMachines | BuiltMachine { .. } | FailedToBuildMachine { .. } => {
+            BuildingMachines | MachineBuildStarted { .. } | MachineBuildCompleted { .. } => {
                 RuntimeInitStatus::BuildingMachines
             }
 

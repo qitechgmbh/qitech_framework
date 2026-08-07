@@ -27,6 +27,7 @@ pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'st
 
 pub struct MachineRegistryEntry {
     pub type_id: TypeId,
+    pub type_name: &'static str,
     pub build: BuildMachineFn,
 }
 

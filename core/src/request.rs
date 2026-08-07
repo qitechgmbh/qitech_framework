@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::ConfigPropertyWriteError;
+use crate::report::ResourceAccessError;
 use crate::report::ResourceKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,14 +160,8 @@ pub enum SubscribeError {
     #[error("too many subscriptions")]
     TooManySubscriptions,
 
-    #[error("type mismatch: expected {expected}, received {received}")]
-    TypeMismatch { expected: String, received: String },
-
-    #[error("provider does not have requested resource: {resource}")]
-    ResourceNotFound { 
-        resource: String,
-        kind: ResourceKind,
-    },
+    #[error(transparent)]
+    ResourceAccess(#[from] ResourceAccessError),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
