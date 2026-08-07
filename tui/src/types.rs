@@ -9,15 +9,18 @@ use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
+use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::ConfigPropertyKind;
 use qitech_framework_core::schema::MachineSchema;
+use qitech_framework_core::schema::StatePropertyKind;
 
 use crate::utils::Timeseries;
 
@@ -73,17 +76,20 @@ impl AppState {
                     kind: def.kind.clone(),
                     label: name.clone(),
                     state: ConfigFieldState::NotInitialized,
+                    records: Default::default(),
                 },
             );
         }
 
         let mut state = IndexMap::new();
-        for (name, _) in &schema.state_properties {
+        for (name, def) in &schema.state_properties {
             state.insert(
                 name.clone(),
-                StateField {
+                StatePropertyField {
                     label: name.clone(),
-                    value: None,
+                    kind: def.kind.clone(),
+                    state: StatePropertyFieldState::NotInitialized,
+                    records: Default::default(),
                 },
             );
         }
@@ -171,7 +177,7 @@ pub struct MachineEntry {
     pub title: String,
     pub ident: MachineIdentificationUnique,
     pub config: IndexMap<String, ConfigField>,
-    pub state: IndexMap<String, StateField>,
+    pub state: IndexMap<String, StatePropertyField>,
     pub measurements: IndexMap<String, MeasurementField>,
     pub commands: IndexMap<String, CommandField>,
     pub subscriptions: IndexSet<MachineIdentificationUnique>,
@@ -181,6 +187,7 @@ pub struct ConfigField {
     pub kind: ConfigPropertyKind,
     pub label: String,
     pub state: ConfigFieldState,
+    pub records: Vec<ConfigPropertyRecord>,
 }
 
 pub enum ConfigFieldState {
@@ -193,9 +200,16 @@ pub enum ConfigFieldState {
     },
 }
 
-pub struct StateField {
+pub struct StatePropertyField {
+    pub kind: StatePropertyKind,
     pub label: String,
-    pub value: Option<ScalarValue>,
+    pub state: StatePropertyFieldState,
+    pub records: Vec<StatePropertyRecord>,
+}
+
+pub enum StatePropertyFieldState {
+    NotInitialized,
+    Initialized { value: ScalarValue },
 }
 
 pub struct MeasurementField {

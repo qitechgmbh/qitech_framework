@@ -48,6 +48,7 @@ use crate::types::AppState;
 use crate::types::ConfigFieldState;
 use crate::types::MachineEntry;
 use crate::types::RuntimeStatus;
+use crate::types::StatePropertyFieldState;
 use crate::types::Transaction;
 
 pub struct TuiConfiguration {
@@ -297,6 +298,8 @@ impl Tui {
                 continue;
             };
 
+            field.records.push(record.clone());
+
             match record.event {
                 ConfigPropertyEvent::Registered {
                     default,
@@ -348,21 +351,21 @@ impl Tui {
                 continue;
             };
 
-            let Some(item) = entry.state.get_mut(&record.path) else {
+            let Some(field) = entry.state.get_mut(&record.path) else {
                 continue;
             };
 
+            field.records.push(record.clone());
+
             match record.event {
                 StatePropertyEvent::Registered { value } => {
-                    item.value = Some(value);
+                    field.state = StatePropertyFieldState::Initialized { value };
                 }
 
-                StatePropertyEvent::ValueChanged { after, .. } => {
-                    if item.value.is_none() {
-                        continue;
+                StatePropertyEvent::ValueChanged { value: after, .. } => {
+                    if let StatePropertyFieldState::Initialized { value, .. } = &mut field.state {
+                        *value = after
                     }
-
-                    item.value = Some(after);
                 }
             }
         }

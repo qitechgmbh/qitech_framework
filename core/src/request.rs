@@ -8,7 +8,6 @@ use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::ConfigPropertyWriteError;
 use crate::report::ResourceAccessError;
-use crate::report::ResourceKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeRequest {

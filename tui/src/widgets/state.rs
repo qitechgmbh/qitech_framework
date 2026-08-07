@@ -1,27 +1,65 @@
 use crossterm::event::KeyCode;
+use qitech_framework_core::report::StatePropertyEvent;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
+use ratatui::style::Modifier;
 use ratatui::style::Style;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use ratatui::widgets::Cell;
+use ratatui::widgets::Paragraph;
 use ratatui::widgets::Row;
 use ratatui::widgets::Table;
+use ratatui::widgets::TableState;
 
-// space on state -> list of all mutations that happened
-// space on config -> list of all mutations that happened
-// space on measurements -> show chart
 use crate::types::AppAction;
+use crate::types::StatePropertyFieldState;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
 #[derive(Default)]
+pub enum Mode {
+    #[default]
+    Navigate,
+    History(usize),
+    Inspect(usize),
+}
+
+#[derive(Default)]
 pub struct StateView {
     selected: usize,
+    mode: Mode,
 }
 
 impl TabItem<MachinesContext> for StateView {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
+        match self.mode {
+            Mode::Navigate => self.on_key_navigate(code, ctx),
+            Mode::History(pos) => self.on_key_history(code, ctx, pos),
+            Mode::Inspect(pos) => self.on_key_inspect(code, pos),
+        }
+    }
+
+    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
+        _ = in_focus;
+
+        match self.mode {
+            Mode::Navigate => self.render_navigate(frame, area, ctx, in_focus),
+            Mode::History(pos) => self.render_history(frame, area, ctx, pos),
+            Mode::Inspect(pos) => self.render_inspect(frame, area, ctx, pos),
+        }
+    }
+}
+
+// --- navigate ---
+impl StateView {
+    fn on_key_navigate(
+        &mut self,
+        code: KeyCode,
+        ctx: MachinesContext,
+    ) -> Result<AppAction, KeyCode> {
         let machine = unsafe { &*ctx.selected };
 
         match code {
@@ -30,12 +68,16 @@ impl TabItem<MachinesContext> for StateView {
                     return Err(code);
                 }
 
-                self.selected = self.selected.saturating_sub(1);
+                self.selected -= 1;
             }
 
             KeyCode::Down => {
                 let max = machine.state.len().saturating_sub(1);
                 self.selected = (self.selected + 1).min(max);
+            }
+
+            KeyCode::Char(' ') => {
+                self.mode = Mode::History(0);
             }
 
             _ => return Err(code),
@@ -44,13 +86,10 @@ impl TabItem<MachinesContext> for StateView {
         Ok(AppAction::NoAction)
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
+    fn render_navigate(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
         let machine = unsafe { &*ctx.selected };
 
-        // Number of rows that fit in the available area.
-        // If you later wrap the table in a Block, subtract 2 for the borders.
         let visible = area.height as usize;
-
         let total = machine.state.len();
 
         let offset = if total <= visible {
@@ -76,9 +115,9 @@ impl TabItem<MachinesContext> for StateView {
                     Style::default()
                 };
 
-                let value = match &field.value {
-                    Some(v) => v.to_string(),
-                    None => "N/A".to_string(),
+                let value = match &field.state {
+                    StatePropertyFieldState::NotInitialized => "N/A".to_string(),
+                    StatePropertyFieldState::Initialized { value } => value.to_string(),
                 };
 
                 Row::new(vec![Cell::from(field.label.as_str()), Cell::from(value)]).style(style)
@@ -92,5 +131,149 @@ impl TabItem<MachinesContext> for StateView {
         .style(Style::default());
 
         frame.render_widget(table, area);
+    }
+}
+
+// --- history ---
+impl StateView {
+    fn on_key_history(
+        &mut self,
+        code: KeyCode,
+        ctx: MachinesContext,
+        pos: usize,
+    ) -> Result<AppAction, KeyCode> {
+        let machine = unsafe { &*ctx.selected };
+
+        let (_, field) = machine.state.get_index(self.selected).unwrap();
+
+        match code {
+            KeyCode::Esc => {
+                self.mode = Mode::Navigate;
+            }
+
+            KeyCode::Char(' ') => {
+                self.mode = Mode::Inspect(pos);
+            }
+
+            // don't consume exit button
+            KeyCode::Char('q') => return Err(code),
+
+            KeyCode::Up => {
+                self.mode = Mode::History(pos.saturating_sub(1));
+            }
+
+            KeyCode::Down => {
+                let max = field.records.len().saturating_sub(1);
+                self.mode = Mode::History((pos + 1).min(max));
+            }
+
+            _ => {}
+        }
+
+        Ok(AppAction::NoAction)
+    }
+
+    fn render_history(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, pos: usize) {
+        let machine = unsafe { &*ctx.selected };
+
+        let (name, field) = machine
+            .state
+            .get_index(self.selected)
+            .expect("Selected invalid item");
+
+        let rows = field.records.iter().rev().map(|record| {
+            let (event, value) = match &record.event {
+                StatePropertyEvent::Registered { value } => ("Registered", format!("{value}")),
+                StatePropertyEvent::ValueChanged { value } => ("Value Changed", format!("{value}")),
+            };
+
+            Row::new([
+                record.timestamp.format("%Y-%m-%d %H:%M:%S").to_string(),
+                event.to_string(),
+                value,
+            ])
+        });
+
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Length(19),
+                Constraint::Length(12),
+                Constraint::Min(1),
+            ],
+        )
+        .header(
+            Row::new(["Timestamp", "Event", "Value"])
+                .style(Style::default().add_modifier(Modifier::BOLD)),
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!(" Events ({name}) "))
+                .border_style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        )
+        .column_spacing(4)
+        .row_highlight_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        );
+
+        let mut state = TableState::default();
+        state.select(Some(pos));
+
+        frame.render_stateful_widget(table, area, &mut state);
+    }
+}
+
+// --- inspect ---
+impl StateView {
+    fn on_key_inspect(&mut self, code: KeyCode, pos: usize) -> Result<AppAction, KeyCode> {
+        match code {
+            KeyCode::Esc => {
+                self.mode = Mode::History(pos);
+                Ok(AppAction::NoAction)
+            }
+
+            // don't consume exit button
+            KeyCode::Char('q') => Err(code),
+
+            // consume other keys
+            _ => Ok(AppAction::NoAction),
+        }
+    }
+
+    fn render_inspect(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, pos: usize) {
+        let machine = unsafe { &*ctx.selected };
+
+        let (name, field) = machine
+            .state
+            .get_index(self.selected)
+            .expect("Selected invalid item");
+
+        let text = field
+            .records
+            .iter()
+            .rev()
+            .nth(pos)
+            .map(|record| format!("{record:#?}"))
+            .unwrap_or_else(|| "Invalid record".into());
+
+        let paragraph = Paragraph::new(text).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!(" Inspect ({name}) "))
+                .border_style(
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        );
+
+        frame.render_widget(paragraph, area);
     }
 }

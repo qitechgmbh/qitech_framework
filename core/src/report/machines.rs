@@ -87,13 +87,8 @@ pub struct StatePropertyRecord {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StatePropertyEvent {
-    Registered {
-        value: ScalarValue,
-    },
-    ValueChanged {
-        before: ScalarValue,
-        after: ScalarValue,
-    },
+    Registered { value: ScalarValue },
+    ValueChanged { value: ScalarValue },
 }
 
 // --- measurements ---

@@ -1,4 +1,5 @@
 use crossterm::event::KeyCode;
+use qitech_framework_core::request::RuntimeRequestKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
@@ -101,10 +102,34 @@ impl TransactionsView {
                 "Success"
             };
 
+            let request = match &t.request {
+                RuntimeRequestKind::WriteMachineDeviceInfo {
+                    machine_ident,
+                    role,
+                    subdevice_index,
+                } => "_".to_string(),
+                RuntimeRequestKind::SetConfigProperty {
+                    target,
+                    path,
+                    value,
+                } => {
+                    format!("SetConfigProperty({}, {}, {})", target, path, value)
+                }
+                RuntimeRequestKind::InvokeMachineCommand { target, path } => "_".to_string(),
+                RuntimeRequestKind::SubscribeMachine {
+                    provider,
+                    subscriber,
+                } => "_".to_string(),
+                RuntimeRequestKind::UnsubscribeMachine {
+                    provider,
+                    subscriber,
+                } => "_".to_string(),
+            };
+
             let mut row = Row::new([
                 Cell::from(t.id.to_string()),
                 Cell::from(t.timestamp.to_string()),
-                Cell::from(t.request.to_string()),
+                Cell::from(request),
                 Cell::from(result),
             ]);
 
@@ -123,8 +148,8 @@ impl TransactionsView {
             rows,
             [
                 Constraint::Length(4),
-                Constraint::Fill(1),
-                Constraint::Fill(1),
+                Constraint::Fill(2),
+                Constraint::Fill(3),
                 Constraint::Fill(1),
             ],
         )

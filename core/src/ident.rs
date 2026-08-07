@@ -43,15 +43,15 @@ impl MachineIdentificationUnique {
 
 impl fmt::Display for MachineIdentificationUnique {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let vendor_name = match vendors::get_name(self.identification.vendor_id) {
-            Some(v) => v,
-            None => &self.identification.vendor_id.to_string(),
-        };
+        // let vendor_name = match vendors::get_name(self.identification.vendor_id) {
+        //     Some(v) => v,
+        //     None => &self.identification.vendor_id.to_string(),
+        // };
 
         write!(
             f,
-            "{vendor_name}:{}:{}",
-            self.identification.machine_id, self.serial
+            "{}:{}:{}",
+            self.identification.vendor_id, self.identification.machine_id, self.serial
         )
     }
 }

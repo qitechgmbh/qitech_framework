@@ -51,20 +51,27 @@ impl<T: PropertyType> StateProperty<T> {
     pub fn set(&mut self, value: T) {
         self.validate();
 
-        let before = unsafe {
-            let before = (self.into_scalar)(self.handle.p_value.as_ref().clone());
+        let current = unsafe { self.handle.p_value.as_ref() };
+
+        // state property doesn't record if value is unchanged
+        if *current == value {
+            return;
+        }
+
+        // --- write the value ---
+        unsafe {
             self.handle.p_value.write(value.clone());
-            before
-        };
+        }
 
-        let after = (self.into_scalar)(value);
-
+        // --- record the change ---
+        let value = (self.into_scalar)(value);
         let descriptor = unsafe { self.handle.p_desc.read() };
+
         self.journal_value.append(StatePropertyRecord {
             timestamp: Utc::now(),
             machine: descriptor.ident,
             path: descriptor.path.to_string(),
-            event: StatePropertyEvent::ValueChanged { before, after },
+            event: StatePropertyEvent::ValueChanged { value },
         });
     }
 
