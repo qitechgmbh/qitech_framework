@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::EtherCATControl;
 use qitech_lib::ethercat_hal::Mailbox;
 use qitech_lib::ethercat_hal::MetaSubdevice;
@@ -16,11 +17,10 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::Machine;
-use crate::machine::error::BuildResult;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
 pub type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
-pub type BuildMachineFn = fn(BuildContext) -> BuildResult<MachineInstance>;
+pub type BuildMachineFn = fn(BuildContext) -> Result<MachineInstance, BuildError>;
 
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);

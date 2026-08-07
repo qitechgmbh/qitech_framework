@@ -84,9 +84,8 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 // --- record the outcome ---
                 let outcome = match result.clone() {
-                    Ok(Some(before)) => ConfigPropertyWriteOutcome::Changed { before },
-                    Ok(None) => ConfigPropertyWriteOutcome::Unchanged,
-                    Err(e) => ConfigPropertyWriteOutcome::Failed(e),
+                    Ok(changed) => ConfigPropertyWriteOutcome::Accepted { changed },
+                    Err(e) => ConfigPropertyWriteOutcome::Rejected(e),
                 };
 
                 let record = ConfigPropertyRecord {

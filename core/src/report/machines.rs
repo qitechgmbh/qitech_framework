@@ -59,9 +59,8 @@ pub enum ConfigPropertyEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConfigPropertyWriteOutcome {
-    Changed { before: ScalarValue },
-    Unchanged,
-    Failed(ConfigPropertyWriteError),
+    Accepted { changed: bool },
+    Rejected(ConfigPropertyWriteError),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]

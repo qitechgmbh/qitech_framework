@@ -1,10 +1,16 @@
+use std::mem;
+
 use crossterm::event::KeyCode;
+use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
+use qitech_framework_core::report::ConfigPropertyWriteOutcome;
+use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::schema::ConfigPropertyKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
+use ratatui::layout::Layout;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Modifier;
@@ -19,10 +25,11 @@ use ratatui::widgets::TableState;
 
 use crate::types::AppAction;
 use crate::types::ConfigFieldState;
+use crate::types::MachineEntry;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub enum Mode {
     #[default]
     Navigate,
@@ -31,6 +38,7 @@ pub enum Mode {
     Editing(Edit),
 }
 
+#[derive(Default, Clone)]
 pub struct Edit {
     dirty: bool,
     value: String,
@@ -44,228 +52,21 @@ pub struct ConfigPage {
 
 impl TabItem<MachinesContext> for ConfigPage {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
-        let machine = unsafe { &*ctx.selected };
-
-        match self.mode {
-            Mode::Navigate => self.onke,
-            Mode::History(_) => todo!(),
-            Mode::Inspect(_) => todo!(),
-            Mode::Editing(edit) => todo!(),
-        }
-
-        if let Some(mut edit) = self.edit.take() {
-            match code {
-                KeyCode::Esc => {}
-                KeyCode::Enter => {
-                    let (key, field) = machine.config.get_index(self.selected).unwrap();
-
-                    let value = match &field.kind {
-                        ConfigPropertyKind::Enum { variants, .. } => {
-                            if !variants.contains_name(&edit.value) {
-                                return Ok(AppAction::NoAction);
-                            }
-
-                            ScalarValue::Enum(Some(edit.value))
-                        }
-
-                        ConfigPropertyKind::String => {
-                            // TODO: capability check
-                            ScalarValue::String(Some(edit.value))
-                        }
-
-                        ConfigPropertyKind::Boolean => {
-                            let value = match edit.value.parse::<bool>() {
-                                Ok(v) => v,
-                                Err(_) => return Ok(AppAction::NoAction),
-                            };
-
-                            ScalarValue::Boolean(Some(value))
-                        }
-
-                        ConfigPropertyKind::Integer => {
-                            let value = match edit.value.parse::<i64>() {
-                                Ok(v) => v,
-                                Err(_) => return Ok(AppAction::NoAction),
-                            };
-
-                            ScalarValue::Integer(Some(value))
-                        }
-
-                        ConfigPropertyKind::Float { .. } => {
-                            let value = match edit.value.parse::<f64>() {
-                                Ok(v) => v,
-                                Err(_) => return Ok(AppAction::NoAction),
-                            };
-
-                            ScalarValue::Float(Some(value))
-                        }
-                    };
-
-                    return Ok(AppAction::SetConfig {
-                        machine: machine.ident,
-                        resource: key.clone(),
-                        value,
-                    });
-                }
-
-                KeyCode::Char(c) => {
-                    if !edit.dirty {
-                        // first key replaces original value
-                        edit.value.clear();
-                        edit.dirty = true;
-                    }
-
-                    edit.value.push(c);
-                    self.edit = Some(edit)
-                }
-
-                KeyCode::Backspace => {
-                    edit.dirty = true;
-                    edit.value.pop();
-                    self.edit = Some(edit);
-                }
-
-                _ => {
-                    self.edit = Some(edit);
-                }
-            }
-
-            Ok(AppAction::NoAction)
-        } else {
-            match code {
-                KeyCode::Up => {
-                    if self.selected == 0 {
-                        return Err(code);
-                    }
-
-                    self.selected = self.selected.saturating_sub(1);
-                }
-
-                KeyCode::Down => {
-                    let max = machine.config.len().saturating_sub(1);
-                    self.selected = (self.selected + 1).min(max);
-                }
-
-                KeyCode::Backspace => {
-                    let (key, field) = machine.config.get_index(self.selected).expect("oops");
-
-                    let ConfigFieldState::Initialized {
-                        default,
-                        capability: writeable,
-                        ..
-                    } = &field.state
-                    else {
-                        return Ok(AppAction::NoAction);
-                    };
-
-                    if writeable.forbidden() {
-                        return Ok(AppAction::NoAction);
-                    }
-
-                    return Ok(AppAction::SetConfig {
-                        machine: machine.ident,
-                        resource: key.clone(),
-                        value: default.clone(),
-                    });
-                }
-
-                KeyCode::Enter => {
-                    let (_, field) = machine.config.get_index(self.selected).expect("oops");
-
-                    let ConfigFieldState::Initialized {
-                        value,
-                        capability: writeable,
-                        ..
-                    } = &field.state
-                    else {
-                        return Ok(AppAction::NoAction);
-                    };
-
-                    if writeable.forbidden() {
-                        return Ok(AppAction::NoAction);
-                    }
-
-                    self.edit = Some(Edit {
-                        dirty: false,
-                        value: value.to_string(),
-                    })
-                }
-
-                _ => return Err(code),
-            }
-
-            Ok(AppAction::NoAction)
+        match self.mode.clone() {
+            Mode::Navigate => self.on_key_navigate(code, ctx),
+            Mode::History(pos) => self.on_key_events(code, ctx, pos),
+            Mode::Inspect(pos) => self.on_key_inspect(code, pos),
+            Mode::Editing(edit) => self.on_key_edit(code, ctx, edit),
         }
     }
 
     fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
-        let machine = unsafe { &*ctx.selected };
-
-        let rows: Vec<Row> = machine
-            .config
-            .iter()
-            .enumerate()
-            .map(|(i, (_, field))| {
-                let selected = i == self.selected;
-                let editing = selected && self.edit.is_some();
-
-                let (display_value, writeable) = match &field.state {
-                    ConfigFieldState::NotInitialized => (
-                        "N/A".to_string(),
-                        &WriteCapability::Forbidden {
-                            reason: "Not initialized".to_string(),
-                        },
-                    ),
-
-                    ConfigFieldState::Initialized {
-                        value,
-                        default: _,
-                        capability: writeable,
-                        constraints: _,
-                    } => {
-                        let display = format!("{value}");
-                        (display, writeable)
-                    }
-                };
-
-                let writable = writeable.is_allowed();
-
-                let style = if editing {
-                    Style::reset().fg(Color::Red)
-                } else if selected && in_focus {
-                    if writable {
-                        Style::reset().fg(Color::LightBlue)
-                    } else {
-                        Style::reset()
-                            .fg(Color::LightBlue)
-                            .add_modifier(Modifier::DIM)
-                    }
-                } else if !writable {
-                    Style::reset().fg(Color::Gray)
-                } else {
-                    Style::reset()
-                };
-
-                let value = if selected {
-                    match &self.edit {
-                        Some(edit) => edit.value.clone(),
-                        None => display_value,
-                    }
-                } else {
-                    display_value
-                };
-
-                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .style(Style::reset());
-
-        frame.render_widget(table, area);
+        match &self.mode {
+            Mode::Navigate => self.render_navigate(frame, area, ctx, in_focus),
+            Mode::History(pos) => self.render_events(frame, area, ctx, *pos),
+            Mode::Inspect(pos) => self.render_inspect(frame, area, ctx, *pos),
+            Mode::Editing(edit) => self.render_edit(frame, area, ctx, edit),
+        }
     }
 }
 
@@ -288,12 +89,32 @@ impl ConfigPage {
             }
 
             KeyCode::Down => {
-                let max = machine.state.len().saturating_sub(1);
+                let max = machine.config.len().saturating_sub(1);
                 self.selected = (self.selected + 1).min(max);
             }
 
             KeyCode::Char(' ') => {
                 self.mode = Mode::History(0);
+            }
+
+            KeyCode::Enter => {
+                let (_, field) = machine.config.get_index(self.selected).expect("oops");
+
+                let ConfigFieldState::Initialized {
+                    value, capability, ..
+                } = &field.state
+                else {
+                    return Ok(AppAction::NoAction);
+                };
+
+                if capability.forbidden() {
+                    return Ok(AppAction::NoAction);
+                }
+
+                self.mode = Mode::Editing(Edit {
+                    dirty: false,
+                    value: value.to_string(),
+                });
             }
 
             _ => return Err(code),
@@ -350,9 +171,9 @@ impl ConfigPage {
     }
 }
 
-// --- history ---
+// --- events ---
 impl ConfigPage {
-    fn on_key_history(
+    fn on_key_events(
         &mut self,
         code: KeyCode,
         ctx: MachinesContext,
@@ -360,7 +181,7 @@ impl ConfigPage {
     ) -> Result<AppAction, KeyCode> {
         let machine = unsafe { &*ctx.selected };
 
-        let (_, field) = machine.state.get_index(self.selected).unwrap();
+        let (_, field) = machine.config.get_index(self.selected).unwrap();
 
         match code {
             KeyCode::Esc => {
@@ -389,7 +210,7 @@ impl ConfigPage {
         Ok(AppAction::NoAction)
     }
 
-    fn render_history(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, pos: usize) {
+    fn render_events(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, pos: usize) {
         let machine = unsafe { &*ctx.selected };
 
         let (name, field) = machine
@@ -405,15 +226,12 @@ impl ConfigPage {
                     constraints,
                 } => (
                     "Registered".to_string(),
-                    format!(
-                        "default={default:?}, writable={capability:?}, constraints={constraints:?}"
-                    ),
+                    format!("default={default}, write={capability:?}, constraints={constraints:?}"),
                 ),
 
-                ConfigPropertyEvent::DefaultChanged { before, after } => (
-                    "DefaultChanged".to_string(),
-                    format!("{before:?} -> {after:?}"),
-                ),
+                ConfigPropertyEvent::DefaultChanged { before, after } => {
+                    ("DefaultChanged".to_string(), format!("{before} -> {after}"))
+                }
 
                 ConfigPropertyEvent::CapabilityChanged { before, after } => (
                     "CapabilityChanged".to_string(),
@@ -429,10 +247,17 @@ impl ConfigPage {
                     value,
                     origin,
                     outcome,
-                } => (
-                    format!("Written ({origin:?})"),
-                    format!("{value:?} => {outcome:?}"),
-                ),
+                } => {
+                    let outcome = match outcome {
+                        ConfigPropertyWriteOutcome::Accepted { .. } => "Accepted",
+                        ConfigPropertyWriteOutcome::Rejected(_) => "Rejected",
+                    };
+
+                    (
+                        format!("Written ({origin})"),
+                        format!("{value} => {outcome}"),
+                    )
+                }
             };
 
             Row::new([
@@ -446,7 +271,7 @@ impl ConfigPage {
             rows,
             [
                 Constraint::Length(19),
-                Constraint::Length(12),
+                Constraint::Length(32),
                 Constraint::Min(1),
             ],
         )
@@ -528,11 +353,46 @@ impl ConfigPage {
 
 // --- edit ---
 impl ConfigPage {
-    fn on_key_edit(&mut self, code: KeyCode) -> Result<AppAction, KeyCode> {
-        Err(code)
+    fn on_key_edit(
+        &mut self,
+        code: KeyCode,
+        ctx: MachinesContext,
+        mut edit: Edit,
+    ) -> Result<AppAction, KeyCode> {
+        let machine = unsafe { &*ctx.selected };
+
+        match code {
+            KeyCode::Esc => self.mode = Mode::Navigate,
+            KeyCode::Enter => {
+                self.mode = Mode::Navigate;
+                return Ok(self.submit_edit(edit, machine));
+            }
+            KeyCode::Char(c) => {
+                if !edit.dirty {
+                    // first key replaces original value
+                    edit.value.clear();
+                    edit.dirty = true;
+                }
+
+                edit.value.push(c);
+                self.mode = Mode::Editing(edit);
+            }
+
+            KeyCode::Backspace => {
+                edit.dirty = true;
+                edit.value.pop();
+                self.mode = Mode::Editing(edit);
+            }
+
+            _ => {
+                self.mode = Mode::Editing(edit);
+            }
+        }
+
+        Ok(AppAction::NoAction)
     }
 
-    fn render_edit(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, pos: usize) {
+    fn render_edit(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, edit: &Edit) {
         let machine = unsafe { &*ctx.selected };
 
         let (name, field) = machine
@@ -540,25 +400,161 @@ impl ConfigPage {
             .get_index(self.selected)
             .expect("Selected invalid item");
 
-        let text = field
-            .records
-            .iter()
-            .rev()
-            .nth(pos)
-            .map(|record| format!("{record:#?}"))
-            .unwrap_or_else(|| "Invalid record".into());
+        let ConfigFieldState::Initialized { constraints, .. } = &field.state else {
+            return;
+        };
 
-        let paragraph = Paragraph::new(text).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!(" Inspect ({name}) "))
-                .border_style(
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                ),
-        );
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" Edit ({name}) "))
+            .title_style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+            .border_style(Style::default().fg(Color::Red));
 
-        frame.render_widget(paragraph, area);
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+
+        let chunks = Layout::vertical([Constraint::Length(3), Constraint::Min(1)]).split(inner);
+
+        // --- editor ---
+        let input = Paragraph::new(edit.value.as_str())
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Red)),
+            )
+            .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD));
+
+        frame.render_widget(input, chunks[0]);
+
+        // --- constraints ---
+        let rows: Vec<Row> = match constraints {
+            Constraints::None => vec![Row::default()],
+
+            Constraints::Numeric { min, max, nullable } => {
+                let mut rows = vec![Row::new(["Nullable".to_string(), nullable.to_string()])];
+
+                rows.push(Row::new([
+                    "Min".to_string(),
+                    match min {
+                        NumericValue::Integer(value) => match value {
+                            Some(value) => format!("{value}"),
+                            None => "null".to_string(),
+                        },
+
+                        NumericValue::Float(value) => match value {
+                            Some(value) => format!("{value}"),
+                            None => "null".to_string(),
+                        },
+                    },
+                ]));
+
+                rows.push(Row::new([
+                    "Max".to_string(),
+                    match max {
+                        NumericValue::Integer(value) => match value {
+                            Some(value) => format!("{value}"),
+                            None => "null".to_string(),
+                        },
+
+                        NumericValue::Float(value) => match value {
+                            Some(value) => format!("{value}"),
+                            None => "null".to_string(),
+                        },
+                    },
+                ]));
+
+                rows
+            }
+
+            Constraints::String {
+                min_length,
+                max_length,
+                pattern,
+                nullable,
+            } => {
+                let mut rows = vec![Row::new(["Nullable".to_string(), nullable.to_string()])];
+
+                if let Some(min_length) = min_length {
+                    rows.push(Row::new(["Min length".to_string(), min_length.to_string()]));
+                }
+
+                if let Some(max_length) = max_length {
+                    rows.push(Row::new(["Max length".to_string(), max_length.to_string()]));
+                }
+
+                if let Some(pattern) = pattern {
+                    rows.push(Row::new(["Pattern".to_string(), pattern.to_string()]));
+                }
+
+                rows
+            }
+
+            Constraints::Enum { allowed, nullable } => vec![
+                Row::new(["Allowed".to_string(), format!("{allowed:?}")]),
+                Row::new(["Nullable".to_string(), nullable.to_string()]),
+            ],
+        };
+
+        let table = Table::new(rows, [Constraint::Length(15), Constraint::Min(1)])
+            .style(Style::default().fg(Color::Red));
+
+        frame.render_widget(table, chunks[1]);
+    }
+
+    // -- util ---
+    fn submit_edit(&self, edit: Edit, machine: &MachineEntry) -> AppAction {
+        if !edit.dirty {
+            return AppAction::NoAction;
+        }
+
+        let (key, field) = machine.config.get_index(self.selected).unwrap();
+
+        let value = match &field.kind {
+            ConfigPropertyKind::Enum { variants, .. } => {
+                if !variants.contains_name(&edit.value) {
+                    return AppAction::NoAction;
+                }
+
+                ScalarValue::Enum(Some(edit.value))
+            }
+
+            ConfigPropertyKind::String => {
+                // TODO: capability check
+                ScalarValue::String(Some(edit.value))
+            }
+
+            ConfigPropertyKind::Boolean => {
+                let value = match edit.value.parse::<bool>() {
+                    Ok(v) => v,
+                    Err(_) => return AppAction::NoAction,
+                };
+
+                ScalarValue::Boolean(Some(value))
+            }
+
+            ConfigPropertyKind::Integer => {
+                let value = match edit.value.parse::<i64>() {
+                    Ok(v) => v,
+                    Err(_) => return AppAction::NoAction,
+                };
+
+                ScalarValue::Integer(Some(value))
+            }
+
+            ConfigPropertyKind::Float { .. } => {
+                let value = match edit.value.parse::<f64>() {
+                    Ok(v) => v,
+                    Err(_) => return AppAction::NoAction,
+                };
+
+                ScalarValue::Float(Some(value))
+            }
+        };
+
+        AppAction::SetConfig {
+            machine: machine.ident,
+            resource: key.clone(),
+            value,
+        }
     }
 }

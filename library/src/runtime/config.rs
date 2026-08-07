@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::ModbusSettings;
@@ -13,7 +14,7 @@ use qitech_lib::modbus::ModbusSettings;
 use crate::machine::BuildContext;
 use crate::machine::Machine;
 use crate::machine::MachineBuild;
-use crate::machine::MachineInterface;
+use crate::machine::MachineDescriptor;
 use crate::machine::error::BuildResult;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
@@ -37,7 +38,7 @@ impl RuntimeConfiguration {
         self
     }
 
-    pub fn cycle_timeout(mut self, value: Duration) -> Self {
+    pub fn cycle_period(mut self, value: Duration) -> Self {
         self.config.cycle_timeout = value;
         self
     }
@@ -82,9 +83,9 @@ impl RuntimeConfiguration {
 
     pub fn machine<M>(mut self) -> Self
     where
-        M: Machine + MachineBuild + MachineInterface + 'static,
+        M: Machine + MachineBuild + MachineDescriptor + 'static,
     {
-        fn build_adapter<M>(mut ctx: BuildContext) -> BuildResult<MachineInstance>
+        fn build_adapter<M>(mut ctx: BuildContext) -> Result<MachineInstance, BuildError>
         where
             M: MachineBuild + Machine + 'static,
         {
@@ -143,7 +144,7 @@ pub struct ModbusRtuConfig {
 
 pub struct ModbusRtuEntry {
     pub ident: MachineIdentificationUnique,
-    pub init: Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>,
+    pub init: NewModbusDeviceFn,
 }
 
 pub(crate) struct MachineRegistration {
@@ -152,3 +153,6 @@ pub(crate) struct MachineRegistration {
     pub type_id: TypeId,
     pub type_name: &'static str,
 }
+
+pub type NewModbusDeviceFn =
+    Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>;

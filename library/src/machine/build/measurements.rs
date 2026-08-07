@@ -1,4 +1,4 @@
-use qitech_framework_core::report::error::BuildResult;
+use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
 use crate::resource::Measurement;
@@ -40,7 +40,7 @@ where
         self
     }
 
-    pub fn register(self) -> BuildResult<Measurement<T::Type>> {
+    pub fn register(self) -> Result<Measurement<T::Type>, BuildError> {
         // TODO: catch register error
         let handle = self
             .root

@@ -9,15 +9,15 @@ use crate::resource::CachedPropertyView;
 use crate::resource::Resources;
 use crate::resource::SubscriptionToken;
 
-pub type SubscribeResult<T> = Result<T, SubscribeError>;
+pub type SubscribeResult = Result<(), SubscribeError>;
 
 // --- property ---
-pub struct SubscribedProperty<T: Clone> {
+pub struct RemoteProperty<T: Clone> {
     view: CachedPropertyView<T>,
     token: Weak<SubscriptionToken>,
 }
 
-impl<T: Clone> SubscribedProperty<T> {
+impl<T: Clone> RemoteProperty<T> {
     pub fn get_ref(&self) -> &T {
         _ = self.token.upgrade().expect("Subscription expired");
 
@@ -25,7 +25,7 @@ impl<T: Clone> SubscribedProperty<T> {
     }
 }
 
-impl<T: Copy> SubscribedProperty<T> {
+impl<T: Copy> RemoteProperty<T> {
     pub fn get(&self) -> T {
         *self.get_ref()
     }
@@ -34,7 +34,7 @@ impl<T: Copy> SubscribedProperty<T> {
 // --- uom impl ---
 macro_rules! impl_uom {
     ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
-        impl SubscribedProperty<$quantity> {
+        impl RemoteProperty<$quantity> {
             pub fn get_as<N>(&self) -> f64
             where
                 N: $unit_trait + $conversion_trait,
@@ -43,7 +43,7 @@ macro_rules! impl_uom {
             }
         }
 
-        impl SubscribedProperty<Option<$quantity>> {
+        impl RemoteProperty<Option<$quantity>> {
             pub fn get_as<N>(&self) -> Option<f64>
             where
                 N: $unit_trait + $conversion_trait,
@@ -80,16 +80,16 @@ impl<'a> SubscribeContext<'a> {
         self.provider
     }
 
-    pub fn subscribe_config_property<T: Clone + 'static>(
+    pub fn config<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
-    ) -> SubscribeResult<SubscribedProperty<T>> {
+    ) -> Result<RemoteProperty<T>, SubscribeError> {
         let view = self
             .resources
             .config_properties
             .new_cached_view(self.provider, resource)?;
 
-        let prop = SubscribedProperty {
+        let prop = RemoteProperty {
             view,
             token: Rc::downgrade(&self.token),
         };
@@ -97,16 +97,16 @@ impl<'a> SubscribeContext<'a> {
         Ok(prop)
     }
 
-    pub fn subscribe_state_property<T: Clone + 'static>(
+    pub fn state<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
-    ) -> SubscribeResult<SubscribedProperty<T>> {
+    ) -> Result<RemoteProperty<T>, SubscribeError> {
         let view = self
             .resources
             .state_properties
             .new_cached_view(self.provider, resource)?;
 
-        let prop = SubscribedProperty {
+        let prop = RemoteProperty {
             view,
             token: Rc::downgrade(&self.token),
         };
@@ -114,16 +114,16 @@ impl<'a> SubscribeContext<'a> {
         Ok(prop)
     }
 
-    pub fn subscribe_measurement<T: Clone + 'static>(
+    pub fn measurement<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
-    ) -> SubscribeResult<SubscribedProperty<T>> {
+    ) -> Result<RemoteProperty<T>, SubscribeError> {
         let view = self
             .resources
             .measurements
             .new_cached_view(self.provider, resource)?;
 
-        let prop = SubscribedProperty {
+        let prop = RemoteProperty {
             view,
             token: Rc::downgrade(&self.token),
         };

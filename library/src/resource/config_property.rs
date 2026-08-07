@@ -73,13 +73,12 @@ impl<T: PropertyType> ConfigProperty<T> {
             self.record(ConfigPropertyEvent::Written {
                 value: (self.into_scalar)(value),
                 origin: OperationOrigin::Machine,
-                outcome: ConfigPropertyWriteOutcome::Unchanged,
+                outcome: ConfigPropertyWriteOutcome::Accepted { changed: false },
             });
 
             return Ok(false);
         }
 
-        let before = (self.into_scalar)(self.get_ref().clone());
         let input = (self.into_scalar)(value.clone());
         let res = self.write(value.clone());
 
@@ -88,7 +87,7 @@ impl<T: PropertyType> ConfigProperty<T> {
                 self.record(ConfigPropertyEvent::Written {
                     value: input,
                     origin: OperationOrigin::Machine,
-                    outcome: ConfigPropertyWriteOutcome::Changed { before },
+                    outcome: ConfigPropertyWriteOutcome::Accepted { changed: true },
                 });
             }
 
@@ -97,7 +96,7 @@ impl<T: PropertyType> ConfigProperty<T> {
                 self.record(ConfigPropertyEvent::Written {
                     value: input,
                     origin: OperationOrigin::Machine,
-                    outcome: ConfigPropertyWriteOutcome::Failed(err),
+                    outcome: ConfigPropertyWriteOutcome::Rejected(err),
                 });
             }
         }
@@ -294,7 +293,7 @@ pub struct ExecuteContext {
 
     /// function to write scalar value into the property.
     /// returns Some if value changed, None otherwise
-    write: fn(Erased, ScalarValue, Erased) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
+    write: fn(Erased, ScalarValue, Erased) -> Result<bool, ConfigPropertyWriteError>,
 
     /// callback invoked when a external write succeeds and the value changed
     on_external_changed: Option<OnExternalChangedCallback>,
@@ -305,7 +304,7 @@ impl ExecuteContext {
         self,
         machine: &mut dyn Machine,
         value: ScalarValue,
-    ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError> {
+    ) -> Result<bool, ConfigPropertyWriteError> {
         let result = (self.write)(self.state, value, self.value);
 
         if let Some(callback) = self.on_external_changed
@@ -476,11 +475,7 @@ impl<'a> ConfigPropertyRegistryRegisterHandle<'a> {
         default: T,
         writable: WriteCapability,
         constraints: T::Constraints,
-        write: fn(
-            Erased,
-            ScalarValue,
-            Erased,
-        ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>,
+        write: fn(Erased, ScalarValue, Erased) -> Result<bool, ConfigPropertyWriteError>,
         on_changed: Option<OnExternalChangedCallback>,
     ) -> ConfigPropertyHandle<T> {
         let index = self.registry.buf_len;

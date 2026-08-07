@@ -74,6 +74,13 @@ impl MachineIdentification {
     pub const fn is_valid(self) -> bool {
         vendors::contains_id(self.vendor_id)
     }
+
+    pub const fn into_unique(self, serial: u16) -> MachineIdentificationUnique {
+        MachineIdentificationUnique {
+            identification: self,
+            serial,
+        }
+    }
 }
 
 impl fmt::Display for MachineIdentification {

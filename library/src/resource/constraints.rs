@@ -1,4 +1,3 @@
-use core::fmt;
 use std::fmt::Debug;
 
 use regex::Regex;
@@ -12,7 +11,6 @@ pub struct NumericConstraints<T: Copy + PartialOrd + PartialEq> {
 impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
     pub fn new(min: Option<T>, max: Option<T>) -> Self {
         Self::assert_valid(min, max);
-
         Self { min, max }
     }
 
@@ -151,124 +149,5 @@ impl<T: PartialEq> Default for OptionalEnumConstraints<T> {
             allowed: Vec::new(),
             allow_none: true,
         }
-    }
-}
-
-// --- display ---
-impl<T> fmt::Display for NumericConstraints<T>
-where
-    T: Copy + PartialOrd + PartialEq + fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.min, self.max) {
-            (Some(min), Some(max)) => write!(f, "range [{min:?}, {max:?}]"),
-            (Some(min), None) => write!(f, "min >= {min:?}"),
-            (None, Some(max)) => write!(f, "max <= {max:?}"),
-            (None, None) => write!(f, "unbounded"),
-        }
-    }
-}
-
-impl<T> fmt::Display for OptionalNumericConstraints<T>
-where
-    T: Copy + PartialOrd + PartialEq + Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?}{:?}",
-            NumericConstraints {
-                min: self.min,
-                max: self.max,
-            },
-            if self.allow_none {
-                ", nullable"
-            } else {
-                ", non-null"
-            }
-        )
-    }
-}
-
-impl fmt::Display for StringConstraints {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "length")?;
-
-        match (self.min_length, self.max_length) {
-            (Some(min), Some(max)) => write!(f, " [{min}, {max}]")?,
-            (Some(min), None) => write!(f, " >= {min}")?,
-            (None, Some(max)) => write!(f, " <= {max}")?,
-            (None, None) => {}
-        }
-
-        if let Some((pattern, _)) = &self.pattern {
-            write!(f, ", pattern `{pattern}`")?;
-        }
-
-        Ok(())
-    }
-}
-
-impl fmt::Display for OptionalStringConstraints {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            StringConstraints {
-                min_length: self.min_length,
-                max_length: self.max_length,
-                pattern: self.pattern.clone(),
-            },
-            if self.allow_none {
-                ", nullable"
-            } else {
-                ", non-null"
-            }
-        )
-    }
-}
-
-impl<T> fmt::Display for EnumConstraints<T>
-where
-    T: PartialEq + fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "allowed: [")?;
-
-        for (i, value) in self.allowed.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-
-            write!(f, "{value}")?;
-        }
-
-        write!(f, "]")
-    }
-}
-
-impl<T> fmt::Display for OptionalEnumConstraints<T>
-where
-    T: Clone + PartialEq + fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            EnumConstraints {
-                allowed: self.allowed.clone(),
-            },
-            if self.allow_none {
-                ", nullable"
-            } else {
-                ", non-null"
-            }
-        )
-    }
-}
-
-impl fmt::Display for Unconstrained {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unconstrained")
     }
 }

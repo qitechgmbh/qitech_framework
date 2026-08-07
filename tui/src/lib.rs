@@ -335,7 +335,10 @@ impl Tui {
                 ConfigPropertyEvent::Written {
                     value: v, outcome, ..
                 } => {
-                    if !matches!(outcome, ConfigPropertyWriteOutcome::Changed { .. }) {
+                    if !matches!(
+                        outcome,
+                        ConfigPropertyWriteOutcome::Accepted { changed: true }
+                    ) {
                         continue;
                     }
 

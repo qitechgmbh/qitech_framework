@@ -1,7 +1,7 @@
 use chrono::Utc;
 use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::report::StatePropertyRecord;
-use qitech_framework_core::report::error::BuildResult;
+use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
 use crate::resource::StateProperty;
@@ -42,7 +42,7 @@ where
         self
     }
 
-    pub fn register(self) -> BuildResult<StateProperty<T::Type>> {
+    pub fn register(self) -> Result<StateProperty<T::Type>, BuildError> {
         // TODO: catch register error
         let handle = self
             .root

@@ -3,9 +3,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 pub use qitech_framework_core::report::error::BuildError;
-pub use qitech_framework_core::report::error::BuildResult;
 use thiserror::Error;
 pub type CommandExecuteResult = Result<(), String>;
+pub type BuildResult<T> = Result<T, BuildError>;
 
 // --- act ---
 pub type ActResult = Result<(), ActError>;

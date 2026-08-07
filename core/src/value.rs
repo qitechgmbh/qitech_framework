@@ -31,7 +31,7 @@ pub enum ScalarValueKind {
     Float = 5,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScalarValue {
     Enum(Option<String>),

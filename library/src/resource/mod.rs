@@ -15,7 +15,9 @@ pub(crate) use journal::Journals;
 
 pub mod conversion;
 
-pub mod constraints;
+mod constraints;
+pub use constraints::EnumConstraints;
+pub use constraints::NumericConstraints;
 
 mod property_view;
 pub use property_view::CachedPropertyView;

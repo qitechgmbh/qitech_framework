@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::fmt::Display;
 
 use qitech_framework_core::with_uom_quantities;
 
@@ -10,7 +9,7 @@ use crate::resource::constraints::StringConstraints;
 use crate::resource::constraints::Unconstrained;
 
 pub trait PropertyType: Debug + Clone + PartialEq + Default + 'static {
-    type Constraints: Debug + Display + Clone + PartialEq + Default + 'static;
+    type Constraints: Debug + Clone + PartialEq + Default + 'static;
 }
 
 impl PropertyType for f64 {

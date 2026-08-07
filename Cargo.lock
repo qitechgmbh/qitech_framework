@@ -1546,27 +1546,9 @@ dependencies = [
 name = "minimal"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "bitvec",
- "chrono",
- "crossbeam",
- "crossterm",
- "heapless 0.9.3",
- "indexmap",
- "postcard",
  "qitech_framework",
  "qitech_framework_tui",
  "qitech_lib",
- "ratatui",
- "serde",
- "serde_json",
- "serialport",
- "thiserror 2.0.19",
- "tokio",
- "tokio-serial",
- "tracing",
- "udev",
- "yaml_serde",
 ]
 
 [[package]]

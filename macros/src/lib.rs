@@ -45,7 +45,7 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
         impl qitech_framework::machine::TypeWrapper for #name {
             type Type = #name;
             type Input = #name;
-            type Constraints = qitech_framework::machine::resource::EnumConfigPropertyConstraints<String>;
+            type Constraints = qitech_framework::resource::constraints::EnumConfigPropertyConstraints<String>;
 
             fn convert_input(input: Self::Input) -> Self::Type {
                 input

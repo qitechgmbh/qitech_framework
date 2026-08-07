@@ -2,8 +2,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
-pub type BuildResult<T> = Result<T, BuildError>;
-
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum BuildError {
     #[error("machine required a valid ethercat interface")]

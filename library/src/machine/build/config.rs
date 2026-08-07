@@ -10,7 +10,6 @@ use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::report::error::BuildError;
-use qitech_framework_core::report::error::BuildResult;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
@@ -97,12 +96,12 @@ where
         self
     }
 
-    pub fn register(self) -> BuildResult<ConfigProperty<T::Type>> {
+    pub fn register(self) -> Result<ConfigProperty<T::Type>, BuildError> {
         fn write<T: PropertyAdapter>(
             state: Erased,
             value_in: ScalarValue,
             value_out: Erased,
-        ) -> Result<Option<ScalarValue>, ConfigPropertyWriteError>
+        ) -> Result<bool, ConfigPropertyWriteError>
         where
             T::Type: PartialEq,
         {
@@ -129,12 +128,11 @@ where
             let value_out = unsafe { value_out.as_mut() };
 
             if value_out == &value {
-                return Ok(None);
+                return Ok(false);
             }
 
-            let before = T::into_scalar(value_out.clone());
             *value_out = value;
-            Ok(Some(before))
+            Ok(true)
         }
 
         let default = self

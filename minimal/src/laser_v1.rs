@@ -3,48 +3,109 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
-use qitech_framework::MachineIdentification;
-use qitech_framework::MachineIdentificationUnique;
-use qitech_framework::machine::BuildContext;
-use qitech_framework::machine::Machine;
-use qitech_framework::machine::MachineBuild;
-use qitech_framework::machine::MachineInterface;
-use qitech_framework::machine::SubscribeContext;
-use qitech_framework::machine::SubscribeError;
-use qitech_framework::machine::SubscribeResult;
-use qitech_framework::machine::SubscribedProperty;
-use qitech_framework::machine::error::ActError;
-use qitech_framework::machine::error::ActErrorKind;
-use qitech_framework::machine::error::ActResult;
-use qitech_framework::machine::error::BuildError;
-use qitech_framework::resource::ConfigProperty;
-use qitech_framework::resource::Measurement;
-use qitech_framework::resource::StateProperty;
-use qitech_framework::vendors;
+use qitech_framework::__private::ConstraintViolationError;
+use qitech_framework::__private::Constraints;
+use qitech_framework::__private::ScalarValue;
+use qitech_framework::__private::ScalarValueTypeMismatchError;
+use qitech_framework::machine::MachineDescriptor;
+use qitech_framework::prelude::*;
+use qitech_framework::resource::EnumConstraints;
+use qitech_framework::resource::conversion::PropertyAdapter;
+use qitech_framework::resource::conversion::PropertyType;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
-use qitech_lib::units::Length;
-use qitech_lib::units::length::millimeter;
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum MyEnum {
+    #[default]
+    Hello,
+    World,
+}
+
+// --- non optional ---
+impl PropertyAdapter for MyEnum {
+    type Type = MyEnum;
+    type Input = MyEnum;
+
+    fn convert_input(input: Self::Input) -> Self::Type {
+        input
+    }
+
+    fn into_scalar(value: Self::Type) -> ScalarValue {
+        ScalarValue::Enum(Some(
+            match value {
+                MyEnum::Hello => "Hello",
+                MyEnum::World => "World",
+            }
+            .to_string(),
+        ))
+    }
+
+    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
+        match value {
+            ScalarValue::Enum(Some(v)) => match v.as_str() {
+                "hello" => Ok(MyEnum::Hello),
+                "world" => Ok(MyEnum::World),
+                _ => Err(ScalarValueTypeMismatchError),
+            },
+
+            _ => Err(ScalarValueTypeMismatchError),
+        }
+    }
+
+    fn validate_constraints(
+        constraints: &<Self::Type as PropertyType>::Constraints,
+        value: &Self::Type,
+    ) -> Result<(), ConstraintViolationError> {
+        if constraints.allowed.contains(value) {
+            Ok(())
+        } else {
+            let value = Self::into_scalar(value.clone());
+            Err(ConstraintViolationError::ForbiddenVariant { value })
+        }
+    }
+
+    fn as_parameter_constraints(
+        constraints: &<Self::Type as PropertyType>::Constraints,
+    ) -> Constraints {
+        let mut allowed = Vec::new();
+
+        for variant in constraints.allowed.clone() {
+            let value = Self::into_scalar(variant);
+            allowed.push(value);
+        }
+
+        Constraints::Enum {
+            allowed,
+            nullable: false,
+        }
+    }
+}
+
+impl PropertyType for MyEnum {
+    type Constraints = EnumConstraints<MyEnum>;
+}
 
 pub struct LaserV1Subscription {
     ident: MachineIdentificationUnique,
 
     // --- config ---
-    diameter_target: SubscribedProperty<Length>,
-    diameter_tolerance_upper: SubscribedProperty<Length>,
-    diameter_tolerance_lower: SubscribedProperty<Length>,
+    diameter_target: RemoteProperty<Length>,
+    diameter_tolerance_upper: RemoteProperty<Length>,
+    diameter_tolerance_lower: RemoteProperty<Length>,
 
     // --- state ----
-    in_tolerance: SubscribedProperty<bool>,
+    in_tolerance: RemoteProperty<bool>,
 
     // --- measurements ---
-    diameter: SubscribedProperty<Length>,
-    diameter_x: SubscribedProperty<Option<Length>>,
-    diameter_y: SubscribedProperty<Option<Length>>,
-    roundness: SubscribedProperty<Option<f64>>,
+    diameter: RemoteProperty<Length>,
+    diameter_x: RemoteProperty<Option<Length>>,
+    diameter_y: RemoteProperty<Option<Length>>,
+    roundness: RemoteProperty<Option<f64>>,
 }
 
+// #[machine(schema = "schemas/laser_v1.yaml")]
 pub struct LaserV1 {
     // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,
@@ -86,12 +147,16 @@ pub struct LaserV1 {
     last_request: Instant,
 }
 
-impl MachineInterface for LaserV1 {
+impl MachineDescriptor for LaserV1 {
     const SCHEMA: &'static str = include_str!("../schemas/laser_v1.yaml");
+    const IDENTIFICATION: MachineIdentification = MachineIdentification {
+        vendor_id: 1,
+        machine_id: 16,
+    };
 }
 
 impl MachineBuild for LaserV1 {
-    fn build(ctx: &mut BuildContext) -> Result<Self, BuildError> {
+    fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
         let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
 
         let diameter_target = ctx
@@ -192,6 +257,9 @@ impl MachineBuild for LaserV1 {
             .measurement::<Option<f64>>("subscribed.roundness")
             .register()?;
 
+        let x = ctx.config::<MyEnum>("x").register()?;
+        let y = ctx.state::<MyEnum>("y").register()?;
+
         Ok(Self {
             device,
             diameter_target,
@@ -275,7 +343,7 @@ impl Machine for LaserV1 {
         Ok(())
     }
 
-    fn subscribe(&mut self, mut ctx: SubscribeContext) -> SubscribeResult<()> {
+    fn subscribe(&mut self, mut ctx: SubscribeContext) -> SubscribeResult {
         if ctx.provider().identification != LaserV1::IDENTIFICATION {
             return Err(SubscribeError::UnsupportedMachine);
         }
@@ -290,18 +358,18 @@ impl Machine for LaserV1 {
             ident,
 
             // --- config ---
-            diameter_target: ctx.subscribe_config_property("diameter.target")?,
-            diameter_tolerance_lower: ctx.subscribe_config_property("diameter.tolerance.lower")?,
-            diameter_tolerance_upper: ctx.subscribe_config_property("diameter.tolerance.upper")?,
+            diameter_target: ctx.config("diameter.target")?,
+            diameter_tolerance_lower: ctx.config("diameter.tolerance.lower")?,
+            diameter_tolerance_upper: ctx.config("diameter.tolerance.upper")?,
 
             // --- state ---
-            in_tolerance: ctx.subscribe_state_property("in_tolerance")?,
+            in_tolerance: ctx.state("in_tolerance")?,
 
             // --- measurements ---
-            diameter: ctx.subscribe_measurement("diameterz")?,
-            diameter_x: ctx.subscribe_measurement("diameter_x")?,
-            diameter_y: ctx.subscribe_measurement("diameter_y")?,
-            roundness: ctx.subscribe_measurement("roundness")?,
+            diameter: ctx.measurement("diameterz")?,
+            diameter_x: ctx.measurement("diameter_x")?,
+            diameter_y: ctx.measurement("diameter_y")?,
+            roundness: ctx.measurement("roundness")?,
         });
 
         Ok(())
@@ -334,7 +402,7 @@ impl Machine for LaserV1 {
 
 impl LaserV1 {
     pub const IDENTIFICATION: MachineIdentification = MachineIdentification {
-        vendor_id: vendors::QITECH.id,
+        vendor_id: 1,
         machine_id: 6,
     };
 

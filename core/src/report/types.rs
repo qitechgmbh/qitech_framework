@@ -46,6 +46,19 @@ pub enum OperationOrigin {
     Machine,
 }
 
+impl std::fmt::Display for OperationOrigin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OperationOrigin::Request { request_id } => {
+                write!(f, "Request ({request_id})")
+            }
+            OperationOrigin::Machine => {
+                write!(f, "Machine")
+            }
+        }
+    }
+}
+
 impl From<OperationOrigin> for u64 {
     fn from(value: OperationOrigin) -> Self {
         match value {
@@ -72,7 +85,7 @@ pub enum Constraints {
         nullable: bool,
     },
     Enum {
-        allowed: Vec<String>,
+        allowed: Vec<ScalarValue>,
         nullable: bool,
     },
 }
@@ -107,5 +120,5 @@ pub enum ConstraintViolationError {
     PatternMismatch { pattern: String },
 
     #[error("value {value:?} is not one of the allowed enum variants")]
-    ForbiddenVariant { value: String },
+    ForbiddenVariant { value: ScalarValue },
 }
