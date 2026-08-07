@@ -1,12 +1,17 @@
 use std::any::Any;
 
-use qitech_framework_core::ident::MachineIdentification;
+pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::error::BuildError;
 pub use qitech_framework_core::request::SubscribeError;
+
+pub use crate::resource::ConfigProperty;
+pub use crate::resource::Measurement;
+pub use crate::resource::StateProperty;
 
 pub mod error;
 use error::ActResult;
+use error::BuildResult;
+use error::SubscribeResult;
 
 mod build;
 pub use build::BuildContext;
@@ -14,7 +19,6 @@ pub use build::BuildContext;
 mod subscribe;
 pub use subscribe::RemoteProperty;
 pub use subscribe::SubscribeContext;
-pub use subscribe::SubscribeResult;
 
 pub(crate) mod hardware;
 pub use hardware::Hardware;
@@ -36,7 +40,7 @@ pub trait Machine: Any {
 }
 
 pub trait MachineBuild: Sized {
-    fn build(ctx: &mut BuildContext) -> Result<Self, BuildError>;
+    fn build(ctx: &mut BuildContext) -> BuildResult<Self>;
 }
 
 pub trait MachineDescriptor {

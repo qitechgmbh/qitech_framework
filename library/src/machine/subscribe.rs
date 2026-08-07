@@ -9,8 +9,6 @@ use crate::resource::CachedPropertyView;
 use crate::resource::Resources;
 use crate::resource::SubscriptionToken;
 
-pub type SubscribeResult = Result<(), SubscribeError>;
-
 // --- property ---
 pub struct RemoteProperty<T: Clone> {
     view: CachedPropertyView<T>,

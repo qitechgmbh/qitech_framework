@@ -2069,6 +2069,7 @@ dependencies = [
  "qitech_framework_core",
  "quote",
  "syn 3.0.3",
+ "toml 1.1.4+spec-1.1.0",
 ]
 
 [[package]]

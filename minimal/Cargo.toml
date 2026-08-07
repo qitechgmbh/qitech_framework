@@ -7,3 +7,6 @@ edition = "2024"
 qitech_framework = { path = "../library" }
 qitech_framework_tui = { path = "../tui" }
 qitech_lib = { workspace = true }
+
+[package.metadata.qitech]
+schema-dir = "schemas"

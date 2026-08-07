@@ -4,6 +4,8 @@ use std::borrow::Cow;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 
+use crate::machine::Machine;
+
 pub mod error;
 
 mod erased;
@@ -37,8 +39,6 @@ mod measurements;
 pub use measurements::Measurement;
 pub use measurements::MeasurementRegistry;
 pub use measurements::MeasurementRegistryRegisterHandle;
-
-use crate::machine::Machine;
 
 mod bump_allocator;
 pub use bump_allocator::BumpAllocator;

@@ -30,6 +30,7 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
+use crate::machine::error::ActErrorImpact;
 use crate::resource::Journals;
 use crate::resource::Resources;
 use crate::resource::SubscriptionToken;
@@ -160,7 +161,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             match self.machines[i].machine.act() {
                 Ok(()) => i += 1,
 
-                Err(e) if e.recoverable => i += 1,
+                Err(e) if e.impact != ActErrorImpact::Irrecoverable => i += 1,
 
                 Err(_) => {
                     // --- machine cannot recover, remove it ---

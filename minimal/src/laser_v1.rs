@@ -3,88 +3,36 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
-use qitech_framework::__private::ConstraintViolationError;
-use qitech_framework::__private::Constraints;
-use qitech_framework::__private::ScalarValue;
-use qitech_framework::__private::ScalarValueTypeMismatchError;
-use qitech_framework::machine::MachineDescriptor;
-use qitech_framework::prelude::*;
-use qitech_framework::resource::EnumConstraints;
-use qitech_framework::resource::conversion::PropertyAdapter;
-use qitech_framework::resource::conversion::PropertyType;
+use qitech_framework::EnumProperty;
+use qitech_framework::Machine;
+use qitech_framework::machine::BuildContext;
+use qitech_framework::machine::ConfigProperty;
+use qitech_framework::machine::Machine;
+use qitech_framework::machine::MachineBuild;
+use qitech_framework::machine::MachineIdentification;
+use qitech_framework::machine::MachineIdentificationUnique;
+use qitech_framework::machine::Measurement;
+use qitech_framework::machine::RemoteProperty;
+use qitech_framework::machine::StateProperty;
+use qitech_framework::machine::SubscribeContext;
+use qitech_framework::machine::SubscribeError;
+use qitech_framework::machine::error::ActError;
+use qitech_framework::machine::error::ActErrorImpact;
+use qitech_framework::machine::error::ActErrorKind;
+use qitech_framework::machine::error::ActResult;
+use qitech_framework::machine::error::BuildResult;
+use qitech_framework::machine::error::SubscribeResult;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
+use qitech_lib::units::Length;
+use qitech_lib::units::length::millimeter;
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, EnumProperty)]
 pub enum MyEnum {
     #[default]
     Hello,
     World,
-}
-
-// --- non optional ---
-impl PropertyAdapter for MyEnum {
-    type Type = MyEnum;
-    type Input = MyEnum;
-
-    fn convert_input(input: Self::Input) -> Self::Type {
-        input
-    }
-
-    fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Enum(Some(
-            match value {
-                MyEnum::Hello => "Hello",
-                MyEnum::World => "World",
-            }
-            .to_string(),
-        ))
-    }
-
-    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
-        match value {
-            ScalarValue::Enum(Some(v)) => match v.as_str() {
-                "hello" => Ok(MyEnum::Hello),
-                "world" => Ok(MyEnum::World),
-                _ => Err(ScalarValueTypeMismatchError),
-            },
-
-            _ => Err(ScalarValueTypeMismatchError),
-        }
-    }
-
-    fn validate_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-        value: &Self::Type,
-    ) -> Result<(), ConstraintViolationError> {
-        if constraints.allowed.contains(value) {
-            Ok(())
-        } else {
-            let value = Self::into_scalar(value.clone());
-            Err(ConstraintViolationError::ForbiddenVariant { value })
-        }
-    }
-
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
-        let mut allowed = Vec::new();
-
-        for variant in constraints.allowed.clone() {
-            let value = Self::into_scalar(variant);
-            allowed.push(value);
-        }
-
-        Constraints::Enum {
-            allowed,
-            nullable: false,
-        }
-    }
-}
-
-impl PropertyType for MyEnum {
-    type Constraints = EnumConstraints<MyEnum>;
 }
 
 pub struct LaserV1Subscription {
@@ -105,7 +53,7 @@ pub struct LaserV1Subscription {
     roundness: RemoteProperty<Option<f64>>,
 }
 
-// #[machine(schema = "schemas/laser_v1.yaml")]
+#[derive(Machine)]
 pub struct LaserV1 {
     // --- hardware ---
     device: Rc<RefCell<LaserDevice>>,
@@ -145,14 +93,6 @@ pub struct LaserV1 {
 
     // -- misc ---
     last_request: Instant,
-}
-
-impl MachineDescriptor for LaserV1 {
-    const SCHEMA: &'static str = include_str!("../schemas/laser_v1.yaml");
-    const IDENTIFICATION: MachineIdentification = MachineIdentification {
-        vendor_id: 1,
-        machine_id: 16,
-    };
 }
 
 impl MachineBuild for LaserV1 {
@@ -414,7 +354,7 @@ impl LaserV1 {
             && let LaserError::IoErr() = laser_error
         {
             return Err(ActError {
-                recoverable: false,
+                impact: ActErrorImpact::Irrecoverable,
                 kind: ActErrorKind::HardwareFault("Physical hardware I/O broke.".into()),
             });
         }

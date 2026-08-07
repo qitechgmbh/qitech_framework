@@ -3,9 +3,12 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 pub use qitech_framework_core::report::error::BuildError;
+pub use qitech_framework_core::request::SubscribeError;
 use thiserror::Error;
+
 pub type CommandExecuteResult = Result<(), String>;
 pub type BuildResult<T> = Result<T, BuildError>;
+pub type SubscribeResult = Result<(), SubscribeError>;
 
 // --- act ---
 pub type ActResult = Result<(), ActError>;
@@ -14,7 +17,7 @@ pub type ActResult = Result<(), ActError>;
 #[error("{kind}")]
 pub struct ActError {
     pub kind: ActErrorKind,
-    pub recoverable: bool,
+    pub impact: ActErrorImpact,
 }
 
 #[derive(Debug, Error)]
@@ -25,6 +28,18 @@ pub enum ActErrorKind {
     ValidationFailed(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActErrorImpact {
+    /// Continue operating normally
+    Ignore,
+
+    /// Machine can operate, but with reduced capability
+    Degraded,
+
+    /// Machine cannot safely operate
+    Irrecoverable,
+}
+
 // --- validate ---
 #[derive(Debug, Error)]
 pub enum ValidateError {
@@ -33,21 +48,6 @@ pub enum ValidateError {
     #[error("{0}")]
     Custom(String),
 }
-
-// --- subscribe ---
-// pub type SubscribeResult<T> = Result<T, MachineSubscribeError>;
-
-// #[derive(Debug, Error)]
-// pub enum MachineSubscribeError {
-//     #[error("unsupported machine")]
-//     UnsupportedMachine,
-//
-//     #[error("too many subscriptions")]
-//     TooManySubscriptions,
-//
-//     #[error(transparent)]
-//     Register(#[from] RegisterSubscriptionError),
-// }
 
 // --- bounds ---
 #[derive(Debug, Error)]
