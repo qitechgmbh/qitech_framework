@@ -1,23 +1,21 @@
 use std::any::TypeId;
+use std::collections::{HashMap, HashSet};
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
+use crate::journal::Journals;
+use crate::machine::ResourceRegistry;
 use crate::machine::hardware::Hardware;
-use crate::resource::ConfigPropertyRegistryRegisterHandle;
-use crate::resource::EventRegistrar;
-use crate::resource::Journals;
-use crate::resource::MeasurementRegistryRegisterHandle;
-use crate::resource::Resources;
-use crate::resource::StatePropertyRegistryRegisterHandle;
+use crate::machine::instance::ConfigPropertyWriteFn;
+use crate::machine::property_registry::PropertyRegistrar;
 
-mod command;
+// mod command;
 mod config;
+// mod event;
 mod hardware;
 mod measurements;
 mod state_property;
-use command::CommandItem;
-mod event;
 // mod resource;
 
 pub struct BuildContext<'a> {
@@ -30,12 +28,18 @@ pub struct BuildContext<'a> {
     ethercat_interface: Option<EtherCATThreadChannel>,
     hardware: Vec<Hardware>,
 
-    config_properties: ConfigPropertyRegistryRegisterHandle<'a>,
-    state_properties: StatePropertyRegistryRegisterHandle<'a>,
-    measurements: MeasurementRegistryRegisterHandle<'a>,
+    pub(crate) journals: &'a mut Journals,
+    pub(crate) config: PropertyRegistrar<'a>,
+    pub(crate) state: PropertyRegistrar<'a>,
+    pub(crate) measurements: PropertyRegistrar<'a>,
 
-    commands: Vec<CommandItem>,
-    events: EventRegistrar<'a>,
+    journals_temp: Journals,
+    // commands: Vec<CommandItem>,
+    // events: EventRegistrar<'a>,
+
+    pub(crate) config_registered: HashMap<&'static str, ConfigPropertyWriteFn>,
+    pub(crate) state_registered: HashSet<&'static str>,
+    pub(crate) measurements_registered: HashSet<&'static str>,
 }
 
 impl<'a> BuildContext<'a> {
@@ -46,9 +50,9 @@ impl<'a> BuildContext<'a> {
         ethercat_interface: Option<EtherCATThreadChannel>,
         hardware: Vec<Hardware>,
         journals: &'a mut Journals,
-        resources: &'a mut Resources,
+        resources: &'a mut ResourceRegistry,
     ) -> Self {
-        let events = EventRegistrar::new(&mut resources.events, &mut journals.events, ident);
+        // let events = EventRegistrar::new(&mut resources.events, &mut journals.events, ident);
 
         Self {
             ident,
@@ -56,19 +60,21 @@ impl<'a> BuildContext<'a> {
             type_name,
             ethercat_interface,
             hardware,
-            config_properties: resources.config_properties.register_machine(ident),
-            state_properties: resources.state_properties.register_machine(ident),
-            measurements: resources.measurements.register_machine(ident),
-            commands: Default::default(),
-            events,
+            config: resources.config_properties.register(),
+            state: resources.state_properties.register(),
+            measurements: resources.measurements.register(),
+            journals,
+            journals_temp: Journals::default(),
+            config_registered: Default::default(),
+            state_registered: Default::default(),
+            measurements_registered: Default::default(),
         }
     }
 
     pub(crate) fn commit_all(self) {
-        self.config_properties.commit();
-        self.state_properties.commit();
+        self.config.commit();
+        self.state.commit();
         self.measurements.commit();
-        self.events.commit();
     }
 
     pub fn ident(&self) -> MachineIdentificationUnique {

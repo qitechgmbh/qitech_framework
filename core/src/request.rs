@@ -139,7 +139,7 @@ pub enum WriteConfigPropertyError {
     ResourceNotFound,
 
     #[error("value type mismatch")]
-    WriteError(ConfigPropertyWriteError),
+    WriteError(#[from] ConfigPropertyWriteError),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
@@ -12,14 +13,14 @@ use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
 use crate::Runtime;
+use crate::journal::Journals;
 use crate::machine::BuildContext;
+use crate::machine::ConfigPropertyHandle;
 use crate::machine::Hardware;
+use crate::machine::MachineInstance;
+use crate::machine::PropertyRegistry;
+use crate::machine::ResourceRegistry;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
-use crate::resource::ConfigPropertyRegistry;
-use crate::resource::Journals;
-use crate::resource::MeasurementRegistry;
-use crate::resource::Resources;
-use crate::resource::StatePropertyRegistry;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::RuntimeStatus;
@@ -31,7 +32,6 @@ use crate::runtime::error::RuntimeInitializeResult;
 use crate::runtime::ethercat;
 use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
-use crate::runtime::types::MachineInstance;
 use crate::runtime::types::MachineRegistryEntry;
 
 impl<T: RuntimeTransport> Runtime<T> {
@@ -123,10 +123,10 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         let mut journals = Journals::default();
 
-        let mut resources = Resources {
-            config_properties: ConfigPropertyRegistry::new(4096, 128),
-            state_properties: StatePropertyRegistry::new(4096, 128),
-            measurements: MeasurementRegistry::new(4096, 128),
+        let mut resources = ResourceRegistry {
+            config_properties: PropertyRegistry::new(ResourceKind::ConfigProperty, 4096),
+            state_properties: PropertyRegistry::new(ResourceKind::StateProperty, 4096),
+            measurements: PropertyRegistry::new(ResourceKind::Measurement, 4096),
         };
 
         let machines = Self::init_machines(
@@ -180,7 +180,6 @@ impl<T: RuntimeTransport> Runtime<T> {
             config: config.config,
             session: session.complete()?,
             last_export_ts: Instant::now(),
-            subscriptions: Default::default(),
         })
     }
 
@@ -190,7 +189,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,
         journals: &mut Journals,
-        resources: &mut Resources,
+        resources: &mut ResourceRegistry,
     ) -> RuntimeInitializeResult<Vec<MachineInstance>> {
         let mut machines: Vec<MachineInstance> = Vec::new();
 
@@ -206,7 +205,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 continue;
             };
 
-            let ctx = BuildContext::new(
+            let mut ctx = BuildContext::new(
                 *ident_unique,
                 entry.type_id,
                 entry.type_name,
@@ -216,7 +215,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 resources,
             );
 
-            let instance = match (entry.build)(ctx) {
+            let machine = match (entry.build)(&mut ctx) {
                 Ok(v) => v,
                 Err(e) => {
                     session.send_event(RuntimeInitEvent::MachineBuildCompleted {
@@ -228,7 +227,29 @@ impl<T: RuntimeTransport> Runtime<T> {
                 }
             };
 
-            machines.push(instance);
+            // --- commit allocations ---
+            ctx.config.commit();
+            ctx.state.commit();
+            ctx.measurements.commit();
+
+            // --- extract metadata ---
+            let mut configs = Vec::new();
+
+            for (resource, write) in ctx.config_registered {
+                configs.push(ConfigPropertyHandle::new(
+                    resource, 
+                    write, 
+                    on_changed
+                ));
+            }
+
+            machines.push(MachineInstance {
+                ident: *ident_unique,
+                machine,
+                configs,
+                commands: Default::default(),
+            });
+
             session.send_event(RuntimeInitEvent::MachineBuildCompleted {
                 ident: *ident_unique,
                 result: Ok(()),

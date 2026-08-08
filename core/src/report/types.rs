@@ -4,14 +4,13 @@ use thiserror::Error;
 
 use crate::NumericValue;
 use crate::ScalarValue;
-use crate::ident::MachineIdentificationUnique;
 use crate::report::ResourceKind;
 
 // --- resource error ---
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]
 pub enum ResourceAccessError {
     #[error("machine not found")]
-    MachineNotFound(MachineIdentificationUnique),
+    MachineNotFound,
 
     #[error("resource not found")]
     ResourceNotFound { kind: ResourceKind, path: String },

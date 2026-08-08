@@ -38,18 +38,9 @@ pub enum ConfigPropertyEvent {
         capability: WriteCapability,
         constraints: Constraints,
     },
-    DefaultChanged {
-        before: ScalarValue,
-        after: ScalarValue,
-    },
-    CapabilityChanged {
-        before: WriteCapability,
-        after: WriteCapability,
-    },
-    ConstraintsChanged {
-        before: Constraints,
-        after: Constraints,
-    },
+    DefaultChanged(ScalarValue),
+    CapabilityChanged(WriteCapability),
+    ConstraintsChanged(Constraints),
     Written {
         value: ScalarValue,
         origin: OperationOrigin,

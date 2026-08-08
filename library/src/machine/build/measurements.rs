@@ -1,9 +1,9 @@
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
-use crate::resource::Measurement;
-use crate::resource::conversion::Extract;
-use crate::resource::conversion::PropertyAdapter;
+use crate::machine::conversion::Extract;
+use crate::machine::conversion::PropertyAdapter;
+use crate::machine::measurement::Measurement;
 
 impl<'a> BuildContext<'a> {
     pub fn measurement<'b, T>(&'b mut self, path: &'static str) -> MeasurementBuilder<'a, 'b, T>
@@ -41,13 +41,15 @@ where
     }
 
     pub fn register(self) -> Result<Measurement<T::Type>, BuildError> {
-        // TODO: catch register error
-        let handle = self
-            .root
-            .measurements
-            .register::<T::Type>(self.path, self.value, T::extract);
+        if !self.root.measurements_registered.insert(self.path) {
+            return Err(BuildError::DuplicateResource(self.path.to_string()));
+        }
 
-        let prop = Measurement::new(handle);
-        Ok(prop)
+        let p_value =
+            self.root
+                .measurements
+                .register::<T::Type>(self.root.ident, self.path, self.value);
+
+        Ok(Measurement { p_value })
     }
 }

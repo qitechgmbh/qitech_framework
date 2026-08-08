@@ -1,9 +1,10 @@
 use std::any::Any;
 use std::any::TypeId;
-use std::mem::transmute;
+use std::any::type_name;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use chrono::Utc;
-use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteError;
@@ -13,12 +14,13 @@ use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
-use crate::resource::ConfigProperty;
-use crate::resource::ConfigPropertyState;
-use crate::resource::Erased;
-use crate::resource::OnExternalChangedCallback;
-use crate::resource::conversion::PropertyAdapter;
-use crate::resource::conversion::PropertyType;
+use crate::machine::ResourceKey;
+use crate::machine::config_property::ConfigProperty;
+use crate::machine::config_property::ConfigPropertyState;
+use crate::machine::conversion::PropertyAdapter;
+use crate::machine::conversion::PropertyType;
+use crate::machine::error::ActResult;
+use crate::machine::error::BuildResult;
 
 impl<'a> BuildContext<'a> {
     pub fn config<'b, T>(&'b mut self, path: &'static str) -> ConfigPropertyBuilder<'a, 'b, T>
@@ -30,9 +32,9 @@ impl<'a> BuildContext<'a> {
             root: self,
             path,
             default: None,
-            writable: WriteCapability::Allowed,
+            capability: WriteCapability::Allowed,
             constraints: <T::Type as PropertyType>::Constraints::default(),
-            on_external_changed: None,
+            on_external_write: None,
         }
     }
 }
@@ -46,9 +48,9 @@ where
 
     // --- configuration ---
     default: Option<T::Type>,
-    writable: WriteCapability,
+    capability: WriteCapability,
     constraints: <T::Type as PropertyType>::Constraints,
-    on_external_changed: Option<OnExternalChangedCallback>,
+    on_external_write: Option<Box<dyn Fn(&mut dyn Machine) -> ActResult>>,
 }
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
@@ -61,7 +63,7 @@ where
     }
 
     pub fn allow_external_writes(mut self, value: bool) -> Self {
-        self.writable = if value {
+        self.capability = if value {
             WriteCapability::Forbidden {
                 reason: "Initial state".to_string(),
             }
@@ -72,87 +74,48 @@ where
         self
     }
 
-    pub fn on_external_write<M: Machine + 'static>(mut self, func: fn(&mut M)) -> Self {
-        fn adapter<M>(machine: &mut dyn Machine, func: *const ())
-        where
-            M: Machine + 'static,
-        {
+    pub fn on_external_changed<M: Machine + 'static>(
+        mut self,
+        func: fn(&mut M) -> ActResult,
+    ) -> BuildResult<Self> {
+        if self.root.type_id != TypeId::of::<M>() {
+            return Err(BuildError::MachineTypeMismatch {
+                expected: self.root.type_name.to_string(),
+                received: type_name::<M>().to_string(),
+            });
+        }
+
+        self.on_external_write = Some(Box::new(move |machine: &mut dyn Machine| {
             let machine = (machine as &mut dyn Any)
                 .downcast_mut::<M>()
                 .expect("machine type mismatch");
 
-            let func: fn(&mut M) = unsafe { transmute(func) };
             func(machine)
-        }
+        }));
 
-        // TODO: yield as error instead
-        assert_eq!(self.root.type_id, TypeId::of::<M>());
-
-        self.on_external_changed = Some(OnExternalChangedCallback {
-            func: func as *const (),
-            adapter: adapter::<M>,
-        });
-
-        self
+        Ok(self)
     }
 
     pub fn register(self) -> Result<ConfigProperty<T::Type>, BuildError> {
-        fn write<T: PropertyAdapter>(
-            state: Erased,
-            value_in: ScalarValue,
-            value_out: Erased,
-        ) -> Result<bool, ConfigPropertyWriteError>
-        where
-            T::Type: PartialEq,
-        {
-            let value = T::from_scalar(value_in)?;
-
-            let state = state
-                .downcast::<ConfigPropertyState<T::Type>>()
-                .expect("Expected pointer to state");
-
-            let state = unsafe { state.read() };
-
-            if let WriteCapability::Forbidden { .. } = state.writable {
-                return Err(ConfigPropertyWriteError::NotWritable);
-            };
-
-            if let Err(e) = (T::validate_constraints)(&state.constraints, &value) {
-                return Err(ConfigPropertyWriteError::ConstraintViolation(e));
-            }
-
-            let mut value_out = value_out
-                .downcast::<T::Type>()
-                .expect("Expected pointer to value type");
-
-            let value_out = unsafe { value_out.as_mut() };
-
-            if value_out == &value {
-                return Ok(false);
-            }
-
-            *value_out = value;
-            Ok(true)
+        if self.root.config_registered.contains_key(self.path) {
+            return Err(BuildError::DuplicateResource(self.path.to_string()));
         }
 
-        let default = self
-            .default
-            .ok_or(BuildError::MissingRequiredField("default".to_string()))?;
-        let writable = self.writable;
+        let default = self.default.unwrap_or_default();
 
-        // TODO: catch register error
-        let handle = self.root.config_properties.register::<T::Type>(
-            self.path,
-            default.clone(),
-            writable.clone(),
-            self.constraints.clone(),
-            write::<T>,
-            self.on_external_changed,
-        );
+        let p_value =
+            self.root
+                .config
+                .register::<T::Type>(self.root.ident, self.path, default.clone());
 
-        // TODO: expose a temp journal so on failure we don't send this out
+        let state = ConfigPropertyState {
+            default: default.clone(),
+            capability: self.capability,
+            constraints: self.constraints,
+        };
+
         self.root
-            .journals
+            .journals_temp
             .config_property
             .new_handle()
             .append(ConfigPropertyRecord {
@@ -166,14 +129,48 @@ where
                 },
             });
 
-        let prop = ConfigProperty::new(
-            handle,
-            T::into_scalar,
-            T::validate_constraints,
-            T::as_parameter_constraints,
-            self.root.journals.config_property.new_handle(),
-        );
+        let key = ResourceKey {
+            ident: self.root.ident,
+            path: self.path,
+        };
 
-        Ok(prop)
+        let state = Rc::new(RefCell::new(state));
+        let state_for_write = Rc::clone(&state);
+
+        let write = Box::new(move |value| {
+            let value = T::from_scalar(value)?;
+
+            let state = state_for_write.borrow();
+
+            if let WriteCapability::Forbidden { .. } = state.capability {
+                return Err(ConfigPropertyWriteError::NotWritable);
+            };
+
+            if let Err(e) = (T::validate_constraints)(&state.constraints, &value) {
+                return Err(ConfigPropertyWriteError::ConstraintViolation(e));
+            }
+
+            unsafe {
+                if p_value.read() == value {
+                    return Ok(false);
+                }
+
+                p_value.write(value);
+            }
+
+            Ok(true)
+        });
+
+        self.root.config_registered.insert(self.path, write);
+
+        Ok(ConfigProperty {
+            state: Rc::downgrade(&state),
+            key,
+            p_value,
+            into_scalar: T::into_scalar,
+            validate_constraints: T::validate_constraints,
+            as_parameter_constraints: T::as_parameter_constraints,
+            journal: self.root.journals.config_property.new_handle(),
+        })
     }
 }

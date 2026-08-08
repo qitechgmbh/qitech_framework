@@ -1,3 +1,4 @@
+use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
 
@@ -5,21 +6,27 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::request::SubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
-use crate::resource::CachedPropertyView;
-use crate::resource::LifetimeToken;
-use crate::resource::Resources;
+use crate::machine::LifetimeToken;
+use crate::machine::ResourceRegistry;
+
+// --- subscription ---
+#[derive(Debug, Clone)]
+pub struct Subscription {
+    provider: MachineIdentificationUnique,
+    subscriber: MachineIdentificationUnique,
+    token: Rc<LifetimeToken>,
+}
 
 // --- property ---
 pub struct RemoteProperty<T: Clone> {
-    view: CachedPropertyView<T>,
+    p_cache: NonNull<T>,
     token: Weak<LifetimeToken>,
 }
 
 impl<T: Clone> RemoteProperty<T> {
     pub fn get_ref(&self) -> &T {
         _ = self.token.upgrade().expect("Subscription expired");
-
-        self.view.read()
+        unsafe { self.p_cache.as_ref() }
     }
 }
 
@@ -56,24 +63,12 @@ with_uom_quantities!(impl_uom);
 
 // --- context ---
 pub struct SubscribeContext<'a> {
-    token: Rc<LifetimeToken>,
-    provider: MachineIdentificationUnique,
-    resources: &'a mut Resources,
+    pub(crate) token: Rc<LifetimeToken>,
+    pub(crate) provider: MachineIdentificationUnique,
+    pub(crate) resources: &'a mut ResourceRegistry,
 }
 
 impl<'a> SubscribeContext<'a> {
-    pub(crate) fn new(
-        provider: MachineIdentificationUnique,
-        resources: &'a mut Resources,
-        token: Rc<LifetimeToken>,
-    ) -> Self {
-        Self {
-            provider,
-            resources,
-            token,
-        }
-    }
-
     pub fn provider(&self) -> MachineIdentificationUnique {
         self.provider
     }
@@ -82,14 +77,15 @@ impl<'a> SubscribeContext<'a> {
         &mut self,
         resource: &'static str,
     ) -> Result<RemoteProperty<T>, SubscribeError> {
-        let view = self
+        let p_cache = self
             .resources
             .config_properties
-            .new_cached_view(self.provider, resource)?;
+            .get_cached(self.provider, resource)
+            .unwrap();
 
         let prop = RemoteProperty {
-            view,
             token: Rc::downgrade(&self.token),
+            p_cache,
         };
 
         Ok(prop)
@@ -102,10 +98,11 @@ impl<'a> SubscribeContext<'a> {
         let view = self
             .resources
             .state_properties
-            .new_cached_view(self.provider, resource)?;
+            .get_cached(self.provider, resource)
+            .unwrap();
 
         let prop = RemoteProperty {
-            view,
+            p_cache: view,
             token: Rc::downgrade(&self.token),
         };
 
@@ -119,10 +116,11 @@ impl<'a> SubscribeContext<'a> {
         let view = self
             .resources
             .measurements
-            .new_cached_view(self.provider, resource)?;
+            .get_cached(self.provider, resource)
+            .unwrap();
 
         let prop = RemoteProperty {
-            view,
+            p_cache: view,
             token: Rc::downgrade(&self.token),
         };
 

@@ -17,7 +17,6 @@ use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
-use crate::runtime::types::MachineInstance;
 
 #[derive(Default)]
 pub struct RuntimeConfiguration {
@@ -84,19 +83,11 @@ impl RuntimeConfiguration {
     where
         M: Machine + MachineBuild + MachineDescriptor + 'static,
     {
-        fn build_adapter<M>(mut ctx: BuildContext) -> Result<MachineInstance, BuildError>
+        fn build_adapter<M>(ctx: &mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>
         where
             M: MachineBuild + Machine + 'static,
         {
-            // --- build the machine ---
-            let machine = Box::new(M::build(&mut ctx)?);
-
-            // --- commit all staged resources ---
-            let ident = ctx.ident();
-            ctx.commit_all();
-
-            // --- return ---
-            Ok(MachineInstance { ident, machine })
+            Ok(Box::new(M::build(ctx)?))
         }
 
         self.machines.push(MachineRegistration {

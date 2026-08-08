@@ -103,12 +103,12 @@ pub enum SlotState {
 
 // --- key ---
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Key<'a> {
-    ident: MachineIdentificationUnique,
-    path: Cow<'a, str>,
+pub struct ResourceKey<'a> {
+    pub ident: MachineIdentificationUnique,
+    pub path: Cow<'a, str>,
 }
 
-impl<'a> Key<'a> {
+impl<'a> ResourceKey<'a> {
     pub fn from_str(ident: MachineIdentificationUnique, path: &'a str) -> Self {
         Self {
             ident,

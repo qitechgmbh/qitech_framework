@@ -8,4 +8,5 @@ mod extract;
 pub use extract::Extract;
 
 mod property_type;
+pub use property_type::MutableConstraints;
 pub use property_type::PropertyType;

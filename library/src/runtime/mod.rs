@@ -1,11 +1,9 @@
-use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Instant;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
-use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::session::RuntimeTransport;
@@ -30,11 +28,9 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
+use crate::journal::Journals;
+use crate::machine::ResourceRegistry;
 use crate::machine::error::ActErrorImpact;
-use crate::resource::Journals;
-use crate::resource::LifetimeToken;
-use crate::resource::Resources;
-
 mod request;
 
 pub struct Runtime<T: RuntimeTransport> {
@@ -44,24 +40,16 @@ pub struct Runtime<T: RuntimeTransport> {
 
     // --- resource managers ---
     journals: Journals,
-    resources: Resources,
+    resources: ResourceRegistry,
 
     // --- instances ---
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
-    subscriptions: heapless::Vec<Subscription, 128>,
     ecat_controller: Option<EtherCATController>,
 
     // --- misc ---
     config: Config,
     last_export_ts: Instant,
-}
-
-#[derive(Debug, Clone)]
-pub struct Subscription {
-    provider: MachineIdentificationUnique,
-    subscriber: MachineIdentificationUnique,
-    token: Rc<LifetimeToken>,
 }
 
 impl<T: RuntimeTransport> Runtime<T> {

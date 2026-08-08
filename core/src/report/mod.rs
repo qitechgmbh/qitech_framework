@@ -153,7 +153,7 @@ pub struct MachineResource {
     kind: ResourceKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResourceKind {
     ConfigProperty,
     StateProperty,

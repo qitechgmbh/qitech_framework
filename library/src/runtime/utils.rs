@@ -5,18 +5,17 @@ use qitech_framework_core::request::ReadMachineDeviceInfoError;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
-use crate::machine::Machine;
+use crate::machine::MachineInstance;
 use crate::runtime::EtherCATController;
-use crate::runtime::types::MachineInstance;
 
 pub fn find_machine(
     machines: &mut [MachineInstance],
     ident: MachineIdentificationUnique,
-) -> Option<&mut dyn Machine> {
+) -> Option<&mut MachineInstance> {
     machines
         .iter_mut()
         .find(|instance| instance.ident == ident)
-        .map(|instance| instance.machine.as_mut())
+        .map(|instance| instance)
 }
 
 pub fn write_machine_device_info(

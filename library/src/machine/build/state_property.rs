@@ -4,8 +4,9 @@ use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
-use crate::resource::StateProperty;
-use crate::resource::conversion::PropertyAdapter;
+use crate::machine::ResourceKey;
+use crate::machine::StateProperty;
+use crate::machine::conversion::PropertyAdapter;
 
 impl<'a> BuildContext<'a> {
     pub fn state<'b, T>(&'b mut self, path: &'static str) -> StatePropertyBuilder<'a, 'b, T>
@@ -43,15 +44,17 @@ where
     }
 
     pub fn register(self) -> Result<StateProperty<T::Type>, BuildError> {
-        // TODO: catch register error
-        let handle = self
-            .root
-            .state_properties
-            .register::<T::Type>(self.path, self.value.clone());
+        if !self.root.state_registered.insert(self.path) {
+            return Err(BuildError::DuplicateResource(self.path.to_string()));
+        }
 
-        // TODO: expose a temp journal so on failure we don't send this out
+        let p_value =
+            self.root
+                .state
+                .register::<T::Type>(self.root.ident, self.path, self.value.clone());
+
         self.root
-            .journals
+            .journals_temp
             .state_property
             .new_handle()
             .append(StatePropertyRecord {
@@ -63,12 +66,16 @@ where
                 },
             });
 
-        let prop = StateProperty::new(
-            handle,
-            T::into_scalar,
-            self.root.journals.state_property.new_handle(),
-        );
+        let key = ResourceKey {
+            ident: self.root.ident,
+            path: self.path,
+        };
 
-        Ok(prop)
+        Ok(StateProperty {
+            key,
+            p_value,
+            journal: self.root.journals.state_property.new_handle(),
+            into_scalar: T::into_scalar,
+        })
     }
 }

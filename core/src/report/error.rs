@@ -35,4 +35,7 @@ pub enum BuildError {
 
     #[error("resource expected {0} to be set")]
     MissingRequiredField(String),
+
+    #[error("failed to configure hardware")]
+    MachineTypeMismatch { expected: String, received: String },
 }

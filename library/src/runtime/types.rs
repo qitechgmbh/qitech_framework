@@ -17,10 +17,11 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::Machine;
+use crate::machine::MachineInstance;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
 pub type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
-pub type BuildMachineFn = fn(BuildContext) -> Result<MachineInstance, BuildError>;
+pub type BuildMachineFn = fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
 
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
@@ -45,11 +46,6 @@ impl Default for Config {
             cycle_timeout: Duration::from_micros(100),
         }
     }
-}
-
-pub struct MachineInstance {
-    pub ident: MachineIdentificationUnique,
-    pub machine: Box<dyn Machine>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

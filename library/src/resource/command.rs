@@ -5,13 +5,13 @@ use std::ptr::NonNull;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 
 use crate::machine::Machine;
-use crate::resource::Key;
+use crate::resource::ResourceKey;
 use crate::resource::error::RegisterError;
 use crate::resource::error::RegisterResult;
 
 pub struct CommandRegistry {
     commands: Box<[ExecuteContext]>,
-    entries: HashMap<Key<'static>, usize>,
+    entries: HashMap<ResourceKey<'static>, usize>,
 }
 
 impl CommandRegistry {
@@ -25,7 +25,7 @@ impl CommandRegistry {
         path: &'static str,
         entry: ExecuteContext,
     ) -> RegisterResult<()> {
-        let key = Key::from_str(ident, path);
+        let key = ResourceKey::from_str(ident, path);
 
         if self.entries.contains_key(&key) {
             return Err(RegisterError::Duplicate);
@@ -67,7 +67,7 @@ impl CommandRegistry {
         }
     }
 
-    pub fn get(&self, key: Key) -> Option<&ExecuteContext> {
+    pub fn get(&self, key: ResourceKey) -> Option<&ExecuteContext> {
         let Some(index) = self.entries.get(&key) else {
             return None;
         };
