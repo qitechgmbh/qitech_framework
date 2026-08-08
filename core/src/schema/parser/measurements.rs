@@ -8,10 +8,10 @@ use serde::de::Error;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
 
+use crate::schema::FloatSemantic;
 use crate::schema::MeasurementDefinition;
 use crate::schema::MeasurementKind;
 use crate::schema::MeasurementStatistics;
-use crate::schema::parser::keyword::Keyword;
 
 #[derive(Debug)]
 pub struct MeasurementInfoRaw(pub MeasurementDefinition);
@@ -34,24 +34,34 @@ impl<'de> Deserialize<'de> for MeasurementInfoRaw {
             where
                 A: EnumAccess<'de>,
             {
+                #[derive(Debug, Clone, Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct NumericHelper {
+                    #[serde(default)]
+                    pub statistics: MeasurementStatistics,
+                }
+
                 let (tag, variant) = data.variant::<String>()?;
 
-                match Keyword::from_str(&tag).map_err(A::Error::custom)? {
-                    Keyword::Boolean => {
-                        let BooleanHelper { nullable } = variant.newtype_variant()?;
+                let nullable = tag.starts_with("?");
+                let tag = if nullable { &tag[1..] } else { &tag };
 
-                        Ok(MeasurementInfoRaw(MeasurementDefinition {
-                            kind: MeasurementKind::Boolean,
-                            nullable,
-                            metadata: Default::default(),
-                        }))
-                    }
+                if let Ok(semantic) = FloatSemantic::from_str(tag) {
+                    let NumericHelper { statistics } = variant.newtype_variant()?;
 
-                    Keyword::Integer => {
-                        let NumericHelper {
-                            nullable,
+                    return Ok(MeasurementInfoRaw(MeasurementDefinition {
+                        kind: MeasurementKind::Float {
+                            semantic,
                             statistics,
-                        } = variant.newtype_variant()?;
+                        },
+                        nullable,
+                        metadata: Default::default(),
+                    }));
+                }
+
+                match tag {
+                    "integer" => {
+                        let NumericHelper { statistics } = variant.newtype_variant()?;
 
                         Ok(MeasurementInfoRaw(MeasurementDefinition {
                             kind: MeasurementKind::Integer { statistics },
@@ -60,29 +70,14 @@ impl<'de> Deserialize<'de> for MeasurementInfoRaw {
                         }))
                     }
 
-                    Keyword::Float(semantic) => {
-                        let NumericHelper {
-                            nullable,
-                            statistics,
-                        } = variant.newtype_variant()?;
-
+                    "boolean" => {
+                        variant.unit_variant()?;
                         Ok(MeasurementInfoRaw(MeasurementDefinition {
-                            kind: MeasurementKind::Float {
-                                semantic,
-                                statistics,
-                            },
+                            kind: MeasurementKind::Boolean,
                             nullable,
                             metadata: Default::default(),
                         }))
                     }
-
-                    Keyword::Enum => {
-                        Err(A::Error::custom("enums are not supported for measurements"))
-                    }
-
-                    Keyword::String => Err(A::Error::custom(
-                        "strings are not supported for measurements",
-                    )),
 
                     other => Err(A::Error::custom(format!(
                         "unsupported measurement type: {other:?}"
@@ -93,22 +88,4 @@ impl<'de> Deserialize<'de> for MeasurementInfoRaw {
 
         deserializer.deserialize_any(MeasurementValueVisitor)
     }
-}
-
-// --- boolean ---
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BooleanHelper {
-    #[serde(default)]
-    pub nullable: bool,
-}
-
-// --- numeric ---
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct NumericHelper {
-    #[serde(default)]
-    pub nullable: bool,
-    #[serde(default)]
-    pub statistics: MeasurementStatistics,
 }

@@ -1,15 +1,13 @@
 use core::fmt;
-use std::str::FromStr;
 
 use serde::Deserialize;
-use serde::Deserializer;
+use serde::de;
+use serde::de::Deserializer;
 use serde::de::EnumAccess;
-use serde::de::Error;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
 
 use crate::schema::CommandDefinition;
-use crate::schema::parser::keyword::Keyword;
 
 #[derive(Debug)]
 pub struct CommandDefinitionRaw(pub CommandDefinition);
@@ -19,10 +17,10 @@ impl<'de> Deserialize<'de> for CommandDefinitionRaw {
     where
         D: Deserializer<'de>,
     {
-        struct MyVisitor;
+        struct CommandVisitor;
 
-        impl<'de> Visitor<'de> for MyVisitor {
-            type Value = CommandDefinitionRaw;
+        impl<'de> Visitor<'de> for CommandVisitor {
+            type Value = CommandDefinition;
 
             fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
             where
@@ -30,19 +28,16 @@ impl<'de> Deserialize<'de> for CommandDefinitionRaw {
             {
                 let (tag, variant) = data.variant::<String>()?;
 
-                let value_type = Keyword::from_str(&tag).map_err(A::Error::custom)?;
-
-                if !matches!(value_type, Keyword::Command) {
-                    return Err(Error::custom(format!(
+                if tag != "command" {
+                    return Err(de::Error::custom(format!(
                         "expected !command, received: !{tag}."
                     )));
                 }
 
                 variant.unit_variant()?;
-
-                Ok(CommandDefinitionRaw(CommandDefinition {
+                Ok(CommandDefinition {
                     metadata: Default::default(),
-                }))
+                })
             }
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -50,6 +45,7 @@ impl<'de> Deserialize<'de> for CommandDefinitionRaw {
             }
         }
 
-        deserializer.deserialize_any(MyVisitor)
+        let definition = deserializer.deserialize_any(CommandVisitor)?;
+        Ok(CommandDefinitionRaw(definition))
     }
 }

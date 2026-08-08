@@ -28,7 +28,7 @@ pub struct MachineSchema {
     // --- interface ---
     pub name: String,
     pub identification: MachineIdentification,
-    pub config_properties: StringMap<ConfigPropertyDefinition>,
+    pub config_properties: StringMap<ScalarPropertyDefinition>,
     pub state_properties: StringMap<StatePropertyDefinition>,
     pub measurements: StringMap<MeasurementDefinition>,
     pub commands: StringMap<CommandDefinition>,
@@ -41,42 +41,21 @@ impl MachineSchema {
     }
 }
 
-// --- config ---
+// --- scalar ---
+pub type ConfigPropertyDefinition = ScalarPropertyDefinition;
+pub type StatePropertyDefinition = ScalarPropertyDefinition;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigPropertyDefinition {
-    pub kind: ConfigPropertyKind,
+pub struct ScalarPropertyDefinition {
+    pub kind: ScalarPropertyKind,
     pub nullable: bool,
-    pub persistent: bool,
     pub metadata: Metadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigPropertyKind {
+pub enum ScalarPropertyKind {
     Enum {
         /// Variants of the enum.
-        variants: EnumVariants,
-    },
-    String,
-    Boolean,
-    Integer,
-    Float {
-        /// Representation of the float. E.g. plain, fraction, millimeter
-        semantic: FloatSemantic,
-    },
-}
-
-// --- state ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatePropertyDefinition {
-    pub kind: StatePropertyKind,
-    pub nullable: bool,
-    pub metadata: Metadata,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StatePropertyKind {
-    Enum {
-        /// The set of allowed variants for this value. Required.
         variants: EnumVariants,
     },
     String,
@@ -155,7 +134,7 @@ pub struct EventField {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventFieldKind {
     Object { fields: StringMap<EventField> },
-    Array { item: Box<EventField> },
+    List { item: Box<EventField> },
     Enum { variants: EnumVariants },
     String,
     Boolean,

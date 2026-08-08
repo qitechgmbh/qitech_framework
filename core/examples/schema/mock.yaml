@@ -8,40 +8,25 @@ identification:
 
 config:
   machine:
-    enabled: !boolean
-      nullable: true
-      default: true
+    enabled: !?boolean
 
-    mode: !enum
-      variants: [manual, setup, automatic]
-      default: automatic
+    mode: !enum [manual, setup, automatic]
 
   spindle:
     max_speed: !revolution_per_minute
-      default: 12000
-
     acceleration: !meter_per_second_squared
-      default: 5.0
 
   laser:
     power: !percentage
-      default: 150.0
-
     diameter: !millimeter
-      nullable: true
 
   material:
     thickness: !millimeter
-      default: 1.0
-
     density: !kilogram
-      nullable: true
-
 
 state:
   machine:
-    status: !enum
-      variants: [idle, running, paused, fault]
+    status: !enum [idle, running, paused, fault]
 
     active_recipe: !string
 
@@ -91,9 +76,7 @@ events:
     operator: !string
 
   machine_stopped: !event
-    reason: !enum
-      variants: [operator, alarm, emergency]
-
+    reason: !enum [operator, alarm, emergency]
 
   spindle:
     started: !event
@@ -108,18 +91,34 @@ events:
     code: !integer
 
     details: !object
-      fields:
-        message: !string
-
-        severity: !enum
-          variants: [warning, error, critical]
-
+      message: !string
+      severity: !enum [warning, error, critical]
 
   production_completed: !event
     count: !integer
-
     duration: !second
 
+  complex: !event
+    content: !list !list !object
+      bomba: !integer
+
+  complex_2: !event
+    content: !list !list !enum [
+      hello,
+      world
+    ]
+
+  complex_3: !event
+    content: !list !list !?enum 
+    [
+      hello,
+      world,
+    ]
+
+  complex_4: !event
+    content: !?list !?list !?enum 
+      - hello
+      - world
 
 metadata:
   config:

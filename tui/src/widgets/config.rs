@@ -7,7 +7,7 @@ use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::WriteCapability;
-use qitech_framework_core::schema::ConfigPropertyKind;
+use qitech_framework_core::schema::ScalarPropertyKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
 use ratatui::layout::Layout;
@@ -510,7 +510,7 @@ impl ConfigPage {
         let (key, field) = machine.config.get_index(self.selected).unwrap();
 
         let value = match &field.kind {
-            ConfigPropertyKind::Enum { variants, .. } => {
+            ScalarPropertyKind::Enum { variants, .. } => {
                 if !variants.contains_name(&edit.value) {
                     return AppAction::NoAction;
                 }
@@ -518,12 +518,12 @@ impl ConfigPage {
                 ScalarValue::Enum(Some(edit.value))
             }
 
-            ConfigPropertyKind::String => {
+            ScalarPropertyKind::String => {
                 // TODO: capability check
                 ScalarValue::String(Some(edit.value))
             }
 
-            ConfigPropertyKind::Boolean => {
+            ScalarPropertyKind::Boolean => {
                 let value = match edit.value.parse::<bool>() {
                     Ok(v) => v,
                     Err(_) => return AppAction::NoAction,
@@ -532,7 +532,7 @@ impl ConfigPage {
                 ScalarValue::Boolean(Some(value))
             }
 
-            ConfigPropertyKind::Integer => {
+            ScalarPropertyKind::Integer => {
                 let value = match edit.value.parse::<i64>() {
                     Ok(v) => v,
                     Err(_) => return AppAction::NoAction,
@@ -541,7 +541,7 @@ impl ConfigPage {
                 ScalarValue::Integer(Some(value))
             }
 
-            ConfigPropertyKind::Float { .. } => {
+            ScalarPropertyKind::Float { .. } => {
                 let value = match edit.value.parse::<f64>() {
                     Ok(v) => v,
                     Err(_) => return AppAction::NoAction,

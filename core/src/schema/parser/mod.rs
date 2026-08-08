@@ -8,22 +8,20 @@ use crate::schema::Version;
 
 pub type ParseError = yaml_serde::Error;
 
-mod keyword;
-
 mod tree;
 use tree::DefinitionTree;
 use tree::MetadataTree;
 
 mod enum_variants;
 
+mod pre_processor;
+use pre_processor::pre_process;
+
 mod version;
 use version::VersionRaw;
 
-mod config;
-use config::ConfigPropertyInfoRaw;
-
-mod state;
-use state::StatePropertyDefinitionRaw;
+mod scalar;
+use scalar::ScalarPropertyDefinitionRaw;
 
 mod measurements;
 use measurements::MeasurementInfoRaw;
@@ -32,10 +30,11 @@ mod command;
 use command::CommandDefinitionRaw;
 
 mod events;
-use events::EventInfoRaw;
+use events::EventDefinitionRaw;
 
 pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
-    let raw: MachineSchemaRaw = yaml_serde::from_str(s)?;
+    let s = pre_process(s);
+    let raw: MachineSchemaRaw = yaml_serde::from_str(&s)?;
 
     let qms_version = Version {
         major: raw.qms_version.major,
@@ -59,8 +58,8 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
     // --- construct config properties ---
     let mut config_properties = StringMap::new();
 
-    for (name, info) in tree::collapse(raw.config) {
-        config_properties.insert(name, info.0);
+    for (name, ScalarPropertyDefinitionRaw(def)) in tree::collapse(raw.config) {
+        config_properties.insert(name, def);
     }
 
     for (name, metadata) in tree::collapse(raw.metadata.config) {
@@ -76,8 +75,8 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
     // --- construct state properties ---
     let mut state_properties = StringMap::new();
 
-    for (name, info) in tree::collapse(raw.state) {
-        state_properties.insert(name, info.0);
+    for (name, ScalarPropertyDefinitionRaw(def)) in tree::collapse(raw.state) {
+        state_properties.insert(name, def);
     }
 
     for (name, metadata) in tree::collapse(raw.metadata.state) {
@@ -93,8 +92,8 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
     // --- construct measurements ---
     let mut measurements = StringMap::new();
 
-    for (name, info) in tree::collapse(raw.measurements) {
-        measurements.insert(name, info.0);
+    for (name, MeasurementInfoRaw(def)) in tree::collapse(raw.measurements) {
+        measurements.insert(name, def);
     }
 
     for (name, metadata) in tree::collapse(raw.metadata.measurements) {
@@ -110,8 +109,8 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
     // --- construct commands ---
     let mut commands = StringMap::new();
 
-    for (name, info) in tree::collapse(raw.commands) {
-        commands.insert(name, info.0);
+    for (name, CommandDefinitionRaw(def)) in tree::collapse(raw.commands) {
+        commands.insert(name, def);
     }
 
     for (name, metadata) in tree::collapse(raw.metadata.commands) {
@@ -127,8 +126,8 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
     // --- construct events ---
     let mut events = StringMap::new();
 
-    for (name, info) in tree::collapse(raw.events) {
-        events.insert(name, info.0);
+    for (name, EventDefinitionRaw(def)) in tree::collapse(raw.events) {
+        events.insert(name, def);
     }
 
     for (name, metadata) in tree::collapse(raw.metadata.events) {
@@ -165,10 +164,10 @@ pub struct MachineSchemaRaw {
     pub identification: IdentificationRaw,
 
     #[serde(default)]
-    pub config: DefinitionTree<ConfigPropertyInfoRaw>,
+    pub config: DefinitionTree<ScalarPropertyDefinitionRaw>,
 
     #[serde(default)]
-    pub state: DefinitionTree<StatePropertyDefinitionRaw>,
+    pub state: DefinitionTree<ScalarPropertyDefinitionRaw>,
 
     #[serde(default)]
     pub measurements: DefinitionTree<MeasurementInfoRaw>,
@@ -177,7 +176,7 @@ pub struct MachineSchemaRaw {
     pub commands: DefinitionTree<CommandDefinitionRaw>,
 
     #[serde(default)]
-    pub events: DefinitionTree<EventInfoRaw>,
+    pub events: DefinitionTree<EventDefinitionRaw>,
 
     #[serde(default)]
     pub metadata: ResourceMetadataRaw,

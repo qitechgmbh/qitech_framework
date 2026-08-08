@@ -22,11 +22,12 @@ use qitech_framework::machine::error::ActErrorKind;
 use qitech_framework::machine::error::ActResult;
 use qitech_framework::machine::error::BuildResult;
 use qitech_framework::machine::error::SubscribeResult;
+use qitech_framework::machine_build;
+use qitech_framework::units::Length;
+use qitech_framework::units::length::millimeter;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 use qitech_lib::modbus::devices::qitech_laser::LaserError;
-use qitech_lib::units::Length;
-use qitech_lib::units::length::millimeter;
 
 #[derive(Debug, Default, Clone, PartialEq, EnumProperty)]
 pub enum MyEnum {
@@ -64,8 +65,8 @@ pub struct LaserV1 {
     diameter_tolerance_lower: ConfigProperty<Length>,
 
     // --- testing ---
-    diameter_target_default: ConfigProperty<Length>,
-    diameter_target_enabled: ConfigProperty<bool>,
+    diameter_target_default: ConfigProperty<Option<Length>>,
+    diameter_target_enabled: ConfigProperty<Option<bool>>,
     diameter_target_min: ConfigProperty<Option<Length>>,
     diameter_target_max: ConfigProperty<Option<Length>>,
 
@@ -96,6 +97,7 @@ pub struct LaserV1 {
 }
 
 impl MachineBuild for LaserV1 {
+    #[machine_build(LaserV1)]
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
         let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
 
@@ -117,20 +119,24 @@ impl MachineBuild for LaserV1 {
             .register()?;
 
         let diameter_target_default = ctx
-            .config::<millimeter>("diameter.target_default")
-            .default(1.75)
+            .config::<Option<millimeter>>("diameter.target_default")
+            .default(Some(1.75))
             .on_external_write(|m: &mut Self| {
-                let default = *m.diameter_target_default.get_ref();
+                let Some(default) = *m.diameter_target_default.get_ref() else {
+                    return;
+                };
+
                 m.diameter_target.set_default(default);
             })
             .register()?;
 
         let diameter_target_enabled = ctx
-            .config::<bool>("diameter.target_enabled")
-            .default(true)
+            .config::<Option<bool>>("diameter.target_enabled")
+            .default(Some(true))
             .on_external_write(|m: &mut Self| match *m.diameter_target_enabled.get_ref() {
-                true => m.diameter_target.allow_external_write(),
-                false => m.diameter_target.forbid_external_write("single use only"),
+                Some(true) => m.diameter_target.allow_external_write(),
+                Some(false) => m.diameter_target.forbid_external_write("single use only"),
+                _ => {}
             })
             .register()?;
 
@@ -196,9 +202,6 @@ impl MachineBuild for LaserV1 {
         let subscribed_roundness = ctx
             .measurement::<Option<f64>>("subscribed.roundness")
             .register()?;
-
-        let x = ctx.config::<MyEnum>("x").register()?;
-        let y = ctx.state::<MyEnum>("y").register()?;
 
         Ok(Self {
             device,

@@ -3,7 +3,6 @@ use std::ptr;
 
 use chrono::DateTime;
 use chrono::Local;
-use chrono::Utc;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
@@ -15,12 +14,10 @@ use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::report::WriteCapability;
-use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
-use qitech_framework_core::schema::ConfigPropertyKind;
 use qitech_framework_core::schema::MachineSchema;
-use qitech_framework_core::schema::StatePropertyKind;
+use qitech_framework_core::schema::ScalarPropertyKind;
 
 use crate::utils::Timeseries;
 
@@ -141,6 +138,14 @@ impl AppContext {
     pub fn machines(&self) -> &[MachineEntry] {
         unsafe { &*self.machines }
     }
+
+    pub fn transactions(&self) -> &[Transaction] {
+        unsafe { &*self.transactions }
+    }
+
+    pub fn schemas(&self) -> &HashMap<MachineIdentification, MachineSchema> {
+        unsafe { &*self.schemas }
+    }
 }
 
 pub enum AppAction {
@@ -184,7 +189,7 @@ pub struct MachineEntry {
 }
 
 pub struct ConfigField {
-    pub kind: ConfigPropertyKind,
+    pub kind: ScalarPropertyKind,
     pub label: String,
     pub state: ConfigFieldState,
     pub records: Vec<ConfigPropertyRecord>,
@@ -201,7 +206,7 @@ pub enum ConfigFieldState {
 }
 
 pub struct StatePropertyField {
-    pub kind: StatePropertyKind,
+    pub kind: ScalarPropertyKind,
     pub label: String,
     pub state: StatePropertyFieldState,
     pub records: Vec<StatePropertyRecord>,

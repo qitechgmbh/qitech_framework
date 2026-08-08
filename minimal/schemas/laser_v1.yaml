@@ -8,11 +8,19 @@ identification:
 
 config:
   diameter:
+    state: !enum [
+      standby, 
+      holding,
+      pulling,
+      winding,
+    ]
+  
     target: !millimeter
-    target_default: !millimeter
-    target_enabled: !boolean
-    target_min: !millimeter
-    target_max: !millimeter
+
+    target_default: !?millimeter
+    target_enabled: !?boolean
+    target_min: !?millimeter
+    target_max: !?millimeter
 
     tolerance:
       upper: !millimeter
@@ -20,37 +28,35 @@ config:
 
   subscribed:
     diameter:
-      target: !millimeter
-        nullable: true
+      target: !?millimeter
 
-      tolerance.lower: !millimeter
-        nullable: true
-
-      tolerance.upper: !millimeter
-        nullable: true
+      tolerance:
+        lower: !?millimeter
+        upper: !?millimeter
 
 state:
   in_tolerance: !boolean
-
-  # subscribed test
-  subscribed.in_tolerance: !boolean
-      nullable: true
+  subscribed.in_tolerance: !?boolean
 
 measurements:
   diameter: !millimeter
+    statistics:
+      min: true
+      max: true
+      avg: true
+
   diameter_x: !millimeter
   diameter_y: !millimeter
-  roundness: !millimeter
+  roundness:  !millimeter
 
   # subscribed test
-  subscribed.diameter: !millimeter
-    nullable: true
+  subscribed.diameter:   !?millimeter
+  subscribed.diameter_x: !?millimeter
+  subscribed.diameter_y: !?millimeter
+  subscribed.roundness:  !?millimeter
 
-  subscribed.diameter_x: !millimeter
-    nullable: true
+events: 
+  my_event: !event
+    some: !boolean
 
-  subscribed.diameter_y: !millimeter
-    nullable: true
-
-  subscribed.roundness: !millimeter
-    nullable: true
+    list: !?list !?millimeter
