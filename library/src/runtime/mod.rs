@@ -176,6 +176,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- reset timer ---
         self.last_export_ts = now;
+        self.export_count.set(self.export_count.get() + 1);
     }
 
     fn run_machines(&mut self) {

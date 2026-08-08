@@ -13,7 +13,7 @@ impl<'a> BuildContext<'a> {
     pub fn measurement<'b, T>(&'b mut self, path: &'static str) -> MeasurementBuilder<'a, 'b, T>
     where
         'a: 'b,
-        T: PropertyAdapter + StatisticValue + 'static,
+        T: PropertyAdapter + 'static,
         T::Type: Copy + StatisticValue,
     {
         MeasurementBuilder {
@@ -142,9 +142,6 @@ where
             m2: 0.0,
         };
 
-        Ok(Measurement { 
-            p_value,
-            stats
-        })
+        Ok(Measurement { p_value, stats })
     }
 }

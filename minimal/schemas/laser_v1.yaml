@@ -39,6 +39,7 @@ measurements:
       min: true
       max: true
       avg: true
+      stddev: true
 
   diameter_x: !millimeter
   diameter_y: !millimeter

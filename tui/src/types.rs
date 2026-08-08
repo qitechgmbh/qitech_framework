@@ -17,6 +17,7 @@ use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::MachineSchema;
+use qitech_framework_core::schema::MeasurementKind;
 use qitech_framework_core::schema::ScalarPropertyKind;
 
 use crate::utils::Timeseries;
@@ -92,7 +93,7 @@ impl AppState {
         }
 
         let mut measurements = IndexMap::new();
-        for (name, _) in &schema.measurements {
+        for (name, def) in &schema.measurements {
             measurements.insert(
                 name.clone(),
                 MeasurementField {
@@ -100,6 +101,54 @@ impl AppState {
                     values: Timeseries::new(4096),
                 },
             );
+
+            let stats = match &def.kind {
+                MeasurementKind::Boolean => None,
+                MeasurementKind::Integer { statistics } => Some(statistics),
+                MeasurementKind::Float { statistics, .. } => Some(statistics),
+            };
+
+            if let Some(stats) = stats {
+                if stats.min {
+                    measurements.insert(
+                        format!("{}.{}", name.clone(), "min"),
+                        MeasurementField {
+                            label: format!("{}.{}", name.clone(), "min"),
+                            values: Timeseries::new(4096),
+                        },
+                    );
+                }
+
+                if stats.max {
+                    measurements.insert(
+                        format!("{}.{}", name.clone(), "max"),
+                        MeasurementField {
+                            label: format!("{}.{}", name.clone(), "max"),
+                            values: Timeseries::new(4096),
+                        },
+                    );
+                }
+
+                if stats.avg {
+                    measurements.insert(
+                        format!("{}.{}", name.clone(), "avg"),
+                        MeasurementField {
+                            label: format!("{}.{}", name.clone(), "avg"),
+                            values: Timeseries::new(4096),
+                        },
+                    );
+                }
+
+                if stats.stddev {
+                    measurements.insert(
+                        format!("{}.{}", name.clone(), "stddev"),
+                        MeasurementField {
+                            label: format!("{}.{}", name.clone(), "stddev"),
+                            values: Timeseries::new(4096),
+                        },
+                    );
+                }
+            }
         }
 
         let mut commands = IndexMap::new();

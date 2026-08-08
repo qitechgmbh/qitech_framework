@@ -24,16 +24,20 @@ where
     }
 
     pub fn set(&mut self, value: T) -> bool {
-        if value == *self.get_ref() {
-            return false;
-        }
+        let changed = unsafe { value != *self.p_value.as_ref() };
 
         unsafe {
-            self.p_value.write(value);
+            // always update stats
             self.stats.update(value);
         }
 
-        true
+        if changed {
+            unsafe {
+                self.p_value.write(value);
+            }
+        }
+
+        changed
     }
 }
 

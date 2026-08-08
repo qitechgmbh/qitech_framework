@@ -240,7 +240,13 @@ impl MachineBuild for LaserV1 {
             subscribed_diameter_tolerance_upper,
             in_tolerance,
             subscribed_in_tolerance,
-            diameter: ctx.measurement::<millimeter>("diameter").register()?,
+            diameter: ctx
+                .measurement::<millimeter>("diameter")
+                .record_min()
+                .record_max()
+                .record_avg()
+                .record_stddev()
+                .register()?,
             diameter_x: ctx
                 .measurement::<Option<millimeter>>("diameter_x")
                 .register()?,
