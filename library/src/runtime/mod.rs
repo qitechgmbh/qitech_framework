@@ -32,8 +32,8 @@ pub use config::RuntimeConfiguration;
 
 use crate::machine::error::ActErrorImpact;
 use crate::resource::Journals;
+use crate::resource::LifetimeToken;
 use crate::resource::Resources;
-use crate::resource::SubscriptionToken;
 
 mod request;
 
@@ -61,7 +61,7 @@ pub struct Runtime<T: RuntimeTransport> {
 pub struct Subscription {
     provider: MachineIdentificationUnique,
     subscriber: MachineIdentificationUnique,
-    token: Rc<SubscriptionToken>,
+    token: Rc<LifetimeToken>,
 }
 
 impl<T: RuntimeTransport> Runtime<T> {

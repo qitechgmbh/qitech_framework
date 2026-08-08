@@ -136,7 +136,7 @@ impl MeasurementRegistry {
         // invalidate all current properties. Using any property
         // associated with this machine will lead to a panic.
         for index in machine.pos..machine.pos + machine.len {
-            self.pool_slot[index].state = SlotState::Deactivated;
+            self.pool_slot[index].state = SlotState::Disabled;
             self.pool_slot[index].generation += 1;
         }
     }

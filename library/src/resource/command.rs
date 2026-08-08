@@ -10,7 +10,7 @@ use crate::resource::error::RegisterError;
 use crate::resource::error::RegisterResult;
 
 pub struct CommandRegistry {
-    commands: Vec<ExecuteContext>,
+    commands: Box<[ExecuteContext]>,
     entries: HashMap<Key<'static>, usize>,
 }
 
@@ -79,6 +79,26 @@ impl CommandRegistry {
 
         Some(entry)
     }
+
+    pub fn register_machine(
+        &'_ mut self,
+        ident: MachineIdentificationUnique,
+    ) -> ConfigPropertyRegistryRegisterHandle<'_> {
+        let item_pos = self.buf_len;
+        let value_mark = self.alloc_value.mark();
+        let cache_mark = self.alloc_cache.mark();
+        let state_mark = self.alloc_state.mark();
+
+        ConfigPropertyRegistryRegisterHandle {
+            registry: self,
+            ident,
+            item_pos,
+            value_mark,
+            cache_mark,
+            state_mark,
+            committed: false,
+        }
+    }
 }
 
 impl Default for CommandRegistry {
@@ -90,22 +110,46 @@ impl Default for CommandRegistry {
     }
 }
 
-pub struct ExecuteContext {
-    machine: NonNull<()>,
-    can_execute: fn(NonNull<()>, *const ()) -> bool,
-    execute: fn(NonNull<()>, *const ()) -> Result<(), String>,
+pub struct CommandRegistryRegisterHandle<'a> {
+    registry: &'a mut CommandRegistry,
+    ident: MachineIdentificationUnique,
+    items: HashMap<&'static str, CommandItem>,
+}
 
-    can_execute_fn: *const (),
-    execute_fn: *const (),
+impl<'a> CommandRegistryRegisterHandle<'a> {
+    pub fn register<M: >() {
+
+    }
+}
+
+pub struct CommandItem {
+    path: &'static str,
+    can_execute: Option<Box<dyn Fn(&dyn Machine) -> bool>>,
+    execute: Box<dyn Fn(&mut dyn Machine) -> Result<(), String>>,
+}
+
+
+pub struct Entry {
+    ident: MachineIdentificationUnique,
+    path: &'static str,
+    exec_ctx: ExecuteContext,
+}
+
+pub struct ExecuteContext {
+    execute_adapter: fn(*const (), NonNull<()>) -> bool,
+    execute: fn(*const (), NonNull<()>) -> Result<(), String>,
+
+    can_execute_adapter: *const (),
+    can_execute: *const (),
 }
 
 impl ExecuteContext {
     pub fn can_execute(&self) -> bool {
-        (self.can_execute)(self.machine, self.can_execute_fn)
+        (self.execute_adapter)(self.machine, self.execute_adapter)
     }
 
     pub fn execute(&self) -> Result<(), String> {
-        (self.execute)(self.machine, self.execute_fn)
+        (self.execute)(self.machine, self.execute)
     }
 }
 
@@ -119,10 +163,10 @@ impl CommandDefinition {
     pub fn into_entry<M: Machine>(self, machine: NonNull<M>) -> ExecuteContext {
         ExecuteContext {
             machine: machine.cast(),
-            can_execute_fn: self.can_execute,
-            execute_fn: self.execute,
+            execute_adapter: self.can_execute,
+            execute: self.execute,
 
-            can_execute: can_execute_adapter::<M>,
+            execute_adapter: can_execute_adapter::<M>,
             execute: execute_adapter::<M>,
         }
     }

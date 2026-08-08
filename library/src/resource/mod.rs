@@ -1,6 +1,8 @@
 use core::fmt;
 use std::any::TypeId;
 use std::borrow::Cow;
+use std::rc::Rc;
+use std::rc::Weak;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 
@@ -40,6 +42,14 @@ pub use measurements::Measurement;
 pub use measurements::MeasurementRegistry;
 pub use measurements::MeasurementRegistryRegisterHandle;
 
+// mod command;
+mod event;
+pub use event::EventEmitError;
+pub use event::EventEmitResult;
+pub use event::EventEmitter;
+pub use event::EventRegistrar;
+pub use event::EventRegistry;
+
 mod bump_allocator;
 pub use bump_allocator::BumpAllocator;
 pub use bump_allocator::BumpAllocatorMark;
@@ -48,6 +58,7 @@ pub struct Resources {
     pub config_properties: ConfigPropertyRegistry,
     pub state_properties: StatePropertyRegistry,
     pub measurements: MeasurementRegistry,
+    pub events: EventRegistry,
 }
 
 // mod command;
@@ -86,7 +97,7 @@ pub enum SlotState {
     Activated,
 
     /// slot was initialized but the machine has been lost, writing will result in a panic
-    Deactivated,
+    Disabled,
 }
 
 // --- key ---
@@ -148,5 +159,30 @@ pub struct SlotInfo {
     generation: u64,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct SubscriptionToken;
+#[derive(Debug, Default)]
+pub struct LifetimeTokenProvider {
+    inner: Rc<()>,
+}
+
+impl LifetimeTokenProvider {
+    pub fn new() -> Self {
+        Self { inner: Rc::new(()) }
+    }
+
+    pub fn new_token(&self) -> LifetimeToken {
+        LifetimeToken {
+            inner: Rc::downgrade(&self.inner),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LifetimeToken {
+    inner: Weak<()>,
+}
+
+impl LifetimeToken {
+    pub fn expired(&self) -> bool {
+        self.inner.upgrade().is_none()
+    }
+}

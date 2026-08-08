@@ -15,7 +15,6 @@ use crate::machine::BuildContext;
 use crate::machine::Machine;
 use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
-use crate::machine::error::BuildResult;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
 use crate::runtime::types::MachineInstance;

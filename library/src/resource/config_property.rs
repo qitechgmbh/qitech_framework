@@ -352,7 +352,7 @@ impl ConfigPropertyRegistry {
         }
     }
 
-    pub fn deactivate_machine(&mut self, ident: MachineIdentificationUnique) {
+    pub fn disable_machine(&mut self, ident: MachineIdentificationUnique) {
         let machine = self
             .machines
             .iter()
@@ -362,7 +362,7 @@ impl ConfigPropertyRegistry {
         // invalidate all current properties. Using any property
         // associated with this machine will lead to a panic.
         for index in machine.pos..machine.pos + machine.len {
-            self.buf_slot_info[index].state = SlotState::Deactivated;
+            self.buf_slot_info[index].state = SlotState::Disabled;
             self.buf_slot_info[index].generation += 1;
         }
     }

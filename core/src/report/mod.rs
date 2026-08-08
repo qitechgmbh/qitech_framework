@@ -24,7 +24,7 @@ pub use machines::ConfigPropertyEvent;
 pub use machines::ConfigPropertyRecord;
 pub use machines::ConfigPropertyWriteError;
 pub use machines::ConfigPropertyWriteOutcome;
-pub use machines::EventRecord;
+pub use machines::CustomEventRecord;
 pub use machines::MachinesReport;
 pub use machines::MeasurementSnapshot;
 pub use machines::StatePropertyEvent;

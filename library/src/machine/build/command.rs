@@ -1,11 +1,12 @@
+use std::any::Any;
 use std::any::TypeId;
 use std::marker::PhantomData;
 
+use qitech_framework_core::report::error::BuildError;
+
 use crate::machine::BuildContext;
 use crate::machine::Machine;
-use crate::machine::build::BuildError;
-use crate::machine::build::BuildResult;
-use crate::resource::CommandDefinition;
+use crate::machine::error::BuildResult;
 
 impl<'a> BuildContext<'a> {
     pub fn command<'b, M>(&'b mut self, path: &'static str) -> CommandBuilder<'a, 'b, M>
@@ -19,15 +20,11 @@ impl<'a> BuildContext<'a> {
             "Attempted to register a command for the wrong machine type."
         );
 
-        if self.commands.iter().find(|x| x.path == path).is_some() {
-            todo!("Return Duplicate Entry")
-        }
-
         CommandBuilder {
             root: self,
             path,
-            can_execute_fn: None,
-            execute_fn: None,
+            can_execute: None,
+            execute: None,
             _marker: PhantomData,
         }
     }
@@ -40,8 +37,8 @@ where
     root: &'b mut BuildContext<'a>,
     path: &'static str,
 
-    can_execute_fn: Option<*const ()>,
-    execute_fn: Option<*const ()>,
+    can_execute: Option<Box<dyn Fn(&dyn Machine) -> bool>>,
+    execute: Option<Box<dyn Fn(&mut dyn Machine) -> Result<(), String>>>,
 
     _marker: PhantomData<M>,
 }
@@ -50,28 +47,50 @@ impl<'a, 'b, M> CommandBuilder<'a, 'b, M>
 where
     M: Machine + 'static,
 {
-    pub fn can_execute(mut self, value: fn(&M) -> bool) -> Self {
-        self.can_execute_fn = Some(value as *const ());
+    pub fn can_execute(mut self, func: fn(&M) -> bool) -> Self {
+        let func = Box::new(move |machine: &dyn Machine| {
+            let any: &dyn Any = machine;
+
+            let machine = any.downcast_ref::<M>().expect("Expected ref to machine");
+
+            func(machine)
+        });
+
+        self.can_execute = Some(func);
         self
     }
 
-    pub fn execute(mut self, value: fn(&mut M) -> Result<(), String>) -> Self {
-        self.execute_fn = Some(value as *const ());
+    pub fn execute(mut self, func: fn(&mut M) -> Result<(), String>) -> Self {
+        let func = Box::new(move |machine: &mut dyn Machine| {
+            let any: &mut dyn Any = machine;
+
+            let machine = any.downcast_mut::<M>().expect("Expected ref to machine");
+
+            func(machine)
+        });
+
+        self.execute = Some(func);
         self
     }
 
     pub fn register(self) -> BuildResult<()> {
-        let Some(execute) = self.execute_fn else {
-            return Err(BuildError::MissingRequiredField("execute"));
+        if self
+            .root
+            .commands
+            .iter()
+            .find(|x| x.path == self.path)
+            .is_some()
+        {
+            return Err(BuildError::DuplicateResource(self.path.to_string()));
+        }
+
+        let Some(execute) = self.execute else {
+            return Err(BuildError::MissingRequiredField("execute".to_string()));
         };
 
-        let can_execute = self
-            .can_execute_fn
-            .unwrap_or(always_can_execute::<M> as *const ());
-
-        self.root.commands.push(CommandDefinition {
+        self.root.commands.push(CommandItem {
             path: self.path,
-            can_execute,
+            can_execute: self.can_execute,
             execute,
         });
 
@@ -79,6 +98,8 @@ where
     }
 }
 
-fn always_can_execute<M: Machine>(_: &M) -> bool {
-    true
+pub struct CommandItem {
+    path: &'static str,
+    can_execute: Option<Box<dyn Fn(&dyn Machine) -> bool>>,
+    execute: Box<dyn Fn(&mut dyn Machine) -> Result<(), String>>,
 }

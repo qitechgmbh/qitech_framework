@@ -3,12 +3,14 @@ use std::fmt::Debug;
 use std::rc::Rc;
 
 use qitech_framework_core::report::ConfigPropertyRecord;
+use qitech_framework_core::report::CustomEventRecord;
 use qitech_framework_core::report::StatePropertyRecord;
 
 #[derive(Debug, Default)]
 pub struct Journals {
     pub config_property: Journal<ConfigPropertyRecord>,
     pub state_property: Journal<StatePropertyRecord>,
+    pub events: Journal<CustomEventRecord>,
 }
 
 #[derive(Debug)]

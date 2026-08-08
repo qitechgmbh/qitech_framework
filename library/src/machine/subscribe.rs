@@ -6,13 +6,13 @@ use qitech_framework_core::request::SubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::CachedPropertyView;
+use crate::resource::LifetimeToken;
 use crate::resource::Resources;
-use crate::resource::SubscriptionToken;
 
 // --- property ---
 pub struct RemoteProperty<T: Clone> {
     view: CachedPropertyView<T>,
-    token: Weak<SubscriptionToken>,
+    token: Weak<LifetimeToken>,
 }
 
 impl<T: Clone> RemoteProperty<T> {
@@ -56,7 +56,7 @@ with_uom_quantities!(impl_uom);
 
 // --- context ---
 pub struct SubscribeContext<'a> {
-    token: Rc<SubscriptionToken>,
+    token: Rc<LifetimeToken>,
     provider: MachineIdentificationUnique,
     resources: &'a mut Resources,
 }
@@ -65,7 +65,7 @@ impl<'a> SubscribeContext<'a> {
     pub(crate) fn new(
         provider: MachineIdentificationUnique,
         resources: &'a mut Resources,
-        token: Rc<SubscriptionToken>,
+        token: Rc<LifetimeToken>,
     ) -> Self {
         Self {
             provider,

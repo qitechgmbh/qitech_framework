@@ -5,7 +5,6 @@ use heck::ToSnakeCase;
 use proc_macro::TokenStream;
 use qitech_framework_core::schema::FloatSemantic;
 use qitech_framework_core::schema::MachineSchema;
-use qitech_framework_core::schema::Quantity;
 use qitech_framework_core::schema::ScalarPropertyDefinition;
 use qitech_framework_core::schema::ScalarPropertyKind;
 use quote::quote;
