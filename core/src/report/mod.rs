@@ -64,6 +64,16 @@ pub struct RuntimeReport {
     pub logs: Vec<LogRecord>,
 }
 
+impl RuntimeReport {
+    pub fn reset(&mut self) {
+        self.responses.clear();
+        self.timings.reset();
+        self.machines.reset();
+        self.events.clear();
+        self.logs.clear();
+    }
+}
+
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeEvent {
@@ -104,6 +114,13 @@ pub struct TimingsReport {
 }
 
 impl TimingsReport {
+    pub fn reset(&mut self) {
+        self.cycle_count = 0;
+        self.duration_total = Duration::ZERO;
+        self.duration_peak = Duration::ZERO;
+        self.overrun_count = 0;
+    }
+
     pub fn record(&mut self, duration: Duration, budget: Duration) {
         self.cycle_count += 1;
         self.duration_total += duration;

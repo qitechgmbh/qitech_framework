@@ -32,6 +32,8 @@ state:
   subscribed.in_tolerance: !?boolean
 
 measurements:
+  counter: !integer
+
   diameter: !millimeter
     statistics:
       min: true
@@ -53,3 +55,7 @@ events:
     some: !boolean
 
     list: !?list !?millimeter
+
+commands:
+  increment: !command
+  

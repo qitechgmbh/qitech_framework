@@ -9,8 +9,6 @@ use crate::journal::Journals;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::hardware::Hardware;
 use crate::machine::instance::CommandHandle;
-use crate::machine::instance::ConfigPropertyChangedCallbackFn;
-use crate::machine::instance::ConfigPropertyWriteFn;
 use crate::machine::property_registry::PropertyRegistrar;
 
 mod command;
@@ -50,10 +48,4 @@ impl<'a> BuildContext<'a> {
     pub fn ident(&self) -> MachineIdentificationUnique {
         self.ident
     }
-}
-
-// --- registration ---
-pub struct ConfigPropertyRegistration {
-    pub write_fn: ConfigPropertyWriteFn,
-    pub on_external_write_fn: Option<ConfigPropertyChangedCallbackFn>,
 }

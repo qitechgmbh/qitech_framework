@@ -12,6 +12,7 @@ use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::MachineIdentification;
 use qitech_framework::machine::MachineIdentificationUnique;
 use qitech_framework::machine::Measurement;
+use qitech_framework::machine::OperationCapability;
 use qitech_framework::machine::RemoteProperty;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine::SubscribeContext;
@@ -79,6 +80,8 @@ pub struct LaserV1 {
     subscribed_in_tolerance: StateProperty<Option<bool>>,
 
     // --- measurements ---
+    counter: Measurement<i64>,
+
     diameter: Measurement<Length>,
     diameter_x: Measurement<Option<Length>>,
     diameter_y: Measurement<Option<Length>>,
@@ -215,8 +218,18 @@ impl MachineBuild for LaserV1 {
             .measurement::<Option<f64>>("subscribed.roundness")
             .register()?;
 
+        ctx.command("increment")
+            .can_execute(Self::can_increment)
+            .execute(Self::increment)
+            .register()?;
+
         Ok(Self {
             device,
+            counter: ctx
+                .measurement::<i64>("counter")
+                .initial(0)
+                .register()?,
+                
             diameter_target,
             diameter_tolerance_lower,
             diameter_tolerance_upper,
@@ -360,6 +373,22 @@ impl LaserV1 {
         vendor_id: 1,
         machine_id: 6,
     };
+
+    fn increment(&mut self) -> ActResult {
+        self.counter.set(self.counter.get() + 1);
+        panic!("HAHA");
+        Ok(())
+    }
+
+    fn can_increment(&self) -> OperationCapability {
+        if self.counter.get() >= 10 {
+            OperationCapability::Allowed
+        } else {
+            OperationCapability::Forbidden { 
+                reason: "Can only go to 10".to_string() 
+            }
+        }
+    }
 
     fn update_device(&mut self) -> ActResult {
         let mut laser = self.device.borrow_mut();

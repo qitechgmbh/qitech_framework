@@ -108,7 +108,7 @@ impl AppState {
                 name.clone(),
                 CommandField {
                     label: name.clone(),
-                    enabled: true,
+                    enabled: OperationCapability::Allowed,
                 },
             );
         }
@@ -224,7 +224,7 @@ pub struct MeasurementField {
 
 pub struct CommandField {
     pub label: String,
-    pub enabled: bool,
+    pub enabled: OperationCapability,
 }
 
 pub struct SubscriptionField {

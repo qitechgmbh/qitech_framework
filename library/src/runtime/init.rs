@@ -23,7 +23,6 @@ use crate::machine::ResourceRegistry;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
-use crate::runtime::RuntimeStatus;
 use crate::runtime::config::EtherCATMode;
 use crate::runtime::config::MachineRegistration;
 use crate::runtime::config::ModbusRtuMode;
@@ -168,7 +167,6 @@ impl<T: RuntimeTransport> Runtime<T> {
         session.send_event(RuntimeInitEvent::Finished)?;
 
         let mut rt = Runtime {
-            status: RuntimeStatus::Initialized,
             // machine_registry,
             // hardware_registry,
             journals,
@@ -258,14 +256,20 @@ impl<T: RuntimeTransport> Runtime<T> {
                 journal.append(record);
             });
 
+            let journal = ctx.journals.commands.new_handle();
+            ctx.journals_temp.commands.drain_with(|record| {
+                journal.append(record);
+            });
+
             // --- extract metadata ---
             let configs = ctx.config_registered;
+            let commands = ctx.commands_registered;
 
             machines.push(MachineInstance {
                 ident: *ident_unique,
                 machine,
                 configs,
-                commands: Default::default(),
+                commands,
                 subscriptions: Default::default(),
             });
 

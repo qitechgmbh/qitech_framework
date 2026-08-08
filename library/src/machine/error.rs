@@ -2,7 +2,10 @@ use core::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use qitech_framework_core::report::error::ActError;
+pub use qitech_framework_core::report::error::ActError;
+pub use qitech_framework_core::report::error::ActErrorImpact;
+pub use qitech_framework_core::report::error::ActErrorKind;
+
 pub use qitech_framework_core::report::error::BuildError;
 pub use qitech_framework_core::request::MachineSubscribeError;
 use thiserror::Error;

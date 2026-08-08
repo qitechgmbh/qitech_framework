@@ -8,9 +8,6 @@ use ratatui::widgets::Cell;
 use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 
-// space on state -> list of all mutations that happened
-// space on config -> list of all mutations that happened
-// space on measurements -> show chart
 use crate::types::AppAction;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;

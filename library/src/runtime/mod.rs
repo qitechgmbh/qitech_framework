@@ -4,6 +4,8 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
+use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
@@ -17,7 +19,6 @@ mod types;
 pub use types::EtherCATController;
 pub use types::EtherCATSubDevice;
 pub use types::MachineRegistry;
-use types::RuntimeStatus;
 
 mod ethercat;
 mod init;
@@ -31,10 +32,10 @@ pub use config::RuntimeConfiguration;
 use crate::journal::Journals;
 use crate::machine::MachineInstance;
 use crate::machine::ResourceRegistry;
+use crate::runtime::error::RuntimeError;
 mod request;
 
 pub struct Runtime<T: RuntimeTransport> {
-    status: RuntimeStatus,
     report: RuntimeReport,
     session: SessionRunning<T>,
 
@@ -53,25 +54,16 @@ pub struct Runtime<T: RuntimeTransport> {
 }
 
 impl<T: RuntimeTransport> Runtime<T> {
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<(), RuntimeError> {
         loop {
             let now = Instant::now();
-            self.tick(now);
-
-            if self.tick(now) != RuntimeStatus::Running {
-                break;
-            }
+            self.tick(now)?;
         }
     }
 
-    pub fn tick(&mut self, now: Instant) -> RuntimeStatus {
-        if self.status == RuntimeStatus::Stopped {
-            return self.status;
-        }
-
+    fn tick(&mut self, now: Instant) -> Result<(), RuntimeError> {
         if self.controller_finished() {
-            self.status = RuntimeStatus::Stopped;
-            return self.status;
+            return Err(RuntimeError::EtherCATControllerDied);
         }
 
         self.write_ecat_inputs();
@@ -94,7 +86,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             // cycle overran its budget
         }
 
-        RuntimeStatus::Running
+        Ok(())
     }
 
     fn controller_finished(&self) -> bool {
@@ -112,7 +104,6 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- collect data ---
         self.report.timestamp = Utc::now();
-        // self.resources.extract_report(&mut self.report.machines);
 
         self.journals.config_property.drain_with(|x| {
             self.report.machines.config_property_records.push(x);
@@ -126,17 +117,37 @@ impl<T: RuntimeTransport> Runtime<T> {
         //     self.report.machines.measurement_snapshots.push(measurement);
         // });
 
+        // --- scan for capability updates ---
+        let journal = self.journals.commands.new_handle();
+
+        for instance in &mut self.machines {
+            for (path, handle) in &mut instance.commands {
+                if let Some(get_capability) = &handle.can_execute_fn {
+                    let capability = (get_capability)(instance.machine.as_ref());
+
+                    if capability != handle.capability_prev {
+                        journal.append(CommandRecord {
+                            timestamp: Utc::now(),
+                            machine: instance.ident,
+                            path: path.to_string(),
+                            event: CommandEvent::CapabilityChanged(capability.clone()),
+                        });
+                    }
+
+                    handle.capability_prev = capability;
+                }
+            }
+        }
+
+        self.journals.commands.drain_with(|x| {
+            self.report.machines.command_records.push(x);
+        });
+
         // --- export report ---
         self.session.send_report(self.report.clone()).unwrap();
 
-        // --- clear buffers ---
-        self.report.logs.clear();
-        self.report.responses.clear();
-        self.report.machines.config_property_records.clear();
-        self.report.machines.state_property_records.clear();
-        self.report.machines.measurement_snapshots.clear();
-        self.report.machines.event_records.clear();
-        self.report.machines.command_records.clear();
+        // --- reset report data ---
+        self.report.reset();
 
         // --- reset timer ---
         self.last_export_ts = now;

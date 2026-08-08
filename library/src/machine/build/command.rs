@@ -3,6 +3,9 @@ use std::any::TypeId;
 use std::any::type_name;
 use std::marker::PhantomData;
 
+use chrono::Utc;
+use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
@@ -99,18 +102,23 @@ where
         self.root.commands_registered.insert(
             self.path,
             CommandHandle {
-                can_execute_prev: false,
+                capability_prev: OperationCapability::Allowed,
                 can_execute_fn,
                 execute_fn,
             },
         );
 
+        self.root
+            .journals_temp
+            .commands
+            .new_handle()
+            .append(CommandRecord {
+                timestamp: Utc::now(),
+                machine: self.root.ident,
+                path: self.path.to_string(),
+                event: CommandEvent::Registered,
+            });
+
         Ok(())
     }
-}
-
-pub struct CommandItem {
-    path: &'static str,
-    can_execute: Option<Box<dyn Fn(&dyn Machine) -> bool>>,
-    execute: Box<dyn Fn(&mut dyn Machine) -> Result<(), String>>,
 }

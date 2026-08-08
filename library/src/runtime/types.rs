@@ -46,11 +46,3 @@ impl Default for Config {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuntimeStatus {
-    Initialized,
-    Running,
-    Stopped,
-    Failed,
-}

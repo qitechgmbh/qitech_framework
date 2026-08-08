@@ -13,6 +13,7 @@ use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
+use crate::machine::ConfigPropertyChangedCallbackFn;
 use crate::machine::Machine;
 use crate::machine::ResourceKey;
 use crate::machine::config_property::ConfigProperty;
@@ -53,7 +54,7 @@ where
     constraints: <T::Type as PropertyType>::Constraints,
 
     on_external_write_error: Option<BuildError>,
-    on_external_write: Option<Box<dyn Fn(&mut dyn Machine) -> ActResult>>,
+    on_external_write: Option<ConfigPropertyChangedCallbackFn>,
 }
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>

@@ -396,10 +396,10 @@ impl Tui {
 
             match record.event {
                 CommandEvent::Registered => {}
-                CommandEvent::CapabilityChanged { after, .. } => {
+                CommandEvent::CapabilityChanged(after) => {
                     item.enabled = after;
                 }
-                CommandEvent::Invoke(result) => {
+                CommandEvent::Executed(result) => {
                     _ = result;
                 }
             }

@@ -5,6 +5,7 @@ use std::rc::Weak;
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
 pub use qitech_framework_core::request::MachineSubscribeError;
+pub use qitech_framework_core::report::OperationCapability;
 
 mod bump_allocator;
 use bump_allocator::BumpAllocator;

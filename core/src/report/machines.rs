@@ -23,6 +23,16 @@ pub struct MachinesReport {
     pub event_records: Vec<CustomEventRecord>,
 }
 
+impl MachinesReport {
+    pub fn reset(&mut self) {
+        self.config_property_records.clear();
+        self.state_property_records.clear();
+        self.measurement_snapshots.clear();
+        self.command_records.clear();
+        self.event_records.clear();
+    }
+}
+
 // --- config ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigPropertyRecord {

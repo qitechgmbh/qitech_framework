@@ -44,4 +44,7 @@ impl From<EtherCATInitializeError> for RuntimeInitializeError {
 pub enum RuntimeError {
     #[error("lost connection to bridge")]
     BridgeLost,
+
+    #[error("lost connection to bridge")]
+    EtherCATControllerDied,
 }
