@@ -1,7 +1,7 @@
 use std::ptr::NonNull;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::request::SubscribeError;
+use qitech_framework_core::request::MachineSubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::machine::LifetimeToken;
@@ -69,7 +69,7 @@ impl<'a> SubscribeContext<'a> {
     pub fn config<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
-    ) -> Result<RemoteProperty<T>, SubscribeError> {
+    ) -> Result<RemoteProperty<T>, MachineSubscribeError> {
         let p_cache = self
             .resources
             .config_properties
@@ -87,7 +87,7 @@ impl<'a> SubscribeContext<'a> {
     pub fn state<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
-    ) -> Result<RemoteProperty<T>, SubscribeError> {
+    ) -> Result<RemoteProperty<T>, MachineSubscribeError> {
         let view = self
             .resources
             .state_properties
@@ -105,7 +105,7 @@ impl<'a> SubscribeContext<'a> {
     pub fn measurement<T: Clone + 'static>(
         &mut self,
         resource: &'static str,
-    ) -> Result<RemoteProperty<T>, SubscribeError> {
+    ) -> Result<RemoteProperty<T>, MachineSubscribeError> {
         let view = self
             .resources
             .measurements

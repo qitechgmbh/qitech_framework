@@ -141,7 +141,7 @@ impl Tui {
                             }),
 
                             AppAction::ExecuteCommand { machine, resource } => {
-                                Some(RuntimeRequestKind::InvokeMachineCommand {
+                                Some(RuntimeRequestKind::ExecuteCommand {
                                     target: machine,
                                     path: resource,
                                 })

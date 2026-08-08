@@ -6,6 +6,7 @@ use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
+use qitech_framework_core::report::error::ActErrorImpact;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionRunning;
 use types::Config;
@@ -30,7 +31,6 @@ pub use config::RuntimeConfiguration;
 use crate::journal::Journals;
 use crate::machine::MachineInstance;
 use crate::machine::ResourceRegistry;
-use crate::machine::error::ActErrorImpact;
 mod request;
 
 pub struct Runtime<T: RuntimeTransport> {

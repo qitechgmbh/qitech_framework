@@ -17,7 +17,6 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::Machine;
-use crate::machine::MachineInstance;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
 pub type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;

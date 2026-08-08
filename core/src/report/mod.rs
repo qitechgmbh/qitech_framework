@@ -14,11 +14,11 @@ pub use types::ConstraintViolationError;
 pub use types::Constraints;
 pub use types::OperationOrigin;
 pub use types::ResourceAccessError;
-pub use types::WriteCapability;
+pub use types::OperationCapability;
 
 mod machines;
 pub use machines::CommandEvent;
-pub use machines::CommandInvokeError;
+pub use machines::CommandExecuteError;
 pub use machines::CommandRecord;
 pub use machines::ConfigPropertyEvent;
 pub use machines::ConfigPropertyRecord;

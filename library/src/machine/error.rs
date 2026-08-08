@@ -2,43 +2,17 @@ use core::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use qitech_framework_core::report::error::ActError;
 pub use qitech_framework_core::report::error::BuildError;
-pub use qitech_framework_core::request::SubscribeError;
+pub use qitech_framework_core::request::MachineSubscribeError;
 use thiserror::Error;
 
 pub type CommandExecuteResult = Result<(), String>;
 pub type BuildResult<T> = Result<T, BuildError>;
-pub type SubscribeResult = Result<(), SubscribeError>;
+pub type SubscribeResult = Result<(), MachineSubscribeError>;
 
 // --- act ---
 pub type ActResult = Result<(), ActError>;
-
-#[derive(Debug, Error)]
-#[error("{kind}")]
-pub struct ActError {
-    pub kind: ActErrorKind,
-    pub impact: ActErrorImpact,
-}
-
-#[derive(Debug, Error)]
-pub enum ActErrorKind {
-    #[error("hardware fault: {0}")]
-    HardwareFault(String),
-    #[error("validation failed: {0}")]
-    ValidationFailed(String),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ActErrorImpact {
-    /// Continue operating normally
-    Ignore,
-
-    /// Machine can operate, but with reduced capability
-    Degraded,
-
-    /// Machine cannot safely operate
-    Irrecoverable,
-}
 
 // --- validate ---
 #[derive(Debug, Error)]

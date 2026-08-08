@@ -15,7 +15,7 @@ use qitech_framework::machine::Measurement;
 use qitech_framework::machine::RemoteProperty;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine::SubscribeContext;
-use qitech_framework::machine::SubscribeError;
+use qitech_framework::machine::MachineSubscribeError;
 use qitech_framework::machine::error::ActError;
 use qitech_framework::machine::error::ActErrorImpact;
 use qitech_framework::machine::error::ActErrorKind;
@@ -127,8 +127,9 @@ impl MachineBuild for LaserV1 {
                 };
 
                 m.diameter_target.set_default(default);
+
                 Ok(())
-            })?
+            })
             .register()?;
 
         let diameter_target_enabled = ctx
@@ -140,11 +141,11 @@ impl MachineBuild for LaserV1 {
                     Ok(())
                 }
                 Some(false) => {
-                    m.diameter_target.forbid_external_write("single use only");
+                    m.diameter_target.forbid_external_write("lock by diameter.target_enabled");
                     Ok(())
                 }
                 _ => Ok(()),
-            })?
+            })
             .register()?;
 
         let diameter_target_min = ctx
@@ -156,7 +157,7 @@ impl MachineBuild for LaserV1 {
                 }
 
                 Ok(())
-            })?
+            })
             .register()?;
 
         let diameter_target_max = ctx
@@ -168,7 +169,7 @@ impl MachineBuild for LaserV1 {
                 }
 
                 Ok(())
-            })?
+            })
             .register()?;
 
         let subscribed_diameter_target = ctx
@@ -299,11 +300,11 @@ impl Machine for LaserV1 {
 
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
         if ctx.provider().identification != LaserV1::IDENTIFICATION {
-            return Err(SubscribeError::UnsupportedMachine);
+            return Err(MachineSubscribeError::UnsupportedMachine);
         }
 
         if self.subscription.is_some() {
-            return Err(SubscribeError::TooManySubscriptions);
+            return Err(MachineSubscribeError::TooManySubscriptions);
         }
 
         let ident = ctx.provider();

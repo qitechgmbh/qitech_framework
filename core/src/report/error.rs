@@ -39,3 +39,30 @@ pub enum BuildError {
     #[error("failed to configure hardware")]
     MachineTypeMismatch { expected: String, received: String },
 }
+
+#[derive(Debug, Error, Clone, Serialize, Deserialize)]
+#[error("{kind}")]
+pub struct ActError {
+    pub kind: ActErrorKind,
+    pub impact: ActErrorImpact,
+}
+
+#[derive(Debug, Error, Clone, Serialize, Deserialize)]
+pub enum ActErrorKind {
+    #[error("hardware fault: {0}")]
+    HardwareFault(String),
+    #[error("validation failed: {0}")]
+    ValidationFailed(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ActErrorImpact {
+    /// Continue operating normally
+    Ignore,
+
+    /// Machine can operate, but with reduced capability
+    Degraded,
+
+    /// Machine cannot safely operate
+    Irrecoverable,
+}

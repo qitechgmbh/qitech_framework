@@ -115,7 +115,7 @@ impl TransactionsView {
                 } => {
                     format!("SetConfigProperty({}, {}, {})", target, path, value)
                 }
-                RuntimeRequestKind::InvokeMachineCommand { target, path } => "_".to_string(),
+                RuntimeRequestKind::ExecuteCommand { target, path } => "_".to_string(),
                 RuntimeRequestKind::SubscribeMachine {
                     provider,
                     subscriber,

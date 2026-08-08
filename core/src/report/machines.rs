@@ -9,7 +9,8 @@ use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::Constraints;
 use crate::report::OperationOrigin;
-use crate::report::WriteCapability;
+use crate::report::OperationCapability;
+use crate::report::error::ActError;
 use crate::report::types::ConstraintViolationError;
 
 // --- report ---
@@ -35,11 +36,11 @@ pub struct ConfigPropertyRecord {
 pub enum ConfigPropertyEvent {
     Registered {
         default: ScalarValue,
-        capability: WriteCapability,
+        capability: OperationCapability,
         constraints: Constraints,
     },
     DefaultChanged(ScalarValue),
-    CapabilityChanged(WriteCapability),
+    CapabilityChanged(OperationCapability),
     ConstraintsChanged(Constraints),
     Written {
         value: ScalarValue,
@@ -101,20 +102,19 @@ pub struct CommandRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CommandEvent {
     Registered,
-    CapabilityChanged { before: bool, after: bool },
-    Invoke(Result<(), CommandInvokeError>),
+    CapabilityChanged(OperationCapability),
+    Executed(Result<(), CommandExecuteError>),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum CommandInvokeError {
-    #[error("command not found")]
-    NotFound,
-
+pub enum CommandExecuteError {
     #[error("command is disabled")]
-    Disabled,
+    Disabled {
+        reason: String
+    },
 
     #[error("command execution failed: {0}")]
-    ExecutionError(String),
+    ExecutionError(ActError),
 }
 
 // --- event ---

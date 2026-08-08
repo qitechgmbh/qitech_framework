@@ -13,7 +13,7 @@ use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitStatus;
 use qitech_framework_core::report::StatePropertyRecord;
-use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::MachineSchema;
@@ -200,7 +200,7 @@ pub enum ConfigFieldState {
     Initialized {
         value: ScalarValue,
         default: ScalarValue,
-        capability: WriteCapability,
+        capability: OperationCapability,
         constraints: Constraints,
     },
 }

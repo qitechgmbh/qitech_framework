@@ -9,7 +9,7 @@ use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::Constraints;
-use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
@@ -20,7 +20,6 @@ use crate::machine::config_property::ConfigPropertyState;
 use crate::machine::conversion::PropertyAdapter;
 use crate::machine::conversion::PropertyType;
 use crate::machine::error::ActResult;
-use crate::machine::error::BuildResult;
 use crate::machine::instance::ConfigPropertyHandle;
 
 impl<'a> BuildContext<'a> {
@@ -33,8 +32,9 @@ impl<'a> BuildContext<'a> {
             root: self,
             path,
             default: None,
-            capability: WriteCapability::Allowed,
+            capability: OperationCapability::Allowed,
             constraints: <T::Type as PropertyType>::Constraints::default(),
+            on_external_write_error: None,
             on_external_write: None,
         }
     }
@@ -49,8 +49,10 @@ where
 
     // --- configuration ---
     default: Option<T::Type>,
-    capability: WriteCapability,
+    capability: OperationCapability,
     constraints: <T::Type as PropertyType>::Constraints,
+
+    on_external_write_error: Option<BuildError>,
     on_external_write: Option<Box<dyn Fn(&mut dyn Machine) -> ActResult>>,
 }
 
@@ -65,11 +67,11 @@ where
 
     pub fn allow_external_writes(mut self, value: bool) -> Self {
         self.capability = if value {
-            WriteCapability::Forbidden {
+            OperationCapability::Forbidden {
                 reason: "Initial state".to_string(),
             }
         } else {
-            WriteCapability::Allowed
+            OperationCapability::Allowed
         };
 
         self
@@ -78,12 +80,16 @@ where
     pub fn on_external_changed<M: Machine + 'static>(
         mut self,
         func: fn(&mut M) -> ActResult,
-    ) -> BuildResult<Self> {
+    ) -> Self {
         if self.root.type_id != TypeId::of::<M>() {
-            return Err(BuildError::MachineTypeMismatch {
+            // returning an error in the build call is not ergonomic thus we store
+            // the error and invoke it on register();
+            self.on_external_write_error = Some(BuildError::MachineTypeMismatch {
                 expected: self.root.type_name.to_string(),
                 received: type_name::<M>().to_string(),
             });
+
+            return self;
         }
 
         self.on_external_write = Some(Box::new(move |machine: &mut dyn Machine| {
@@ -94,12 +100,16 @@ where
             func(machine)
         }));
 
-        Ok(self)
+        self
     }
 
     pub fn register(self) -> Result<ConfigProperty<T::Type>, BuildError> {
         if self.root.config_registered.contains_key(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
+        }
+
+        if let Some(err) = self.on_external_write_error {
+            return Err(err);
         }
 
         let default = self.default.unwrap_or_default();
@@ -125,7 +135,7 @@ where
                 path: self.path.to_string(),
                 event: ConfigPropertyEvent::Registered {
                     default: T::into_scalar(default.clone()),
-                    capability: WriteCapability::Allowed,
+                    capability: OperationCapability::Allowed,
                     constraints: Constraints::None,
                 },
             });
@@ -143,7 +153,7 @@ where
 
             let state = state_for_write.borrow();
 
-            if let WriteCapability::Forbidden { .. } = state.capability {
+            if let OperationCapability::Forbidden { .. } = state.capability {
                 return Err(ConfigPropertyWriteError::NotWritable);
             };
 

@@ -8,11 +8,12 @@ use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use crate::journal::Journals;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::hardware::Hardware;
+use crate::machine::instance::CommandHandle;
 use crate::machine::instance::ConfigPropertyChangedCallbackFn;
 use crate::machine::instance::ConfigPropertyWriteFn;
 use crate::machine::property_registry::PropertyRegistrar;
 
-// mod command;
+mod command;
 mod config;
 // mod event;
 mod hardware;
@@ -42,6 +43,7 @@ pub struct BuildContext<'a> {
     pub(crate) config_registered: HashMap<&'static str, ConfigPropertyHandle>,
     pub(crate) state_registered: HashSet<&'static str>,
     pub(crate) measurements_registered: HashSet<&'static str>,
+    pub(crate) commands_registered: HashMap<&'static str, CommandHandle>,
 }
 
 impl<'a> BuildContext<'a> {

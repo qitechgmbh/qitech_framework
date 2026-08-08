@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 use std::time::Instant;
 
 use qitech_framework_core::report::EtherCATStatus;
@@ -166,7 +167,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- return initialized runtime ---
         session.send_event(RuntimeInitEvent::Finished)?;
 
-        Ok(Runtime {
+        let mut rt = Runtime {
             status: RuntimeStatus::Initialized,
             // machine_registry,
             // hardware_registry,
@@ -178,8 +179,16 @@ impl<T: RuntimeTransport> Runtime<T> {
             ecat_controller,
             config: config.config,
             session: session.complete()?,
-            last_export_ts: Instant::now(),
-        })
+
+            // set into future so first export always succeeds - nice
+            last_export_ts: Instant::now() - Duration::from_secs(420),
+        };
+
+        // --- send report with all registered resources and machines ---
+        rt.export_report_if_due(Instant::now());
+
+        // --- and yield the runtime finally ---
+        Ok(rt)
     }
 
     fn init_machines(
@@ -218,6 +227,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 config_registered: Default::default(),
                 state_registered: Default::default(),
                 measurements_registered: Default::default(),
+                commands_registered: Default::default(),
             };
 
             let machine = match (entry.build)(&mut ctx) {
@@ -236,6 +246,17 @@ impl<T: RuntimeTransport> Runtime<T> {
             ctx.config.commit();
             ctx.state.commit();
             ctx.measurements.commit();
+
+            // --- merge records from temp journal into export journal ---
+            let journal = ctx.journals.config_property.new_handle();
+            ctx.journals_temp.config_property.drain_with(|record| {
+                journal.append(record);
+            });
+
+            let journal = ctx.journals.state_property.new_handle();
+            ctx.journals_temp.state_property.drain_with(|record| {
+                journal.append(record);
+            });
 
             // --- extract metadata ---
             let configs = ctx.config_registered;

@@ -23,7 +23,7 @@ pub enum ResourceAccessError {
 
 // --- write capability ---
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-pub enum WriteCapability {
+pub enum OperationCapability {
     #[default]
     Allowed,
     Forbidden {
@@ -31,17 +31,17 @@ pub enum WriteCapability {
     },
 }
 
-impl WriteCapability {
+impl OperationCapability {
     pub const fn is_allowed(&self) -> bool {
-        matches!(self, WriteCapability::Allowed)
+        matches!(self, OperationCapability::Allowed)
     }
 
     pub const fn forbidden(&self) -> bool {
-        matches!(self, WriteCapability::Forbidden { .. })
+        matches!(self, OperationCapability::Forbidden { .. })
     }
 }
 
-impl fmt::Display for WriteCapability {
+impl fmt::Display for OperationCapability {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Allowed => write!(f, "Allowed"),
@@ -107,7 +107,7 @@ impl fmt::Display for Constraints {
 
             Self::Numeric { min, max, nullable } => write!(
                 f,
-                "Numeric [{min}, {max}]{}",
+                "[{min}, {max}]{}",
                 if *nullable { " nullable" } else { "" }
             ),
 
@@ -117,8 +117,6 @@ impl fmt::Display for Constraints {
                 pattern,
                 nullable,
             } => {
-                write!(f, "String")?;
-
                 if let Some(min) = min_length {
                     write!(f, " min_length={min}")?;
                 }
@@ -139,7 +137,7 @@ impl fmt::Display for Constraints {
             }
 
             Self::Enum { allowed, nullable } => {
-                write!(f, "Enum [")?;
+                write!(f, "[")?;
 
                 for (i, value) in allowed.iter().enumerate() {
                     if i > 0 {

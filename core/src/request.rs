@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
+use crate::report::CommandExecuteError;
 use crate::report::ConfigPropertyWriteError;
 use crate::report::ResourceAccessError;
 
@@ -37,7 +38,7 @@ pub enum RuntimeRequestKind {
         value: ScalarValue,
     },
 
-    InvokeMachineCommand {
+    ExecuteCommand {
         target: MachineIdentificationUnique,
         path: String,
     },
@@ -62,7 +63,7 @@ impl fmt::Display for RuntimeRequestKind {
             RuntimeRequestKind::SetConfigProperty { .. } => {
                 write!(f, "SetConfigProperty")
             }
-            RuntimeRequestKind::InvokeMachineCommand { .. } => {
+            RuntimeRequestKind::ExecuteCommand { .. } => {
                 write!(f, "InvokeMachineCommand")
             }
             RuntimeRequestKind::SubscribeMachine { .. } => {
@@ -83,20 +84,20 @@ pub struct RuntimeResponse {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeRequestError {
-    #[error("write machine device info failed")]
+    #[error(transparent)]
     WriteMachineDeviceInfo(#[from] WriteMachineDeviceInfoError),
 
-    #[error("write config property failed")]
-    WriteConfigProperty(#[from] WriteConfigPropertyError),
-
-    #[error("invoke machine command failed")]
-    InvokeMachineCommand,
+    #[error(transparent)]
+    MachineSetConfigProperty(#[from] MachineSetConfigProperty),
 
     #[error(transparent)]
-    MachineSubscribe(#[from] SubscribeError),
+    MachineExecuteCommand(#[from] MachineExecuteCommandError),
 
     #[error(transparent)]
-    MachineUnsubscribe(#[from] UnsubscribeError),
+    MachineSubscribe(#[from] MachineSubscribeError),
+
+    #[error(transparent)]
+    MachineUnsubscribe(#[from] MachineUnsubscribeError),
 }
 
 // --- errors ---
@@ -131,19 +132,28 @@ pub enum ReadMachineDeviceInfoError {
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum WriteConfigPropertyError {
-    #[error("...")]
-    MachineNotFound,
+pub enum MachineSetConfigProperty {
+    #[error(transparent)]
+    ResourceAccess(#[from] ResourceAccessError),
 
-    #[error("...")]
-    ResourceNotFound,
-
-    #[error("value type mismatch")]
+    #[error(transparent)]
     WriteError(#[from] ConfigPropertyWriteError),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum SubscribeError {
+pub enum MachineExecuteCommandError {
+    #[error(transparent)]
+    ResourceAccess(#[from] ResourceAccessError),
+
+    #[error(transparent)]
+    ExecuteError(#[from] CommandExecuteError),
+}
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+pub enum MachineSubscribeError {
+    #[error(transparent)]
+    ResourceAccess(#[from] ResourceAccessError),
+
     #[error("provider does not have requested machine")]
     ProviderNotFound,
 
@@ -158,13 +168,10 @@ pub enum SubscribeError {
 
     #[error("too many subscriptions")]
     TooManySubscriptions,
-
-    #[error(transparent)]
-    ResourceAccess(#[from] ResourceAccessError),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum UnsubscribeError {
+pub enum MachineUnsubscribeError {
     #[error("provider does not have a subscription for subscriber")]
     SubscriptionNotFound,
 }

@@ -8,13 +8,6 @@ identification:
 
 config:
   diameter:
-    state: !enum [
-      standby, 
-      holding,
-      pulling,
-      winding,
-    ]
-  
     target: !millimeter
 
     target_default: !?millimeter

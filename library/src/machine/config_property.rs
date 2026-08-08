@@ -12,7 +12,7 @@ use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::ConstraintViolationError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationOrigin;
-use qitech_framework_core::report::WriteCapability;
+use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::__private::EnumConstraints;
@@ -23,7 +23,7 @@ use crate::machine::conversion::PropertyType;
 
 pub struct ConfigPropertyState<T: PropertyType> {
     pub(crate) default: T,
-    pub(crate) capability: WriteCapability,
+    pub(crate) capability: OperationCapability,
     pub(crate) constraints: T::Constraints,
 }
 
@@ -109,11 +109,11 @@ impl<T: PropertyType> ConfigProperty<T> {
     }
 
     pub fn allow_external_write(&mut self) {
-        self.set_writable(WriteCapability::Allowed);
+        self.set_writable(OperationCapability::Allowed);
     }
 
     pub fn forbid_external_write(&mut self, reason: impl Into<String>) {
-        self.set_writable(WriteCapability::Forbidden {
+        self.set_writable(OperationCapability::Forbidden {
             reason: reason.into(),
         });
     }
@@ -219,7 +219,7 @@ where
 {
     /// sets the list of allowed variants for this enum property
     pub fn set_allowed(&mut self, value: Vec<T>) -> Result<bool, ConstraintViolationError> {
-        if value.len() == 0 {
+        if value.is_empty() {
             return Err(ConstraintViolationError::NoAllowedVariants);
         }
 
@@ -289,7 +289,7 @@ impl<T: PropertyType> ConfigProperty<T> {
         Ok(())
     }
 
-    fn set_writable(&mut self, value: WriteCapability) {
+    fn set_writable(&mut self, value: OperationCapability) {
         let state = self.state();
         let state = state.borrow();
 

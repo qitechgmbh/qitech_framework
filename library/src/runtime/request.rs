@@ -1,16 +1,23 @@
 use chrono::Utc;
+use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::CommandExecuteError;
+use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
+use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::OperationOrigin;
+use qitech_framework_core::report::ResourceAccessError;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeEvent;
+use qitech_framework_core::request::MachineExecuteCommandError;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::request::RuntimeResponse;
-use qitech_framework_core::request::SubscribeError;
-use qitech_framework_core::request::UnsubscribeError;
-use qitech_framework_core::request::WriteConfigPropertyError;
+use qitech_framework_core::request::MachineSubscribeError;
+use qitech_framework_core::request::MachineUnsubscribeError;
+use qitech_framework_core::request::MachineSetConfigProperty;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_framework_core::session::RuntimeTransport;
 
@@ -63,13 +70,20 @@ impl<T: RuntimeTransport> Runtime<T> {
                 value,
             } => {
                 // --- find the machine ---
-                let Some(machine) = find_machine(&mut self.machines, target) else {
-                    return Err(WriteConfigPropertyError::MachineNotFound)?;
+                let Some(instance) = find_machine(&mut self.machines, target) else {
+                    return Err(MachineSetConfigProperty::ResourceAccess(
+                        ResourceAccessError::MachineNotFound
+                    ))?;
                 };
 
                 // --- find the handle ---
-                let Some(handle) = machine.get_config_handle(&path) else {
-                    return Err(WriteConfigPropertyError::ResourceNotFound)?;
+                let Some(handle) = instance.configs.get_mut(path.as_str()) else {
+                    return Err(MachineSetConfigProperty::ResourceAccess(
+                        ResourceAccessError::ResourceNotFound { 
+                            kind: ResourceKind::ConfigProperty, 
+                            path 
+                        }
+                    ))?;
                 };
 
                 // --- execute the write ---
@@ -94,37 +108,78 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 self.journals.record_config(record);
 
+                // --- process callback ---
+                let callback = handle.on_changed.as_ref();
+
+                if let Some(callback) = callback
+                    && let Err(e) = callback(instance.machine.as_mut()) {
+                        // TODO: remove machine
+                        _ = e;
+                    };
+
                 // --- yield the result ---
                 match result {
                     Ok(_) => Ok(()),
-                    Err(e) => Err(WriteConfigPropertyError::WriteError(e))?,
+                    Err(e) => Err(MachineSetConfigProperty::WriteError(e))?,
                 }
             }
 
-            RuntimeRequestKind::InvokeMachineCommand {
+            RuntimeRequestKind::ExecuteCommand {
                 target,
-                path: resource,
+                path,
             } => {
-                // let result = self
-                //     .resources
-                //     .commands
-                //     .invoke(target, machine_ref, &resource)
-                //     .unwrap();
+                // --- find the machine ---
+                let Some(instance) = find_machine(&mut self.machines, target) else {
+                    return Err(MachineExecuteCommandError::ResourceAccess(
+                        ResourceAccessError::MachineNotFound
+                    ))?;
+                };
 
-                /*
-                self.report
-                    .machines
-                    .command_traces
-                    .push(MachineCommandTrace {
-                        request_id,
-                        ident: target,
-                        resource,
-                        timestamp: Utc::now(),
-                        result,
-                    });
-                    */
+                // --- find the handle ---
+                let Some(handle) = instance.commands.get_mut(path.as_str()) else {
+                    return Err(MachineExecuteCommandError::ResourceAccess(
+                        ResourceAccessError::ResourceNotFound { 
+                            kind: ResourceKind::Command, 
+                            path 
+                        }
+                    ))?;
+                };
 
-                Ok(())
+                // --- ensure we can execute the command ---
+                if let Some(can_execute) = &handle.can_execute_fn {
+                    let capability = (can_execute)(instance.machine.as_ref());
+
+                    if let OperationCapability::Forbidden { reason } = &capability {
+                        let reason = reason.clone();
+                        let e = CommandExecuteError::Disabled { reason };
+
+                        self.journals.commands.new_handle().append(CommandRecord {
+                            timestamp: Utc::now(),
+                            machine: target,
+                            path,
+                            event: CommandEvent::Executed(Err(e.clone())),
+                        });
+                        
+                        return Err(RuntimeRequestError::MachineExecuteCommand(
+                            MachineExecuteCommandError::ExecuteError(e),
+                        ));
+                    }
+                }
+
+                // --- execute it ---
+                let result = (handle.execute_fn)(instance.machine.as_mut())
+                    .map_err(CommandExecuteError::ExecutionError);
+
+                self.journals.commands.new_handle().append(CommandRecord {
+                    timestamp: Utc::now(),
+                    machine: target,
+                    path,
+                    event: CommandEvent::Executed(result.clone()),
+                });
+
+                result
+                    .map_err(MachineExecuteCommandError::ExecuteError)
+                    .map_err(RuntimeRequestError::MachineExecuteCommand)
             }
 
             RuntimeRequestKind::SubscribeMachine {
@@ -133,16 +188,16 @@ impl<T: RuntimeTransport> Runtime<T> {
             } => {
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
-                    return Err(SubscribeError::ProviderNotFound)?;
+                    return Err(MachineSubscribeError::ProviderNotFound)?;
                 }
 
                 // --- find subscriber ---
-                let Some(machine) = find_machine(&mut self.machines, subscriber) else {
-                    return Err(SubscribeError::SubscriberNotFound)?;
+                let Some(instance) = find_machine(&mut self.machines, subscriber) else {
+                    return Err(MachineSubscribeError::SubscriberNotFound)?;
                 };
 
-                if machine.subscriptions.contains_key(&provider) {
-                    return Err(SubscribeError::AlreadySubscribed)?;
+                if instance.subscriptions.contains_key(&provider) {
+                    return Err(MachineSubscribeError::AlreadySubscribed)?;
                 }
 
                 let token_provider = LifetimeTokenOwner::new();
@@ -155,7 +210,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 };
 
                 // --- allow machine to handle subscription ---
-                machine.subscribe(&mut ctx)?;
+                instance.machine.subscribe(&mut ctx)?;
 
                 self.report.events.push(RuntimeEvent::SubscriptionAdded {
                     provider,
@@ -174,7 +229,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             } => {
                 // --- find subscriber ---
                 let Some(machine) = find_machine(&mut self.machines, subscriber) else {
-                    return Err(UnsubscribeError::SubscriptionNotFound)?;
+                    return Err(MachineUnsubscribeError::SubscriptionNotFound)?;
                 };
 
                 // --- remove entry if present ---
@@ -186,7 +241,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                     Ok(())
                 } else {
-                    Err(UnsubscribeError::SubscriptionNotFound)?
+                    Err(MachineUnsubscribeError::SubscriptionNotFound)?
                 }
             }
         }

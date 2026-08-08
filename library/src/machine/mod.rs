@@ -4,7 +4,7 @@ use std::rc::Weak;
 
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
-pub use qitech_framework_core::request::SubscribeError;
+pub use qitech_framework_core::request::MachineSubscribeError;
 
 mod bump_allocator;
 use bump_allocator::BumpAllocator;
@@ -54,7 +54,7 @@ pub trait Machine: Any {
     // /// allows a machine to sync remote resources (from subscriptions)
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
         _ = ctx;
-        Err(SubscribeError::UnsupportedMachine)
+        Err(MachineSubscribeError::UnsupportedMachine)
     }
 
     /// called when the machine is notified a subscription is canceled

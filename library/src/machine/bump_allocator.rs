@@ -1,5 +1,5 @@
 use std::ptr::NonNull;
-use std::ptr::{self};
+use std::ptr;
 
 /// bump allocator with rollback feature
 pub struct BumpAllocator {
@@ -43,14 +43,6 @@ impl BumpAllocator {
         self.pos = offset + size;
 
         unsafe { NonNull::new_unchecked(self.buffer.as_mut_ptr().add(offset).cast::<T>()) }
-    }
-
-    pub fn remaining(&self) -> usize {
-        self.buffer.len() - self.pos
-    }
-
-    pub fn used(&self) -> usize {
-        self.pos
     }
 
     // --- rollback ---

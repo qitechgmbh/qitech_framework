@@ -6,7 +6,6 @@ use thiserror::Error;
 pub type RuntimeInitializeResult<T> = Result<T, RuntimeInitializeError>;
 pub type EtherCATInitializeResult<T> = Result<T, EtherCATInitializeError>;
 
-// --- bootstrap ---
 #[derive(Error, Debug)]
 pub enum RuntimeInitializeError {
     #[error("bridge initialization failed: {0}")]
@@ -18,7 +17,7 @@ pub enum RuntimeInitializeError {
     #[error("failed to read schema: {0}")]
     CannotReadSchema(#[from] ParseError),
 
-    #[error("initialization assertion failed: {0}")]
+    #[error("assertion failed: {0}")]
     AssertionFailed(&'static str),
 
     #[error("EtherCAT initialization failed")]

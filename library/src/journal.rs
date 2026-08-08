@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
+use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::CustomEventRecord;
 use qitech_framework_core::report::StatePropertyRecord;
@@ -10,6 +11,7 @@ use qitech_framework_core::report::StatePropertyRecord;
 pub struct Journals {
     pub config_property: Journal<ConfigPropertyRecord>,
     pub state_property: Journal<StatePropertyRecord>,
+    pub commands: Journal<CommandRecord>,
     pub events: Journal<CustomEventRecord>,
 }
 
