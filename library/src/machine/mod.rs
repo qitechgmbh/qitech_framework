@@ -1,15 +1,12 @@
 use std::any::Any;
+use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
 
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
-pub use qitech_framework_core::request::MachineSubscribeError;
 pub use qitech_framework_core::report::OperationCapability;
-
-mod bump_allocator;
-use bump_allocator::BumpAllocator;
-use bump_allocator::BumpAllocatorMark;
+pub use qitech_framework_core::request::MachineSubscribeError;
 
 pub mod error;
 use error::ActResult;
@@ -45,7 +42,6 @@ pub use measurement::Measurement;
 mod instance;
 pub(crate) use instance::ConfigPropertyChangedCallbackFn;
 pub(crate) use instance::ConfigPropertyHandle;
-pub(crate) use instance::ConfigPropertyWriteFn;
 pub(crate) use instance::MachineInstance;
 
 pub trait Machine: Any {
@@ -113,5 +109,5 @@ impl LifetimeToken {
 pub struct ResourceRegistry {
     pub config_properties: PropertyRegistry,
     pub state_properties: PropertyRegistry,
-    pub measurements: PropertyRegistry,
+    pub measurements: PropertyRegistry<unsafe fn(NonNull<()>) -> Option<f64>>,
 }

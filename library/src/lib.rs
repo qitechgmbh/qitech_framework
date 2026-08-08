@@ -10,6 +10,10 @@ pub use runtime::RuntimeConfiguration;
 
 mod journal;
 
+mod bump_allocator;
+use bump_allocator::BumpAllocator;
+use bump_allocator::BumpAllocatorMark;
+
 #[doc(hidden)]
 pub mod __private {
     // --- used by proc macros ---

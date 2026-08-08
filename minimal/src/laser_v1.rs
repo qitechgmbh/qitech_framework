@@ -11,12 +11,12 @@ use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::MachineIdentification;
 use qitech_framework::machine::MachineIdentificationUnique;
+use qitech_framework::machine::MachineSubscribeError;
 use qitech_framework::machine::Measurement;
 use qitech_framework::machine::OperationCapability;
 use qitech_framework::machine::RemoteProperty;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine::SubscribeContext;
-use qitech_framework::machine::MachineSubscribeError;
 use qitech_framework::machine::error::ActError;
 use qitech_framework::machine::error::ActErrorImpact;
 use qitech_framework::machine::error::ActErrorKind;
@@ -144,7 +144,8 @@ impl MachineBuild for LaserV1 {
                     Ok(())
                 }
                 Some(false) => {
-                    m.diameter_target.forbid_external_write("lock by diameter.target_enabled");
+                    m.diameter_target
+                        .forbid_external_write("lock by diameter.target_enabled");
                     Ok(())
                 }
                 _ => Ok(()),
@@ -225,11 +226,8 @@ impl MachineBuild for LaserV1 {
 
         Ok(Self {
             device,
-            counter: ctx
-                .measurement::<i64>("counter")
-                .initial(0)
-                .register()?,
-                
+            counter: ctx.measurement::<i64>("counter").initial(0).register()?,
+
             diameter_target,
             diameter_tolerance_lower,
             diameter_tolerance_upper,
@@ -376,17 +374,14 @@ impl LaserV1 {
 
     fn increment(&mut self) -> ActResult {
         self.counter.set(self.counter.get() + 1);
-        panic!("HAHA");
         Ok(())
     }
 
     fn can_increment(&self) -> OperationCapability {
-        if self.counter.get() >= 10 {
-            OperationCapability::Allowed
+        if self.counter.get() <= 10 {
+            OperationCapability::allowed()
         } else {
-            OperationCapability::Forbidden { 
-                reason: "Can only go to 10".to_string() 
-            }
+            OperationCapability::forbidden("Can only go to 10")
         }
     }
 

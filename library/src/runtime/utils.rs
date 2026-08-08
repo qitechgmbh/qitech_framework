@@ -12,10 +12,7 @@ pub fn find_machine(
     machines: &mut [MachineInstance],
     ident: MachineIdentificationUnique,
 ) -> Option<&mut MachineInstance> {
-    machines
-        .iter_mut()
-        .find(|instance| instance.ident == ident)
-        .map(|instance| instance)
+    machines.iter_mut().find(|instance| instance.ident == ident)
 }
 
 pub fn write_machine_device_info(

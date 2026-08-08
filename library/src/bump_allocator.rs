@@ -1,5 +1,5 @@
-use std::ptr::NonNull;
 use std::ptr;
+use std::ptr::NonNull;
 
 /// bump allocator with rollback feature
 pub struct BumpAllocator {

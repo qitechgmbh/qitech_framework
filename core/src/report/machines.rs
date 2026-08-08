@@ -8,8 +8,8 @@ use crate::ScalarValue;
 use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::Constraints;
-use crate::report::OperationOrigin;
 use crate::report::OperationCapability;
+use crate::report::OperationOrigin;
 use crate::report::error::ActError;
 use crate::report::types::ConstraintViolationError;
 
@@ -119,9 +119,7 @@ pub enum CommandEvent {
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum CommandExecuteError {
     #[error("command is disabled")]
-    Disabled {
-        reason: String
-    },
+    Disabled { reason: String },
 
     #[error("command execution failed: {0}")]
     ExecutionError(ActError),

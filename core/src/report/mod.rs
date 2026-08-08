@@ -12,9 +12,9 @@ use crate::request::RuntimeResponse;
 mod types;
 pub use types::ConstraintViolationError;
 pub use types::Constraints;
+pub use types::OperationCapability;
 pub use types::OperationOrigin;
 pub use types::ResourceAccessError;
-pub use types::OperationCapability;
 
 mod machines;
 pub use machines::CommandEvent;

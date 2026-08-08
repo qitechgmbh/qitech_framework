@@ -1,3 +1,5 @@
+use std::cell::Cell;
+use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Instant;
 
@@ -6,6 +8,7 @@ use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::CommandRecord;
+use qitech_framework_core::report::MeasurementSnapshot;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
@@ -51,6 +54,9 @@ pub struct Runtime<T: RuntimeTransport> {
     // --- misc ---
     config: Config,
     last_export_ts: Instant,
+
+    /// how many reports have we exported
+    export_count: Rc<Cell<u64>>,
 }
 
 impl<T: RuntimeTransport> Runtime<T> {
@@ -105,17 +111,36 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- collect data ---
         self.report.timestamp = Utc::now();
 
+        // --- extract config property events ---
         self.journals.config_property.drain_with(|x| {
             self.report.machines.config_property_records.push(x);
         });
 
+        // --- extract state property events ---
         self.journals.state_property.drain_with(|x| {
             self.report.machines.state_property_records.push(x);
         });
 
-        // self.resources.measurements.extract(|measurement| {
-        //     self.report.machines.measurement_snapshots.push(measurement);
-        // });
+        // --- sample measurements ---
+        for descriptor in self.resources.measurements.iter() {
+            let convert = descriptor.metadata;
+            let value = unsafe { (convert)(descriptor.p_value) };
+
+            // TODO: faster way to eliminate slots !
+            if !self.machines.iter().any(|x| x.ident == descriptor.ident) {
+                // machine is disabled, skip
+                continue;
+            }
+
+            self.report
+                .machines
+                .measurement_snapshots
+                .push(MeasurementSnapshot {
+                    machine: descriptor.ident,
+                    path: descriptor.resource.to_string(),
+                    value,
+                });
+        }
 
         // --- scan for capability updates ---
         let journal = self.journals.commands.new_handle();

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use chrono::Utc;
 use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::report::StatePropertyRecord;
@@ -48,10 +50,12 @@ where
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }
 
-        let p_value =
-            self.root
-                .state
-                .register::<T::Type>(self.root.ident, self.path, self.value.clone());
+        let p_value = self.root.state.register::<T::Type>(
+            self.root.ident,
+            Cow::Borrowed(self.path),
+            self.value.clone(),
+            (),
+        );
 
         self.root
             .journals_temp

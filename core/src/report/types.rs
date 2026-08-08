@@ -32,11 +32,21 @@ pub enum OperationCapability {
 }
 
 impl OperationCapability {
+    pub fn allowed() -> Self {
+        Self::Allowed
+    }
+
+    pub fn forbidden(reason: impl ToString) -> Self {
+        Self::Forbidden {
+            reason: reason.to_string(),
+        }
+    }
+
     pub const fn is_allowed(&self) -> bool {
         matches!(self, OperationCapability::Allowed)
     }
 
-    pub const fn forbidden(&self) -> bool {
+    pub const fn is_forbidden(&self) -> bool {
         matches!(self, OperationCapability::Forbidden { .. })
     }
 }

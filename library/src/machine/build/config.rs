@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::any::TypeId;
 use std::any::type_name;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -115,10 +116,12 @@ where
 
         let default = self.default.unwrap_or_default();
 
-        let p_value =
-            self.root
-                .config
-                .register::<T::Type>(self.root.ident, self.path, default.clone());
+        let p_value = self.root.config.register::<T::Type>(
+            self.root.ident,
+            Cow::Borrowed(self.path),
+            default.clone(),
+            (),
+        );
 
         let state = ConfigPropertyState {
             default: default.clone(),

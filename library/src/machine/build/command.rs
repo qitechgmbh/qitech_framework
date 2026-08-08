@@ -83,14 +83,14 @@ where
 
         let can_execute_fn = self.can_execute.map(|func| {
             Box::new(move |machine: &dyn Machine| -> OperationCapability {
-                    let machine = (machine as &dyn Any)
+                let machine = (machine as &dyn Any)
                     .downcast_ref::<M>()
                     .expect("machine type mismatch");
 
                 (func)(machine)
             }) as CommandCanExecuteFn
         });
-        
+
         let execute_fn = Box::new(move |machine: &mut dyn Machine| -> ActResult {
             let machine = (machine as &mut dyn Any)
                 .downcast_mut::<M>()

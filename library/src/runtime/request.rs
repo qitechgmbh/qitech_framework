@@ -11,13 +11,13 @@ use qitech_framework_core::report::ResourceAccessError;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::request::MachineExecuteCommandError;
+use qitech_framework_core::request::MachineSetConfigProperty;
+use qitech_framework_core::request::MachineSubscribeError;
+use qitech_framework_core::request::MachineUnsubscribeError;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::request::RuntimeResponse;
-use qitech_framework_core::request::MachineSubscribeError;
-use qitech_framework_core::request::MachineUnsubscribeError;
-use qitech_framework_core::request::MachineSetConfigProperty;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_framework_core::session::RuntimeTransport;
 
@@ -72,17 +72,17 @@ impl<T: RuntimeTransport> Runtime<T> {
                 // --- find the machine ---
                 let Some(instance) = find_machine(&mut self.machines, target) else {
                     return Err(MachineSetConfigProperty::ResourceAccess(
-                        ResourceAccessError::MachineNotFound
+                        ResourceAccessError::MachineNotFound,
                     ))?;
                 };
 
                 // --- find the handle ---
                 let Some(handle) = instance.configs.get_mut(path.as_str()) else {
                     return Err(MachineSetConfigProperty::ResourceAccess(
-                        ResourceAccessError::ResourceNotFound { 
-                            kind: ResourceKind::ConfigProperty, 
-                            path 
-                        }
+                        ResourceAccessError::ResourceNotFound {
+                            kind: ResourceKind::ConfigProperty,
+                            path,
+                        },
                     ))?;
                 };
 
@@ -112,10 +112,11 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let callback = handle.on_changed.as_ref();
 
                 if let Some(callback) = callback
-                    && let Err(e) = callback(instance.machine.as_mut()) {
-                        // TODO: remove machine
-                        _ = e;
-                    };
+                    && let Err(e) = callback(instance.machine.as_mut())
+                {
+                    // TODO: remove machine
+                    _ = e;
+                };
 
                 // --- yield the result ---
                 match result {
@@ -124,24 +125,21 @@ impl<T: RuntimeTransport> Runtime<T> {
                 }
             }
 
-            RuntimeRequestKind::ExecuteCommand {
-                target,
-                path,
-            } => {
+            RuntimeRequestKind::ExecuteCommand { target, path } => {
                 // --- find the machine ---
                 let Some(instance) = find_machine(&mut self.machines, target) else {
                     return Err(MachineExecuteCommandError::ResourceAccess(
-                        ResourceAccessError::MachineNotFound
+                        ResourceAccessError::MachineNotFound,
                     ))?;
                 };
 
                 // --- find the handle ---
                 let Some(handle) = instance.commands.get_mut(path.as_str()) else {
                     return Err(MachineExecuteCommandError::ResourceAccess(
-                        ResourceAccessError::ResourceNotFound { 
-                            kind: ResourceKind::Command, 
-                            path 
-                        }
+                        ResourceAccessError::ResourceNotFound {
+                            kind: ResourceKind::Command,
+                            path,
+                        },
                     ))?;
                 };
 
@@ -159,7 +157,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                             path,
                             event: CommandEvent::Executed(Err(e.clone())),
                         });
-                        
+
                         return Err(RuntimeRequestError::MachineExecuteCommand(
                             MachineExecuteCommandError::ExecuteError(e),
                         ));

@@ -104,7 +104,7 @@ impl ConfigPage {
                     return Ok(AppAction::NoAction);
                 };
 
-                if capability.forbidden() {
+                if capability.is_forbidden() {
                     return Ok(AppAction::NoAction);
                 }
 

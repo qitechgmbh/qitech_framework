@@ -1,4 +1,6 @@
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -120,6 +122,8 @@ impl<T: RuntimeTransport> Runtime<T> {
         // --- build machines ---
         session.send_event(RuntimeInitEvent::BuildingMachines)?;
 
+        let export_count = Rc::new(Cell::new(0));
+
         let mut journals = Journals::default();
 
         let mut resources = ResourceRegistry {
@@ -130,6 +134,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         let machines = Self::init_machines(
             &mut session,
+            export_count.clone(),
             &machine_registry,
             &hardware_registry,
             ecat_controller.as_ref().map(|v| v.channel.clone()),
@@ -169,6 +174,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         let mut rt = Runtime {
             // machine_registry,
             // hardware_registry,
+            export_count,
             journals,
             resources,
             report: Default::default(),
@@ -191,6 +197,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
     fn init_machines(
         session: &mut SessionInitializing<T>,
+        export_count: Rc<Cell<u64>>,
         machine_registry: &MachineRegistry,
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,
@@ -213,6 +220,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             let mut ctx = BuildContext {
                 ident: *ident_unique,
+                export_count: export_count.clone(),
                 type_id: entry.type_id,
                 type_name: entry.type_name,
                 ethercat_interface: ecat_interface.clone(),
@@ -265,6 +273,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             let configs = ctx.config_registered;
             let commands = ctx.commands_registered;
 
+            // --- create instance ---
             machines.push(MachineInstance {
                 ident: *ident_unique,
                 machine,
@@ -273,6 +282,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 subscriptions: Default::default(),
             });
 
+            // --- emit event ---
             session.send_event(RuntimeInitEvent::MachineBuildCompleted {
                 ident: *ident_unique,
                 result: Ok(()),

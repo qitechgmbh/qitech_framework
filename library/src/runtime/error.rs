@@ -45,6 +45,6 @@ pub enum RuntimeError {
     #[error("lost connection to bridge")]
     BridgeLost,
 
-    #[error("lost connection to bridge")]
+    #[error("EtherCAT controller died")]
     EtherCATControllerDied,
 }

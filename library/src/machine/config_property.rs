@@ -11,8 +11,8 @@ use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::ConstraintViolationError;
 use qitech_framework_core::report::Constraints;
-use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::report::OperationCapability;
+use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::__private::EnumConstraints;
@@ -223,9 +223,7 @@ where
             return Err(ConstraintViolationError::NoAllowedVariants);
         }
 
-        self.set_constraints(EnumConstraints {
-            allowed: value
-        })
+        self.set_constraints(EnumConstraints { allowed: value })
     }
 }
 
@@ -303,10 +301,7 @@ impl<T: PropertyType> ConfigProperty<T> {
         self.record(ConfigPropertyEvent::CapabilityChanged(value));
     }
 
-    fn set_constraints(
-        &mut self,
-        value: T::Constraints,
-    ) -> Result<bool, ConstraintViolationError> {
+    fn set_constraints(&mut self, value: T::Constraints) -> Result<bool, ConstraintViolationError> {
         let state = self.state();
         let mut state = state.borrow_mut();
 

@@ -1,22 +1,23 @@
 use std::any::TypeId;
 use std::any::type_name;
+use std::borrow::Cow;
 use std::ptr::NonNull;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ResourceAccessError;
 use qitech_framework_core::report::ResourceKind;
 
-use crate::machine::BumpAllocator;
-use crate::machine::BumpAllocatorMark;
+use crate::BumpAllocator;
+use crate::BumpAllocatorMark;
 
-pub struct PropertyRegistry {
+pub struct PropertyRegistry<Metadata = ()> {
     kind: ResourceKind,
-    descriptors: Vec<SlotDescriptor>,
+    descriptors: Vec<SlotDescriptor<Metadata>>,
     alloc_value: BumpAllocator,
     alloc_cache: BumpAllocator,
 }
 
-impl PropertyRegistry {
+impl<Metadata> PropertyRegistry<Metadata> {
     pub fn new(kind: ResourceKind, pool_size: usize) -> Self {
         Self {
             kind,
@@ -26,7 +27,7 @@ impl PropertyRegistry {
         }
     }
 
-    pub fn register(&mut self) -> PropertyRegistrar<'_> {
+    pub fn register(&mut self) -> PropertyRegistrar<'_, Metadata> {
         PropertyRegistrar {
             descriptors_pos: self.descriptors.len(),
             mark_value: self.alloc_value.mark(),
@@ -77,38 +78,43 @@ impl PropertyRegistry {
         }
     }
 
-    pub fn sync_cache(&mut self) {
+    pub(crate) fn sync_cache(&mut self) {
         // --- copy snapshot of values into cache ---
         self.alloc_cache.sync(&self.alloc_value);
     }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &SlotDescriptor<Metadata>> {
+        self.descriptors.iter()
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct SlotDescriptor {
-    ident: MachineIdentificationUnique,
-    resource: &'static str,
-    type_id: TypeId,
-    type_name: &'static str,
-
-    p_value: NonNull<()>,
-    p_cache: NonNull<()>,
+#[derive(Debug, Clone)]
+pub(crate) struct SlotDescriptor<Metadata = ()> {
+    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) resource: Cow<'static, str>,
+    pub(crate) type_id: TypeId,
+    pub(crate) type_name: &'static str,
+    pub(crate) p_value: NonNull<()>,
+    pub(crate) p_cache: NonNull<()>,
+    pub(crate) metadata: Metadata,
 }
 
 // --- registrar ---
-pub struct PropertyRegistrar<'a> {
-    registry: &'a mut PropertyRegistry,
+pub struct PropertyRegistrar<'a, Metadata = ()> {
+    registry: &'a mut PropertyRegistry<Metadata>,
     descriptors_pos: usize,
     mark_value: BumpAllocatorMark,
     mark_cache: BumpAllocatorMark,
     committed: bool,
 }
 
-impl PropertyRegistrar<'_> {
+impl<Metadata> PropertyRegistrar<'_, Metadata> {
     pub fn register<T: Clone + 'static>(
         &mut self,
         ident: MachineIdentificationUnique,
-        resource: &'static str,
+        resource: Cow<'static, str>,
         value: T,
+        metadata: Metadata,
     ) -> NonNull<T> {
         let type_id = TypeId::of::<T>();
         let type_name = type_name::<T>();
@@ -151,6 +157,7 @@ impl PropertyRegistrar<'_> {
             type_name,
             p_value: p_value.cast(),
             p_cache: p_cache.cast(),
+            metadata,
         });
 
         p_value
@@ -161,7 +168,7 @@ impl PropertyRegistrar<'_> {
     }
 }
 
-impl Drop for PropertyRegistrar<'_> {
+impl<Metadata> Drop for PropertyRegistrar<'_, Metadata> {
     fn drop(&mut self) {
         if self.committed {
             return;
