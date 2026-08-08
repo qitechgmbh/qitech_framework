@@ -8,8 +8,6 @@ use crate::machine::constraints::OptionalStringConstraints;
 use crate::machine::constraints::StringConstraints;
 use crate::machine::constraints::Unconstrained;
 
-pub trait MutableConstraints {}
-
 pub trait PropertyType: Debug + Clone + PartialEq + Default + 'static {
     type Constraints: Debug + Clone + PartialEq + Default + 'static;
 }

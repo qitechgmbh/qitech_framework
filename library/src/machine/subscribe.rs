@@ -1,6 +1,4 @@
 use std::ptr::NonNull;
-use std::rc::Rc;
-use std::rc::Weak;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::request::SubscribeError;
@@ -9,23 +7,18 @@ use qitech_framework_core::with_uom_quantities;
 use crate::machine::LifetimeToken;
 use crate::machine::ResourceRegistry;
 
-// --- subscription ---
-#[derive(Debug, Clone)]
-pub struct Subscription {
-    provider: MachineIdentificationUnique,
-    subscriber: MachineIdentificationUnique,
-    token: Rc<LifetimeToken>,
-}
-
 // --- property ---
 pub struct RemoteProperty<T: Clone> {
     p_cache: NonNull<T>,
-    token: Weak<LifetimeToken>,
+    token: LifetimeToken,
 }
 
 impl<T: Clone> RemoteProperty<T> {
     pub fn get_ref(&self) -> &T {
-        _ = self.token.upgrade().expect("Subscription expired");
+        assert!(
+            !self.token.expired(),
+            "RemoteProperty outlived subscription"
+        );
         unsafe { self.p_cache.as_ref() }
     }
 }
@@ -63,7 +56,7 @@ with_uom_quantities!(impl_uom);
 
 // --- context ---
 pub struct SubscribeContext<'a> {
-    pub(crate) token: Rc<LifetimeToken>,
+    pub(crate) token: LifetimeToken,
     pub(crate) provider: MachineIdentificationUnique,
     pub(crate) resources: &'a mut ResourceRegistry,
 }
@@ -84,7 +77,7 @@ impl<'a> SubscribeContext<'a> {
             .unwrap();
 
         let prop = RemoteProperty {
-            token: Rc::downgrade(&self.token),
+            token: self.token.clone(),
             p_cache,
         };
 
@@ -103,7 +96,7 @@ impl<'a> SubscribeContext<'a> {
 
         let prop = RemoteProperty {
             p_cache: view,
-            token: Rc::downgrade(&self.token),
+            token: self.token.clone(),
         };
 
         Ok(prop)
@@ -121,7 +114,7 @@ impl<'a> SubscribeContext<'a> {
 
         let prop = RemoteProperty {
             p_cache: view,
-            token: Rc::downgrade(&self.token),
+            token: self.token.clone(),
         };
 
         Ok(prop)

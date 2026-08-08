@@ -9,7 +9,6 @@ use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionRunning;
 use types::Config;
-use types::MachineInstance;
 
 pub mod error;
 
@@ -29,6 +28,7 @@ pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
 use crate::journal::Journals;
+use crate::machine::MachineInstance;
 use crate::machine::ResourceRegistry;
 use crate::machine::error::ActErrorImpact;
 mod request;
@@ -122,9 +122,9 @@ impl<T: RuntimeTransport> Runtime<T> {
             self.report.machines.state_property_records.push(x);
         });
 
-        self.resources.measurements.extract(|measurement| {
-            self.report.machines.measurement_snapshots.push(measurement);
-        });
+        // self.resources.measurements.extract(|measurement| {
+        //     self.report.machines.measurement_snapshots.push(measurement);
+        // });
 
         // --- export report ---
         self.session.send_report(self.report.clone()).unwrap();

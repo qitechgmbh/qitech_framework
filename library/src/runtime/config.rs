@@ -83,7 +83,9 @@ impl RuntimeConfiguration {
     where
         M: Machine + MachineBuild + MachineDescriptor + 'static,
     {
-        fn build_adapter<M>(ctx: &mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>
+        fn build_adapter<M>(
+            ctx: &mut BuildContext,
+        ) -> Result<Box<dyn Machine + 'static>, BuildError>
         where
             M: MachineBuild + Machine + 'static,
         {

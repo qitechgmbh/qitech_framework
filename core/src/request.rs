@@ -151,7 +151,7 @@ pub enum SubscribeError {
     SubscriberNotFound,
 
     #[error("provider does not have a subscription for subscriber")]
-    DuplicateSubscription,
+    AlreadySubscribed,
 
     #[error("unsupported machine")]
     UnsupportedMachine,

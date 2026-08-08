@@ -15,9 +15,10 @@ use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::with_uom_quantities;
 
+use crate::__private::EnumConstraints;
 use crate::journal::JournalHandle;
 use crate::machine::ResourceKey;
-use crate::machine::conversion::MutableConstraints;
+use crate::machine::constraints::NumericConstraints;
 use crate::machine::conversion::PropertyType;
 
 pub struct ConfigPropertyState<T: PropertyType> {
@@ -116,40 +117,115 @@ impl<T: PropertyType> ConfigProperty<T> {
             reason: reason.into(),
         });
     }
-
-    pub fn set_constraints(
-        &mut self,
-        value: T::Constraints,
-    ) -> Result<bool, ConstraintViolationError>
-    where
-        T::Constraints: MutableConstraints,
-    {
-        let state = self.state();
-        let mut state = state.borrow_mut();
-
-        // --- abort if no change ---
-        if value == state.constraints {
-            return Ok(false);
-        }
-
-        // ensure both current and default value are still valid with new constraints
-        (self.validate_constraints)(&value, self.get_ref())?;
-        (self.validate_constraints)(&value, &state.default)?;
-
-        state.constraints = value;
-
-        // --- record event ---
-        let value = (self.as_parameter_constraints)(&state.constraints);
-        drop(state);
-
-        self.record(ConfigPropertyEvent::ConstraintsChanged(value));
-        Ok(true)
-    }
 }
 
 impl<T: PropertyType + Copy> ConfigProperty<T> {
     pub fn get(&self) -> T {
         *self.get_ref()
+    }
+}
+
+impl<T> ConfigProperty<T>
+where
+    T: Copy + PartialOrd + PropertyType<Constraints = NumericConstraints<T>>,
+{
+    pub fn set_min_clamping(&mut self, value: T) {
+        let constraints = {
+            let state = self.state();
+            let mut state = state.borrow_mut();
+
+            unsafe {
+                if self.p_value.read() < value {
+                    self.p_value.write(value);
+                }
+
+                if state.default < value {
+                    state.default = value;
+                }
+            }
+
+            let mut constraints = state.constraints.clone();
+            constraints.set_min(Some(value));
+            constraints
+        };
+
+        self.set_constraints(constraints)
+            .expect("Failed with clamped values");
+    }
+
+    pub fn set_min(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
+        let constraints = {
+            let state = self.state();
+            let state = state.borrow();
+
+            if state.constraints.min() == value {
+                return Ok(false);
+            }
+
+            let mut constraints = state.constraints.clone();
+            constraints.set_min(value);
+            constraints
+        };
+
+        self.set_constraints(constraints)
+    }
+
+    pub fn set_max_clamping(&mut self, value: T) {
+        let constraints = {
+            let state = self.state();
+            let mut state = state.borrow_mut();
+
+            let mut constraints = state.constraints.clone();
+            constraints.set_max(Some(value));
+
+            unsafe {
+                if self.p_value.read() > value {
+                    self.p_value.write(value);
+                }
+
+                if state.default > value {
+                    state.default = value;
+                }
+            }
+
+            constraints
+        };
+
+        self.set_constraints(constraints)
+            .expect("Failed with clamped values");
+    }
+
+    pub fn set_max(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
+        let constraints = {
+            let state = self.state();
+            let state = state.borrow();
+
+            if state.constraints.max() == value {
+                return Ok(false);
+            }
+
+            let mut constraints = state.constraints.clone();
+            constraints.set_max(value);
+            constraints
+        };
+
+        self.set_constraints(constraints)
+    }
+}
+
+impl<T> ConfigProperty<T>
+where
+    T: PropertyType<Constraints = EnumConstraints<T>>,
+{
+    /// sets the list of allowed variants for this enum property
+    pub fn set_allowed(&mut self, value: Vec<T>) -> Result<bool, ConstraintViolationError> {
+        if value.len() == 0 {
+            return Err(ConstraintViolationError::NoAllowedVariants);
+        }
+
+        self.set_constraints(EnumConstraints {
+            allowed: value
+        })
     }
 }
 
@@ -225,6 +301,32 @@ impl<T: PropertyType> ConfigProperty<T> {
         // --- record value ---
         let value = state.capability.clone();
         self.record(ConfigPropertyEvent::CapabilityChanged(value));
+    }
+
+    fn set_constraints(
+        &mut self,
+        value: T::Constraints,
+    ) -> Result<bool, ConstraintViolationError> {
+        let state = self.state();
+        let mut state = state.borrow_mut();
+
+        // --- abort if no change ---
+        if value == state.constraints {
+            return Ok(false);
+        }
+
+        // ensure both current and default value are still valid with new constraints
+        (self.validate_constraints)(&value, self.get_ref())?;
+        (self.validate_constraints)(&value, &state.default)?;
+
+        state.constraints = value;
+
+        // --- record event ---
+        let value = (self.as_parameter_constraints)(&state.constraints);
+        drop(state);
+
+        self.record(ConfigPropertyEvent::ConstraintsChanged(value));
+        Ok(true)
     }
 
     fn record(&mut self, event: ConfigPropertyEvent) {

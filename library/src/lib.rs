@@ -20,4 +20,7 @@ pub mod __private {
     pub use qitech_framework_core::report::Constraints;
 
     pub use crate::machine::MachineDescriptor;
+    pub use crate::machine::constraints::EnumConstraints;
+    pub use crate::machine::conversion::PropertyAdapter;
+    pub use crate::machine::conversion::PropertyType;
 }

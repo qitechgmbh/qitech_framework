@@ -1,3 +1,5 @@
+use core::fmt;
+
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
@@ -36,6 +38,15 @@ impl WriteCapability {
 
     pub const fn forbidden(&self) -> bool {
         matches!(self, WriteCapability::Forbidden { .. })
+    }
+}
+
+impl fmt::Display for WriteCapability {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Allowed => write!(f, "Allowed"),
+            Self::Forbidden { reason } => write!(f, "Forbidden: {reason}"),
+        }
     }
 }
 
@@ -89,6 +100,67 @@ pub enum Constraints {
     },
 }
 
+impl fmt::Display for Constraints {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::None => write!(f, "None"),
+
+            Self::Numeric { min, max, nullable } => write!(
+                f,
+                "Numeric [{min}, {max}]{}",
+                if *nullable { " nullable" } else { "" }
+            ),
+
+            Self::String {
+                min_length,
+                max_length,
+                pattern,
+                nullable,
+            } => {
+                write!(f, "String")?;
+
+                if let Some(min) = min_length {
+                    write!(f, " min_length={min}")?;
+                }
+
+                if let Some(max) = max_length {
+                    write!(f, " max_length={max}")?;
+                }
+
+                if let Some(pattern) = pattern {
+                    write!(f, " pattern={pattern:?}")?;
+                }
+
+                if *nullable {
+                    write!(f, " nullable")?;
+                }
+
+                Ok(())
+            }
+
+            Self::Enum { allowed, nullable } => {
+                write!(f, "Enum [")?;
+
+                for (i, value) in allowed.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{value}")?;
+                }
+
+                write!(f, "]")?;
+
+                if *nullable {
+                    write!(f, " nullable")?;
+                }
+
+                Ok(())
+            }
+        }
+    }
+}
+
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ConstraintViolationError {
     #[error("types didn't match")]
@@ -105,6 +177,9 @@ pub enum ConstraintViolationError {
         value: NumericValue,
         max: NumericValue,
     },
+
+    #[error("...")]
+    NoAllowedVariants,
 
     #[error("value {value} cannot be null")]
     CannotBeNull { value: ScalarValue },

@@ -1,12 +1,9 @@
-use std::mem;
-
 use crossterm::event::KeyCode;
 use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::Constraints;
-use qitech_framework_core::report::WriteCapability;
 use qitech_framework_core::schema::ScalarPropertyKind;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
@@ -229,19 +226,17 @@ impl ConfigPage {
                     format!("default={default}, write={capability:?}, constraints={constraints:?}"),
                 ),
 
-                ConfigPropertyEvent::DefaultChanged { before, after } => {
-                    ("DefaultChanged".to_string(), format!("{before} -> {after}"))
+                ConfigPropertyEvent::DefaultChanged(value) => {
+                    ("DefaultChanged".to_string(), format!("{value}"))
                 }
 
-                ConfigPropertyEvent::CapabilityChanged { before, after } => (
-                    "CapabilityChanged".to_string(),
-                    format!("{before:?} -> {after:?}"),
-                ),
+                ConfigPropertyEvent::CapabilityChanged(value) => {
+                    ("CapabilityChanged".to_string(), format!("{value}"))
+                }
 
-                ConfigPropertyEvent::ConstraintsChanged { before, after } => (
-                    "ConstraintsChanged".to_string(),
-                    format!("{before:?} -> {after:?}"),
-                ),
+                ConfigPropertyEvent::ConstraintsChanged(value) => {
+                    ("ConstraintsChanged".to_string(), format!("{value}"))
+                }
 
                 ConfigPropertyEvent::Written {
                     value,

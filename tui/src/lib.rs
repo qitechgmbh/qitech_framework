@@ -314,21 +314,21 @@ impl Tui {
                     }
                 }
 
-                ConfigPropertyEvent::DefaultChanged { after, .. } => {
+                ConfigPropertyEvent::DefaultChanged(value) => {
                     if let ConfigFieldState::Initialized { default, .. } = &mut field.state {
-                        *default = after
+                        *default = value
                     }
                 }
 
-                ConfigPropertyEvent::CapabilityChanged { after, .. } => {
+                ConfigPropertyEvent::CapabilityChanged(value) => {
                     if let ConfigFieldState::Initialized { capability, .. } = &mut field.state {
-                        *capability = after;
+                        *capability = value;
                     }
                 }
 
-                ConfigPropertyEvent::ConstraintsChanged { after, .. } => {
+                ConfigPropertyEvent::ConstraintsChanged(value) => {
                     if let ConfigFieldState::Initialized { constraints, .. } = &mut field.state {
-                        *constraints = after
+                        *constraints = value
                     }
                 }
 

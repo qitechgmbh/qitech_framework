@@ -21,6 +21,7 @@ use crate::machine::conversion::PropertyAdapter;
 use crate::machine::conversion::PropertyType;
 use crate::machine::error::ActResult;
 use crate::machine::error::BuildResult;
+use crate::machine::instance::ConfigPropertyHandle;
 
 impl<'a> BuildContext<'a> {
     pub fn config<'b, T>(&'b mut self, path: &'static str) -> ConfigPropertyBuilder<'a, 'b, T>
@@ -161,7 +162,13 @@ where
             Ok(true)
         });
 
-        self.root.config_registered.insert(self.path, write);
+        self.root.config_registered.insert(
+            self.path,
+            ConfigPropertyHandle {
+                write,
+                on_changed: self.on_external_write,
+            },
+        );
 
         Ok(ConfigProperty {
             state: Rc::downgrade(&state),

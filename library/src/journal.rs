@@ -13,6 +13,12 @@ pub struct Journals {
     pub events: Journal<CustomEventRecord>,
 }
 
+impl Journals {
+    pub fn record_config(&mut self, value: ConfigPropertyRecord) {
+        self.config_property.new_handle().append(value);
+    }
+}
+
 #[derive(Debug)]
 pub struct Journal<T> {
     buffer: Rc<RefCell<Vec<T>>>,

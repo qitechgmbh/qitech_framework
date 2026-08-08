@@ -15,7 +15,6 @@ use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use crate::Runtime;
 use crate::journal::Journals;
 use crate::machine::BuildContext;
-use crate::machine::ConfigPropertyHandle;
 use crate::machine::Hardware;
 use crate::machine::MachineInstance;
 use crate::machine::PropertyRegistry;
@@ -205,15 +204,21 @@ impl<T: RuntimeTransport> Runtime<T> {
                 continue;
             };
 
-            let mut ctx = BuildContext::new(
-                *ident_unique,
-                entry.type_id,
-                entry.type_name,
-                ecat_interface.clone(),
-                hardware.clone(),
+            let mut ctx = BuildContext {
+                ident: *ident_unique,
+                type_id: entry.type_id,
+                type_name: entry.type_name,
+                ethercat_interface: ecat_interface.clone(),
+                hardware: hardware.clone(),
                 journals,
-                resources,
-            );
+                config: resources.config_properties.register(),
+                state: resources.state_properties.register(),
+                measurements: resources.measurements.register(),
+                journals_temp: Journals::default(),
+                config_registered: Default::default(),
+                state_registered: Default::default(),
+                measurements_registered: Default::default(),
+            };
 
             let machine = match (entry.build)(&mut ctx) {
                 Ok(v) => v,
@@ -233,21 +238,14 @@ impl<T: RuntimeTransport> Runtime<T> {
             ctx.measurements.commit();
 
             // --- extract metadata ---
-            let mut configs = Vec::new();
-
-            for (resource, write) in ctx.config_registered {
-                configs.push(ConfigPropertyHandle::new(
-                    resource, 
-                    write, 
-                    on_changed
-                ));
-            }
+            let configs = ctx.config_registered;
 
             machines.push(MachineInstance {
                 ident: *ident_unique,
                 machine,
                 configs,
                 commands: Default::default(),
+                subscriptions: Default::default(),
             });
 
             session.send_event(RuntimeInitEvent::MachineBuildCompleted {

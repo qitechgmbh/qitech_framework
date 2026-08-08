@@ -1,18 +1,22 @@
+use std::collections::HashMap;
+
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ConfigPropertyWriteError;
-use qitech_framework_core::request::WriteConfigPropertyError;
 
+use crate::machine::LifetimeTokenOwner;
 use crate::machine::Machine;
+use crate::machine::SubscribeContext;
 use crate::machine::error::ActResult;
 use crate::machine::error::CommandExecuteResult;
+use crate::machine::error::SubscribeResult;
 
 pub(crate) struct MachineInstance {
-    pub ident: MachineIdentificationUnique,
-
-    pub machine: Box<dyn Machine>,
-    pub config_props: Vec<ConfigPropertyHandle>,
-    pub commands: Vec<CommandHandle>,
+    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) machine: Box<dyn Machine>,
+    pub(crate) configs: HashMap<&'static str, ConfigPropertyHandle>,
+    pub(crate) commands: Vec<CommandHandle>,
+    pub(crate) subscriptions: HashMap<MachineIdentificationUnique, LifetimeTokenOwner>,
 }
 
 impl MachineInstance {
@@ -20,29 +24,12 @@ impl MachineInstance {
         self.machine.act()
     }
 
-    pub fn set_config_property(
-        &mut self,
-        path: &str,
-        request_id: u64,
-        value: ScalarValue,
-    ) -> Result<SetConfigPropertySuccess, WriteConfigPropertyError> {
-        let Some(instance) = self.config_props.iter().find(|prop| prop.resource == path) else {
-            return Err(WriteConfigPropertyError::ResourceNotFound);
-        };
+    pub fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
+        self.machine.subscribe(ctx)
+    }
 
-        // --- execute write ---
-        let changed = (instance.write)(request_id, value)?;
-
-        // --- invoke callback if installed ---
-        let callback_result = instance
-            .on_changed
-            .as_ref()
-            .map(|on_changed| on_changed(self.machine.as_mut()));
-
-        Ok(SetConfigPropertySuccess {
-            changed,
-            callback_result,
-        })
+    pub fn get_config_handle(&mut self, path: &str) -> Option<&mut ConfigPropertyHandle> {
+        self.configs.get_mut(path)
     }
 
     pub fn update_can_execute(&mut self) {
@@ -83,17 +70,12 @@ impl MachineInstance {
 }
 
 // --- config handle ---
-pub struct ConfigPropertyHandle {
-    resource: &'static str,
-    write: Box<dyn Fn(u64, ScalarValue) -> Result<bool, ConfigPropertyWriteError>>,
-    on_changed: Option<Box<dyn Fn(&mut dyn Machine) -> ActResult>>,
-}
-
 pub type ConfigPropertyWriteFn = Box<dyn Fn(ScalarValue) -> Result<bool, ConfigPropertyWriteError>>;
+pub type ConfigPropertyChangedCallbackFn = Box<dyn Fn(&mut dyn Machine) -> ActResult>;
 
-pub struct SetConfigPropertySuccess {
-    changed: bool,
-    callback_result: Option<ActResult>,
+pub(crate) struct ConfigPropertyHandle {
+    pub(crate) write: ConfigPropertyWriteFn,
+    pub(crate) on_changed: Option<ConfigPropertyChangedCallbackFn>,
 }
 
 // --- command handle ---

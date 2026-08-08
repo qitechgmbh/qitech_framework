@@ -123,41 +123,52 @@ impl MachineBuild for LaserV1 {
             .default(Some(1.75))
             .on_external_changed(|m: &mut Self| {
                 let Some(default) = *m.diameter_target_default.get_ref() else {
-                    return;
+                    return Ok(());
                 };
 
                 m.diameter_target.set_default(default);
-            })
+                Ok(())
+            })?
             .register()?;
 
         let diameter_target_enabled = ctx
             .config::<Option<bool>>("diameter.target_enabled")
             .default(Some(true))
             .on_external_changed(|m: &mut Self| match *m.diameter_target_enabled.get_ref() {
-                Some(true) => m.diameter_target.allow_external_write(),
-                Some(false) => m.diameter_target.forbid_external_write("single use only"),
-                _ => {}
-            })
+                Some(true) => {
+                    m.diameter_target.allow_external_write();
+                    Ok(())
+                }
+                Some(false) => {
+                    m.diameter_target.forbid_external_write("single use only");
+                    Ok(())
+                }
+                _ => Ok(()),
+            })?
             .register()?;
 
         let diameter_target_min = ctx
             .config::<Option<millimeter>>("diameter.target_min")
             .default(None)
             .on_external_changed(|m: &mut Self| {
-                let mut c = m.diameter_target.constraints().clone();
-                c.set_min(*m.diameter_target_min.get_ref());
-                m.diameter_target.set_constraints(c);
-            })
+                if let Some(value) = m.diameter_target_min.get() {
+                    m.diameter_target.set_min_clamping(value);
+                }
+
+                Ok(())
+            })?
             .register()?;
 
         let diameter_target_max = ctx
             .config::<Option<millimeter>>("diameter.target_max")
             .default(None)
             .on_external_changed(|m: &mut Self| {
-                let mut c = m.diameter_target.constraints().clone();
-                c.set_max(*m.diameter_target_max.get_ref());
-                m.diameter_target.set_constraints(c);
-            })
+                if let Some(value) = m.diameter_target_max.get() {
+                    m.diameter_target.set_max_clamping(value);
+                }
+
+                Ok(())
+            })?
             .register()?;
 
         let subscribed_diameter_target = ctx
@@ -286,7 +297,7 @@ impl Machine for LaserV1 {
         Ok(())
     }
 
-    fn subscribe(&mut self, mut ctx: SubscribeContext) -> SubscribeResult {
+    fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
         if ctx.provider().identification != LaserV1::IDENTIFICATION {
             return Err(SubscribeError::UnsupportedMachine);
         }

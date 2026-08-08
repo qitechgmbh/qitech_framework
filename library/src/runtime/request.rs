@@ -1,5 +1,8 @@
-use std::rc::Rc;
-
+use chrono::Utc;
+use qitech_framework_core::report::ConfigPropertyEvent;
+use qitech_framework_core::report::ConfigPropertyRecord;
+use qitech_framework_core::report::ConfigPropertyWriteOutcome;
+use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
@@ -12,6 +15,7 @@ use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;
+use crate::machine::LifetimeTokenOwner;
 use crate::machine::SubscribeContext;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
@@ -63,20 +67,13 @@ impl<T: RuntimeTransport> Runtime<T> {
                     return Err(WriteConfigPropertyError::MachineNotFound)?;
                 };
 
-                
-
-                // --- retrieve the context ---
-                let context = self
-                    .resources
-                    .config_properties
-                    .execute_context(target, &path);
-
-                let Some(context) = context else {
+                // --- find the handle ---
+                let Some(handle) = machine.get_config_handle(&path) else {
                     return Err(WriteConfigPropertyError::ResourceNotFound)?;
                 };
 
-                // --- write the value ---
-                let result = context.execute(machine, value.clone());
+                // --- execute the write ---
+                let result = (handle.write)(value.clone());
 
                 // --- record the outcome ---
                 let outcome = match result.clone() {
@@ -95,7 +92,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     },
                 };
 
-                self.journals.config_property.new_handle().append(record);
+                self.journals.record_config(record);
 
                 // --- yield the result ---
                 match result {
@@ -144,35 +141,21 @@ impl<T: RuntimeTransport> Runtime<T> {
                     return Err(SubscribeError::SubscriberNotFound)?;
                 };
 
-                let duplicate = self
-                    .subscriptions
-                    .iter()
-                    .any(|s| s.provider == provider && s.subscriber == subscriber);
-
-                if duplicate {
-                    return Err(SubscribeError::DuplicateSubscription)?;
+                if machine.subscriptions.contains_key(&provider) {
+                    return Err(SubscribeError::AlreadySubscribed)?;
                 }
 
-                let subscription = Subscription {
-                    provider,
-                    subscriber,
-                    token: Rc::new(Default::default()),
-                };
+                let token_provider = LifetimeTokenOwner::new();
 
                 // --- let machine subscribe to resources ---
-                let ctx = SubscribeContext::new(
+                let mut ctx = SubscribeContext {
+                    token: token_provider.new_token(),
                     provider,
-                    &mut self.resources,
-                    subscription.token.clone(),
-                );
+                    resources: &mut self.resources,
+                };
 
                 // --- allow machine to handle subscription ---
-                machine.subscribe(ctx)?;
-
-                // --- register subscription ---
-                self.subscriptions
-                    .push(subscription)
-                    .expect("Exceeded global subscription limit");
+                machine.subscribe(&mut ctx)?;
 
                 self.report.events.push(RuntimeEvent::SubscriptionAdded {
                     provider,
@@ -189,28 +172,22 @@ impl<T: RuntimeTransport> Runtime<T> {
                 provider,
                 subscriber,
             } => {
-                let Some(index) = self
-                    .subscriptions
-                    .iter()
-                    .position(|s| s.provider == provider && s.subscriber == subscriber)
-                else {
+                // --- find subscriber ---
+                let Some(machine) = find_machine(&mut self.machines, subscriber) else {
                     return Err(UnsubscribeError::SubscriptionNotFound)?;
                 };
 
-                self.subscriptions.remove(index);
+                // --- remove entry if present ---
+                if machine.subscriptions.remove(&provider).is_some() {
+                    self.report.events.push(RuntimeEvent::SubscriptionRemoved {
+                        provider,
+                        subscriber,
+                    });
 
-                let machine = find_machine(&mut self.machines, subscriber)
-                    .expect("No machine when subscription present");
-
-                // --- tell machine that the subscription is not longer valid ---
-                machine.unsubscribe(provider);
-
-                self.report.events.push(RuntimeEvent::SubscriptionRemoved {
-                    provider,
-                    subscriber,
-                });
-
-                Ok(())
+                    Ok(())
+                } else {
+                    Err(UnsubscribeError::SubscriptionNotFound)?
+                }
             }
         }
     }
