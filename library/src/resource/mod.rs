@@ -42,7 +42,8 @@ pub use measurements::Measurement;
 pub use measurements::MeasurementRegistry;
 pub use measurements::MeasurementRegistryRegisterHandle;
 
-// mod command;
+mod command;
+
 mod event;
 pub use event::EventEmitError;
 pub use event::EventEmitResult;

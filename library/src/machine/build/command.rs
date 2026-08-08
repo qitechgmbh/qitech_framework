@@ -37,8 +37,8 @@ where
     root: &'b mut BuildContext<'a>,
     path: &'static str,
 
-    can_execute: Option<Box<dyn Fn(&dyn Machine) -> bool>>,
-    execute: Option<Box<dyn Fn(&mut dyn Machine) -> Result<(), String>>>,
+    can_execute: Option<fn(&M) -> bool>,
+    execute: Option<fn(&mut M) -> Result<(), String>>,
 
     _marker: PhantomData<M>,
 }
@@ -48,27 +48,11 @@ where
     M: Machine + 'static,
 {
     pub fn can_execute(mut self, func: fn(&M) -> bool) -> Self {
-        let func = Box::new(move |machine: &dyn Machine| {
-            let any: &dyn Any = machine;
-
-            let machine = any.downcast_ref::<M>().expect("Expected ref to machine");
-
-            func(machine)
-        });
-
         self.can_execute = Some(func);
         self
     }
 
     pub fn execute(mut self, func: fn(&mut M) -> Result<(), String>) -> Self {
-        let func = Box::new(move |machine: &mut dyn Machine| {
-            let any: &mut dyn Any = machine;
-
-            let machine = any.downcast_mut::<M>().expect("Expected ref to machine");
-
-            func(machine)
-        });
-
         self.execute = Some(func);
         self
     }

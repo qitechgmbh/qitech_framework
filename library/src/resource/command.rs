@@ -110,24 +110,43 @@ impl Default for CommandRegistry {
     }
 }
 
-pub struct CommandRegistryRegisterHandle<'a> {
+// --- registrar ---
+pub struct CommandRegistrar<'a> {
     registry: &'a mut CommandRegistry,
     ident: MachineIdentificationUnique,
-    items: HashMap<&'static str, CommandItem>,
+    items: Vec<CommandItem>,
 }
 
-impl<'a> CommandRegistryRegisterHandle<'a> {
-    pub fn register<M: >() {
+impl<'a> CommandRegistrar<'a> {
+    pub fn register<M: Machine + 'static>(
+        &mut self,
+        resource: &'static str,
+        can_execute: Option<fn(&M) -> bool>,
+        execute: fn(&mut M) -> Result<(), String>,
+    ) {
+        let is_duplicate = self
+            .items
+            .iter()
+            .find(|item| item.resource == resource)
+            .is_some();
 
+        if is_duplicate {
+            panic!("TODO: return register error");
+        }
+
+        self.items.push(CommandItem {
+            resource,
+            can_execute: (),
+            execute: (),
+        });
     }
 }
 
 pub struct CommandItem {
-    path: &'static str,
+    resource: &'static str,
     can_execute: Option<Box<dyn Fn(&dyn Machine) -> bool>>,
     execute: Box<dyn Fn(&mut dyn Machine) -> Result<(), String>>,
 }
-
 
 pub struct Entry {
     ident: MachineIdentificationUnique,
@@ -150,25 +169,6 @@ impl ExecuteContext {
 
     pub fn execute(&self) -> Result<(), String> {
         (self.execute)(self.machine, self.execute)
-    }
-}
-
-pub struct CommandDefinition {
-    pub path: &'static str,
-    pub can_execute: *const (),
-    pub execute: *const (),
-}
-
-impl CommandDefinition {
-    pub fn into_entry<M: Machine>(self, machine: NonNull<M>) -> ExecuteContext {
-        ExecuteContext {
-            machine: machine.cast(),
-            execute_adapter: self.can_execute,
-            execute: self.execute,
-
-            execute_adapter: can_execute_adapter::<M>,
-            execute: execute_adapter::<M>,
-        }
     }
 }
 
