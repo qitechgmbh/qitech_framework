@@ -32,9 +32,9 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
-use crate::journal::Journals;
 use crate::machine::MachineInstance;
 use crate::machine::ResourceRegistry;
+use crate::resource::Journals;
 use crate::runtime::error::RuntimeError;
 mod request;
 

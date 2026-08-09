@@ -19,8 +19,8 @@ use crate::machine::Machine;
 use crate::machine::ResourceKey;
 use crate::machine::config_property::ConfigProperty;
 use crate::machine::config_property::ConfigPropertyState;
-use crate::machine::conversion::PropertyAdapter;
-use crate::machine::conversion::PropertyType;
+use crate::conversion::PropertyAdapter;
+use crate::conversion::PropertyType;
 use crate::machine::error::ActResult;
 use crate::machine::instance::ConfigPropertyHandle;
 
@@ -105,7 +105,7 @@ where
         self
     }
 
-    pub fn register(self) -> Result<ConfigProperty<T::Type>, BuildError> {
+    pub fn build(self) -> Result<ConfigProperty<T::Type>, BuildError> {
         if self.root.config_registered.contains_key(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }

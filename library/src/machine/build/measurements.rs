@@ -3,9 +3,9 @@ use std::borrow::Cow;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
-use crate::machine::conversion::Extract;
-use crate::machine::conversion::PropertyAdapter;
-use crate::machine::conversion::StatisticValue;
+use crate::conversion::ReadMeasurement;
+use crate::conversion::PropertyAdapter;
+use crate::conversion::StatisticValue;
 use crate::machine::measurement::Measurement;
 use crate::machine::measurement::MeasurementStatistics;
 
@@ -46,7 +46,7 @@ where
 
 impl<'a, 'b, T> MeasurementBuilder<'a, 'b, T>
 where
-    T: PropertyAdapter + Extract<Option<f64>> + 'static,
+    T: PropertyAdapter + ReadMeasurement + 'static,
     T::Type: Copy + StatisticValue,
 {
     pub fn initial(mut self, value: T::Input) -> Self {
@@ -83,7 +83,7 @@ where
             self.root.ident,
             Cow::Borrowed(self.path),
             self.value,
-            T::extract,
+            T::read,
         );
 
         let min = if self.record_min {
@@ -91,7 +91,7 @@ where
                 self.root.ident,
                 Cow::Owned(format!("{}.{}", self.path, "min")),
                 self.value,
-                T::extract,
+                T::read,
             ))
         } else {
             None
@@ -102,7 +102,7 @@ where
                 self.root.ident,
                 Cow::Owned(format!("{}.{}", self.path, "max")),
                 self.value,
-                T::extract,
+                T::read,
             ))
         } else {
             None
@@ -113,7 +113,7 @@ where
                 self.root.ident,
                 Cow::Owned(format!("{}.{}", self.path, "avg")),
                 self.value,
-                T::extract,
+                T::read,
             ))
         } else {
             None
@@ -124,7 +124,7 @@ where
                 self.root.ident,
                 Cow::Owned(format!("{}.{}", self.path, "stddev")),
                 self.value,
-                T::extract,
+                T::read,
             ))
         } else {
             None

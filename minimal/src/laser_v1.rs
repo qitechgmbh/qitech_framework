@@ -107,19 +107,19 @@ impl MachineBuild for LaserV1 {
         let diameter_target = ctx
             .config::<millimeter>("diameter.target")
             .default(1.75)
-            .register()?;
+            .build()?;
 
         let diameter_tolerance_lower = ctx
             .config::<millimeter>("diameter.tolerance.lower")
             .default(0.05)
             // .minimum(0.0)
-            .register()?;
+            .build()?;
 
         let diameter_tolerance_upper = ctx
             .config::<millimeter>("diameter.tolerance.upper")
             .default(0.05)
             // .minimum(0.0)
-            .register()?;
+            .build()?;
 
         let diameter_target_default = ctx
             .config::<Option<millimeter>>("diameter.target_default")
@@ -133,7 +133,7 @@ impl MachineBuild for LaserV1 {
 
                 Ok(())
             })
-            .register()?;
+            .build()?;
 
         let diameter_target_enabled = ctx
             .config::<Option<bool>>("diameter.target_enabled")
@@ -150,7 +150,7 @@ impl MachineBuild for LaserV1 {
                 }
                 _ => Ok(()),
             })
-            .register()?;
+            .build()?;
 
         let diameter_target_min = ctx
             .config::<Option<millimeter>>("diameter.target_min")
@@ -162,7 +162,7 @@ impl MachineBuild for LaserV1 {
 
                 Ok(())
             })
-            .register()?;
+            .build()?;
 
         let diameter_target_max = ctx
             .config::<Option<millimeter>>("diameter.target_max")
@@ -174,22 +174,22 @@ impl MachineBuild for LaserV1 {
 
                 Ok(())
             })
-            .register()?;
+            .build()?;
 
         let subscribed_diameter_target = ctx
             .config::<Option<millimeter>>("subscribed.diameter.target")
             .default(None)
-            .register()?;
+            .build()?;
 
         let subscribed_diameter_tolerance_lower = ctx
             .config::<Option<millimeter>>("subscribed.diameter.tolerance.lower")
             .default(None)
-            .register()?;
+            .build()?;
 
         let subscribed_diameter_tolerance_upper = ctx
             .config::<Option<millimeter>>("subscribed.diameter.tolerance.upper")
             .default(None)
-            .register()?;
+            .build()?;
 
         // --- state ---
         let in_tolerance = ctx
@@ -222,7 +222,7 @@ impl MachineBuild for LaserV1 {
         ctx.command("increment")
             .can_execute(Self::can_increment)
             .execute(Self::increment)
-            .register()?;
+            .build()?;
 
         Ok(Self {
             device,
@@ -267,7 +267,7 @@ impl MachineBuild for LaserV1 {
 impl Machine for LaserV1 {
     fn act(&mut self, now: Instant) -> ActResult {
         _ = now;
-        
+
         self.update_device()?;
 
         if let Some(m) = self.device.borrow().measurement.clone() {

@@ -27,16 +27,9 @@ pub use config_property::ConfigProperty;
 mod state_property;
 pub use state_property::StateProperty;
 
-mod property_registry;
-pub use property_registry::PropertyRegistrar;
-pub use property_registry::PropertyRegistry;
-
 pub(crate) mod hardware;
 pub use hardware::Hardware;
 
-mod command;
-pub(crate) mod constraints;
-pub(crate) mod conversion;
 mod measurement;
 pub use measurement::Measurement;
 
@@ -44,6 +37,8 @@ mod instance;
 pub(crate) use instance::ConfigPropertyChangedCallbackFn;
 pub(crate) use instance::ConfigPropertyHandle;
 pub(crate) use instance::MachineInstance;
+
+use crate::resource::PropertyRegistry;
 
 pub trait Machine: Any {
     /// defines the update cycle of a machine

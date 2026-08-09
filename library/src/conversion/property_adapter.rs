@@ -5,7 +5,7 @@ use qitech_framework_core::report::ConstraintViolationError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::with_uom_units;
 
-use crate::machine::conversion::property_type::PropertyType;
+use crate::conversion::property_type::PropertyType;
 
 /// Trait to allow defining conversion and extract operations
 /// on wrapped units. The best example here is uom which allows us to export

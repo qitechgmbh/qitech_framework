@@ -2,11 +2,11 @@ use std::fmt::Debug;
 
 use qitech_framework_core::with_uom_quantities;
 
-use crate::machine::constraints::NumericConstraints;
-use crate::machine::constraints::OptionalNumericConstraints;
-use crate::machine::constraints::OptionalStringConstraints;
-use crate::machine::constraints::StringConstraints;
-use crate::machine::constraints::Unconstrained;
+use crate::resource::constraints::NumericConstraints;
+use crate::resource::constraints::OptionalNumericConstraints;
+use crate::resource::constraints::OptionalStringConstraints;
+use crate::resource::constraints::StringConstraints;
+use crate::resource::constraints::Unconstrained;
 
 pub trait PropertyType: Debug + Clone + PartialEq + Default + 'static {
     type Constraints: Debug + Clone + PartialEq + Default + 'static;

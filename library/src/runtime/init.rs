@@ -16,13 +16,13 @@ use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
 use crate::Runtime;
-use crate::journal::Journals;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::MachineInstance;
-use crate::machine::PropertyRegistry;
 use crate::machine::ResourceRegistry;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
+use crate::resource::Journals;
+use crate::resource::PropertyRegistry;
 use crate::runtime::MachineRegistry;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::config::EtherCATMode;

@@ -7,8 +7,8 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ResourceAccessError;
 use qitech_framework_core::report::ResourceKind;
 
-use crate::BumpAllocator;
-use crate::BumpAllocatorMark;
+use crate::resource::BumpAllocator;
+use crate::resource::BumpAllocatorMark;
 
 pub struct PropertyRegistry<Metadata = ()> {
     kind: ResourceKind,

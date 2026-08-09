@@ -65,7 +65,7 @@ where
         self
     }
 
-    pub fn register(self) -> BuildResult<()> {
+    pub fn build(self) -> BuildResult<()> {
         if self.root.type_id != TypeId::of::<M>() {
             return Err(BuildError::MachineTypeMismatch {
                 expected: self.root.type_name.to_string(),

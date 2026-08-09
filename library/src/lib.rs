@@ -3,16 +3,12 @@ pub use qitech_framework_macros::*;
 pub use qitech_lib::units;
 
 pub mod machine;
+mod conversion;
+mod resource;
 
 mod runtime;
 pub use runtime::Runtime;
 pub use runtime::RuntimeConfiguration;
-
-mod journal;
-
-mod bump_allocator;
-use bump_allocator::BumpAllocator;
-use bump_allocator::BumpAllocatorMark;
 
 #[doc(hidden)]
 pub mod __private {
@@ -23,7 +19,7 @@ pub mod __private {
     pub use qitech_framework_core::report::Constraints;
 
     pub use crate::machine::MachineDescriptor;
-    pub use crate::machine::constraints::EnumConstraints;
-    pub use crate::machine::conversion::PropertyAdapter;
-    pub use crate::machine::conversion::PropertyType;
+    pub use crate::resource::constraints::EnumConstraints;
+    pub use crate::conversion::PropertyAdapter;
+    pub use crate::conversion::PropertyType;
 }
