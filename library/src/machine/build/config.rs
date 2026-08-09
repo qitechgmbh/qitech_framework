@@ -5,9 +5,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use chrono::Utc;
 use qitech_framework_core::report::ConfigPropertyEvent;
-use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationCapability;
@@ -129,25 +127,20 @@ where
             constraints: self.constraints,
         };
 
-        self.root
-            .journals_temp
-            .config_property
-            .new_handle()
-            .append(ConfigPropertyRecord {
-                timestamp: Utc::now(),
-                machine: self.root.ident,
-                path: self.path.to_string(),
-                event: ConfigPropertyEvent::Registered {
-                    default: T::into_scalar(default.clone()),
-                    capability: OperationCapability::Allowed,
-                    constraints: Constraints::None,
-                },
-            });
-
         let key = ResourceKey {
             ident: self.root.ident,
             path: self.path,
         };
+
+        self.root
+            .journals_temp
+            .config_property
+            .new_handle(key)
+            .record(ConfigPropertyEvent::Registered {
+                default: T::into_scalar(default.clone()),
+                capability: OperationCapability::Allowed,
+                constraints: Constraints::None,
+            });
 
         let state = Rc::new(RefCell::new(state));
         let state_for_write = Rc::clone(&state);
@@ -184,6 +177,8 @@ where
             },
         );
 
+        let journal = self.root.journals.config_property.new_handle(key);
+
         Ok(ConfigProperty {
             state: Rc::downgrade(&state),
             key,
@@ -191,7 +186,7 @@ where
             into_scalar: T::into_scalar,
             validate_constraints: T::validate_constraints,
             as_parameter_constraints: T::as_parameter_constraints,
-            journal: self.root.journals.config_property.new_handle(),
+            journal,
         })
     }
 }

@@ -1,9 +1,7 @@
 use std::ptr::NonNull;
 
-use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::StatePropertyEvent;
-use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::JournalHandle;
@@ -13,8 +11,8 @@ use crate::resource::conversion::PropertyType;
 pub struct StateProperty<T: PropertyType> {
     pub(crate) key: ResourceKey,
     pub(crate) p_value: NonNull<T>,
-    pub(crate) journal: JournalHandle<StatePropertyRecord>,
     pub(crate) into_scalar: fn(T) -> ScalarValue,
+    pub(crate) journal: JournalHandle<StatePropertyEvent>,
 }
 
 impl<T: PropertyType> StateProperty<T> {
@@ -27,13 +25,15 @@ impl<T: PropertyType> StateProperty<T> {
             return false;
         }
 
-        self.record(StatePropertyEvent::ValueChanged {
-            value: (self.into_scalar)(value.clone()),
-        });
-
         unsafe {
-            self.p_value.write(value);
+            // --- write the value ---
+            self.p_value.write(value.clone());
         }
+
+        // --- record the change ---
+        let value = (self.into_scalar)(value);
+        self.journal
+            .record(StatePropertyEvent::ValueChanged { value });
 
         true
     }
@@ -83,15 +83,3 @@ macro_rules! impl_uom {
 }
 
 with_uom_quantities!(impl_uom);
-
-// --- utils ---
-impl<T: PropertyType> StateProperty<T> {
-    fn record(&mut self, event: StatePropertyEvent) {
-        self.journal.append(StatePropertyRecord {
-            timestamp: Utc::now(),
-            machine: self.key.ident,
-            path: self.key.path.to_string(),
-            event,
-        });
-    }
-}

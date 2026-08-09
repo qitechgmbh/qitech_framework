@@ -1,12 +1,24 @@
 use core::fmt;
 
+use chrono::DateTime;
+use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
 use crate::NumericValue;
 use crate::ScalarValue;
+use crate::ident::MachineIdentificationUnique;
 use crate::report::ResourceKind;
+
+// --- record ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventRecord<T> {
+    pub timestamp: DateTime<Utc>,
+    pub machine: MachineIdentificationUnique,
+    pub path: String,
+    pub event: T,
+}
 
 // --- resource error ---
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Error)]

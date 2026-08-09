@@ -3,9 +3,7 @@ use std::any::TypeId;
 use std::any::type_name;
 use std::marker::PhantomData;
 
-use chrono::Utc;
 use qitech_framework_core::report::CommandEvent;
-use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
@@ -15,6 +13,7 @@ use crate::machine::CommandHandle;
 use crate::machine::Machine;
 use crate::machine::error::ActResult;
 use crate::machine::error::BuildResult;
+use crate::resource::ResourceKey;
 
 impl<'a> BuildContext<'a> {
     pub fn command<'b, M>(&'b mut self, path: &'static str) -> CommandBuilder<'a, 'b, M>
@@ -108,16 +107,16 @@ where
             },
         );
 
+        let key = ResourceKey {
+            ident: self.root.ident,
+            path: self.path,
+        };
+
         self.root
             .journals_temp
-            .commands
-            .new_handle()
-            .append(CommandRecord {
-                timestamp: Utc::now(),
-                machine: self.root.ident,
-                path: self.path.to_string(),
-                event: CommandEvent::Registered,
-            });
+            .command
+            .new_handle(key)
+            .record(CommandEvent::Registered);
 
         Ok(())
     }

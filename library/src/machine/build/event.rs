@@ -46,7 +46,7 @@ where
             path: self.path,
         };
 
-        let journal = self.root.journals.events.new_handle();
+        let journal = self.root.journals.event.new_handle(key);
 
         Ok(EventEmitter {
             key,

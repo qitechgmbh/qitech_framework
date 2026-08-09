@@ -8,6 +8,7 @@ pub(crate) use bump_allocator::BumpAllocator;
 pub(crate) use bump_allocator::BumpAllocatorMark;
 
 mod journal;
+pub(crate) use journal::Journal;
 pub(crate) use journal::JournalHandle;
 pub(crate) use journal::Journals;
 
@@ -27,7 +28,7 @@ pub struct ResourceRegistry {
 }
 
 // --- key ---
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ResourceKey {
     pub ident: MachineIdentificationUnique,
     pub path: &'static str,

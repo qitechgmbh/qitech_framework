@@ -1,5 +1,3 @@
-use chrono::DateTime;
-use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
@@ -8,6 +6,7 @@ use crate::ScalarValue;
 use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::Constraints;
+use crate::report::EventRecord;
 use crate::report::OperationCapability;
 use crate::report::OperationOrigin;
 use crate::report::error::ActError;
@@ -16,11 +15,11 @@ use crate::report::types::ConstraintViolationError;
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MachinesReport {
-    pub config_property_records: Vec<ConfigPropertyRecord>,
-    pub state_property_records: Vec<StatePropertyRecord>,
+    pub config_property_records: Vec<EventRecord<ConfigPropertyEvent>>,
+    pub state_property_records: Vec<EventRecord<StatePropertyEvent>>,
     pub measurement_snapshots: Vec<MeasurementSnapshot>,
-    pub command_records: Vec<CommandRecord>,
-    pub event_records: Vec<EventEmitterRecord>,
+    pub command_records: Vec<EventRecord<CommandEvent>>,
+    pub event_records: Vec<EventRecord<String>>,
 }
 
 impl MachinesReport {
@@ -34,14 +33,6 @@ impl MachinesReport {
 }
 
 // --- config ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConfigPropertyRecord {
-    pub timestamp: DateTime<Utc>,
-    pub machine: MachineIdentificationUnique,
-    pub path: String,
-    pub event: ConfigPropertyEvent,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConfigPropertyEvent {
     Registered {
@@ -79,14 +70,6 @@ pub enum ConfigPropertyWriteError {
 
 // --- state ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatePropertyRecord {
-    pub timestamp: DateTime<Utc>,
-    pub machine: MachineIdentificationUnique,
-    pub path: String,
-    pub event: StatePropertyEvent,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StatePropertyEvent {
     Registered { value: ScalarValue },
     ValueChanged { value: ScalarValue },
@@ -102,14 +85,6 @@ pub struct MeasurementSnapshot {
 
 // --- command ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommandRecord {
-    pub timestamp: DateTime<Utc>,
-    pub machine: MachineIdentificationUnique,
-    pub path: String,
-    pub event: CommandEvent,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CommandEvent {
     Registered,
     CapabilityChanged(OperationCapability),
@@ -123,13 +98,4 @@ pub enum CommandExecuteError {
 
     #[error("command execution failed: {0}")]
     ExecutionError(ActError),
-}
-
-// --- event ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventEmitterRecord {
-    pub timestamp: DateTime<Utc>,
-    pub machine: MachineIdentificationUnique,
-    pub path: String,
-    pub data: String,
 }

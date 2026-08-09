@@ -254,21 +254,15 @@ impl<T: RuntimeTransport> Runtime<T> {
             ctx.state.commit();
             ctx.measurements.commit();
 
-            // --- merge records from temp journal into export journal ---
-            let journal = ctx.journals.config_property.new_handle();
-            ctx.journals_temp.config_property.drain_with(|record| {
-                journal.append(record);
-            });
-
-            let journal = ctx.journals.state_property.new_handle();
-            ctx.journals_temp.state_property.drain_with(|record| {
-                journal.append(record);
-            });
-
-            let journal = ctx.journals.commands.new_handle();
-            ctx.journals_temp.commands.drain_with(|record| {
-                journal.append(record);
-            });
+            // --- import records from temp journal into export journal ---
+            ctx.journals
+                .config_property
+                .import(ctx.journals_temp.config_property);
+            ctx.journals
+                .state_property
+                .import(ctx.journals_temp.state_property);
+            ctx.journals.command.import(ctx.journals_temp.command);
+            ctx.journals.event.import(ctx.journals_temp.event);
 
             // --- extract metadata ---
             let configs = ctx.config_registered;

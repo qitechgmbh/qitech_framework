@@ -1,9 +1,6 @@
-use chrono::Utc;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::CommandExecuteError;
-use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::ConfigPropertyEvent;
-use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::OperationOrigin;
@@ -95,18 +92,15 @@ impl<T: RuntimeTransport> Runtime<T> {
                     Err(e) => ConfigPropertyWriteOutcome::Rejected(e),
                 };
 
-                let record = ConfigPropertyRecord {
-                    timestamp: Utc::now(),
-                    machine: target,
-                    path: path.to_string(),
-                    event: ConfigPropertyEvent::Written {
+                self.journals.config_property.record(
+                    target,
+                    &path,
+                    ConfigPropertyEvent::Written {
                         value,
                         origin: OperationOrigin::Request { request_id },
                         outcome,
                     },
-                };
-
-                self.journals.record_config(record);
+                );
 
                 // --- process callback ---
                 let callback = handle.on_changed.as_ref();
@@ -151,12 +145,11 @@ impl<T: RuntimeTransport> Runtime<T> {
                         let reason = reason.clone();
                         let e = CommandExecuteError::Disabled { reason };
 
-                        self.journals.commands.new_handle().append(CommandRecord {
-                            timestamp: Utc::now(),
-                            machine: target,
-                            path,
-                            event: CommandEvent::Executed(Err(e.clone())),
-                        });
+                        self.journals.command.record(
+                            target,
+                            &path,
+                            CommandEvent::Executed(Err(e.clone())),
+                        );
 
                         return Err(RuntimeRequestError::MachineExecuteCommand(
                             MachineExecuteCommandError::ExecuteError(e),
@@ -168,12 +161,11 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let result = (handle.execute_fn)(instance.machine.as_mut())
                     .map_err(CommandExecuteError::ExecutionError);
 
-                self.journals.commands.new_handle().append(CommandRecord {
-                    timestamp: Utc::now(),
-                    machine: target,
-                    path,
-                    event: CommandEvent::Executed(result.clone()),
-                });
+                self.journals.command.record(
+                    target,
+                    &path,
+                    CommandEvent::Executed(result.clone()),
+                );
 
                 result
                     .map_err(MachineExecuteCommandError::ExecuteError)

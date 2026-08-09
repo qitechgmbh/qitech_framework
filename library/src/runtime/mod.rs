@@ -7,7 +7,6 @@ use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::report::CommandEvent;
-use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::MeasurementSnapshot;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
@@ -143,20 +142,17 @@ impl<T: RuntimeTransport> Runtime<T> {
         }
 
         // --- scan for capability updates ---
-        let journal = self.journals.commands.new_handle();
-
         for instance in &mut self.machines {
             for (path, handle) in &mut instance.commands {
                 if let Some(get_capability) = &handle.can_execute_fn {
                     let capability = (get_capability)(instance.machine.as_ref());
 
                     if capability != handle.capability_prev {
-                        journal.append(CommandRecord {
-                            timestamp: Utc::now(),
-                            machine: instance.ident,
-                            path: path.to_string(),
-                            event: CommandEvent::CapabilityChanged(capability.clone()),
-                        });
+                        self.journals.command.record(
+                            instance.ident,
+                            path,
+                            CommandEvent::CapabilityChanged(capability.clone()),
+                        );
                     }
 
                     handle.capability_prev = capability;
@@ -164,12 +160,12 @@ impl<T: RuntimeTransport> Runtime<T> {
             }
         }
 
-        self.journals.commands.drain_with(|x| {
+        self.journals.command.drain_with(|x| {
             self.report.machines.command_records.push(x);
         });
 
         // --- collect emitted events ---
-        self.journals.events.drain_with(|x| {
+        self.journals.event.drain_with(|x| {
             self.report.machines.event_records.push(x);
         });
 

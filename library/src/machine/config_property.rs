@@ -3,10 +3,8 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
 
-use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
-use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::ConstraintViolationError;
@@ -40,7 +38,7 @@ pub struct ConfigProperty<T: PropertyType> {
     pub(crate) as_parameter_constraints: fn(&T::Constraints) -> Constraints,
 
     // --- journal ---
-    pub(crate) journal: JournalHandle<ConfigPropertyRecord>,
+    pub(crate) journal: JournalHandle<ConfigPropertyEvent>,
 }
 
 impl<T: PropertyType> ConfigProperty<T> {
@@ -50,7 +48,7 @@ impl<T: PropertyType> ConfigProperty<T> {
 
     pub fn set(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         if value == *self.get_ref() {
-            self.record(ConfigPropertyEvent::Written {
+            self.journal.record(ConfigPropertyEvent::Written {
                 value: (self.into_scalar)(value),
                 origin: OperationOrigin::Machine,
                 outcome: ConfigPropertyWriteOutcome::Accepted { changed: false },
@@ -64,7 +62,7 @@ impl<T: PropertyType> ConfigProperty<T> {
 
         match &res {
             Ok(_) => {
-                self.record(ConfigPropertyEvent::Written {
+                self.journal.record(ConfigPropertyEvent::Written {
                     value: input,
                     origin: OperationOrigin::Machine,
                     outcome: ConfigPropertyWriteOutcome::Accepted { changed: true },
@@ -73,7 +71,7 @@ impl<T: PropertyType> ConfigProperty<T> {
 
             Err(e) => {
                 let err = ConfigPropertyWriteError::ConstraintViolation(e.clone());
-                self.record(ConfigPropertyEvent::Written {
+                self.journal.record(ConfigPropertyEvent::Written {
                     value: input,
                     origin: OperationOrigin::Machine,
                     outcome: ConfigPropertyWriteOutcome::Rejected(err),
@@ -105,7 +103,8 @@ impl<T: PropertyType> ConfigProperty<T> {
 
         // --- record event ---
         let value = (self.into_scalar)(state.default.clone());
-        self.record(ConfigPropertyEvent::DefaultChanged(value));
+        self.journal
+            .record(ConfigPropertyEvent::DefaultChanged(value));
         Ok(true)
     }
 
@@ -299,7 +298,8 @@ impl<T: PropertyType> ConfigProperty<T> {
 
         // --- record value ---
         let value = state.capability.clone();
-        self.record(ConfigPropertyEvent::CapabilityChanged(value));
+        self.journal
+            .record(ConfigPropertyEvent::CapabilityChanged(value));
     }
 
     fn set_constraints(&mut self, value: T::Constraints) -> Result<bool, ConstraintViolationError> {
@@ -321,17 +321,9 @@ impl<T: PropertyType> ConfigProperty<T> {
         let value = (self.as_parameter_constraints)(&state.constraints);
         drop(state);
 
-        self.record(ConfigPropertyEvent::ConstraintsChanged(value));
+        self.journal
+            .record(ConfigPropertyEvent::ConstraintsChanged(value));
         Ok(true)
-    }
-
-    fn record(&mut self, event: ConfigPropertyEvent) {
-        self.journal.append(ConfigPropertyRecord {
-            timestamp: Utc::now(),
-            machine: self.key.ident,
-            path: self.key.path.to_string(),
-            event,
-        });
     }
 }
 

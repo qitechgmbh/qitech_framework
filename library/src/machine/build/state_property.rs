@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
-use chrono::Utc;
 use qitech_framework_core::report::StatePropertyEvent;
-use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
@@ -57,28 +55,25 @@ where
             (),
         );
 
-        self.root
-            .journals_temp
-            .state_property
-            .new_handle()
-            .append(StatePropertyRecord {
-                timestamp: Utc::now(),
-                machine: self.root.ident,
-                path: self.path.to_string(),
-                event: StatePropertyEvent::Registered {
-                    value: T::into_scalar(self.value),
-                },
-            });
-
         let key = ResourceKey {
             ident: self.root.ident,
             path: self.path,
         };
 
+        self.root
+            .journals_temp
+            .state_property
+            .new_handle(key)
+            .record(StatePropertyEvent::Registered {
+                value: T::into_scalar(self.value),
+            });
+
+        let journal = self.root.journals.state_property.new_handle(key);
+
         Ok(StateProperty {
             key,
             p_value,
-            journal: self.root.journals.state_property.new_handle(),
+            journal,
             into_scalar: T::into_scalar,
         })
     }

@@ -2,45 +2,58 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use qitech_framework_core::report::CommandRecord;
-use qitech_framework_core::report::ConfigPropertyRecord;
-use qitech_framework_core::report::EventEmitterRecord;
-use qitech_framework_core::report::StatePropertyRecord;
+use chrono::Utc;
+use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::ConfigPropertyEvent;
+use qitech_framework_core::report::EventRecord;
+use qitech_framework_core::report::StatePropertyEvent;
+
+use crate::resource::ResourceKey;
 
 #[derive(Debug, Default)]
 pub(crate) struct Journals {
-    pub(crate) config_property: Journal<ConfigPropertyRecord>,
-    pub(crate) state_property: Journal<StatePropertyRecord>,
-    pub(crate) commands: Journal<CommandRecord>,
-    pub(crate) events: Journal<EventEmitterRecord>,
-}
-
-impl Journals {
-    pub(crate) fn record_config(&mut self, value: ConfigPropertyRecord) {
-        self.config_property.new_handle().append(value);
-    }
+    pub(crate) config_property: Journal<ConfigPropertyEvent>,
+    pub(crate) state_property: Journal<StatePropertyEvent>,
+    pub(crate) command: Journal<CommandEvent>,
+    pub(crate) event: Journal<String>,
 }
 
 #[derive(Debug)]
-pub(crate) struct Journal<T> {
-    buffer: Rc<RefCell<Vec<T>>>,
+pub(crate) struct Journal<T: Debug> {
+    buffer: Rc<RefCell<Vec<EventRecord<T>>>>,
 }
 
-impl<T> Journal<T> {
-    pub(crate) fn new_handle(&self) -> JournalHandle<T> {
+impl<T: Debug> Journal<T> {
+    pub(crate) fn record(&self, machine: MachineIdentificationUnique, path: &str, event: T) {
+        self.buffer.borrow_mut().push(EventRecord {
+            timestamp: Utc::now(),
+            machine,
+            path: path.to_string(),
+            event,
+        });
+    }
+
+    pub(crate) fn new_handle(&self, key: ResourceKey) -> JournalHandle<T> {
         JournalHandle {
             buffer: self.buffer.clone(),
+            key,
         }
     }
 
-    pub(crate) fn drain_with(&mut self, mut f: impl FnMut(T)) {
+    pub(crate) fn drain_with(&mut self, mut f: impl FnMut(EventRecord<T>)) {
         for entry in self.buffer.borrow_mut().drain(..) {
             f(entry);
         }
     }
+
+    pub(crate) fn import(&mut self, other: Journal<T>) {
+        let mut records = self.buffer.borrow_mut();
+        records.extend(other.buffer.borrow_mut().drain(..));
+    }
 }
 
-impl<T> Default for Journal<T> {
+impl<T: Debug> Default for Journal<T> {
     fn default() -> Self {
         Self {
             buffer: Default::default(),
@@ -50,11 +63,17 @@ impl<T> Default for Journal<T> {
 
 #[derive(Debug)]
 pub(crate) struct JournalHandle<T> {
-    buffer: Rc<RefCell<Vec<T>>>,
+    buffer: Rc<RefCell<Vec<EventRecord<T>>>>,
+    key: ResourceKey,
 }
 
 impl<T: Debug> JournalHandle<T> {
-    pub(crate) fn append(&self, entry: T) {
-        self.buffer.borrow_mut().push(entry);
+    pub(crate) fn record(&self, event: T) {
+        self.buffer.borrow_mut().push(EventRecord {
+            timestamp: Utc::now(),
+            machine: self.key.ident,
+            path: self.key.path.to_string(),
+            event,
+        });
     }
 }

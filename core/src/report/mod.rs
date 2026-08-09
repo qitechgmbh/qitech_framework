@@ -12,6 +12,7 @@ use crate::request::RuntimeResponse;
 mod types;
 pub use types::ConstraintViolationError;
 pub use types::Constraints;
+pub use types::EventRecord;
 pub use types::OperationCapability;
 pub use types::OperationOrigin;
 pub use types::ResourceAccessError;
@@ -19,16 +20,12 @@ pub use types::ResourceAccessError;
 mod machines;
 pub use machines::CommandEvent;
 pub use machines::CommandExecuteError;
-pub use machines::CommandRecord;
 pub use machines::ConfigPropertyEvent;
-pub use machines::ConfigPropertyRecord;
 pub use machines::ConfigPropertyWriteError;
 pub use machines::ConfigPropertyWriteOutcome;
-pub use machines::EventEmitterRecord;
 pub use machines::MachinesReport;
 pub use machines::MeasurementSnapshot;
 pub use machines::StatePropertyEvent;
-pub use machines::StatePropertyRecord;
 
 pub mod error;
 
