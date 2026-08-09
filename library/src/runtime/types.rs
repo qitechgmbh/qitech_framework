@@ -21,17 +21,18 @@ use crate::machine::Hardware;
 use crate::machine::Machine;
 use crate::resource::LifetimeTokenOwner;
 
-pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
-pub type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
-pub type BuildMachineFn = fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
+pub(crate) type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
+pub(crate) type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
+pub(crate) type BuildMachineFn =
+    fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
 
-pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
-pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
+pub(crate) type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
+pub(crate) type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
 
 pub(crate) struct MachineRegistryEntry {
-    pub type_id: TypeId,
-    pub type_name: &'static str,
-    pub build: BuildMachineFn,
+    pub(crate) type_id: TypeId,
+    pub(crate) type_name: &'static str,
+    pub(crate) build: BuildMachineFn,
 }
 
 pub(crate) struct MachineInstance {
@@ -43,9 +44,9 @@ pub(crate) struct MachineInstance {
 }
 
 pub(crate) struct Config {
-    pub requests_per_cycle_max: usize,
-    pub export_interval: Duration,
-    pub cycle_timeout: Duration,
+    pub(crate) requests_per_cycle_max: usize,
+    pub(crate) export_interval: Duration,
+    pub(crate) cycle_timeout: Duration,
 }
 
 impl Default for Config {

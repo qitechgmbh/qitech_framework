@@ -1,12 +1,14 @@
 use std::marker::PhantomData;
 
+use qitech_framework_core::report::error::BuildError;
 use serde::Serialize;
 
 use crate::machine::BuildContext;
-use crate::resource::EventEmitter;
+use crate::machine::EventEmitter;
+use crate::resource::ResourceKey;
 
 impl<'a> BuildContext<'a> {
-    pub fn measurement<'b, T>(&'b mut self, path: &'static str) -> EventBuilder<'a, 'b, T>
+    pub fn event<'b, T>(&'b mut self, path: &'static str) -> EventBuilder<'a, 'b, T>
     where
         'a: 'b,
         T: Serialize,
@@ -32,7 +34,24 @@ impl<'a, 'b, T> EventBuilder<'a, 'b, T>
 where
     T: Serialize,
 {
-    pub fn register(&mut self) -> EventEmitter<T> {
-        self.root.events.register::<T>(self.path)
+    pub fn build(&mut self) -> Result<EventEmitter<T>, BuildError> {
+        if self.root.events_registered.contains(self.path) {
+            return Err(BuildError::DuplicateResource(self.path.to_string()));
+        }
+
+        self.root.events_registered.insert(self.path);
+
+        let key = ResourceKey {
+            ident: self.root.ident,
+            path: self.path,
+        };
+
+        let journal = self.root.journals.events.new_handle();
+
+        Ok(EventEmitter {
+            key,
+            journal,
+            _marker: PhantomData,
+        })
     }
 }

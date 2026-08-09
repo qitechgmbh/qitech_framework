@@ -7,6 +7,7 @@ use qitech_framework::EnumProperty;
 use qitech_framework::Machine;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::ConfigProperty;
+use qitech_framework::machine::EventEmitter;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::MachineIdentification;
@@ -76,6 +77,7 @@ pub struct LaserV1 {
     subscribed_diameter_tolerance_lower: ConfigProperty<Option<Length>>,
 
     // --- state ---
+    in_tolerance_prev: bool,
     in_tolerance: StateProperty<bool>,
     subscribed_in_tolerance: StateProperty<Option<bool>>,
 
@@ -86,6 +88,9 @@ pub struct LaserV1 {
     diameter_x: Measurement<Option<Length>>,
     diameter_y: Measurement<Option<Length>>,
     roundness: Measurement<Option<f64>>,
+
+    // --- events ---
+    out_of_tolerance: EventEmitter<()>,
 
     // --- subscriptions ---
     subscription: Option<LaserV1Subscription>,
@@ -192,41 +197,40 @@ impl MachineBuild for LaserV1 {
             .build()?;
 
         // --- state ---
-        let in_tolerance = ctx
-            .state::<bool>("in_tolerance")
-            .initial(false)
-            .register()?;
+        let in_tolerance = ctx.state::<bool>("in_tolerance").initial(false).build()?;
 
         let subscribed_in_tolerance = ctx
             .state::<Option<bool>>("subscribed.in_tolerance")
             .initial(None)
-            .register()?;
+            .build()?;
 
         // --- measurements ---
         let subscribed_diameter = ctx
             .measurement::<Option<millimeter>>("subscribed.diameter")
-            .register()?;
+            .build()?;
 
         let subscribed_diameter_x = ctx
             .measurement::<Option<millimeter>>("subscribed.diameter_x")
-            .register()?;
+            .build()?;
 
         let subscribed_diameter_y = ctx
             .measurement::<Option<millimeter>>("subscribed.diameter_y")
-            .register()?;
+            .build()?;
 
         let subscribed_roundness = ctx
             .measurement::<Option<f64>>("subscribed.roundness")
-            .register()?;
+            .build()?;
 
         ctx.command("increment")
             .can_execute(Self::can_increment)
             .execute(Self::increment)
             .build()?;
 
+        let out_of_tolerance = ctx.event("out_of_tolerance").build()?;
+
         Ok(Self {
             device,
-            counter: ctx.measurement::<i64>("counter").initial(0).register()?,
+            counter: ctx.measurement::<i64>("counter").initial(0).build()?,
 
             diameter_target,
             diameter_tolerance_lower,
@@ -239,6 +243,7 @@ impl MachineBuild for LaserV1 {
             subscribed_diameter_tolerance_lower,
             subscribed_diameter_tolerance_upper,
             in_tolerance,
+            in_tolerance_prev: false,
             subscribed_in_tolerance,
             diameter: ctx
                 .measurement::<millimeter>("diameter")
@@ -246,14 +251,15 @@ impl MachineBuild for LaserV1 {
                 .record_max()
                 .record_avg()
                 .record_stddev()
-                .register()?,
+                .build()?,
             diameter_x: ctx
                 .measurement::<Option<millimeter>>("diameter_x")
-                .register()?,
+                .build()?,
             diameter_y: ctx
                 .measurement::<Option<millimeter>>("diameter_y")
-                .register()?,
-            roundness: ctx.measurement::<Option<f64>>("roundness").register()?,
+                .build()?,
+            roundness: ctx.measurement::<Option<f64>>("roundness").build()?,
+            out_of_tolerance,
             subscription: None,
             subscribed_diameter,
             subscribed_diameter_x,
@@ -284,7 +290,10 @@ impl Machine for LaserV1 {
         self.roundness.set(roundness);
 
         let in_tolerance = self.compute_in_tolerance();
-        self.in_tolerance.set(in_tolerance);
+        if self.in_tolerance.set(in_tolerance) && !in_tolerance {
+            // value changed from in tolerance -> out of tolerance
+            self.out_of_tolerance.emit(&());
+        };
 
         if let Some(subscription) = &mut self.subscription {
             // --- config ---
@@ -440,13 +449,6 @@ impl LaserV1 {
 
     /// Calculates if the current diameter is inside of the tolerance
     fn compute_in_tolerance(&mut self) -> bool {
-        // const DIAMETER_EPSILON: f64 = 0.0001; // in mm
-        //
-        // // early return true if the diameter is 0 to prevent warning happening before start
-        // if self.diameter.get_as::<millimeter>() < DIAMETER_EPSILON {
-        //     return true;
-        // }
-
         let target = self.diameter_target.get();
         let top = target + self.diameter_tolerance_upper.get();
         let bottom = target - self.diameter_tolerance_lower.get();

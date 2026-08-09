@@ -39,7 +39,7 @@ fn run_tui(config: RuntimeConfiguration) {
 
     thread::spawn(move || {
         let rt = Runtime::init(config, session_rt).unwrap();
-        rt.run();
+        _ = rt.run();
     });
 
     // run slightly faster than the export interval so we don't stay behind

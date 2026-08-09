@@ -186,7 +186,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             } => {
                 // --- ensure provider exists ---
                 if find_machine(&mut self.machines, provider).is_none() {
-                    return Err(MachineSubscribeError::ProviderNotFound)?;
+                    Err(MachineSubscribeError::ProviderNotFound)?;
                 }
 
                 // --- find subscriber ---
@@ -195,7 +195,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 };
 
                 if instance.subscriptions.contains_key(&provider) {
-                    return Err(MachineSubscribeError::AlreadySubscribed)?;
+                    Err(MachineSubscribeError::AlreadySubscribed)?;
                 }
 
                 let token_provider = LifetimeTokenOwner::new();

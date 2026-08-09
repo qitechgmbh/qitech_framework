@@ -45,7 +45,7 @@ where
         self
     }
 
-    pub fn register(self) -> Result<StateProperty<T::Type>, BuildError> {
+    pub fn build(self) -> Result<StateProperty<T::Type>, BuildError> {
         if !self.root.state_registered.insert(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }

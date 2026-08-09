@@ -44,9 +44,9 @@ impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptionalNumericConstraints<T> {
-    pub min: Option<T>,
-    pub max: Option<T>,
-    pub allow_none: bool,
+    pub(crate) min: Option<T>,
+    pub(crate) max: Option<T>,
+    pub(crate) allow_none: bool,
 }
 
 #[derive(Debug, Clone)]

@@ -19,6 +19,6 @@ pub mod __private {
 
     pub use crate::machine::MachineDescriptor;
     pub use crate::resource::constraints::EnumConstraints;
-    // pub use crate::resource::conversion::PropertyAdapter;
-    // pub use crate::resource::conversion::PropertyType;
+    pub use crate::resource::conversion::PropertyAdapter;
+    pub use crate::resource::conversion::PropertyType;
 }

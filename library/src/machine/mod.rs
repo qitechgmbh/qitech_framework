@@ -14,6 +14,9 @@ use error::SubscribeResult;
 mod build;
 pub use build::BuildContext;
 
+pub(crate) mod hardware;
+pub(crate) use hardware::Hardware;
+
 mod subscribe;
 pub use subscribe::RemoteProperty;
 pub use subscribe::SubscribeContext;
@@ -25,9 +28,6 @@ pub(crate) use config_property::ConfigPropertyHandle;
 mod state_property;
 pub use state_property::StateProperty;
 
-pub(crate) mod hardware;
-pub(crate) use hardware::Hardware;
-
 mod measurement;
 pub use measurement::Measurement;
 
@@ -36,26 +36,31 @@ pub(crate) use command::CommandCanExecuteFn;
 pub(crate) use command::CommandExecuteFn;
 pub(crate) use command::CommandHandle;
 
+mod event;
+pub use event::EventEmitter;
+
 pub trait Machine: Any {
-    /// defines the update cycle of a machine
+    /// Defines the update cycle of a machine.
     fn act(&mut self, now: Instant) -> ActResult;
 
-    // /// allows a machine to sync remote resources (from subscriptions)
+    /// Allows a machine to create remote properties.
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
         _ = ctx;
         Err(MachineSubscribeError::UnsupportedMachine)
     }
 
-    /// called when the machine is notified a subscription was terminated
+    /// Called when a machine is notified that a subscription was terminated.
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
-        _ = ident
+        _ = ident;
     }
 }
 
 pub trait MachineBuild: Sized {
+    /// Builds a machine from the provided build context.
     fn build(ctx: &mut BuildContext) -> BuildResult<Self>;
 }
 
+/// Provides static identification and schema information for a machine.
 pub trait MachineDescriptor {
     const IDENTIFICATION: MachineIdentification;
     const SCHEMA: &'static str;

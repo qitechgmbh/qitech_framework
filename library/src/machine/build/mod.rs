@@ -16,11 +16,10 @@ use crate::resource::PropertyRegistrar;
 
 mod command;
 mod config;
-// mod event;
+mod event;
 mod hardware;
 mod measurements;
 mod state_property;
-// mod resource;
 
 pub struct BuildContext<'a> {
     pub(crate) ident: MachineIdentificationUnique,
@@ -48,6 +47,7 @@ pub struct BuildContext<'a> {
     pub(crate) state_registered: HashSet<&'static str>,
     pub(crate) measurements_registered: HashSet<&'static str>,
     pub(crate) commands_registered: HashMap<&'static str, CommandHandle>,
+    pub(crate) events_registered: HashSet<&'static str>,
 }
 
 impl<'a> BuildContext<'a> {

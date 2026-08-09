@@ -234,6 +234,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 state_registered: Default::default(),
                 measurements_registered: Default::default(),
                 commands_registered: Default::default(),
+                events_registered: Default::default(),
             };
 
             let machine = match (entry.build)(&mut ctx) {

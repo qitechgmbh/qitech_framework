@@ -74,7 +74,7 @@ where
         self
     }
 
-    pub fn register(self) -> Result<Measurement<T::Type>, BuildError> {
+    pub fn build(self) -> Result<Measurement<T::Type>, BuildError> {
         if !self.root.measurements_registered.insert(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }

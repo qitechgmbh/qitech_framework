@@ -9,10 +9,13 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+rust-version = "1.90"
+edition = "2024"
+
 [workspace.dependencies]
 qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="530355c00baf6335f6085441c2a497d9ac060af6" }
 
-# qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="6065961ae2ed53ccd2cc6a1d8c232674d55db8de" }
 serde = { version = "1.0.217", default-features = false, features = ["derive"]}
 tokio = { version = "1", features = ["full"] }
 chrono= { version = "0.4.45", features = ["serde"]}
