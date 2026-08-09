@@ -11,13 +11,13 @@ use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
+use crate::machine::ActResult;
 use crate::machine::BuildContext;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::Machine;
 use crate::machine::config_property::ConfigProperty;
 use crate::machine::config_property::ConfigPropertyChangedCallbackFn;
 use crate::machine::config_property::ConfigPropertyState;
-use crate::machine::error::ActResult;
 use crate::resource::ResourceKey;
 use crate::resource::conversion::PropertyAdapter;
 use crate::resource::conversion::PropertyType;
@@ -181,7 +181,6 @@ where
 
         Ok(ConfigProperty {
             state: Rc::downgrade(&state),
-            key,
             p_value,
             into_scalar: T::into_scalar,
             validate_constraints: T::validate_constraints,

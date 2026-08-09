@@ -13,10 +13,9 @@ use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::with_uom_quantities;
 
+use crate::machine::ActResult;
 use crate::machine::Machine;
-use crate::machine::error::ActResult;
 use crate::resource::JournalHandle;
-use crate::resource::ResourceKey;
 use crate::resource::constraints::EnumConstraints;
 use crate::resource::constraints::NumericConstraints;
 use crate::resource::conversion::PropertyType;
@@ -27,7 +26,6 @@ pub type ConfigPropertyChangedCallbackFn = Box<dyn Fn(&mut dyn Machine) -> ActRe
 
 // --- property ---
 pub struct ConfigProperty<T: PropertyType> {
-    pub(crate) key: ResourceKey,
     pub(crate) state: Weak<RefCell<ConfigPropertyState<T>>>,
     pub(crate) p_value: NonNull<T>,
 

@@ -5,11 +5,9 @@ use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::with_uom_quantities;
 
 use crate::resource::JournalHandle;
-use crate::resource::ResourceKey;
 use crate::resource::conversion::PropertyType;
 
 pub struct StateProperty<T: PropertyType> {
-    pub(crate) key: ResourceKey,
     pub(crate) p_value: NonNull<T>,
     pub(crate) into_scalar: fn(T) -> ScalarValue,
     pub(crate) journal: JournalHandle<StatePropertyEvent>,
@@ -20,6 +18,10 @@ impl<T: PropertyType> StateProperty<T> {
         unsafe { self.p_value.as_ref() }
     }
 
+    /// Sets the property value and records the change.
+    ///
+    /// Returns `true` if the value changed, or `false` if the value was
+    /// already equal to the requested value.
     pub fn set(&mut self, value: T) -> bool {
         if value == *self.get_ref() {
             return false;

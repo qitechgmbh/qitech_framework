@@ -12,14 +12,14 @@ use crate::resource::ResourceRegistry;
 /// The property is only valid while the associated subscription is alive.
 /// Accessing the property after the subscription has ended will panic.
 pub struct RemoteProperty<T> {
-    value: NonNull<T>,
+    p_value: NonNull<T>,
     token: LifetimeToken,
 }
 
 impl<T> RemoteProperty<T> {
     pub fn get_ref(&self) -> &T {
         self.token.validate();
-        unsafe { self.value.as_ref() }
+        unsafe { self.p_value.as_ref() }
     }
 }
 
@@ -77,7 +77,7 @@ impl<'a> SubscribeContext<'a> {
 
         Ok(RemoteProperty {
             token: self.token.clone(),
-            value,
+            p_value: value,
         })
     }
 
@@ -91,7 +91,7 @@ impl<'a> SubscribeContext<'a> {
             .get_cached(self.provider, resource)?;
 
         Ok(RemoteProperty {
-            value,
+            p_value: value,
             token: self.token.clone(),
         })
     }
@@ -106,7 +106,7 @@ impl<'a> SubscribeContext<'a> {
             .get_cached(self.provider, resource)?;
 
         Ok(RemoteProperty {
-            value,
+            p_value: value,
             token: self.token.clone(),
         })
     }

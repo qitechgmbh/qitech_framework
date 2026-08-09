@@ -1,7 +1,7 @@
 use qitech_framework_core::report::OperationCapability;
 
+use crate::machine::ActResult;
 use crate::machine::Machine;
-use crate::machine::error::ActResult;
 
 // --- functions ---
 pub(crate) type CommandCanExecuteFn = Box<dyn Fn(&dyn Machine) -> OperationCapability>;

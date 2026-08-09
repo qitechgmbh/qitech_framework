@@ -161,11 +161,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                 let result = (handle.execute_fn)(instance.machine.as_mut())
                     .map_err(CommandExecuteError::ExecutionError);
 
-                self.journals.command.record(
-                    target,
-                    &path,
-                    CommandEvent::Executed(result.clone()),
-                );
+                self.journals
+                    .command
+                    .record(target, &path, CommandEvent::Executed(result.clone()));
 
                 result
                     .map_err(MachineExecuteCommandError::ExecuteError)

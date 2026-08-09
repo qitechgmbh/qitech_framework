@@ -3,10 +3,8 @@ use std::marker::PhantomData;
 use serde::Serialize;
 
 use crate::resource::JournalHandle;
-use crate::resource::ResourceKey;
 
 pub struct EventEmitter<T: Serialize> {
-    pub(super) key: ResourceKey,
     pub(super) journal: JournalHandle<String>,
     pub(super) _marker: PhantomData<T>,
 }

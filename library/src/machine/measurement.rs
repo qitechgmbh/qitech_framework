@@ -7,43 +7,35 @@ use qitech_framework_core::with_uom_quantities;
 use crate::resource::conversion::PropertyType;
 use crate::resource::conversion::StatisticValue;
 
-pub struct Measurement<T>
-where
-    T: PropertyType + StatisticValue,
-{
+pub struct Measurement<T: PropertyType + StatisticValue> {
     pub(crate) p_value: NonNull<T>,
     pub(crate) stats: MeasurementStatistics<T>,
 }
 
-impl<T> Measurement<T>
-where
-    T: PropertyType + StatisticValue,
-{
+impl<T: PropertyType + StatisticValue> Measurement<T> {
     pub fn get_ref(&self) -> &T {
         unsafe { self.p_value.as_ref() }
     }
 
     pub fn set(&mut self, value: T) -> bool {
-        let changed = unsafe { value != *self.p_value.as_ref() };
+        self.stats.update(value);
 
-        unsafe {
-            // always update stats
-            self.stats.update(value);
-        }
+        let stored = unsafe { *self.p_value.as_ref() };
 
-        if changed {
+        if value == stored {
+            false
+        } else {
             unsafe {
                 self.p_value.write(value);
             }
+            true
         }
-
-        changed
     }
 }
 
-impl<T: PropertyType + Copy> Measurement<T>
+impl<T> Measurement<T>
 where
-    T: PropertyType + StatisticValue,
+    T: PropertyType + StatisticValue + Copy,
 {
     pub fn get(&self) -> T {
         *self.get_ref()
@@ -107,7 +99,7 @@ pub(crate) struct MeasurementStatistics<T: StatisticValue> {
 }
 
 impl<T: StatisticValue> MeasurementStatistics<T> {
-    pub unsafe fn update(&mut self, value: T) {
+    pub fn update(&mut self, value: T) {
         let generation_now = self.p_generation.get();
         let is_new_generation = generation_now != self.generation;
 

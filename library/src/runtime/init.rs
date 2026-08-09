@@ -114,7 +114,6 @@ impl<T: RuntimeTransport> Runtime<T> {
                     .or_insert_with(Vec::new)
                     .push(Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
                         device,
-                        path,
                     }));
             }
         }

@@ -20,5 +20,4 @@ pub struct EtherCATDeviceIdentified {
 #[derive(Clone)]
 pub struct ModbusRTUDeviceIdentified {
     pub device: Rc<RefCell<dyn ModbusDevice>>,
-    pub path: String,
 }

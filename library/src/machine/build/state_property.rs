@@ -71,7 +71,6 @@ where
         let journal = self.root.journals.state_property.new_handle(key);
 
         Ok(StateProperty {
-            key,
             p_value,
             journal,
             into_scalar: T::into_scalar,

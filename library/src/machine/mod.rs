@@ -4,12 +4,14 @@ use std::time::Instant;
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
 pub use qitech_framework_core::report::OperationCapability;
+use qitech_framework_core::report::error::ActError;
+use qitech_framework_core::report::error::BuildError;
 pub use qitech_framework_core::request::MachineSubscribeError;
 
-pub mod error;
-use error::ActResult;
-use error::BuildResult;
-use error::SubscribeResult;
+pub type BuildResult<T> = Result<T, BuildError>;
+pub type ActResult = Result<(), ActError>;
+pub type CommandExecuteResult = Result<(), String>;
+pub type SubscribeResult = Result<(), MachineSubscribeError>;
 
 mod build;
 pub use build::BuildContext;
@@ -33,7 +35,6 @@ pub use measurement::Measurement;
 
 mod command;
 pub(crate) use command::CommandCanExecuteFn;
-pub(crate) use command::CommandExecuteFn;
 pub(crate) use command::CommandHandle;
 
 mod event;

@@ -7,12 +7,12 @@ use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
+use crate::machine::ActResult;
 use crate::machine::BuildContext;
+use crate::machine::BuildResult;
 use crate::machine::CommandCanExecuteFn;
 use crate::machine::CommandHandle;
 use crate::machine::Machine;
-use crate::machine::error::ActResult;
-use crate::machine::error::BuildResult;
 use crate::resource::ResourceKey;
 
 impl<'a> BuildContext<'a> {

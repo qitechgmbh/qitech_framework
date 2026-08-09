@@ -49,7 +49,6 @@ where
         let journal = self.root.journals.event.new_handle(key);
 
         Ok(EventEmitter {
-            key,
             journal,
             _marker: PhantomData,
         })
