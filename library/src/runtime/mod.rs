@@ -74,7 +74,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         self.write_ecat_inputs();
         self.process_requests();
-        self.run_machines();
+        self.run_machines(now);
 
         // --- sync cache so subscribed properties get the latest data next cycle ---
         self.resources.config_properties.sync_cache();
@@ -179,11 +179,11 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.export_count.set(self.export_count.get() + 1);
     }
 
-    fn run_machines(&mut self) {
+    fn run_machines(&mut self, now: Instant) {
         let mut i = 0;
 
         while i < self.machines.len() {
-            match self.machines[i].machine.act() {
+            match self.machines[i].machine.act(now) {
                 Ok(()) => i += 1,
 
                 Err(e) if e.impact != ActErrorImpact::Irrecoverable => i += 1,

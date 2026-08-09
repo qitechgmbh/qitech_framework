@@ -265,7 +265,9 @@ impl MachineBuild for LaserV1 {
 }
 
 impl Machine for LaserV1 {
-    fn act(&mut self) -> ActResult {
+    fn act(&mut self, now: Instant) -> ActResult {
+        _ = now;
+        
         self.update_device()?;
 
         if let Some(m) = self.device.borrow().measurement.clone() {

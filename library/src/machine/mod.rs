@@ -2,6 +2,7 @@ use std::any::Any;
 use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
+use std::time::Instant;
 
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
@@ -46,7 +47,7 @@ pub(crate) use instance::MachineInstance;
 
 pub trait Machine: Any {
     /// defines the update cycle of a machine
-    fn act(&mut self) -> ActResult;
+    fn act(&mut self, now: Instant) -> ActResult;
 
     // /// allows a machine to sync remote resources (from subscriptions)
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
