@@ -10,6 +10,7 @@ use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ConfigPropertyRecord;
 use qitech_framework_core::report::Constraints;
+use qitech_framework_core::report::EventEmitterRecord;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::RuntimeInitStatus;
@@ -162,6 +163,17 @@ impl AppState {
             );
         }
 
+        let mut events = IndexMap::new();
+        for (name, _) in &schema.events {
+            events.insert(
+                name.clone(),
+                EventEmitterField {
+                    label: name.clone(),
+                    records: Default::default(),
+                },
+            );
+        }
+
         self.machines.push(MachineEntry {
             title: schema.name.clone(),
             ident: ident_unique,
@@ -169,6 +181,7 @@ impl AppState {
             state,
             measurements,
             commands,
+            events,
             subscriptions: IndexSet::new(),
         });
     }
@@ -234,6 +247,7 @@ pub struct MachineEntry {
     pub state: IndexMap<String, StatePropertyField>,
     pub measurements: IndexMap<String, MeasurementField>,
     pub commands: IndexMap<String, CommandField>,
+    pub events: IndexMap<String, EventEmitterField>,
     pub subscriptions: IndexSet<MachineIdentificationUnique>,
 }
 
@@ -274,6 +288,11 @@ pub struct MeasurementField {
 pub struct CommandField {
     pub label: String,
     pub enabled: OperationCapability,
+}
+
+pub struct EventEmitterField {
+    pub label: String,
+    pub records: Vec<EventEmitterRecord>,
 }
 
 pub struct SubscriptionField {

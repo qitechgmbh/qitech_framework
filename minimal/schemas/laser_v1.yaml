@@ -51,12 +51,8 @@ measurements:
   subscribed.diameter_y: !?millimeter
   subscribed.roundness:  !?millimeter
 
-events: 
-  my_event: !event
-    some: !boolean
-
-    list: !?list !?millimeter
-
 commands:
   increment: !command
-  
+
+events: 
+  out_of_tolerance: !event

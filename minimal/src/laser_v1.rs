@@ -77,7 +77,6 @@ pub struct LaserV1 {
     subscribed_diameter_tolerance_lower: ConfigProperty<Option<Length>>,
 
     // --- state ---
-    in_tolerance_prev: bool,
     in_tolerance: StateProperty<bool>,
     subscribed_in_tolerance: StateProperty<Option<bool>>,
 
@@ -243,7 +242,6 @@ impl MachineBuild for LaserV1 {
             subscribed_diameter_tolerance_lower,
             subscribed_diameter_tolerance_upper,
             in_tolerance,
-            in_tolerance_prev: false,
             subscribed_in_tolerance,
             diameter: ctx
                 .measurement::<millimeter>("diameter")

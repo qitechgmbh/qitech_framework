@@ -168,6 +168,11 @@ impl<T: RuntimeTransport> Runtime<T> {
             self.report.machines.command_records.push(x);
         });
 
+        // --- collect emitted events ---
+        self.journals.events.drain_with(|x| {
+            self.report.machines.event_records.push(x);
+        });
+
         // --- export report ---
         self.session.send_report(self.report.clone()).unwrap();
 

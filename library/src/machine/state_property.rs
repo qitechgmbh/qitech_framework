@@ -24,12 +24,12 @@ impl<T: PropertyType> StateProperty<T> {
 
     pub fn set(&mut self, value: T) -> bool {
         if value == *self.get_ref() {
-            self.record(StatePropertyEvent::ValueChanged {
-                value: (self.into_scalar)(value),
-            });
-
             return false;
         }
+
+        self.record(StatePropertyEvent::ValueChanged {
+            value: (self.into_scalar)(value.clone()),
+        });
 
         unsafe {
             self.p_value.write(value);

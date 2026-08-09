@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use qitech_framework_core::report::CommandRecord;
 use qitech_framework_core::report::ConfigPropertyRecord;
-use qitech_framework_core::report::CustomEventRecord;
+use qitech_framework_core::report::EventEmitterRecord;
 use qitech_framework_core::report::StatePropertyRecord;
 
 #[derive(Debug, Default)]
@@ -12,7 +12,7 @@ pub(crate) struct Journals {
     pub(crate) config_property: Journal<ConfigPropertyRecord>,
     pub(crate) state_property: Journal<StatePropertyRecord>,
     pub(crate) commands: Journal<CommandRecord>,
-    pub(crate) events: Journal<CustomEventRecord>,
+    pub(crate) events: Journal<EventEmitterRecord>,
 }
 
 impl Journals {

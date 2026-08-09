@@ -20,7 +20,7 @@ pub struct MachinesReport {
     pub state_property_records: Vec<StatePropertyRecord>,
     pub measurement_snapshots: Vec<MeasurementSnapshot>,
     pub command_records: Vec<CommandRecord>,
-    pub event_records: Vec<CustomEventRecord>,
+    pub event_records: Vec<EventEmitterRecord>,
 }
 
 impl MachinesReport {
@@ -127,9 +127,9 @@ pub enum CommandExecuteError {
 
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CustomEventRecord {
+pub struct EventEmitterRecord {
     pub timestamp: DateTime<Utc>,
     pub machine: MachineIdentificationUnique,
     pub path: String,
-    pub data: Vec<u8>,
+    pub data: String,
 }

@@ -218,10 +218,8 @@ impl Tui {
                 self.state.ecat_status = status;
             }
 
-            RuntimeInitEvent::MachineBuildCompleted { ident, result } => {
-                if result.is_ok() {
-                    self.state.add_machine(ident);
-                }
+            RuntimeInitEvent::MachineBuildCompleted { ident, result } if result.is_ok() => {
+                self.state.add_machine(ident);
             }
 
             _ => {}
@@ -403,6 +401,18 @@ impl Tui {
                     _ = result;
                 }
             }
+        }
+
+        for record in report.event_records {
+            let Some(entry) = self.find_machine_mut(record.machine) else {
+                continue;
+            };
+
+            let Some(item) = entry.events.get_mut(&record.path) else {
+                continue;
+            };
+
+            item.records.push(record);
         }
     }
 
