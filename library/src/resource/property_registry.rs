@@ -38,7 +38,7 @@ impl<Metadata> PropertyRegistry<Metadata> {
     }
 
     pub fn get_cached<T: 'static>(
-        &mut self,
+        &self,
         ident: MachineIdentificationUnique,
         resource: &'static str,
     ) -> Result<NonNull<T>, ResourceAccessError> {

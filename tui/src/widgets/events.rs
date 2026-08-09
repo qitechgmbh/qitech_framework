@@ -174,38 +174,30 @@ impl EventsView {
             .get_index(self.selected)
             .expect("Selected invalid item");
 
-        let rows = field.records.iter().rev().map(|record| {
-            Row::new([
-                record.timestamp.format("%Y-%m-%d %H:%M:%S").to_string(),
-            ])
-        });
+        let rows = field
+            .records
+            .iter()
+            .rev()
+            .map(|record| Row::new([record.timestamp.format("%Y-%m-%d %H:%M:%S").to_string()]));
 
-        let table = Table::new(
-            rows,
-            [
-                Constraint::Min(1),
-            ],
-        )
-        .header(
-            Row::new(["Timestamp"])
-                .style(Style::default().add_modifier(Modifier::BOLD)),
-        )
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!(" Events ({name}) "))
-                .border_style(
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ),
-        )
-        .column_spacing(4)
-        .row_highlight_style(
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        );
+        let table = Table::new(rows, [Constraint::Min(1)])
+            .header(Row::new(["Timestamp"]).style(Style::default().add_modifier(Modifier::BOLD)))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(format!(" Events ({name}) "))
+                    .border_style(
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+            )
+            .column_spacing(4)
+            .row_highlight_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            );
 
         let mut state = TableState::default();
         state.select(Some(pos));

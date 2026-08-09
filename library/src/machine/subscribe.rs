@@ -7,16 +7,19 @@ use qitech_framework_core::with_uom_quantities;
 use crate::resource::LifetimeToken;
 use crate::resource::ResourceRegistry;
 
-// --- property ---
-pub struct RemoteProperty<T: Clone> {
-    p_cache: NonNull<T>,
+/// A handle to a property belonging to a subscribed machine.
+///
+/// The property is only valid while the associated subscription is alive.
+/// Accessing the property after the subscription has ended will panic.
+pub struct RemoteProperty<T> {
+    value: NonNull<T>,
     token: LifetimeToken,
 }
 
-impl<T: Clone> RemoteProperty<T> {
+impl<T> RemoteProperty<T> {
     pub fn get_ref(&self) -> &T {
         self.token.validate();
-        unsafe { self.p_cache.as_ref() }
+        unsafe { self.value.as_ref() }
     }
 }
 
@@ -55,65 +58,56 @@ with_uom_quantities!(impl_uom);
 pub struct SubscribeContext<'a> {
     pub(crate) token: LifetimeToken,
     pub(crate) provider: MachineIdentificationUnique,
-    pub(crate) resources: &'a mut ResourceRegistry,
+    pub(crate) resources: &'a ResourceRegistry,
 }
 
 impl<'a> SubscribeContext<'a> {
-    pub fn provider(&self) -> MachineIdentificationUnique {
+    pub const fn provider(&self) -> MachineIdentificationUnique {
         self.provider
     }
 
-    pub fn config<T: Clone + 'static>(
-        &mut self,
+    pub fn config<T: 'static>(
+        &self,
         resource: &'static str,
     ) -> Result<RemoteProperty<T>, MachineSubscribeError> {
-        let p_cache = self
+        let value = self
             .resources
             .config_properties
-            .get_cached(self.provider, resource)
-            .unwrap();
+            .get_cached(self.provider, resource)?;
 
-        let prop = RemoteProperty {
+        Ok(RemoteProperty {
             token: self.token.clone(),
-            p_cache,
-        };
-
-        Ok(prop)
+            value,
+        })
     }
 
     pub fn state<T: Clone + 'static>(
-        &mut self,
+        &self,
         resource: &'static str,
     ) -> Result<RemoteProperty<T>, MachineSubscribeError> {
-        let view = self
+        let value = self
             .resources
             .state_properties
-            .get_cached(self.provider, resource)
-            .unwrap();
+            .get_cached(self.provider, resource)?;
 
-        let prop = RemoteProperty {
-            p_cache: view,
+        Ok(RemoteProperty {
+            value,
             token: self.token.clone(),
-        };
-
-        Ok(prop)
+        })
     }
 
     pub fn measurement<T: Clone + 'static>(
-        &mut self,
+        &self,
         resource: &'static str,
     ) -> Result<RemoteProperty<T>, MachineSubscribeError> {
-        let view = self
+        let value = self
             .resources
             .measurements
-            .get_cached(self.provider, resource)
-            .unwrap();
+            .get_cached(self.provider, resource)?;
 
-        let prop = RemoteProperty {
-            p_cache: view,
+        Ok(RemoteProperty {
+            value,
             token: self.token.clone(),
-        };
-
-        Ok(prop)
+        })
     }
 }
