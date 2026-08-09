@@ -54,24 +54,24 @@ impl<T: RuntimeTransport> Runtime<T> {
         } in config.machines
         {
             let schema = MachineSchema::parse_str(schema)?;
+            let ident = schema.identification;
 
             if machine_registry
                 .insert(
                     schema.identification,
                     MachineRegistryEntry {
-                        build,
+                        schema: schema.clone(),
                         type_id,
                         type_name,
+                        build,
                     },
                 )
                 .is_some()
             {
-                return Err(RuntimeInitializeError::DuplicateMachine(
-                    schema.identification,
-                ));
+                return Err(RuntimeInitializeError::DuplicateMachine(ident));
             }
 
-            session.sync(schema.clone())?;
+            session.sync(schema)?;
         }
 
         // --- initialize ethercat ---
@@ -112,9 +112,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 hardware_registry
                     .entry(entry.ident)
                     .or_insert_with(Vec::new)
-                    .push(Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
-                        device,
-                    }));
+                    .push(Hardware::ModbusRTU(ModbusRTUDeviceIdentified { device }));
             }
         }
 
@@ -219,6 +217,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             let mut ctx = BuildContext {
                 ident: *ident_unique,
+                schema: &entry.schema,
                 export_count: export_count.clone(),
                 type_id: entry.type_id,
                 type_name: entry.type_name,

@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use qitech_framework_core::report::ConstraintViolationError;
 use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,19 +10,31 @@ pub struct NumericConstraints<T: Copy + PartialOrd + PartialEq> {
 }
 
 impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
-    pub fn new(min: Option<T>, max: Option<T>) -> Self {
-        Self::assert_valid(min, max);
-        Self { min, max }
+    pub fn new(min: Option<T>, max: Option<T>) -> Result<Self, ConstraintViolationError> {
+        Self::validate(min, max)?;
+        Ok(Self { min, max })
     }
 
-    pub fn set_min(&mut self, min: Option<T>) {
-        Self::assert_valid(min, self.max);
+    pub fn set_min(&mut self, min: Option<T>) -> Result<bool, ConstraintViolationError> {
+        Self::validate(min, self.max)?;
+
+        if self.min == min {
+            return Ok(false);
+        }
+
         self.min = min;
+        Ok(true)
     }
 
-    pub fn set_max(&mut self, max: Option<T>) {
-        Self::assert_valid(self.min, max);
+    pub fn set_max(&mut self, max: Option<T>) -> Result<bool, ConstraintViolationError> {
+        Self::validate(self.min, max)?;
+
+        if self.max == max {
+            return Ok(false);
+        }
+
         self.max = max;
+        Ok(true)
     }
 
     pub fn min(&self) -> Option<T> {
@@ -32,13 +45,17 @@ impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
         self.max
     }
 
-    fn assert_valid(min: Option<T>, max: Option<T>) {
-        if let (Some(min), Some(max)) = (min, max) {
-            assert!(
-                min < max,
-                "numeric constraint invariant violated: min must be smaller than max"
-            );
+    fn validate(min: Option<T>, max: Option<T>) -> Result<(), ConstraintViolationError> {
+        if let (Some(min), Some(max)) = (min, max)
+            && min > max
+        {
+            return Err(ConstraintViolationError::InvalidRange {
+                min: min.into(),
+                max: max.into(),
+            });
         }
+
+        Ok(())
     }
 }
 

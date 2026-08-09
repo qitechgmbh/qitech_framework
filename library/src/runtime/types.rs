@@ -8,6 +8,7 @@ use std::time::Duration;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::schema::MachineSchema;
 use qitech_lib::ethercat_hal::EtherCATControl;
 use qitech_lib::ethercat_hal::Mailbox;
 use qitech_lib::ethercat_hal::MetaSubdevice;
@@ -30,6 +31,7 @@ pub(crate) type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mail
 pub(crate) type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
 
 pub(crate) struct MachineRegistryEntry {
+    pub(crate) schema: MachineSchema,
     pub(crate) type_id: TypeId,
     pub(crate) type_name: &'static str,
     pub(crate) build: BuildMachineFn,

@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::OperationCapability;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::ActResult;
@@ -21,12 +22,6 @@ impl<'a> BuildContext<'a> {
         'a: 'b,
         M: Machine + 'static,
     {
-        assert_eq!(
-            TypeId::of::<M>(),
-            self.type_id,
-            "Attempted to register a command for the wrong machine type."
-        );
-
         CommandBuilder {
             root: self,
             path,
@@ -65,8 +60,15 @@ where
     }
 
     pub fn build(self) -> BuildResult<()> {
+        if !self.root.schema.commands.contains_key(self.path) {
+            return Err(BuildError::IllegalResourcePath {
+                kind: ResourceKind::Command,
+                path: self.path.to_string(),
+            });
+        };
+
         if self.root.type_id != TypeId::of::<M>() {
-            return Err(BuildError::MachineTypeMismatch {
+            return Err(BuildError::IllegalMachineType {
                 expected: self.root.type_name.to_string(),
                 received: type_name::<M>().to_string(),
             });

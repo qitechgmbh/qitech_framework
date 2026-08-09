@@ -9,6 +9,7 @@ use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationCapability;
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::ActResult;
@@ -84,7 +85,7 @@ where
         if self.root.type_id != TypeId::of::<M>() {
             // returning an error in the build call is not ergonomic thus we store
             // the error and invoke it on register();
-            self.on_external_write_error = Some(BuildError::MachineTypeMismatch {
+            self.on_external_write_error = Some(BuildError::IllegalMachineType {
                 expected: self.root.type_name.to_string(),
                 received: type_name::<M>().to_string(),
             });
@@ -104,6 +105,22 @@ where
     }
 
     pub fn build(self) -> Result<ConfigProperty<T::Type>, BuildError> {
+        let Some(def) = self.root.schema.config_properties.get(self.path) else {
+            return Err(BuildError::IllegalResourcePath {
+                kind: ResourceKind::ConfigProperty,
+                path: self.path.to_string(),
+            });
+        };
+
+        if !T::validate_scalar_property_definition(def) {
+            return Err(BuildError::IllegalResourceType {
+                kind: ResourceKind::ConfigProperty,
+                path: self.path.to_string(),
+                expected: format!("{}", def.kind),
+                received: type_name::<T>().to_string(),
+            });
+        }
+
         if self.root.config_registered.contains_key(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }

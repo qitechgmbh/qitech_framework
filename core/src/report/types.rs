@@ -198,6 +198,12 @@ pub enum ConstraintViolationError {
         max: NumericValue,
     },
 
+    #[error("minimum {min} cannot be greater than maximum {max}")]
+    InvalidRange {
+        min: NumericValue,
+        max: NumericValue,
+    },
+
     #[error("...")]
     NoAllowedVariants,
 

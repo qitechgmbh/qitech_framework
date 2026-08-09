@@ -104,7 +104,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     // --- pass one: Quantity definition ---
     writeln!(
         file,
-        "#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]"
+        "#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]"
     )?;
     writeln!(file, "pub enum Quantity {{")?;
 
@@ -118,7 +118,7 @@ fn create_quantity(out_dir: &String) -> io::Result<()> {
     for UomEntry { name, units } in &quantity {
         writeln!(
             file,
-            "#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]"
+            "#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]"
         )?;
         writeln!(file, "pub enum {name}Unit {{")?;
 

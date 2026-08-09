@@ -89,20 +89,24 @@ impl<T: PropertyType> ConfigProperty<T> {
 
     pub fn set_default(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         let state = self.state();
-        let state = state.borrow();
+        let mut state = state.borrow_mut();
 
         // --- abort if no change ---
         if state.default == value {
             return Ok(false);
         }
 
-        // --- validate coonstraints ---
+        // --- validate constraints ---
         (self.validate_constraints)(&state.constraints, &value)?;
+
+        // --- apply new value ---
+        state.default = value.clone();
 
         // --- record event ---
         let value = (self.into_scalar)(state.default.clone());
         self.journal
             .record(ConfigPropertyEvent::DefaultChanged(value));
+
         Ok(true)
     }
 
@@ -127,83 +131,66 @@ impl<T> ConfigProperty<T>
 where
     T: Copy + PartialOrd + PropertyType<Constraints = NumericConstraints<T>>,
 {
-    pub fn set_min_clamping(&mut self, value: T) {
+    pub fn set_min(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
+        let mut constraints = self.state().borrow().constraints.clone();
+        constraints.set_min(value)?;
+
+        self.set_constraints(constraints)
+    }
+
+    pub fn set_max(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
+        let mut constraints = self.state().borrow().constraints.clone();
+        constraints.set_max(value)?;
+
+        self.set_constraints(constraints)
+    }
+
+    pub fn set_min_clamped(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         let constraints = {
             let state = self.state();
             let mut state = state.borrow_mut();
 
+            let mut constraints = state.constraints.clone();
+            constraints.set_min(Some(value))?;
+
+            // --- clamp current value ---
             unsafe {
                 if self.p_value.read() < value {
                     self.p_value.write(value);
                 }
-
-                if state.default < value {
-                    state.default = value;
-                }
             }
 
-            let mut constraints = state.constraints.clone();
-            constraints.set_min(Some(value));
-            constraints
-        };
-
-        self.set_constraints(constraints)
-            .expect("Failed with clamped values");
-    }
-
-    pub fn set_min(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
-        let constraints = {
-            let state = self.state();
-            let state = state.borrow();
-
-            if state.constraints.min() == value {
-                return Ok(false);
+            // --- clamp default value ---
+            if state.default < value {
+                state.default = value;
             }
 
-            let mut constraints = state.constraints.clone();
-            constraints.set_min(value);
             constraints
         };
 
         self.set_constraints(constraints)
     }
 
-    pub fn set_max_clamping(&mut self, value: T) {
+    pub fn set_max_clamped(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         let constraints = {
             let state = self.state();
             let mut state = state.borrow_mut();
 
             let mut constraints = state.constraints.clone();
-            constraints.set_max(Some(value));
+            constraints.set_max(Some(value))?;
 
+            // --- clamp current value ---
             unsafe {
                 if self.p_value.read() > value {
                     self.p_value.write(value);
                 }
-
-                if state.default > value {
-                    state.default = value;
-                }
             }
 
-            constraints
-        };
-
-        self.set_constraints(constraints)
-            .expect("Failed with clamped values");
-    }
-
-    pub fn set_max(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
-        let constraints = {
-            let state = self.state();
-            let state = state.borrow();
-
-            if state.constraints.max() == value {
-                return Ok(false);
+            // --- clamp default value ---
+            if state.default > value {
+                state.default = value;
             }
 
-            let mut constraints = state.constraints.clone();
-            constraints.set_max(value);
             constraints
         };
 
@@ -277,8 +264,9 @@ impl<T: PropertyType> ConfigProperty<T> {
         let state = self.state();
         let state = state.borrow();
 
+        (self.validate_constraints)(&state.constraints, &value)?;
+
         unsafe {
-            (self.validate_constraints)(&state.constraints, &value)?;
             self.p_value.write(value);
         }
 
@@ -287,12 +275,15 @@ impl<T: PropertyType> ConfigProperty<T> {
 
     fn set_writable(&mut self, value: OperationCapability) {
         let state = self.state();
-        let state = state.borrow();
+        let mut state = state.borrow_mut();
 
         // --- abort if no change ---
         if value == state.capability {
             return;
         }
+
+        // --- apply the change ---
+        state.capability = value;
 
         // --- record value ---
         let value = state.capability.clone();
@@ -309,10 +300,11 @@ impl<T: PropertyType> ConfigProperty<T> {
             return Ok(false);
         }
 
-        // ensure both current and default value are still valid with new constraints
+        // --- ensure existing values are still within constraints ---
         (self.validate_constraints)(&value, self.get_ref())?;
         (self.validate_constraints)(&value, &state.default)?;
 
+        // --- apply the change ---
         state.constraints = value;
 
         // --- record event ---

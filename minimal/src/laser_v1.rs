@@ -161,7 +161,7 @@ impl MachineBuild for LaserV1 {
             .default(None)
             .on_external_changed(|m: &mut Self| {
                 if let Some(value) = m.diameter_target_min.get() {
-                    m.diameter_target.set_min_clamping(value);
+                    m.diameter_target.set_min_clamped(value);
                 }
 
                 Ok(())
@@ -173,7 +173,7 @@ impl MachineBuild for LaserV1 {
             .default(None)
             .on_external_changed(|m: &mut Self| {
                 if let Some(value) = m.diameter_target_max.get() {
-                    m.diameter_target.set_max_clamping(value);
+                    m.diameter_target.set_max_clamped(value);
                 }
 
                 Ok(())

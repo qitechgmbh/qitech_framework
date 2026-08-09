@@ -6,6 +6,7 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::schema::MachineSchema;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
 use crate::machine::CommandHandle;
@@ -23,10 +24,13 @@ mod state_property;
 
 pub struct BuildContext<'a> {
     pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) schema: &'a MachineSchema,
     pub(crate) export_count: Rc<Cell<u64>>,
 
-    /// type id of the machine, used for validating builders that accept <M: Machine>
+    /// Type ID of the machine, used to validate builders that accept `M: Machine`.
     pub(crate) type_id: TypeId,
+
+    /// Fully qualified type name of the machine.
     pub(crate) type_name: &'static str,
 
     pub(crate) ethercat_interface: Option<EtherCATThreadChannel>,
@@ -34,9 +38,10 @@ pub struct BuildContext<'a> {
 
     pub(crate) journals: &'a mut Journals,
 
-    // owned set of journals for recording during initiliazation.
-    // useful so we can record entries without putting them into the export
-    // journal in case the machine fails and we don't want to send out the events
+    /// Journals used to record events during machine initialization.
+    ///
+    /// These entries are kept separate from the export journals so that
+    /// initialization events are not exported if machine construction fails.
     pub(crate) journals_temp: Journals,
 
     pub(crate) config: PropertyRegistrar<'a>,

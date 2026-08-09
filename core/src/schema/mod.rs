@@ -67,6 +67,21 @@ pub enum ScalarPropertyKind {
     },
 }
 
+impl Display for ScalarPropertyKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Enum { variants } => {
+                write!(f, "enum ")?;
+                f.debug_list().entries(variants.list()).finish()
+            }
+            Self::String => write!(f, "string"),
+            Self::Boolean => write!(f, "boolean"),
+            Self::Integer => write!(f, "integer"),
+            Self::Float { semantic } => write!(f, "{semantic}"),
+        }
+    }
+}
+
 // --- measurements ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasurementDefinition {
@@ -85,6 +100,16 @@ pub enum MeasurementKind {
         semantic: FloatSemantic,
         statistics: MeasurementStatistics,
     },
+}
+
+impl Display for MeasurementKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Boolean => write!(f, "boolean"),
+            Self::Integer { .. } => write!(f, "integer"),
+            Self::Float { semantic, .. } => write!(f, "{semantic}"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -230,7 +255,7 @@ impl Display for FloatSemantic {
 }
 
 // --- float semantic ---
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum FloatSemantic {
     Plain,
     Fraction,

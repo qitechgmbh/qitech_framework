@@ -2,6 +2,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::report::ResourceKind;
+
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum BuildError {
     #[error("machine required a valid ethercat interface")]
@@ -30,6 +32,17 @@ pub enum BuildError {
     DeviceTypeMismatch { index: usize, expected: String },
 
     // --- resource errors ---
+    #[error("attempted to register resource not specified in the schema")]
+    IllegalResourcePath { kind: ResourceKind, path: String },
+
+    #[error("attempted to register resource with type other than specified in the schema")]
+    IllegalResourceType {
+        kind: ResourceKind,
+        path: String,
+        expected: String,
+        received: String,
+    },
+
     #[error("attempted to register resource {0} more than once")]
     DuplicateResource(String),
 
@@ -37,7 +50,7 @@ pub enum BuildError {
     MissingRequiredField(String),
 
     #[error("failed to configure hardware")]
-    MachineTypeMismatch { expected: String, received: String },
+    IllegalMachineType { expected: String, received: String },
 }
 
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]

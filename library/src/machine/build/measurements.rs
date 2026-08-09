@@ -1,6 +1,9 @@
+use std::any::type_name;
 use std::borrow::Cow;
 
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::schema::MeasurementKind;
 
 use crate::machine::BuildContext;
 use crate::machine::measurement::Measurement;
@@ -20,10 +23,6 @@ impl<'a> BuildContext<'a> {
             root: self,
             path,
             value: T::Type::default(),
-            record_min: false,
-            record_max: false,
-            record_avg: false,
-            record_stddev: false,
         }
     }
 }
@@ -34,14 +33,7 @@ where
 {
     root: &'b mut BuildContext<'a>,
     path: &'static str,
-
-    // --- configuration ---
     value: T::Type,
-
-    record_min: bool,
-    record_max: bool,
-    record_avg: bool,
-    record_stddev: bool,
 }
 
 impl<'a, 'b, T> MeasurementBuilder<'a, 'b, T>
@@ -54,27 +46,23 @@ where
         self
     }
 
-    pub fn record_min(mut self) -> Self {
-        self.record_min = true;
-        self
-    }
-
-    pub fn record_max(mut self) -> Self {
-        self.record_max = true;
-        self
-    }
-
-    pub fn record_avg(mut self) -> Self {
-        self.record_avg = true;
-        self
-    }
-
-    pub fn record_stddev(mut self) -> Self {
-        self.record_stddev = true;
-        self
-    }
-
     pub fn build(self) -> Result<Measurement<T::Type>, BuildError> {
+        let Some(def) = self.root.schema.measurements.get(self.path) else {
+            return Err(BuildError::IllegalResourcePath {
+                kind: ResourceKind::Measurement,
+                path: self.path.to_string(),
+            });
+        };
+
+        if !T::validate_measurement_definition(def) {
+            return Err(BuildError::IllegalResourceType {
+                kind: ResourceKind::ConfigProperty,
+                path: self.path.to_string(),
+                expected: format!("{}", def.kind),
+                received: type_name::<T>().to_string(),
+            });
+        }
+
         if !self.root.measurements_registered.insert(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }
@@ -86,48 +74,27 @@ where
             T::read,
         );
 
-        let min = if self.record_min {
-            Some(self.root.measurements.register::<T::Type>(
+        // --- create statistics ---
+        let mut register = |suffix: &str| {
+            self.root.measurements.register::<T::Type>(
                 self.root.ident,
-                Cow::Owned(format!("{}.{}", self.path, "min")),
+                Cow::Owned(format!("{}.{}", self.path, suffix)),
                 self.value,
                 T::read,
-            ))
-        } else {
-            None
+            )
         };
 
-        let max = if self.record_max {
-            Some(self.root.measurements.register::<T::Type>(
-                self.root.ident,
-                Cow::Owned(format!("{}.{}", self.path, "max")),
-                self.value,
-                T::read,
-            ))
-        } else {
-            None
-        };
+        let (min, max, avg, stddev) = match &def.kind {
+            MeasurementKind::Boolean => (None, None, None, None),
 
-        let avg = if self.record_avg {
-            Some(self.root.measurements.register::<T::Type>(
-                self.root.ident,
-                Cow::Owned(format!("{}.{}", self.path, "avg")),
-                self.value,
-                T::read,
-            ))
-        } else {
-            None
-        };
-
-        let stddev = if self.record_stddev {
-            Some(self.root.measurements.register::<T::Type>(
-                self.root.ident,
-                Cow::Owned(format!("{}.{}", self.path, "stddev")),
-                self.value,
-                T::read,
-            ))
-        } else {
-            None
+            MeasurementKind::Integer { statistics } | MeasurementKind::Float { statistics, .. } => {
+                (
+                    statistics.min.then(|| register("min")),
+                    statistics.max.then(|| register("max")),
+                    statistics.avg.then(|| register("avg")),
+                    statistics.stddev.then(|| register("stddev")),
+                )
+            }
         };
 
         let stats = MeasurementStatistics {

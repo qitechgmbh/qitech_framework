@@ -3,6 +3,11 @@ use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ScalarValueTypeMismatchError;
 use qitech_framework_core::report::ConstraintViolationError;
 use qitech_framework_core::report::Constraints;
+use qitech_framework_core::schema::FloatSemantic;
+use qitech_framework_core::schema::MeasurementDefinition;
+use qitech_framework_core::schema::MeasurementKind;
+use qitech_framework_core::schema::ScalarPropertyDefinition;
+use qitech_framework_core::schema::ScalarPropertyKind;
 use qitech_framework_core::with_uom_units;
 
 use crate::resource::conversion::PropertyType;
@@ -20,6 +25,10 @@ pub trait PropertyAdapter: 'static {
 
     fn into_scalar(value: Self::Type) -> ScalarValue;
     fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError>;
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool;
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool;
 
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
@@ -54,6 +63,15 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
         ScalarValue::String(Some(value.to_string()))
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        matches!(definition.kind, ScalarPropertyKind::String) && !definition.nullable
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        _ = definition;
+        false
     }
 
     fn validate_constraints(
@@ -127,6 +145,15 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
         ScalarValue::String(value.map(|v| v.to_string()))
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        matches!(definition.kind, ScalarPropertyKind::String)
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        _ = definition;
+        false
     }
 
     fn validate_constraints(
@@ -210,6 +237,14 @@ impl PropertyAdapter for bool {
         ScalarValue::Boolean(Some(value))
     }
 
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        matches!(definition.kind, ScalarPropertyKind::Boolean) && !definition.nullable
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        matches!(definition.kind, MeasurementKind::Boolean) && !definition.nullable
+    }
+
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
@@ -244,6 +279,14 @@ impl PropertyAdapter for Option<bool> {
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
         ScalarValue::Boolean(value)
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        matches!(definition.kind, ScalarPropertyKind::Boolean)
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        matches!(definition.kind, MeasurementKind::Boolean)
     }
 
     fn validate_constraints(
@@ -281,6 +324,14 @@ impl PropertyAdapter for i64 {
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
         ScalarValue::Integer(Some(value))
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        matches!(definition.kind, ScalarPropertyKind::Integer) && !definition.nullable
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        matches!(definition.kind, MeasurementKind::Integer { .. }) && !definition.nullable
     }
 
     fn validate_constraints(
@@ -336,6 +387,14 @@ impl PropertyAdapter for Option<i64> {
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
         ScalarValue::Integer(value)
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        matches!(definition.kind, ScalarPropertyKind::Integer)
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        matches!(definition.kind, MeasurementKind::Integer { .. })
     }
 
     fn validate_constraints(
@@ -407,6 +466,25 @@ impl PropertyAdapter for f64 {
         ScalarValue::Float(Some(value))
     }
 
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        !matches!(
+            definition.kind,
+            ScalarPropertyKind::Float {
+                semantic: FloatSemantic::Quantity(_)
+            }
+        ) && !definition.nullable
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        !matches!(
+            definition.kind,
+            MeasurementKind::Float {
+                semantic: FloatSemantic::Quantity(_),
+                ..
+            }
+        ) && !definition.nullable
+    }
+
     fn validate_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
@@ -460,6 +538,25 @@ impl PropertyAdapter for Option<f64> {
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
         ScalarValue::Float(value)
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        !matches!(
+            definition.kind,
+            ScalarPropertyKind::Float {
+                semantic: FloatSemantic::Quantity(_)
+            }
+        )
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        !matches!(
+            definition.kind,
+            MeasurementKind::Float {
+                semantic: FloatSemantic::Quantity(_),
+                ..
+            }
+        )
     }
 
     fn validate_constraints(
@@ -533,6 +630,14 @@ macro_rules! impl_uom_unit {
                 ScalarValue::Float(Some(value.get::<$unit>()))
             }
 
+            fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+                true
+            }
+
+            fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+                true
+            }
+
             fn validate_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
                 value: &Self::Type,
@@ -586,6 +691,14 @@ macro_rules! impl_uom_unit {
 
             fn into_scalar(value: Self::Type) -> ScalarValue {
                 ScalarValue::Float(value.map(|x| x.get::<$unit>()))
+            }
+
+            fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+                true
+            }
+
+            fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+                true
             }
 
             fn validate_constraints(
