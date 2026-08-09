@@ -20,20 +20,21 @@ pub use subscribe::SubscribeContext;
 
 mod config_property;
 pub use config_property::ConfigProperty;
+pub(crate) use config_property::ConfigPropertyHandle;
 
 mod state_property;
 pub use state_property::StateProperty;
 
 pub(crate) mod hardware;
-pub use hardware::Hardware;
+pub(crate) use hardware::Hardware;
 
 mod measurement;
 pub use measurement::Measurement;
 
-mod instance;
-pub(crate) use instance::ConfigPropertyChangedCallbackFn;
-pub(crate) use instance::ConfigPropertyHandle;
-pub(crate) use instance::MachineInstance;
+mod command;
+pub(crate) use command::CommandCanExecuteFn;
+pub(crate) use command::CommandExecuteFn;
+pub(crate) use command::CommandHandle;
 
 pub trait Machine: Any {
     /// defines the update cycle of a machine
@@ -56,6 +57,6 @@ pub trait MachineBuild: Sized {
 }
 
 pub trait MachineDescriptor {
-    const SCHEMA: &'static str;
     const IDENTIFICATION: MachineIdentification;
+    const SCHEMA: &'static str;
 }

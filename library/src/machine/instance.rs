@@ -9,14 +9,6 @@ use crate::machine::Machine;
 use crate::machine::error::ActResult;
 use crate::resource::LifetimeTokenOwner;
 
-pub(crate) struct MachineInstance {
-    pub(crate) ident: MachineIdentificationUnique,
-    pub(crate) machine: Box<dyn Machine>,
-    pub(crate) configs: HashMap<&'static str, ConfigPropertyHandle>,
-    pub(crate) commands: HashMap<&'static str, CommandHandle>,
-    pub(crate) subscriptions: HashMap<MachineIdentificationUnique, LifetimeTokenOwner>,
-}
-
 // --- config handle ---
 pub type ConfigPropertyWriteFn = Box<dyn Fn(ScalarValue) -> Result<bool, ConfigPropertyWriteError>>;
 pub type ConfigPropertyChangedCallbackFn = Box<dyn Fn(&mut dyn Machine) -> ActResult>;

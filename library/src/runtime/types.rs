@@ -15,8 +15,11 @@ use qitech_lib::ethercat_hal::TripleBufConsumer;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 
 use crate::machine::BuildContext;
+use crate::machine::CommandHandle;
+use crate::machine::ConfigPropertyHandle;
 use crate::machine::Hardware;
 use crate::machine::Machine;
+use crate::resource::LifetimeTokenOwner;
 
 pub type HardwareRegistry = HashMap<MachineIdentificationUnique, Vec<Hardware>>;
 pub type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
@@ -25,13 +28,21 @@ pub type BuildMachineFn = fn(&mut BuildContext) -> Result<Box<dyn Machine + 'sta
 pub type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
 pub type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
 
-pub struct MachineRegistryEntry {
+pub(crate) struct MachineRegistryEntry {
     pub type_id: TypeId,
     pub type_name: &'static str,
     pub build: BuildMachineFn,
 }
 
-pub struct Config {
+pub(crate) struct MachineInstance {
+    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) machine: Box<dyn Machine>,
+    pub(crate) configs: HashMap<&'static str, ConfigPropertyHandle>,
+    pub(crate) commands: HashMap<&'static str, CommandHandle>,
+    pub(crate) subscriptions: HashMap<MachineIdentificationUnique, LifetimeTokenOwner>,
+}
+
+pub(crate) struct Config {
     pub requests_per_cycle_max: usize,
     pub export_interval: Duration,
     pub cycle_timeout: Duration,

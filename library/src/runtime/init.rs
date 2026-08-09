@@ -18,7 +18,6 @@ use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use crate::Runtime;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
-use crate::machine::MachineInstance;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
 use crate::resource::Journals;
 use crate::resource::PropertyRegistry;
@@ -33,6 +32,7 @@ use crate::runtime::error::RuntimeInitializeResult;
 use crate::runtime::ethercat;
 use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
+use crate::runtime::types::MachineInstance;
 use crate::runtime::types::MachineRegistryEntry;
 
 impl<T: RuntimeTransport> Runtime<T> {

@@ -5,8 +5,8 @@ use qitech_framework_core::request::ReadMachineDeviceInfoError;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
-use crate::machine::MachineInstance;
 use crate::runtime::EtherCATController;
+use crate::runtime::types::MachineInstance;
 
 pub fn find_machine(
     machines: &mut [MachineInstance],

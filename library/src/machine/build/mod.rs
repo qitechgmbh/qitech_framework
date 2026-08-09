@@ -8,9 +8,9 @@ use std::rc::Rc;
 use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
+use crate::machine::CommandHandle;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::hardware::Hardware;
-use crate::machine::instance::CommandHandle;
 use crate::resource::Journals;
 use crate::resource::PropertyRegistrar;
 

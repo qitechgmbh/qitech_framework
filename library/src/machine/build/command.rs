@@ -10,11 +10,11 @@ use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
+use crate::machine::CommandCanExecuteFn;
+use crate::machine::CommandHandle;
 use crate::machine::Machine;
 use crate::machine::error::ActResult;
 use crate::machine::error::BuildResult;
-use crate::machine::instance::CommandCanExecuteFn;
-use crate::machine::instance::CommandHandle;
 
 impl<'a> BuildContext<'a> {
     pub fn command<'b, M>(&'b mut self, path: &'static str) -> CommandBuilder<'a, 'b, M>

@@ -15,21 +15,22 @@ use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::with_uom_quantities;
 
+use crate::machine::Machine;
+use crate::machine::error::ActResult;
 use crate::resource::JournalHandle;
 use crate::resource::ResourceKey;
 use crate::resource::constraints::EnumConstraints;
 use crate::resource::constraints::NumericConstraints;
 use crate::resource::conversion::PropertyType;
 
-pub struct ConfigPropertyState<T: PropertyType> {
-    pub(crate) default: T,
-    pub(crate) capability: OperationCapability,
-    pub(crate) constraints: T::Constraints,
-}
+// --- functions ---
+pub type ConfigPropertyWriteFn = Box<dyn Fn(ScalarValue) -> Result<bool, ConfigPropertyWriteError>>;
+pub type ConfigPropertyChangedCallbackFn = Box<dyn Fn(&mut dyn Machine) -> ActResult>;
 
+// --- property ---
 pub struct ConfigProperty<T: PropertyType> {
-    pub(crate) state: Weak<RefCell<ConfigPropertyState<T>>>,
     pub(crate) key: ResourceKey,
+    pub(crate) state: Weak<RefCell<ConfigPropertyState<T>>>,
     pub(crate) p_value: NonNull<T>,
 
     // --- conversion functions ---
@@ -38,7 +39,7 @@ pub struct ConfigProperty<T: PropertyType> {
         fn(&T::Constraints, &T) -> Result<(), ConstraintViolationError>,
     pub(crate) as_parameter_constraints: fn(&T::Constraints) -> Constraints,
 
-    // --- journals ---
+    // --- journal ---
     pub(crate) journal: JournalHandle<ConfigPropertyRecord>,
 }
 
@@ -332,4 +333,17 @@ impl<T: PropertyType> ConfigProperty<T> {
             event,
         });
     }
+}
+
+// --- state ---
+pub struct ConfigPropertyState<T: PropertyType> {
+    pub(crate) default: T,
+    pub(crate) capability: OperationCapability,
+    pub(crate) constraints: T::Constraints,
+}
+
+// --- handle ---
+pub(crate) struct ConfigPropertyHandle {
+    pub(crate) write: ConfigPropertyWriteFn,
+    pub(crate) on_changed: Option<ConfigPropertyChangedCallbackFn>,
 }

@@ -14,12 +14,12 @@ use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
-use crate::machine::ConfigPropertyChangedCallbackFn;
+use crate::machine::ConfigPropertyHandle;
 use crate::machine::Machine;
 use crate::machine::config_property::ConfigProperty;
+use crate::machine::config_property::ConfigPropertyChangedCallbackFn;
 use crate::machine::config_property::ConfigPropertyState;
 use crate::machine::error::ActResult;
-use crate::machine::instance::ConfigPropertyHandle;
 use crate::resource::ResourceKey;
 use crate::resource::conversion::PropertyAdapter;
 use crate::resource::conversion::PropertyType;
