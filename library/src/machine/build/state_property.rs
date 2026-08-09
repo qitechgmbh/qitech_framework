@@ -6,9 +6,9 @@ use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
-use crate::machine::ResourceKey;
 use crate::machine::StateProperty;
-use crate::conversion::PropertyAdapter;
+use crate::resource::ResourceKey;
+use crate::resource::conversion::PropertyAdapter;
 
 impl<'a> BuildContext<'a> {
     pub fn state<'b, T>(&'b mut self, path: &'static str) -> StatePropertyBuilder<'a, 'b, T>

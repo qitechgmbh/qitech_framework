@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use qitech_framework_core::with_uom_quantities;
 
-use crate::conversion::PropertyType;
-use crate::conversion::StatisticValue;
+use crate::resource::conversion::PropertyType;
+use crate::resource::conversion::StatisticValue;
 
 pub struct Measurement<T>
 where

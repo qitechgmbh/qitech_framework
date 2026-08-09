@@ -3,11 +3,11 @@ use std::borrow::Cow;
 use qitech_framework_core::report::error::BuildError;
 
 use crate::machine::BuildContext;
-use crate::conversion::ReadMeasurement;
-use crate::conversion::PropertyAdapter;
-use crate::conversion::StatisticValue;
 use crate::machine::measurement::Measurement;
 use crate::machine::measurement::MeasurementStatistics;
+use crate::resource::conversion::PropertyAdapter;
+use crate::resource::conversion::ReadMeasurement;
+use crate::resource::conversion::StatisticValue;
 
 impl<'a> BuildContext<'a> {
     pub fn measurement<'b, T>(&'b mut self, path: &'static str) -> MeasurementBuilder<'a, 'b, T>

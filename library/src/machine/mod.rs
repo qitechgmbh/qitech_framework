@@ -1,7 +1,4 @@
 use std::any::Any;
-use std::ptr::NonNull;
-use std::rc::Rc;
-use std::rc::Weak;
 use std::time::Instant;
 
 pub use qitech_framework_core::ident::MachineIdentification;
@@ -38,8 +35,6 @@ pub(crate) use instance::ConfigPropertyChangedCallbackFn;
 pub(crate) use instance::ConfigPropertyHandle;
 pub(crate) use instance::MachineInstance;
 
-use crate::resource::PropertyRegistry;
-
 pub trait Machine: Any {
     /// defines the update cycle of a machine
     fn act(&mut self, now: Instant) -> ActResult;
@@ -50,7 +45,7 @@ pub trait Machine: Any {
         Err(MachineSubscribeError::UnsupportedMachine)
     }
 
-    /// called when the machine is notified a subscription is canceled
+    /// called when the machine is notified a subscription was terminated
     fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
         _ = ident
     }
@@ -63,47 +58,4 @@ pub trait MachineBuild: Sized {
 pub trait MachineDescriptor {
     const SCHEMA: &'static str;
     const IDENTIFICATION: MachineIdentification;
-}
-
-// --- key ---
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ResourceKey {
-    pub ident: MachineIdentificationUnique,
-    pub path: &'static str,
-}
-
-// --- misc ---
-#[derive(Debug, Default)]
-pub struct LifetimeTokenOwner {
-    inner: Rc<()>,
-}
-
-impl LifetimeTokenOwner {
-    pub fn new() -> Self {
-        Self { inner: Rc::new(()) }
-    }
-
-    pub fn new_token(&self) -> LifetimeToken {
-        LifetimeToken {
-            inner: Rc::downgrade(&self.inner),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct LifetimeToken {
-    inner: Weak<()>,
-}
-
-impl LifetimeToken {
-    pub fn expired(&self) -> bool {
-        self.inner.upgrade().is_none()
-    }
-}
-
-// --- resources ---
-pub struct ResourceRegistry {
-    pub config_properties: PropertyRegistry,
-    pub state_properties: PropertyRegistry,
-    pub measurements: PropertyRegistry<unsafe fn(NonNull<()>) -> Option<f64>>,
 }

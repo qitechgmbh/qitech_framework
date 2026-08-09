@@ -22,8 +22,8 @@ use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_framework_core::session::RuntimeTransport;
 
 use crate::Runtime;
-use crate::machine::LifetimeTokenOwner;
 use crate::machine::SubscribeContext;
+use crate::resource::LifetimeTokenOwner;
 use crate::runtime::utils;
 use crate::runtime::utils::find_machine;
 

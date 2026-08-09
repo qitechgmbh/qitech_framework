@@ -5,9 +5,9 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::OperationCapability;
 
-use crate::machine::LifetimeTokenOwner;
 use crate::machine::Machine;
 use crate::machine::error::ActResult;
+use crate::resource::LifetimeTokenOwner;
 
 pub(crate) struct MachineInstance {
     pub(crate) ident: MachineIdentificationUnique,

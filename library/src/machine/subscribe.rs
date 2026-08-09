@@ -4,8 +4,8 @@ use qitech_framework_core::ident::MachineIdentificationUnique;
 use qitech_framework_core::request::MachineSubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
-use crate::machine::LifetimeToken;
-use crate::machine::ResourceRegistry;
+use crate::resource::LifetimeToken;
+use crate::resource::ResourceRegistry;
 
 // --- property ---
 pub struct RemoteProperty<T: Clone> {
@@ -15,10 +15,7 @@ pub struct RemoteProperty<T: Clone> {
 
 impl<T: Clone> RemoteProperty<T> {
     pub fn get_ref(&self) -> &T {
-        assert!(
-            !self.token.expired(),
-            "RemoteProperty outlived subscription"
-        );
+        self.token.validate();
         unsafe { self.p_cache.as_ref() }
     }
 }

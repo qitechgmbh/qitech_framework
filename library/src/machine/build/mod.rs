@@ -11,8 +11,8 @@ use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::hardware::Hardware;
 use crate::machine::instance::CommandHandle;
-use crate::resource::PropertyRegistrar;
 use crate::resource::Journals;
+use crate::resource::PropertyRegistrar;
 
 mod command;
 mod config;

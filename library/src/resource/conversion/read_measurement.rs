@@ -2,12 +2,14 @@ use std::ptr::NonNull;
 
 use qitech_framework_core::with_uom_units;
 
+pub type ReadMeasurementFn = unsafe fn(NonNull<()>) -> Option<f64>;
+
 pub trait ReadMeasurement {
-    /// Loads and converts a value from a raw, non-null pointer into 
+    /// Loads and converts a value from a raw, non-null pointer into
     /// the measurements export format Option<f64>;
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// `ptr` must point to a valid instance of `T`.
     unsafe fn read(ptr: NonNull<()>) -> Option<f64>;
 }

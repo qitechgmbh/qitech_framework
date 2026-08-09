@@ -15,11 +15,11 @@ use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::OperationOrigin;
 use qitech_framework_core::with_uom_quantities;
 
-use crate::__private::EnumConstraints;
-use crate::machine::ResourceKey;
-use crate::resource::constraints::NumericConstraints;
-use crate::conversion::PropertyType;
 use crate::resource::JournalHandle;
+use crate::resource::ResourceKey;
+use crate::resource::constraints::EnumConstraints;
+use crate::resource::constraints::NumericConstraints;
+use crate::resource::conversion::PropertyType;
 
 pub struct ConfigPropertyState<T: PropertyType> {
     pub(crate) default: T,

@@ -16,13 +16,13 @@ use qitech_framework_core::report::error::BuildError;
 use crate::machine::BuildContext;
 use crate::machine::ConfigPropertyChangedCallbackFn;
 use crate::machine::Machine;
-use crate::machine::ResourceKey;
 use crate::machine::config_property::ConfigProperty;
 use crate::machine::config_property::ConfigPropertyState;
-use crate::conversion::PropertyAdapter;
-use crate::conversion::PropertyType;
 use crate::machine::error::ActResult;
 use crate::machine::instance::ConfigPropertyHandle;
+use crate::resource::ResourceKey;
+use crate::resource::conversion::PropertyAdapter;
+use crate::resource::conversion::PropertyType;
 
 impl<'a> BuildContext<'a> {
     pub fn config<'b, T>(&'b mut self, path: &'static str) -> ConfigPropertyBuilder<'a, 'b, T>

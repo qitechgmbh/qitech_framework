@@ -6,9 +6,9 @@ use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::report::StatePropertyRecord;
 use qitech_framework_core::with_uom_quantities;
 
-use crate::machine::ResourceKey;
-use crate::conversion::PropertyType;
 use crate::resource::JournalHandle;
+use crate::resource::ResourceKey;
+use crate::resource::conversion::PropertyType;
 
 pub struct StateProperty<T: PropertyType> {
     pub(crate) key: ResourceKey,
