@@ -13,7 +13,7 @@ pub trait PropertyType: Debug + Clone + PartialEq + Default + 'static {
 }
 
 impl PropertyType for f64 {
-    type Constraints = NumericConstraints<f64>;
+    type Constraints = NumericConstraints;
 }
 
 impl PropertyType for Option<f64> {
@@ -21,7 +21,7 @@ impl PropertyType for Option<f64> {
 }
 
 impl PropertyType for i64 {
-    type Constraints = NumericConstraints<i64>;
+    type Constraints = NumericConstraints;
 }
 
 impl PropertyType for Option<i64> {
@@ -47,11 +47,11 @@ impl<const CAPACITY: usize> PropertyType for Option<heapless::String<CAPACITY>> 
 macro_rules! impl_uom {
     ($quantity:path, $unit_trait:path, $conversion_trait:path) => {
         impl PropertyType for $quantity {
-            type Constraints = NumericConstraints<$quantity>;
+            type Constraints = NumericConstraints;
         }
 
         impl PropertyType for Option<$quantity> {
-            type Constraints = OptionalNumericConstraints<$quantity>;
+            type Constraints = NumericConstraints;
         }
     };
 }

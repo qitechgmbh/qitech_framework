@@ -52,14 +52,14 @@ where
     pub fn build(self) -> Result<StateProperty<T::Type>, BuildError> {
         let Some(def) = self.root.schema.state_properties.get(self.path) else {
             return Err(BuildError::IllegalResourcePath {
-                kind: ResourceKind::ConfigProperty,
+                kind: ResourceKind::StateProperty,
                 path: self.path.to_string(),
             });
         };
 
         if !T::validate_scalar_property_definition(def) {
             return Err(BuildError::IllegalResourceType {
-                kind: ResourceKind::ConfigProperty,
+                kind: ResourceKind::StateProperty,
                 path: self.path.to_string(),
                 expected: format!("{}", def.kind),
                 received: type_name::<T>().to_string(),

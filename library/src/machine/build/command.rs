@@ -60,13 +60,15 @@ where
     }
 
     pub fn build(self) -> BuildResult<()> {
+        // --- validate schema ---
         if !self.root.schema.commands.contains_key(self.path) {
             return Err(BuildError::IllegalResourcePath {
                 kind: ResourceKind::Command,
                 path: self.path.to_string(),
             });
-        };
+        }
 
+        // --- validate machine type ---
         if self.root.type_id != TypeId::of::<M>() {
             return Err(BuildError::IllegalMachineType {
                 expected: self.root.type_name.to_string(),
@@ -74,32 +76,36 @@ where
             });
         }
 
+        // --- validate registration ---
         if self.root.commands_registered.contains_key(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }
 
+        // --- validate required fields ---
         let Some(execute) = self.execute else {
             return Err(BuildError::MissingRequiredField("execute".to_string()));
         };
 
+        // --- create callbacks ---
         let can_execute_fn = self.can_execute.map(|func| {
             Box::new(move |machine: &dyn Machine| -> OperationCapability {
                 let machine = (machine as &dyn Any)
                     .downcast_ref::<M>()
-                    .expect("machine type mismatch");
+                    .expect("validated machine type");
 
-                (func)(machine)
+                func(machine)
             }) as CommandCanExecuteFn
         });
 
         let execute_fn = Box::new(move |machine: &mut dyn Machine| -> ActResult {
             let machine = (machine as &mut dyn Any)
                 .downcast_mut::<M>()
-                .expect("machine type mismatch");
+                .expect("validated machine type");
 
-            (execute)(machine)
+            execute(machine)
         });
 
+        // --- register ---
         self.root.commands_registered.insert(
             self.path,
             CommandHandle {
@@ -109,6 +115,7 @@ where
             },
         );
 
+        // --- record registration ---
         let key = ResourceKey {
             ident: self.root.ident,
             path: self.path,

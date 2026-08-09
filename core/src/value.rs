@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NumericValue {
     Integer(Option<i64>),

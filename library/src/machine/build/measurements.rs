@@ -56,7 +56,7 @@ where
 
         if !T::validate_measurement_definition(def) {
             return Err(BuildError::IllegalResourceType {
-                kind: ResourceKind::ConfigProperty,
+                kind: ResourceKind::Measurement,
                 path: self.path.to_string(),
                 expected: format!("{}", def.kind),
                 received: type_name::<T>().to_string(),

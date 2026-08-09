@@ -7,7 +7,6 @@ use std::rc::Rc;
 
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteError;
-use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
@@ -66,13 +65,9 @@ where
         self
     }
 
-    pub fn allow_external_writes(mut self, value: bool) -> Self {
-        self.capability = if value {
-            OperationCapability::Forbidden {
-                reason: "Initial state".to_string(),
-            }
-        } else {
-            OperationCapability::Allowed
+    pub fn forbid_external_writes(mut self) -> Self {
+        self.capability = OperationCapability::Forbidden {
+            reason: "Initial state".to_string(),
         };
 
         self
@@ -84,7 +79,7 @@ where
     ) -> Self {
         if self.root.type_id != TypeId::of::<M>() {
             // returning an error in the build call is not ergonomic thus we store
-            // the error and invoke it on register();
+            // the error and yield it on register();
             self.on_external_write_error = Some(BuildError::IllegalMachineType {
                 expected: self.root.type_name.to_string(),
                 received: type_name::<M>().to_string(),
@@ -131,6 +126,9 @@ where
 
         let default = self.default.unwrap_or_default();
 
+        // --- ensure initial value fits into constraints ---
+        T::validate_constraints(&self.constraints, &default)?;
+
         let p_value = self.root.config.register::<T::Type>(
             self.root.ident,
             Cow::Borrowed(self.path),
@@ -140,8 +138,8 @@ where
 
         let state = ConfigPropertyState {
             default: default.clone(),
-            capability: self.capability,
-            constraints: self.constraints,
+            capability: self.capability.clone(),
+            constraints: self.constraints.clone(),
         };
 
         let key = ResourceKey {
@@ -155,8 +153,8 @@ where
             .new_handle(key)
             .record(ConfigPropertyEvent::Registered {
                 default: T::into_scalar(default.clone()),
-                capability: OperationCapability::Allowed,
-                constraints: Constraints::None,
+                capability: self.capability.clone(),
+                constraints: T::as_parameter_constraints(&self.constraints),
             });
 
         let state = Rc::new(RefCell::new(state));

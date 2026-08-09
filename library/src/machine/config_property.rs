@@ -3,6 +3,7 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
 
+use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteError;
@@ -129,7 +130,7 @@ impl<T: PropertyType + Copy> ConfigProperty<T> {
 
 impl<T> ConfigProperty<T>
 where
-    T: Copy + PartialOrd + PropertyType<Constraints = NumericConstraints<T>>,
+    T: Copy + PartialOrd + Into<NumericValue> + PropertyType<Constraints = NumericConstraints<T>>,
 {
     pub fn set_min(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
         let mut constraints = self.state().borrow().constraints.clone();

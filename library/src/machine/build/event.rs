@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
 use serde::Serialize;
 
@@ -34,7 +35,14 @@ impl<'a, 'b, T> EventBuilder<'a, 'b, T>
 where
     T: Serialize,
 {
-    pub fn build(&mut self) -> Result<EventEmitter<T>, BuildError> {
+    pub fn build(self) -> Result<EventEmitter<T>, BuildError> {
+        if !self.root.schema.events.contains_key(self.path) {
+            return Err(BuildError::IllegalResourcePath {
+                kind: ResourceKind::Event,
+                path: self.path.to_string(),
+            });
+        }
+
         if self.root.events_registered.contains(self.path) {
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }

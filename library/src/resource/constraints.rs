@@ -1,22 +1,29 @@
 use std::fmt::Debug;
 
+use qitech_framework_core::NumericValue;
 use qitech_framework_core::report::ConstraintViolationError;
 use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct NumericConstraints<T: Copy + PartialOrd + PartialEq> {
-    min: Option<T>,
-    max: Option<T>,
+pub struct NumericConstraints {
+    min: NumericValue,
+    max: NumericValue,
 }
 
-impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
-    pub fn new(min: Option<T>, max: Option<T>) -> Result<Self, ConstraintViolationError> {
-        Self::validate(min, max)?;
+impl NumericConstraints {
+    pub fn new(
+        min: NumericValue,
+        max: NumericValue,
+    ) -> Result<Self, ConstraintViolationError> {
+        Self::validate(&min, &max)?;
         Ok(Self { min, max })
     }
 
-    pub fn set_min(&mut self, min: Option<T>) -> Result<bool, ConstraintViolationError> {
-        Self::validate(min, self.max)?;
+    pub fn set_min(
+        &mut self,
+        min: NumericValue,
+    ) -> Result<bool, ConstraintViolationError> {
+        Self::validate(&min, &self.max)?;
 
         if self.min == min {
             return Ok(false);
@@ -26,8 +33,11 @@ impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
         Ok(true)
     }
 
-    pub fn set_max(&mut self, max: Option<T>) -> Result<bool, ConstraintViolationError> {
-        Self::validate(self.min, max)?;
+    pub fn set_max(
+        &mut self,
+        max: NumericValue,
+    ) -> Result<bool, ConstraintViolationError> {
+        Self::validate(&self.min, &max)?;
 
         if self.max == max {
             return Ok(false);
@@ -37,22 +47,43 @@ impl<T: Copy + PartialOrd + PartialEq> NumericConstraints<T> {
         Ok(true)
     }
 
-    pub fn min(&self) -> Option<T> {
-        self.min
+    pub fn min(&self) -> &NumericValue {
+        &self.min
     }
 
-    pub fn max(&self) -> Option<T> {
-        self.max
+    pub fn max(&self) -> &NumericValue {
+        &self.max
     }
 
-    fn validate(min: Option<T>, max: Option<T>) -> Result<(), ConstraintViolationError> {
-        if let (Some(min), Some(max)) = (min, max)
-            && min > max
-        {
-            return Err(ConstraintViolationError::InvalidRange {
-                min: min.into(),
-                max: max.into(),
-            });
+    fn validate(
+        min: &NumericValue,
+        max: &NumericValue,
+    ) -> Result<(), ConstraintViolationError> {
+        match (min, max) {
+            (NumericValue::Integer(Some(min)), NumericValue::Integer(Some(max))) => {
+                if min > max {
+                    return Err(ConstraintViolationError::InvalidRange {
+                        min: NumericValue::Integer(Some(*min)),
+                        max: NumericValue::Integer(Some(*max)),
+                    });
+                }
+            }
+
+            (NumericValue::Float(Some(min)), NumericValue::Float(Some(max))) => {
+                if min > max {
+                    return Err(ConstraintViolationError::InvalidRange {
+                        min: NumericValue::Float(Some(*min)),
+                        max: NumericValue::Float(Some(*max)),
+                    });
+                }
+            }
+
+            (NumericValue::Integer(_), NumericValue::Float(_))
+            | (NumericValue::Float(_), NumericValue::Integer(_)) => {
+                panic!("Numeric constraint min and max must have the same type");
+            }
+
+            _ => {}
         }
 
         Ok(())
@@ -122,11 +153,11 @@ pub struct OptionalEnumConstraints<T: PartialEq> {
 pub struct Unconstrained;
 
 // --- default ---
-impl<T: Copy + PartialOrd + PartialEq> Default for NumericConstraints<T> {
+impl Default for NumericConstraints {
     fn default() -> Self {
         Self {
-            min: None,
-            max: None,
+            min: NumericValue::Float(None),
+            max: NumericValue::Float(None),
         }
     }
 }

@@ -1,7 +1,10 @@
+use std::borrow::Cow;
+
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::report::ConstraintViolationError;
 use crate::report::ResourceKind;
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
@@ -43,14 +46,17 @@ pub enum BuildError {
         received: String,
     },
 
+    #[error("failed to configure hardware")]
+    IllegalMachineType { expected: String, received: String },
+
     #[error("attempted to register resource {0} more than once")]
     DuplicateResource(String),
 
     #[error("resource expected {0} to be set")]
     MissingRequiredField(String),
 
-    #[error("failed to configure hardware")]
-    IllegalMachineType { expected: String, received: String },
+    #[error("resource expected {0} to be set")]
+    ConstraintViolation(#[from] ConstraintViolationError),
 }
 
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
