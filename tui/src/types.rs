@@ -8,13 +8,13 @@ use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
-use qitech_framework_core::report::ConfigPropertyRecord;
+use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EtherCATStatus;
-use qitech_framework_core::report::EventEmitterRecord;
+use qitech_framework_core::report::EventRecord;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::RuntimeInitStatus;
-use qitech_framework_core::report::StatePropertyRecord;
+use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::schema::MachineSchema;
@@ -255,7 +255,7 @@ pub struct ConfigField {
     pub kind: ScalarPropertyKind,
     pub label: String,
     pub state: ConfigFieldState,
-    pub records: Vec<ConfigPropertyRecord>,
+    pub records: Vec<EventRecord<ConfigPropertyEvent>>,
 }
 
 pub enum ConfigFieldState {
@@ -272,7 +272,7 @@ pub struct StatePropertyField {
     pub kind: ScalarPropertyKind,
     pub label: String,
     pub state: StatePropertyFieldState,
-    pub records: Vec<StatePropertyRecord>,
+    pub records: Vec<EventRecord<StatePropertyEvent>>,
 }
 
 pub enum StatePropertyFieldState {
@@ -292,7 +292,7 @@ pub struct CommandField {
 
 pub struct EventEmitterField {
     pub label: String,
-    pub records: Vec<EventEmitterRecord>,
+    pub records: Vec<EventRecord<String>>,
 }
 
 pub struct SubscriptionField {

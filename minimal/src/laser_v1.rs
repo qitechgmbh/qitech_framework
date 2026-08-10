@@ -18,12 +18,12 @@ use qitech_framework::machine::OperationCapability;
 use qitech_framework::machine::RemoteProperty;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine::SubscribeContext;
-use qitech_framework::machine::error::ActError;
-use qitech_framework::machine::error::ActErrorImpact;
-use qitech_framework::machine::error::ActErrorKind;
-use qitech_framework::machine::error::ActResult;
-use qitech_framework::machine::error::BuildResult;
-use qitech_framework::machine::error::SubscribeResult;
+use qitech_framework::machine::ActError;
+use qitech_framework::machine::ActErrorImpact;
+use qitech_framework::machine::ActErrorKind;
+use qitech_framework::machine::ActResult;
+use qitech_framework::machine::BuildResult;
+use qitech_framework::machine::SubscribeResult;
 use qitech_framework::machine_build;
 use qitech_framework::units::Length;
 use qitech_framework::units::length::millimeter;
@@ -245,10 +245,6 @@ impl MachineBuild for LaserV1 {
             subscribed_in_tolerance,
             diameter: ctx
                 .measurement::<millimeter>("diameter")
-                .record_min()
-                .record_max()
-                .record_avg()
-                .record_stddev()
                 .build()?,
             diameter_x: ctx
                 .measurement::<Option<millimeter>>("diameter_x")

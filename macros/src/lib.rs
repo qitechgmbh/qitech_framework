@@ -82,7 +82,15 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn validate_constraints(
+            fn validate_scalar_property_definition(definition: &qitech_framework::__private::ScalarPropertyDefinition) -> bool {
+                true
+            }
+
+            fn validate_measurement_definition(definition: &qitech_framework::__private::MeasurementDefinition) -> bool {
+                true
+            }
+
+            fn apply_constraints(
                 constraints: &<Self::Type as qitech_framework::__private::PropertyType>::Constraints,
                 value: &Self::Type,
             ) -> Result<(), qitech_framework::__private::ConstraintViolationError> {
@@ -97,7 +105,7 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn as_parameter_constraints(
+            fn as_constraints(
                 constraints: &<Self::Type as qitech_framework::__private::PropertyType>::Constraints,
             ) -> qitech_framework::__private::Constraints {
                 qitech_framework::__private::Constraints::Enum {
@@ -107,7 +115,6 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
                         .cloned()
                         .map(Self::into_scalar)
                         .collect(),
-                    nullable: false,
                 }
             }
         }

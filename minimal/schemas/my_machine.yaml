@@ -1,0 +1,8 @@
+qms_version: 1.0
+revision: 1
+
+identification:
+  name: my_machine
+  vendor_id: 0
+  machine_id: 1
+

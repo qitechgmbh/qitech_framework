@@ -43,13 +43,13 @@ measurements:
 
   diameter_x: !millimeter
   diameter_y: !millimeter
-  roundness:  !millimeter
+  roundness:  !float
 
   # subscribed test
   subscribed.diameter:   !?millimeter
   subscribed.diameter_x: !?millimeter
   subscribed.diameter_y: !?millimeter
-  subscribed.roundness:  !?millimeter
+  subscribed.roundness:  !?float
 
 commands:
   increment: !command

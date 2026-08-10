@@ -1,5 +1,4 @@
 use crossterm::event::KeyCode;
-use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
@@ -425,36 +424,40 @@ impl ConfigPage {
         let rows: Vec<Row> = match constraints {
             Constraints::None => vec![Row::default()],
 
-            Constraints::Numeric { min, max, nullable } => {
-                let mut rows = vec![Row::new(["Nullable".to_string(), nullable.to_string()])];
+            Constraints::Numeric { min, max } => {
+                let mut rows = vec![Row::new(["Nullable".to_string()])];
 
                 rows.push(Row::new([
                     "Min".to_string(),
                     match min {
-                        NumericValue::Integer(value) => match value {
+                        ScalarValue::Integer(value) => match value {
                             Some(value) => format!("{value}"),
                             None => "null".to_string(),
                         },
 
-                        NumericValue::Float(value) => match value {
+                        ScalarValue::Float(value) => match value {
                             Some(value) => format!("{value}"),
                             None => "null".to_string(),
                         },
+
+                        _ => unreachable!()
                     },
                 ]));
 
                 rows.push(Row::new([
                     "Max".to_string(),
                     match max {
-                        NumericValue::Integer(value) => match value {
+                        ScalarValue::Integer(value) => match value {
                             Some(value) => format!("{value}"),
                             None => "null".to_string(),
                         },
 
-                        NumericValue::Float(value) => match value {
+                        ScalarValue::Float(value) => match value {
                             Some(value) => format!("{value}"),
                             None => "null".to_string(),
                         },
+
+                        _ => unreachable!()
                     },
                 ]));
 
@@ -465,17 +468,14 @@ impl ConfigPage {
                 min_length,
                 max_length,
                 pattern,
-                nullable,
             } => {
-                let mut rows = vec![Row::new(["Nullable".to_string(), nullable.to_string()])];
+                let mut rows = vec![];
 
                 if let Some(min_length) = min_length {
                     rows.push(Row::new(["Min length".to_string(), min_length.to_string()]));
                 }
 
-                if let Some(max_length) = max_length {
-                    rows.push(Row::new(["Max length".to_string(), max_length.to_string()]));
-                }
+                rows.push(Row::new(["Max length".to_string(), max_length.to_string()]));
 
                 if let Some(pattern) = pattern {
                     rows.push(Row::new(["Pattern".to_string(), pattern.to_string()]));
@@ -484,9 +484,8 @@ impl ConfigPage {
                 rows
             }
 
-            Constraints::Enum { allowed, nullable } => vec![
+            Constraints::Enum { allowed } => vec![
                 Row::new(["Allowed".to_string(), format!("{allowed:?}")]),
-                Row::new(["Nullable".to_string(), nullable.to_string()]),
             ],
         };
 

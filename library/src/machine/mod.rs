@@ -4,8 +4,10 @@ use std::time::Instant;
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
 pub use qitech_framework_core::report::OperationCapability;
-use qitech_framework_core::report::error::ActError;
-use qitech_framework_core::report::error::BuildError;
+pub use qitech_framework_core::report::error::ActError;
+pub use qitech_framework_core::report::error::ActErrorImpact;
+pub use qitech_framework_core::report::error::ActErrorKind;
+pub use qitech_framework_core::report::error::BuildError;
 pub use qitech_framework_core::request::MachineSubscribeError;
 
 pub type BuildResult<T> = Result<T, BuildError>;
