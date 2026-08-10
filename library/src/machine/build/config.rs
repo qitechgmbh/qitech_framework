@@ -67,7 +67,7 @@ where
     T: PropertyAdapter + 'static,
     T::Type: PropertyType<Constraints = NumericConstraints<T::Type>> + PartialOrd + Copy,
 {
-    pub fn min(mut self, value: T::Input) -> Self {
+    pub fn minimum(mut self, value: T::Input) -> Self {
         let value = T::convert_input(value);
 
         if let Some(max) = self.constraints.max
@@ -85,7 +85,7 @@ where
         self
     }
 
-    pub fn max(mut self, value: T::Input) -> Self {
+    pub fn maximum(mut self, value: T::Input) -> Self {
         let value = T::convert_input(value);
 
         if let Some(min) = self.constraints.min
@@ -105,7 +105,7 @@ where
 }
 
 impl<'a, 'b, const CAPACITY: usize> ConfigPropertyBuilder<'a, 'b, heapless::String<CAPACITY>> {
-    pub fn min_length(mut self, value: usize) -> Self {
+    pub fn length_min(mut self, value: usize) -> Self {
         if value > CAPACITY {
             self.constraints_error = Some(ConstraintViolationError::IllegalRange {
                 min: ScalarValue::Integer(Some(value as i64)),
