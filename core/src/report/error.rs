@@ -80,8 +80,8 @@ pub enum ActErrorKind {
     #[error("hardware fault: {0}")]
     HardwareFault(String),
 
-    #[error("validation failed: {0}")]
-    ValidationFailed(String),
+    #[error(transparent)]
+    ConstraintViolation(#[from] ConstraintViolationError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
