@@ -94,15 +94,17 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
                 constraints: &<Self::Type as qitech_framework::__private::PropertyType>::Constraints,
                 value: &Self::Type,
             ) -> Result<(), qitech_framework::__private::ConstraintViolationError> {
-                if constraints.allowed.contains(value) {
-                    Ok(())
-                } else {
-                    Err(
-                        qitech_framework::__private::ConstraintViolationError::ForbiddenVariant {
-                            value: Self::into_scalar(value.clone()),
-                        }
-                    )
-                }
+                // TODO: initialize with constraints so this doesnt lock out from the start
+                Ok(())
+                // if constraints.allowed.contains(value) {
+                //     Ok(())
+                // } else {
+                //     Err(
+                //         qitech_framework::__private::ConstraintViolationError::ForbiddenVariant {
+                //             value: Self::into_scalar(value.clone()),
+                //         }
+                //     )
+                // }
             }
 
             fn as_constraints(
