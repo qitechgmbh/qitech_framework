@@ -15,7 +15,6 @@ use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
-use crate::Runtime;
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
@@ -23,6 +22,7 @@ use crate::resource::Journals;
 use crate::resource::PropertyRegistry;
 use crate::resource::ResourceRegistry;
 use crate::runtime::MachineRegistry;
+use crate::runtime::Runtime;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::config::EtherCATMode;
 use crate::runtime::config::MachineRegistration;
@@ -256,9 +256,11 @@ impl<T: RuntimeTransport> Runtime<T> {
             ctx.journals
                 .config_property
                 .import(ctx.journals_temp.config_property);
+
             ctx.journals
                 .state_property
                 .import(ctx.journals_temp.state_property);
+
             ctx.journals.command.import(ctx.journals_temp.command);
             ctx.journals.event.import(ctx.journals_temp.event);
 

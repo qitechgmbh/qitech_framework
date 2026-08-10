@@ -8,12 +8,14 @@ use crate::report::ResourceKind;
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum BuildError {
     // --- machine / hardware errors ---
-
     #[error("machine type is not registered")]
     MachineTypeNotRegistered,
 
     #[error("expected a valid EtherCAT interface")]
     ExpectedEtherCATInterface,
+
+    #[error("expected a valid EtherCAT interface: {0}")]
+    EtherCATConfigureError(String),
 
     #[error("expected hardware at index {index}")]
     ExpectedHardwareAtIndex { index: usize },
@@ -58,6 +60,12 @@ pub enum BuildError {
 
     #[error("constraint violation: {0}")]
     ConstraintViolation(#[from] ConstraintViolationError),
+}
+
+impl From<anyhow::Error> for BuildError {
+    fn from(err: anyhow::Error) -> Self {
+        BuildError::EtherCATConfigureError(err.to_string())
+    }
 }
 
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]

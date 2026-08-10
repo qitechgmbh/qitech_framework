@@ -80,15 +80,20 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.resources.state_properties.sync_cache();
         self.resources.measurements.sync_cache();
 
-        // self.resources.sync_caches();
         self.write_ecat_outputs();
+
+        // --- record timings ---
+        self.report
+            .timings
+            .record(now.elapsed(), self.config.cycle_period);
+
+        // --- export if due ---
         self.export_report_if_due(now);
 
+        // --- sleep remaining duration ---
         let elapsed = now.elapsed();
         if let Some(remaining) = self.config.cycle_period.checked_sub(elapsed) {
             sleep(remaining);
-        } else {
-            // cycle overran its budget
         }
 
         Ok(())
@@ -222,7 +227,6 @@ impl<T: RuntimeTransport> Runtime<T> {
             let input_slice = &inputs[meta_dev.start_tx..meta_dev.end_tx];
             let input_bits_slice = BitSlice::<u8, Lsb0>::from_slice(input_slice);
 
-            // why are we ignoring these errors ?
             let mut dev = dev.borrow_mut();
             _ = dev.input(input_bits_slice);
             _ = dev.input_post_process();
@@ -244,7 +248,6 @@ impl<T: RuntimeTransport> Runtime<T> {
             let output_slice = &mut outputs[meta_dev.start_rx..meta_dev.end_rx];
             let output_bits = BitSlice::<u8, Lsb0>::from_slice_mut(output_slice);
 
-            // why are we ignoring these errors ?
             let mut dev = dev.borrow_mut();
             _ = dev.output_pre_process();
             _ = dev.output(output_bits);

@@ -131,10 +131,7 @@ impl<T> ConfigProperty<T>
 where
     T: Copy + PartialOrd + PropertyType<Constraints = NumericConstraints<T>>,
 {
-    pub fn set_min(
-        &mut self,
-        value: Option<T>,
-    ) -> Result<bool, ConstraintViolationError> {
+    pub fn set_min(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
         let mut constraints = self.state().borrow().constraints;
 
         if let Some(min) = value
@@ -152,10 +149,7 @@ where
         self.set_constraints(constraints)
     }
 
-    pub fn set_max(
-        &mut self,
-        value: Option<T>,
-    ) -> Result<bool, ConstraintViolationError> {
+    pub fn set_max(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
         let mut constraints = self.state().borrow().constraints;
 
         if let Some(max) = value
@@ -172,10 +166,7 @@ where
         self.set_constraints(constraints)
     }
 
-    pub fn set_min_clamped(
-        &mut self,
-        value: T,
-    ) -> Result<bool, ConstraintViolationError> {
+    pub fn set_min_clamped(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         let constraints = {
             let state = self.state();
             let mut state = state.borrow_mut();
@@ -211,10 +202,7 @@ where
         self.set_constraints(constraints)
     }
 
-    pub fn set_max_clamped(
-        &mut self,
-        value: T,
-    ) -> Result<bool, ConstraintViolationError> {
+    pub fn set_max_clamped(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
         let constraints = {
             let state = self.state();
             let mut state = state.borrow_mut();

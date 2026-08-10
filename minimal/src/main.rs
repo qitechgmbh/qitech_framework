@@ -1,8 +1,8 @@
 use std::thread;
 use std::time::Duration;
 
-use qitech_framework::Runtime;
-use qitech_framework::RuntimeConfiguration;
+use qitech_framework::runtime::Runtime;
+use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::session;
 use qitech_framework_tui::Tui;
 use qitech_framework_tui::TuiConfiguration;

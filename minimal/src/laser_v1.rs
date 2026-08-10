@@ -5,7 +5,12 @@ use std::time::Instant;
 
 use qitech_framework::EnumProperty;
 use qitech_framework::Machine;
+use qitech_framework::machine::ActError;
+use qitech_framework::machine::ActErrorImpact;
+use qitech_framework::machine::ActErrorKind;
+use qitech_framework::machine::ActResult;
 use qitech_framework::machine::BuildContext;
+use qitech_framework::machine::BuildResult;
 use qitech_framework::machine::ConfigProperty;
 use qitech_framework::machine::EventEmitter;
 use qitech_framework::machine::Machine;
@@ -18,11 +23,6 @@ use qitech_framework::machine::OperationCapability;
 use qitech_framework::machine::RemoteProperty;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine::SubscribeContext;
-use qitech_framework::machine::ActError;
-use qitech_framework::machine::ActErrorImpact;
-use qitech_framework::machine::ActErrorKind;
-use qitech_framework::machine::ActResult;
-use qitech_framework::machine::BuildResult;
 use qitech_framework::machine::SubscribeResult;
 use qitech_framework::machine_build;
 use qitech_framework::units::Length;
@@ -243,9 +243,7 @@ impl MachineBuild for LaserV1 {
             subscribed_diameter_tolerance_upper,
             in_tolerance,
             subscribed_in_tolerance,
-            diameter: ctx
-                .measurement::<millimeter>("diameter")
-                .build()?,
+            diameter: ctx.measurement::<millimeter>("diameter").build()?,
             diameter_x: ctx
                 .measurement::<Option<millimeter>>("diameter_x")
                 .build()?,

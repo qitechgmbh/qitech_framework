@@ -440,7 +440,7 @@ impl ConfigPage {
                             None => "null".to_string(),
                         },
 
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     },
                 ]));
 
@@ -457,7 +457,7 @@ impl ConfigPage {
                             None => "null".to_string(),
                         },
 
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     },
                 ]));
 
@@ -484,9 +484,9 @@ impl ConfigPage {
                 rows
             }
 
-            Constraints::Enum { allowed } => vec![
-                Row::new(["Allowed".to_string(), format!("{allowed:?}")]),
-            ],
+            Constraints::Enum { allowed } => {
+                vec![Row::new(["Allowed".to_string(), format!("{allowed:?}")])]
+            }
         };
 
         let table = Table::new(rows, [Constraint::Length(15), Constraint::Min(1)])

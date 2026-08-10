@@ -12,7 +12,7 @@ pub use qitech_framework_core::request::MachineSubscribeError;
 
 pub type BuildResult<T> = Result<T, BuildError>;
 pub type ActResult = Result<(), ActError>;
-pub type CommandExecuteResult = Result<(), String>;
+pub type CommandExecuteResult = ActResult;
 pub type SubscribeResult = Result<(), MachineSubscribeError>;
 
 mod build;

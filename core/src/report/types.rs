@@ -123,10 +123,7 @@ impl fmt::Display for Constraints {
         match self {
             Self::None => write!(f, "None"),
 
-            Self::Numeric { min, max } => write!(
-                f,
-                "[{min}, {max}]",
-            ),
+            Self::Numeric { min, max } => write!(f, "[{min}, {max}]",),
 
             Self::String {
                 min_length,
@@ -183,10 +180,7 @@ pub enum ConstraintViolationError {
     },
 
     #[error("invalid constraint range: minimum {min} is greater than maximum {max}")]
-    IllegalRange {
-        min: ScalarValue,
-        max: ScalarValue,
-    },
+    IllegalRange { min: ScalarValue, max: ScalarValue },
 
     #[error("no allowed values are configured")]
     NoAllowedVariants,
@@ -201,10 +195,7 @@ pub enum ConstraintViolationError {
     StringTooLong { length: usize, max: usize },
 
     #[error("string does not match the required pattern: {pattern}")]
-    IllegalPattern {
-        pattern: String,
-        error: String,
-    },
+    IllegalPattern { pattern: String, error: String },
 
     #[error("string does not match the required pattern: {pattern}")]
     PatternMismatch { pattern: String },

@@ -2045,6 +2045,7 @@ dependencies = [
 name = "qitech_framework_core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bytes",
  "chrono",
  "crossbeam",

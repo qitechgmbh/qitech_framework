@@ -8,6 +8,7 @@ rust-version.workspace = true
 # general
 serde = { workspace = true }
 chrono = { workspace = true }
+anyhow = { workspace = true }
 indexmap = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
