@@ -59,19 +59,19 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
             }
 
             fn into_scalar(value: Self::Type) -> qitech_framework::__private::ScalarValue {
-                qitech_framework::__private::ScalarValue::Enum(Some(
+                qitech_framework::__private::ScalarValue::Enum(
                     match value {
                         #(#to_scalar,)*
                     }
                     .to_string()
-                ))
+                )
             }
 
             fn from_scalar(
                 value: qitech_framework::__private::ScalarValue
             ) -> Result<Self::Type, qitech_framework::__private::ScalarValueTypeMismatchError> {
                 match value {
-                    qitech_framework::__private::ScalarValue::Enum(Some(v)) => {
+                    qitech_framework::__private::ScalarValue::Enum(v) => {
                         match v.as_str() {
                             #(#from_scalar,)*
                             _ => Err(qitech_framework::__private::ScalarValueTypeMismatchError),

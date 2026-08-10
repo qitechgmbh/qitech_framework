@@ -108,8 +108,8 @@ impl<'a, 'b, const CAPACITY: usize> ConfigPropertyBuilder<'a, 'b, heapless::Stri
     pub fn length_min(mut self, value: usize) -> Self {
         if value > CAPACITY {
             self.constraints_error = Some(ConstraintViolationError::IllegalRange {
-                min: ScalarValue::Integer(Some(value as i64)),
-                max: ScalarValue::Integer(Some(CAPACITY as i64)),
+                min: ScalarValue::Integer(value as i64),
+                max: ScalarValue::Integer(CAPACITY as i64),
             });
 
             return self;
@@ -142,8 +142,8 @@ impl<'a, 'b, const CAPACITY: usize>
     pub fn min_length(mut self, value: usize) -> Self {
         if value > CAPACITY {
             self.constraints_error = Some(ConstraintViolationError::IllegalRange {
-                min: ScalarValue::Integer(Some(value as i64)),
-                max: ScalarValue::Integer(Some(CAPACITY as i64)),
+                min: ScalarValue::Integer(value as i64),
+                max: ScalarValue::Integer(CAPACITY as i64),
             });
 
             return self;

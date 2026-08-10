@@ -7,6 +7,7 @@ use thiserror::Error;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(i8)]
 pub enum ScalarValueKind {
+    Null = 0,
     Enum = 1,
     String = 2,
     Boolean = 3,
@@ -17,11 +18,12 @@ pub enum ScalarValueKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScalarValue {
-    Enum(Option<String>),
-    String(Option<String>),
-    Boolean(Option<bool>),
-    Integer(Option<i64>),
-    Float(Option<f64>),
+    Null,
+    Enum(String),
+    String(String),
+    Boolean(bool),
+    Integer(i64),
+    Float(f64),
 }
 
 impl ScalarValue {
@@ -29,6 +31,7 @@ impl ScalarValue {
         use ScalarValue::*;
 
         match self {
+            Null => ScalarValueKind::Null,
             Enum(_) => ScalarValueKind::Enum,
             String(_) => ScalarValueKind::String,
             Boolean(_) => ScalarValueKind::Boolean,
@@ -39,35 +42,40 @@ impl ScalarValue {
 
     pub fn r#enum(self) -> Option<String> {
         match self {
-            ScalarValue::Enum(value) => value,
+            ScalarValue::Null => None,
+            ScalarValue::Enum(value) => Some(value),
             other => panic!("expected Enum, got {:?}", other),
         }
     }
 
     pub fn string(self) -> Option<String> {
         match self {
-            ScalarValue::String(value) => value,
+            ScalarValue::Null => None,
+            ScalarValue::String(value) => Some(value),
             other => panic!("expected String, got {:?}", other),
         }
     }
 
     pub fn integer(self) -> Option<i64> {
         match self {
-            ScalarValue::Integer(value) => value,
+            ScalarValue::Null => None,
+            ScalarValue::Integer(value) => Some(value),
             other => panic!("expected Integer, got {:?}", other),
         }
     }
 
     pub fn float(self) -> Option<f64> {
         match self {
-            ScalarValue::Float(value) => value,
+            ScalarValue::Null => None,
+            ScalarValue::Float(value) => Some(value),
             other => panic!("expected Float, got {:?}", other),
         }
     }
 
     pub fn boolean(self) -> Option<bool> {
         match self {
-            ScalarValue::Boolean(value) => value,
+            ScalarValue::Null => None,
+            ScalarValue::Boolean(value) => Some(value),
             other => panic!("expected Boolean, got {:?}", other),
         }
     }
@@ -76,17 +84,12 @@ impl ScalarValue {
 impl fmt::Display for ScalarValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ScalarValue::Enum(Some(v)) => write!(f, "{v}"),
-            ScalarValue::String(Some(v)) => write!(f, "{v}"),
-            ScalarValue::Boolean(Some(v)) => write!(f, "{v}"),
-            ScalarValue::Integer(Some(v)) => write!(f, "{v}"),
-            ScalarValue::Float(Some(v)) => write!(f, "{v:.2}"),
-
-            ScalarValue::Enum(None)
-            | ScalarValue::String(None)
-            | ScalarValue::Boolean(None)
-            | ScalarValue::Integer(None)
-            | ScalarValue::Float(None) => write!(f, "null"),
+            ScalarValue::Null => write!(f, "null"),
+            ScalarValue::Enum(v) => write!(f, "{v}"),
+            ScalarValue::String(v) => write!(f, "{v}"),
+            ScalarValue::Boolean(v) => write!(f, "{v}"),
+            ScalarValue::Integer(v) => write!(f, "{v}"),
+            ScalarValue::Float(v) => write!(f, "{v:.2}"),
         }
     }
 }

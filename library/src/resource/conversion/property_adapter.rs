@@ -49,7 +49,7 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
 
     fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
         match value {
-            ScalarValue::String(Some(value)) => {
+            ScalarValue::String(value) => {
                 // TODO: return error our of bounds
                 let mut out = Self::Type::default();
                 out.push_str(&value).unwrap();
@@ -60,7 +60,7 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
     }
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::String(Some(value.to_string()))
+        ScalarValue::String(value.to_string())
     }
 
     fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
@@ -108,131 +108,10 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
     }
 }
 
-impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY>> {
-    type Type = Option<heapless::String<CAPACITY>>;
-    type Input = Option<heapless::String<CAPACITY>>;
-
-    fn convert_input(input: Self::Input) -> Self::Type {
-        input
-    }
-
-    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
-        match value {
-            ScalarValue::String(Some(value)) => {
-                // TODO: return error our of bounds
-                let mut out = heapless::String::<CAPACITY>::default();
-                out.push_str(&value).unwrap();
-                Ok(Some(out))
-            }
-            ScalarValue::String(None) => Ok(None),
-            _ => Err(ScalarValueTypeMismatchError),
-        }
-    }
-
-    fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::String(value.map(|v| v.to_string()))
-    }
-
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::String)
-    }
-
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        _ = definition;
-        false
-    }
-
-    fn apply_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-        value: &Self::Type,
-    ) -> Result<(), ConstraintViolationError> {
-        let value = match value {
-            Some(value) => value,
-            None => {
-                return Err(ConstraintViolationError::CannotBeNull {
-                    value: ScalarValue::String(None),
-                });
-            }
-        };
-
-        if let Some(min) = constraints.min_length
-            && value.len() < min
-        {
-            return Err(ConstraintViolationError::StringTooShort {
-                length: value.len(),
-                min,
-            });
-        }
-
-        if let Some((pattern, regex)) = &constraints.pattern
-            && !regex.is_match(value)
-        {
-            return Err(ConstraintViolationError::PatternMismatch {
-                pattern: (*pattern).to_owned(),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
-        Constraints::String {
-            min_length: constraints.min_length,
-            max_length: CAPACITY,
-            pattern: constraints
-                .pattern
-                .as_ref()
-                .map(|(pattern, _)| (*pattern).to_owned()),
-        }
-    }
-}
-
 // --- bool ---
 impl PropertyAdapter for bool {
     type Type = bool;
     type Input = bool;
-
-    fn convert_input(input: Self::Input) -> Self::Type {
-        input
-    }
-
-    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
-        match value {
-            ScalarValue::Boolean(Some(value)) => Ok(value),
-            _ => Err(ScalarValueTypeMismatchError),
-        }
-    }
-
-    fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Boolean(Some(value))
-    }
-
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::Boolean) && !definition.nullable
-    }
-
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        matches!(definition.kind, MeasurementKind::Boolean) && !definition.nullable
-    }
-
-    fn apply_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-        value: &Self::Type,
-    ) -> Result<(), ConstraintViolationError> {
-        _ = constraints;
-        _ = value;
-        Ok(())
-    }
-
-    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
-        _ = constraints;
-        Constraints::None
-    }
-}
-
-impl PropertyAdapter for Option<bool> {
-    type Type = Option<bool>;
-    type Input = Option<bool>;
 
     fn convert_input(input: Self::Input) -> Self::Type {
         input
@@ -250,11 +129,11 @@ impl PropertyAdapter for Option<bool> {
     }
 
     fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::Boolean)
+        matches!(definition.kind, ScalarPropertyKind::Boolean) && !definition.nullable
     }
 
     fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        matches!(definition.kind, MeasurementKind::Boolean)
+        matches!(definition.kind, MeasurementKind::Boolean) && !definition.nullable
     }
 
     fn apply_constraints(
@@ -283,13 +162,13 @@ impl PropertyAdapter for i64 {
 
     fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
         match value {
-            ScalarValue::Integer(Some(value)) => Ok(value),
+            ScalarValue::Integer(value) => Ok(value),
             _ => Err(ScalarValueTypeMismatchError),
         }
     }
 
     fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Integer(Some(value))
+        ScalarValue::Integer(value)
     }
 
     fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
@@ -308,8 +187,8 @@ impl PropertyAdapter for i64 {
             && *value < min
         {
             return Err(ConstraintViolationError::BelowMin {
-                value: ScalarValue::Integer(Some(min)),
-                min: ScalarValue::Integer(Some(*value)),
+                value: ScalarValue::Integer(min),
+                min: ScalarValue::Integer(*value),
             });
         }
 
@@ -317,8 +196,8 @@ impl PropertyAdapter for i64 {
             && *value > max
         {
             return Err(ConstraintViolationError::AboveMax {
-                value: ScalarValue::Integer(Some(*value)),
-                max: ScalarValue::Integer(Some(max)),
+                value: ScalarValue::Integer(*value),
+                max: ScalarValue::Integer(max),
             });
         }
 
@@ -327,52 +206,13 @@ impl PropertyAdapter for i64 {
 
     fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         Constraints::Numeric {
-            min: ScalarValue::Integer(constraints.min),
-            max: ScalarValue::Integer(constraints.max),
+            min: constraints
+                .min
+                .map_or(ScalarValue::Null, ScalarValue::Integer),
+            max: constraints
+                .max
+                .map_or(ScalarValue::Null, ScalarValue::Integer),
         }
-    }
-}
-
-impl PropertyAdapter for Option<i64> {
-    type Type = Option<i64>;
-    type Input = Option<i64>;
-
-    fn convert_input(input: Self::Input) -> Self::Type {
-        input
-    }
-
-    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
-        match value {
-            ScalarValue::Integer(value) => Ok(value),
-            _ => Err(ScalarValueTypeMismatchError),
-        }
-    }
-
-    fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Integer(value)
-    }
-
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::Integer)
-    }
-
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        matches!(definition.kind, MeasurementKind::Integer { .. })
-    }
-
-    fn apply_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-        value: &Self::Type,
-    ) -> Result<(), ConstraintViolationError> {
-        let Some(value) = value else {
-            return Ok(());
-        };
-
-        i64::apply_constraints(constraints, value)
-    }
-
-    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
-        i64::as_constraints(constraints)
     }
 }
 
@@ -380,77 +220,6 @@ impl PropertyAdapter for Option<i64> {
 impl PropertyAdapter for f64 {
     type Type = f64;
     type Input = f64;
-
-    fn convert_input(input: Self::Input) -> Self::Type {
-        input
-    }
-
-    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
-        match value {
-            ScalarValue::Float(Some(value)) => Ok(value),
-            _ => Err(ScalarValueTypeMismatchError),
-        }
-    }
-
-    fn into_scalar(value: Self::Type) -> ScalarValue {
-        ScalarValue::Float(Some(value))
-    }
-
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        !matches!(
-            definition.kind,
-            ScalarPropertyKind::Float {
-                semantic: FloatSemantic::Quantity(_)
-            }
-        ) && !definition.nullable
-    }
-
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        !matches!(
-            definition.kind,
-            MeasurementKind::Float {
-                semantic: FloatSemantic::Quantity(_),
-                ..
-            }
-        ) && !definition.nullable
-    }
-
-    fn apply_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-        value: &Self::Type,
-    ) -> Result<(), ConstraintViolationError> {
-        if let Some(min) = constraints.min
-            && *value < min
-        {
-            return Err(ConstraintViolationError::BelowMin {
-                value: ScalarValue::Float(Some(min)),
-                min: ScalarValue::Float(Some(*value)),
-            });
-        }
-
-        if let Some(max) = constraints.max
-            && *value > max
-        {
-            return Err(ConstraintViolationError::AboveMax {
-                value: ScalarValue::Float(Some(*value)),
-                max: ScalarValue::Float(Some(max)),
-            });
-        }
-
-        Ok(())
-    }
-
-    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
-        Constraints::Numeric {
-            min: ScalarValue::Float(constraints.min),
-            max: ScalarValue::Float(constraints.max),
-        }
-    }
-}
-
-impl PropertyAdapter for Option<f64> {
-    type Type = Option<f64>;
-    type Input = Option<f64>;
 
     fn convert_input(input: Self::Input) -> Self::Type {
         input
@@ -473,7 +242,7 @@ impl PropertyAdapter for Option<f64> {
             ScalarPropertyKind::Float {
                 semantic: FloatSemantic::Quantity(_)
             }
-        )
+        ) && !definition.nullable
     }
 
     fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
@@ -483,22 +252,43 @@ impl PropertyAdapter for Option<f64> {
                 semantic: FloatSemantic::Quantity(_),
                 ..
             }
-        )
+        ) && !definition.nullable
     }
 
     fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
-        let Some(value) = value else {
-            return Ok(());
-        };
+        if let Some(min) = constraints.min
+            && *value < min
+        {
+            return Err(ConstraintViolationError::BelowMin {
+                value: ScalarValue::Float(min),
+                min: ScalarValue::Float(*value),
+            });
+        }
 
-        f64::apply_constraints(constraints, value)
+        if let Some(max) = constraints.max
+            && *value > max
+        {
+            return Err(ConstraintViolationError::AboveMax {
+                value: ScalarValue::Float(*value),
+                max: ScalarValue::Float(max),
+            });
+        }
+
+        Ok(())
     }
 
     fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
-        f64::as_constraints(constraints)
+        Constraints::Numeric {
+            min: constraints
+                .min
+                .map_or(ScalarValue::Null, ScalarValue::Float),
+            max: constraints
+                .max
+                .map_or(ScalarValue::Null, ScalarValue::Float),
+        }
     }
 }
 
@@ -515,13 +305,13 @@ macro_rules! impl_uom_unit {
 
             fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
                 match value {
-                    ScalarValue::Float(Some(value)) => Ok(<$quantity>::new::<$unit>(value)),
+                    ScalarValue::Float(value) => Ok(<$quantity>::new::<$unit>(value)),
                     _ => Err(ScalarValueTypeMismatchError),
                 }
             }
 
             fn into_scalar(value: Self::Type) -> ScalarValue {
-                ScalarValue::Float(Some(value.get::<$unit>()))
+                ScalarValue::Float(value.get::<$unit>())
             }
 
             // TODO: implement
@@ -561,56 +351,57 @@ macro_rules! impl_uom_unit {
                 f64::as_constraints(&constraints)
             }
         }
-
-        impl PropertyAdapter for Option<$unit> {
-            type Type = Option<$quantity>;
-            type Input = Option<f64>;
-
-            fn convert_input(input: Self::Input) -> Self::Type {
-                input.map(|x| <$quantity>::new::<$unit>(x))
-            }
-
-            fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
-                match value {
-                    ScalarValue::Float(value) => Ok(value.map(|x| <$quantity>::new::<$unit>(x))),
-                    _ => Err(ScalarValueTypeMismatchError),
-                }
-            }
-
-            fn into_scalar(value: Self::Type) -> ScalarValue {
-                ScalarValue::Float(value.map(|x| x.get::<$unit>()))
-            }
-
-            // TODO: implement
-            fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-                _ = definition;
-                true
-            }
-
-            // TODO: implement
-            fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-                _ = definition;
-                true
-            }
-
-            fn apply_constraints(
-                constraints: &<Self::Type as PropertyType>::Constraints,
-                value: &Self::Type,
-            ) -> Result<(), ConstraintViolationError> {
-                let Some(value) = value else {
-                    return Ok(());
-                };
-
-                <$unit>::apply_constraints(constraints, value)
-            }
-
-            fn as_constraints(
-                constraints: &<Self::Type as PropertyType>::Constraints,
-            ) -> Constraints {
-                <$unit>::as_constraints(constraints)
-            }
-        }
     };
 }
 
 with_uom_units!(impl_uom_unit);
+
+// --- option ---
+impl<T> PropertyAdapter for Option<T>
+where
+    T: PropertyAdapter,
+    T::Type: PropertyType,
+{
+    type Type = Option<T::Type>;
+    type Input = Option<T::Input>;
+
+    fn convert_input(input: Self::Input) -> Self::Type {
+        input.map(T::convert_input)
+    }
+
+    fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError> {
+        match value {
+            ScalarValue::Null => Ok(None),
+            value => T::from_scalar(value).map(Some),
+        }
+    }
+
+    fn into_scalar(value: Self::Type) -> ScalarValue {
+        match value {
+            Some(value) => T::into_scalar(value),
+            None => ScalarValue::Null,
+        }
+    }
+
+    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+        T::validate_scalar_property_definition(definition)
+    }
+
+    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+        T::validate_measurement_definition(definition)
+    }
+
+    fn apply_constraints(
+        constraints: &<Self::Type as PropertyType>::Constraints,
+        value: &Self::Type,
+    ) -> Result<(), ConstraintViolationError> {
+        match value {
+            Some(value) => T::apply_constraints(constraints, value),
+            None => Ok(()),
+        }
+    }
+
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
+        T::as_constraints(constraints)
+    }
+}

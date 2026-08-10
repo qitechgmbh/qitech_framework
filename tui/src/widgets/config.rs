@@ -430,16 +430,9 @@ impl ConfigPage {
                 rows.push(Row::new([
                     "Min".to_string(),
                     match min {
-                        ScalarValue::Integer(value) => match value {
-                            Some(value) => format!("{value}"),
-                            None => "null".to_string(),
-                        },
-
-                        ScalarValue::Float(value) => match value {
-                            Some(value) => format!("{value}"),
-                            None => "null".to_string(),
-                        },
-
+                        ScalarValue::Null => "null".to_string(),
+                        ScalarValue::Integer(value) => format!("{value}"),
+                        ScalarValue::Float(value) => format!("{value}"),
                         _ => unreachable!(),
                     },
                 ]));
@@ -447,16 +440,9 @@ impl ConfigPage {
                 rows.push(Row::new([
                     "Max".to_string(),
                     match max {
-                        ScalarValue::Integer(value) => match value {
-                            Some(value) => format!("{value}"),
-                            None => "null".to_string(),
-                        },
-
-                        ScalarValue::Float(value) => match value {
-                            Some(value) => format!("{value}"),
-                            None => "null".to_string(),
-                        },
-
+                        ScalarValue::Null => "null".to_string(),
+                        ScalarValue::Integer(value) => format!("{value}"),
+                        ScalarValue::Float(value) => format!("{value}"),
                         _ => unreachable!(),
                     },
                 ]));
@@ -509,12 +495,12 @@ impl ConfigPage {
                     return AppAction::NoAction;
                 }
 
-                ScalarValue::Enum(Some(edit.value))
+                ScalarValue::Enum(edit.value)
             }
 
             ScalarPropertyKind::String => {
                 // TODO: capability check
-                ScalarValue::String(Some(edit.value))
+                ScalarValue::String(edit.value)
             }
 
             ScalarPropertyKind::Boolean => {
@@ -523,7 +509,7 @@ impl ConfigPage {
                     Err(_) => return AppAction::NoAction,
                 };
 
-                ScalarValue::Boolean(Some(value))
+                ScalarValue::Boolean(value)
             }
 
             ScalarPropertyKind::Integer => {
@@ -532,7 +518,7 @@ impl ConfigPage {
                     Err(_) => return AppAction::NoAction,
                 };
 
-                ScalarValue::Integer(Some(value))
+                ScalarValue::Integer(value)
             }
 
             ScalarPropertyKind::Float { .. } => {
@@ -541,7 +527,7 @@ impl ConfigPage {
                     Err(_) => return AppAction::NoAction,
                 };
 
-                ScalarValue::Float(Some(value))
+                ScalarValue::Float(value)
             }
         };
 

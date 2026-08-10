@@ -14,15 +14,7 @@ impl PropertyType for f64 {
     type Constraints = NumericConstraints<f64>;
 }
 
-impl PropertyType for Option<f64> {
-    type Constraints = NumericConstraints<f64>;
-}
-
 impl PropertyType for i64 {
-    type Constraints = NumericConstraints<i64>;
-}
-
-impl PropertyType for Option<i64> {
     type Constraints = NumericConstraints<i64>;
 }
 
@@ -30,15 +22,7 @@ impl PropertyType for bool {
     type Constraints = Unconstrained;
 }
 
-impl PropertyType for Option<bool> {
-    type Constraints = Unconstrained;
-}
-
 impl<const CAPACITY: usize> PropertyType for heapless::String<CAPACITY> {
-    type Constraints = StringConstraints;
-}
-
-impl<const CAPACITY: usize> PropertyType for Option<heapless::String<CAPACITY>> {
     type Constraints = StringConstraints;
 }
 
@@ -47,11 +31,14 @@ macro_rules! impl_uom {
         impl PropertyType for $quantity {
             type Constraints = NumericConstraints<$quantity>;
         }
-
-        impl PropertyType for Option<$quantity> {
-            type Constraints = NumericConstraints<$quantity>;
-        }
     };
 }
 
 with_uom_quantities!(impl_uom);
+
+impl<T> PropertyType for Option<T>
+where
+    T: PropertyType,
+{
+    type Constraints = T::Constraints;
+}
