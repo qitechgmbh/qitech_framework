@@ -6,7 +6,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::NumericValue;
 use crate::ScalarValue;
 use crate::ident::MachineIdentificationUnique;
 use crate::report::ResourceKind;
@@ -106,19 +105,16 @@ pub enum Constraints {
     #[default]
     None,
     Numeric {
-        min: NumericValue,
-        max: NumericValue,
-        nullable: bool,
+        min: ScalarValue,
+        max: ScalarValue,
     },
     String {
         min_length: Option<usize>,
-        max_length: Option<usize>,
+        max_length: usize,
         pattern: Option<String>,
-        nullable: bool,
     },
     Enum {
         allowed: Vec<ScalarValue>,
-        nullable: bool,
     },
 }
 
@@ -127,38 +123,30 @@ impl fmt::Display for Constraints {
         match self {
             Self::None => write!(f, "None"),
 
-            Self::Numeric { min, max, nullable } => write!(
+            Self::Numeric { min, max } => write!(
                 f,
-                "[{min}, {max}]{}",
-                if *nullable { " nullable" } else { "" }
+                "[{min}, {max}]",
             ),
 
             Self::String {
                 min_length,
                 max_length,
                 pattern,
-                nullable,
             } => {
                 if let Some(min) = min_length {
                     write!(f, " min_length={min}")?;
                 }
 
-                if let Some(max) = max_length {
-                    write!(f, " max_length={max}")?;
-                }
+                write!(f, " max_length={max_length}")?;
 
                 if let Some(pattern) = pattern {
                     write!(f, " pattern={pattern:?}")?;
                 }
 
-                if *nullable {
-                    write!(f, " nullable")?;
-                }
-
                 Ok(())
             }
 
-            Self::Enum { allowed, nullable } => {
+            Self::Enum { allowed } => {
                 write!(f, "[")?;
 
                 for (i, value) in allowed.iter().enumerate() {
@@ -170,10 +158,6 @@ impl fmt::Display for Constraints {
                 }
 
                 write!(f, "]")?;
-
-                if *nullable {
-                    write!(f, " nullable")?;
-                }
 
                 Ok(())
             }
@@ -188,20 +172,20 @@ pub enum ConstraintViolationError {
 
     #[error("value {value} is below the minimum {min}")]
     BelowMin {
-        value: NumericValue,
-        min: NumericValue,
+        value: ScalarValue,
+        min: ScalarValue,
     },
 
     #[error("value {value} is above the maximum {max}")]
     AboveMax {
-        value: NumericValue,
-        max: NumericValue,
+        value: ScalarValue,
+        max: ScalarValue,
     },
 
     #[error("minimum {min} cannot be greater than maximum {max}")]
-    InvalidRange {
-        min: NumericValue,
-        max: NumericValue,
+    IllegalRange {
+        min: ScalarValue,
+        max: ScalarValue,
     },
 
     #[error("...")]
@@ -215,6 +199,12 @@ pub enum ConstraintViolationError {
 
     #[error("string length {length} is above the maximum {max}")]
     StringTooLong { length: usize, max: usize },
+
+    #[error("string does not match required pattern: {pattern}")]
+    IllegalPattern { 
+        pattern: String,
+        error: String,
+    },
 
     #[error("string does not match required pattern: {pattern}")]
     PatternMismatch { pattern: String },

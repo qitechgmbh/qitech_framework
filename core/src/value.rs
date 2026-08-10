@@ -4,23 +4,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum NumericValue {
-    Integer(Option<i64>),
-    Float(Option<f64>),
-}
-
-impl fmt::Display for NumericValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NumericValue::Integer(Some(v)) => write!(f, "{v}"),
-            NumericValue::Float(Some(v)) => write!(f, "{v:.2}"),
-            _ => write!(f, "null"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(i8)]
 pub enum ScalarValueKind {

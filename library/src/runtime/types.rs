@@ -48,7 +48,7 @@ pub(crate) struct MachineInstance {
 pub(crate) struct Config {
     pub(crate) requests_per_cycle_max: usize,
     pub(crate) export_interval: Duration,
-    pub(crate) cycle_timeout: Duration,
+    pub(crate) cycle_period: Duration,
 }
 
 impl Default for Config {
@@ -56,7 +56,7 @@ impl Default for Config {
         Self {
             requests_per_cycle_max: 10,
             export_interval: Duration::from_secs_f64(1.0 / 32.0),
-            cycle_timeout: Duration::from_micros(100),
+            cycle_period: Duration::from_micros(100),
         }
     }
 }

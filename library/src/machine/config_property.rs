@@ -3,7 +3,6 @@ use std::ptr::NonNull;
 use std::rc::Rc;
 use std::rc::Weak;
 
-use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteError;
@@ -130,38 +129,78 @@ impl<T: PropertyType + Copy> ConfigProperty<T> {
 
 impl<T> ConfigProperty<T>
 where
-    T: Copy + PartialOrd + Into<NumericValue> + PropertyType<Constraints = NumericConstraints<T>>,
+    T: Copy + PartialOrd + PropertyType<Constraints = NumericConstraints<T>>,
 {
-    pub fn set_min(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
-        let mut constraints = self.state().borrow().constraints.clone();
-        constraints.set_min(value)?;
+    pub fn set_min(
+        &mut self,
+        value: Option<T>,
+    ) -> Result<bool, ConstraintViolationError> {
+        let mut constraints = self.state().borrow().constraints;
+
+        if let Some(min) = value
+            && let Some(max) = constraints.max
+            && min >= max
+        {
+            return Err(ConstraintViolationError::IllegalRange {
+                min: (self.into_scalar)(min),
+                max: (self.into_scalar)(max),
+            });
+        }
+
+        constraints.min = value;
 
         self.set_constraints(constraints)
     }
 
-    pub fn set_max(&mut self, value: Option<T>) -> Result<bool, ConstraintViolationError> {
-        let mut constraints = self.state().borrow().constraints.clone();
-        constraints.set_max(value)?;
+    pub fn set_max(
+        &mut self,
+        value: Option<T>,
+    ) -> Result<bool, ConstraintViolationError> {
+        let mut constraints = self.state().borrow().constraints;
 
+        if let Some(max) = value
+            && let Some(min) = constraints.min
+            && min >= max
+        {
+            return Err(ConstraintViolationError::IllegalRange {
+                min: (self.into_scalar)(min),
+                max: (self.into_scalar)(max),
+            });
+        }
+
+        constraints.max = value;
         self.set_constraints(constraints)
     }
 
-    pub fn set_min_clamped(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
+    pub fn set_min_clamped(
+        &mut self,
+        value: T,
+    ) -> Result<bool, ConstraintViolationError> {
         let constraints = {
             let state = self.state();
             let mut state = state.borrow_mut();
 
-            let mut constraints = state.constraints.clone();
-            constraints.set_min(Some(value))?;
+            let mut constraints = state.constraints;
 
-            // --- clamp current value ---
+            if let Some(max) = constraints.max
+                && value >= max
+            {
+                return Err(ConstraintViolationError::IllegalRange {
+                    min: (self.into_scalar)(value),
+                    max: (self.into_scalar)(max),
+                });
+            }
+
+            constraints.min = Some(value);
+
+            // Clamp current value.
             unsafe {
                 if self.p_value.read() < value {
                     self.p_value.write(value);
                 }
             }
 
-            // --- clamp default value ---
+            // Clamp default value.
             if state.default < value {
                 state.default = value;
             }
@@ -172,22 +211,35 @@ where
         self.set_constraints(constraints)
     }
 
-    pub fn set_max_clamped(&mut self, value: T) -> Result<bool, ConstraintViolationError> {
+    pub fn set_max_clamped(
+        &mut self,
+        value: T,
+    ) -> Result<bool, ConstraintViolationError> {
         let constraints = {
             let state = self.state();
             let mut state = state.borrow_mut();
 
-            let mut constraints = state.constraints.clone();
-            constraints.set_max(Some(value))?;
+            let mut constraints = state.constraints;
 
-            // --- clamp current value ---
+            if let Some(min) = constraints.min
+                && min >= value
+            {
+                return Err(ConstraintViolationError::IllegalRange {
+                    min: (self.into_scalar)(min),
+                    max: (self.into_scalar)(value),
+                });
+            }
+
+            constraints.max = Some(value);
+
+            // Clamp current value.
             unsafe {
                 if self.p_value.read() > value {
                     self.p_value.write(value);
                 }
             }
 
-            // --- clamp default value ---
+            // Clamp default value.
             if state.default > value {
                 state.default = value;
             }

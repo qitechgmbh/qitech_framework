@@ -1,4 +1,3 @@
-use qitech_framework_core::NumericValue;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ScalarValueTypeMismatchError;
 use qitech_framework_core::report::ConstraintViolationError;
@@ -10,6 +9,7 @@ use qitech_framework_core::schema::ScalarPropertyDefinition;
 use qitech_framework_core::schema::ScalarPropertyKind;
 use qitech_framework_core::with_uom_units;
 
+use crate::resource::constraints::NumericConstraints;
 use crate::resource::conversion::PropertyType;
 
 /// Trait to allow defining conversion and extract operations
@@ -30,14 +30,12 @@ pub trait PropertyAdapter: 'static {
 
     fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool;
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError>;
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints;
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints;
 }
 
 // --- string ---
@@ -74,7 +72,7 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
         false
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
@@ -84,15 +82,6 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
             return Err(ConstraintViolationError::StringTooShort {
                 length: value.len(),
                 min,
-            });
-        }
-
-        if let Some(max) = constraints.max_length
-            && value.len() > max
-        {
-            return Err(ConstraintViolationError::StringTooLong {
-                length: value.len(),
-                max,
             });
         }
 
@@ -107,17 +96,14 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
         Ok(())
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         Constraints::String {
             min_length: constraints.min_length,
-            max_length: constraints.max_length,
+            max_length: CAPACITY,
             pattern: constraints
                 .pattern
                 .as_ref()
                 .map(|(pattern, _)| pattern.to_string()),
-            nullable: false,
         }
     }
 }
@@ -156,17 +142,13 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
         false
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
         let value = match value {
             Some(value) => value,
             None => {
-                if constraints.allow_none {
-                    return Ok(());
-                }
-
                 return Err(ConstraintViolationError::CannotBeNull {
                     value: ScalarValue::String(None),
                 });
@@ -182,15 +164,6 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
             });
         }
 
-        if let Some(max) = constraints.max_length
-            && value.len() > max
-        {
-            return Err(ConstraintViolationError::StringTooLong {
-                length: value.len(),
-                max,
-            });
-        }
-
         if let Some((pattern, regex)) = &constraints.pattern
             && !regex.is_match(value)
         {
@@ -202,17 +175,14 @@ impl<const CAPACITY: usize> PropertyAdapter for Option<heapless::String<CAPACITY
         Ok(())
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         Constraints::String {
             min_length: constraints.min_length,
-            max_length: constraints.max_length,
+            max_length: CAPACITY,
             pattern: constraints
                 .pattern
                 .as_ref()
                 .map(|(pattern, _)| (*pattern).to_owned()),
-            nullable: constraints.allow_none,
         }
     }
 }
@@ -245,7 +215,7 @@ impl PropertyAdapter for bool {
         matches!(definition.kind, MeasurementKind::Boolean) && !definition.nullable
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
@@ -254,9 +224,7 @@ impl PropertyAdapter for bool {
         Ok(())
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         _ = constraints;
         Constraints::None
     }
@@ -289,7 +257,7 @@ impl PropertyAdapter for Option<bool> {
         matches!(definition.kind, MeasurementKind::Boolean)
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
@@ -298,9 +266,7 @@ impl PropertyAdapter for Option<bool> {
         Ok(())
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         _ = constraints;
         Constraints::None
     }
@@ -334,38 +300,35 @@ impl PropertyAdapter for i64 {
         matches!(definition.kind, MeasurementKind::Integer { .. }) && !definition.nullable
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
-        if let Some(min) = constraints.min()
+        if let Some(min) = constraints.min
             && *value < min
         {
             return Err(ConstraintViolationError::BelowMin {
-                value: NumericValue::Integer(Some(*value)),
-                min: NumericValue::Integer(Some(min)),
+                value: ScalarValue::Integer(Some(min)),
+                min: ScalarValue::Integer(Some(*value)),
             });
         }
 
-        if let Some(max) = constraints.max()
+        if let Some(max) = constraints.max
             && *value > max
         {
             return Err(ConstraintViolationError::AboveMax {
-                value: NumericValue::Integer(Some(*value)),
-                max: NumericValue::Integer(Some(max)),
+                value: ScalarValue::Integer(Some(*value)),
+                max: ScalarValue::Integer(Some(max)),
             });
         }
 
         Ok(())
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         Constraints::Numeric {
-            min: NumericValue::Integer(constraints.min()),
-            max: NumericValue::Integer(constraints.max()),
-            nullable: false,
+            min: ScalarValue::Integer(constraints.min),
+            max: ScalarValue::Integer(constraints.max),
         }
     }
 }
@@ -397,52 +360,19 @@ impl PropertyAdapter for Option<i64> {
         matches!(definition.kind, MeasurementKind::Integer { .. })
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
-        let value = match value {
-            Some(value) => value,
-            None => {
-                if constraints.allow_none {
-                    return Ok(());
-                }
-
-                return Err(ConstraintViolationError::CannotBeNull {
-                    value: ScalarValue::Integer(None),
-                });
-            }
+        let Some(value) = value else {
+            return Ok(());
         };
 
-        if let Some(min) = constraints.min
-            && *value < min
-        {
-            return Err(ConstraintViolationError::BelowMin {
-                value: NumericValue::Integer(Some(*value)),
-                min: NumericValue::Integer(Some(min)),
-            });
-        }
-
-        if let Some(max) = constraints.max
-            && *value > max
-        {
-            return Err(ConstraintViolationError::AboveMax {
-                value: NumericValue::Integer(Some(*value)),
-                max: NumericValue::Integer(Some(max)),
-            });
-        }
-
-        Ok(())
+        i64::apply_constraints(constraints, value)
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
-        Constraints::Numeric {
-            min: NumericValue::Integer(constraints.min),
-            max: NumericValue::Integer(constraints.max),
-            nullable: constraints.allow_none,
-        }
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
+        i64::as_constraints(constraints)
     }
 }
 
@@ -485,38 +415,35 @@ impl PropertyAdapter for f64 {
         ) && !definition.nullable
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
-        if let Some(min) = constraints.min()
+        if let Some(min) = constraints.min
             && *value < min
         {
             return Err(ConstraintViolationError::BelowMin {
-                value: NumericValue::Float(Some(*value)),
-                min: NumericValue::Float(Some(min)),
+                value: ScalarValue::Float(Some(min)),
+                min: ScalarValue::Float(Some(*value)),
             });
         }
 
-        if let Some(max) = constraints.max()
+        if let Some(max) = constraints.max
             && *value > max
         {
             return Err(ConstraintViolationError::AboveMax {
-                value: NumericValue::Float(Some(*value)),
-                max: NumericValue::Float(Some(max)),
+                value: ScalarValue::Float(Some(*value)),
+                max: ScalarValue::Float(Some(max)),
             });
         }
 
         Ok(())
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
         Constraints::Numeric {
-            min: NumericValue::Float(constraints.min()),
-            max: NumericValue::Float(constraints.max()),
-            nullable: false,
+            min: ScalarValue::Float(constraints.min),
+            max: ScalarValue::Float(constraints.max),
         }
     }
 }
@@ -559,52 +486,19 @@ impl PropertyAdapter for Option<f64> {
         )
     }
 
-    fn validate_constraints(
+    fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
         value: &Self::Type,
     ) -> Result<(), ConstraintViolationError> {
-        let value = match value {
-            Some(value) => value,
-            None => {
-                if constraints.allow_none {
-                    return Ok(());
-                }
-
-                return Err(ConstraintViolationError::CannotBeNull {
-                    value: ScalarValue::Float(None),
-                });
-            }
+        let Some(value) = value else {
+            return Ok(());
         };
 
-        if let Some(min) = constraints.min
-            && *value < min
-        {
-            return Err(ConstraintViolationError::BelowMin {
-                value: NumericValue::Float(Some(*value)),
-                min: NumericValue::Float(Some(min)),
-            });
-        }
-
-        if let Some(max) = constraints.max
-            && *value > max
-        {
-            return Err(ConstraintViolationError::AboveMax {
-                value: NumericValue::Float(Some(*value)),
-                max: NumericValue::Float(Some(max)),
-            });
-        }
-
-        Ok(())
+        f64::apply_constraints(constraints, value)
     }
 
-    fn as_parameter_constraints(
-        constraints: &<Self::Type as PropertyType>::Constraints,
-    ) -> Constraints {
-        Constraints::Numeric {
-            min: NumericValue::Float(constraints.min),
-            max: NumericValue::Float(constraints.max),
-            nullable: constraints.allow_none,
-        }
+    fn as_constraints(constraints: &<Self::Type as PropertyType>::Constraints) -> Constraints {
+        f64::as_constraints(constraints)
     }
 }
 
@@ -630,47 +524,41 @@ macro_rules! impl_uom_unit {
                 ScalarValue::Float(Some(value.get::<$unit>()))
             }
 
+            // TODO: implement
             fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+                _ = definition;
                 true
             }
 
+            // TODO: implement
             fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+                _ = definition;
                 true
             }
 
-            fn validate_constraints(
+            fn apply_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
                 value: &Self::Type,
             ) -> Result<(), ConstraintViolationError> {
-                if let Some(min) = constraints.min() {
-                    if *value < min {
-                        return Err(ConstraintViolationError::BelowMin {
-                            value: NumericValue::Float(Some(value.get::<$unit>())),
-                            min: NumericValue::Float(Some(min.get::<$unit>())),
-                        });
-                    }
-                }
+                let value = value.get::<$unit>();
 
-                if let Some(max) = constraints.max() {
-                    if *value > max {
-                        return Err(ConstraintViolationError::AboveMax {
-                            value: NumericValue::Float(Some(value.get::<$unit>())),
-                            max: NumericValue::Float(Some(max.get::<$unit>())),
-                        });
-                    }
-                }
+                let constraints = NumericConstraints {
+                    min: constraints.min.map(|x| x.get::<$unit>()),
+                    max: constraints.max.map(|x| x.get::<$unit>()),
+                };
 
-                Ok(())
+                f64::apply_constraints(&constraints, &value)
             }
 
-            fn as_parameter_constraints(
+            fn as_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
             ) -> Constraints {
-                Constraints::Numeric {
-                    min: NumericValue::Float(constraints.min().map(|x| x.get::<$unit>())),
-                    max: NumericValue::Float(constraints.max().map(|x| x.get::<$unit>())),
-                    nullable: false,
-                }
+                let constraints = NumericConstraints {
+                    min: constraints.min.map(|x| x.get::<$unit>()),
+                    max: constraints.max.map(|x| x.get::<$unit>()),
+                };
+
+                f64::as_constraints(&constraints)
             }
         }
 
@@ -693,60 +581,33 @@ macro_rules! impl_uom_unit {
                 ScalarValue::Float(value.map(|x| x.get::<$unit>()))
             }
 
+            // TODO: implement
             fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+                _ = definition;
                 true
             }
 
+            // TODO: implement
             fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+                _ = definition;
                 true
             }
 
-            fn validate_constraints(
+            fn apply_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
                 value: &Self::Type,
             ) -> Result<(), ConstraintViolationError> {
-                let value = match value {
-                    Some(value) => value,
-                    None => {
-                        if constraints.allow_none {
-                            return Ok(());
-                        }
-
-                        return Err(ConstraintViolationError::CannotBeNull {
-                            value: ScalarValue::Float(None),
-                        });
-                    }
+                let Some(value) = value else {
+                    return Ok(());
                 };
 
-                if let Some(min) = constraints.min {
-                    if *value < min {
-                        return Err(ConstraintViolationError::BelowMin {
-                            value: NumericValue::Float(Some(value.get::<$unit>())),
-                            min: NumericValue::Float(Some(min.get::<$unit>())),
-                        });
-                    }
-                }
-
-                if let Some(max) = constraints.max {
-                    if *value > max {
-                        return Err(ConstraintViolationError::AboveMax {
-                            value: NumericValue::Float(Some(value.get::<$unit>())),
-                            max: NumericValue::Float(Some(max.get::<$unit>())),
-                        });
-                    }
-                }
-
-                Ok(())
+                <$unit>::apply_constraints(constraints, value)
             }
 
-            fn as_parameter_constraints(
+            fn as_constraints(
                 constraints: &<Self::Type as PropertyType>::Constraints,
             ) -> Constraints {
-                Constraints::Numeric {
-                    min: NumericValue::Float(constraints.min.map(|x| x.get::<$unit>())),
-                    max: NumericValue::Float(constraints.max.map(|x| x.get::<$unit>())),
-                    nullable: constraints.allow_none,
-                }
+                <$unit>::as_constraints(constraints)
             }
         }
     };

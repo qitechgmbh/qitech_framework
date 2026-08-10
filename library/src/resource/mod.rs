@@ -8,7 +8,6 @@ pub(crate) use bump_allocator::BumpAllocator;
 pub(crate) use bump_allocator::BumpAllocatorMark;
 
 mod journal;
-pub(crate) use journal::Journal;
 pub(crate) use journal::JournalHandle;
 pub(crate) use journal::Journals;
 

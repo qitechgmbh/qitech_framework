@@ -37,7 +37,7 @@ impl RuntimeConfiguration {
     }
 
     pub fn cycle_period(mut self, value: Duration) -> Self {
-        self.config.cycle_timeout = value;
+        self.config.cycle_period = value;
         self
     }
 

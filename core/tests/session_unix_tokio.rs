@@ -44,14 +44,14 @@ fn runtime(path: String) {
     let session = session::unix::runtime(&path).expect("runtime transport failed");
 
     // --- initial handshake ---
-    let session = session.complete().expect("runtime handshake failed");
+    let session = session.begin_sync().expect("runtime handshake failed");
 
     // --- sync schemas ---
     // TODO:
 
     // --- send init events ---
     let mut session = session
-        .complete()
+        .begin_initialization()
         .expect("[Runtime] couldn't complete schema sync phase");
 
     session
@@ -88,7 +88,7 @@ fn runtime(path: String) {
 
     // --- go into running stage ---
     let mut session = session
-        .complete()
+        .upgrade()
         .expect("[Runtime] couldn't complete schema sync phase");
 
     loop {

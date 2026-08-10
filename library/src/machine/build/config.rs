@@ -5,8 +5,10 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use qitech_framework_core::ScalarValue;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteError;
+use qitech_framework_core::report::ConstraintViolationError;
 use qitech_framework_core::report::OperationCapability;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
@@ -19,6 +21,7 @@ use crate::machine::config_property::ConfigProperty;
 use crate::machine::config_property::ConfigPropertyChangedCallbackFn;
 use crate::machine::config_property::ConfigPropertyState;
 use crate::resource::ResourceKey;
+use crate::resource::constraints::NumericConstraints;
 use crate::resource::conversion::PropertyAdapter;
 use crate::resource::conversion::PropertyType;
 
@@ -31,6 +34,7 @@ impl<'a> BuildContext<'a> {
         ConfigPropertyBuilder {
             root: self,
             path,
+            constraints_error: None,
             default: None,
             capability: OperationCapability::Allowed,
             constraints: <T::Type as PropertyType>::Constraints::default(),
@@ -50,10 +54,120 @@ where
     // --- configuration ---
     default: Option<T::Type>,
     capability: OperationCapability,
-    constraints: <T::Type as PropertyType>::Constraints,
 
-    on_external_write_error: Option<BuildError>,
+    constraints: <T::Type as PropertyType>::Constraints,
+    constraints_error: Option<ConstraintViolationError>,
+
     on_external_write: Option<ConfigPropertyChangedCallbackFn>,
+    on_external_write_error: Option<BuildError>,
+}
+
+impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
+where
+    T: PropertyAdapter + 'static,
+    T::Type: PropertyType<Constraints = NumericConstraints<T::Type>> + PartialOrd + Copy,
+{
+    pub fn min(mut self, value: T::Input) -> Self {
+        let value = T::convert_input(value);
+
+        if let Some(max) = self.constraints.max
+            && value > max
+        {
+            self.constraints_error = Some(ConstraintViolationError::IllegalRange {
+                min: T::into_scalar(value),
+                max: T::into_scalar(max),
+            });
+
+            return self;
+        }
+
+        self.constraints.min = Some(value);
+        self
+    }
+
+    pub fn max(mut self, value: T::Input) -> Self {
+        let value = T::convert_input(value);
+
+        if let Some(min) = self.constraints.min
+            && value < min
+        {
+            self.constraints_error = Some(ConstraintViolationError::IllegalRange {
+                min: T::into_scalar(min),
+                max: T::into_scalar(value),
+            });
+
+            return self;
+        }
+
+        self.constraints.max = Some(value);
+        self
+    }
+}
+
+impl<'a, 'b, const CAPACITY: usize> ConfigPropertyBuilder<'a, 'b, heapless::String<CAPACITY>> {
+    pub fn min_length(mut self, value: usize) -> Self {
+        if value > CAPACITY {
+            self.constraints_error = Some(ConstraintViolationError::IllegalRange {
+                min: ScalarValue::Integer(Some(value as i64)),
+                max: ScalarValue::Integer(Some(CAPACITY as i64)),
+            });
+
+            return self;
+        }
+
+        self.constraints.min_length = Some(value);
+        self
+    }
+
+    pub fn pattern(mut self, value: String) -> Self {
+        let rgx = match regex::Regex::new(value.as_str()) {
+            Ok(v) => v,
+            Err(e) => {
+                self.constraints_error = Some(ConstraintViolationError::IllegalPattern {
+                    pattern: value,
+                    error: e.to_string(),
+                });
+                return self;
+            }
+        };
+
+        self.constraints.pattern = Some((value, rgx));
+        self
+    }
+}
+
+impl<'a, 'b, const CAPACITY: usize>
+    ConfigPropertyBuilder<'a, 'b, Option<heapless::String<CAPACITY>>>
+{
+    pub fn min_length(mut self, value: usize) -> Self {
+        if value > CAPACITY {
+            self.constraints_error = Some(ConstraintViolationError::IllegalRange {
+                min: ScalarValue::Integer(Some(value as i64)),
+                max: ScalarValue::Integer(Some(CAPACITY as i64)),
+            });
+
+            return self;
+        }
+
+        self.constraints.min_length = Some(value);
+        self
+    }
+
+    pub fn pattern(mut self, value: String) -> Self {
+        let rgx = match regex::Regex::new(value.as_str()) {
+            Ok(v) => v,
+            Err(e) => {
+                self.constraints_error = Some(ConstraintViolationError::IllegalPattern {
+                    pattern: value,
+                    error: e.to_string(),
+                });
+                return self;
+            }
+        };
+
+        self.constraints.pattern = Some((value, rgx));
+        self
+    }
 }
 
 impl<'a, 'b, T> ConfigPropertyBuilder<'a, 'b, T>
@@ -78,8 +192,6 @@ where
         func: fn(&mut M) -> ActResult,
     ) -> Self {
         if self.root.type_id != TypeId::of::<M>() {
-            // returning an error in the build call is not ergonomic thus we store
-            // the error and yield it on register();
             self.on_external_write_error = Some(BuildError::IllegalMachineType {
                 expected: self.root.type_name.to_string(),
                 received: type_name::<M>().to_string(),
@@ -120,6 +232,10 @@ where
             return Err(BuildError::DuplicateResource(self.path.to_string()));
         }
 
+        if let Some(e) = self.constraints_error {
+            return Err(BuildError::ConstraintViolation(e));
+        }
+
         if let Some(err) = self.on_external_write_error {
             return Err(err);
         }
@@ -127,7 +243,7 @@ where
         let default = self.default.unwrap_or_default();
 
         // --- ensure initial value fits into constraints ---
-        T::validate_constraints(&self.constraints, &default)?;
+        T::apply_constraints(&self.constraints, &default)?;
 
         let p_value = self.root.config.register::<T::Type>(
             self.root.ident,
@@ -154,7 +270,7 @@ where
             .record(ConfigPropertyEvent::Registered {
                 default: T::into_scalar(default.clone()),
                 capability: self.capability.clone(),
-                constraints: T::as_parameter_constraints(&self.constraints),
+                constraints: T::as_constraints(&self.constraints),
             });
 
         let state = Rc::new(RefCell::new(state));
@@ -169,7 +285,7 @@ where
                 return Err(ConfigPropertyWriteError::NotWritable);
             };
 
-            if let Err(e) = (T::validate_constraints)(&state.constraints, &value) {
+            if let Err(e) = (T::apply_constraints)(&state.constraints, &value) {
                 return Err(ConfigPropertyWriteError::ConstraintViolation(e));
             }
 
@@ -198,8 +314,8 @@ where
             state: Rc::downgrade(&state),
             p_value,
             into_scalar: T::into_scalar,
-            validate_constraints: T::validate_constraints,
-            as_parameter_constraints: T::as_parameter_constraints,
+            validate_constraints: T::apply_constraints,
+            as_parameter_constraints: T::as_constraints,
             journal,
         })
     }

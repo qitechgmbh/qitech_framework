@@ -31,7 +31,7 @@ impl<T> SessionHandshake<T>
 where
     T: RuntimeTransport,
 {
-    pub fn complete(mut self) -> Result<SessionSyncingSchemas<T>, HandshakeError> {
+    pub fn begin_sync(mut self) -> Result<SessionSyncingSchemas<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Hello(Hello::new()))?;
 
         match self.transport.recv()? {
@@ -66,7 +66,7 @@ where
         }
     }
 
-    pub fn complete(mut self) -> Result<SessionInitializing<T>, HandshakeError> {
+    pub fn begin_initialization(mut self) -> Result<SessionInitializing<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Finished)?;
 
         Ok(SessionInitializing {
@@ -89,7 +89,7 @@ where
         Ok(())
     }
 
-    pub fn complete(mut self) -> Result<SessionRunning<T>, HandshakeError> {
+    pub fn upgrade(mut self) -> Result<SessionRunning<T>, HandshakeError> {
         self.transport.send(RuntimeMessage::Finished)?;
 
         // don't block from now on

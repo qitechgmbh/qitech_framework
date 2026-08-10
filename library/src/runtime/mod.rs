@@ -85,7 +85,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.export_report_if_due(now);
 
         let elapsed = now.elapsed();
-        if let Some(remaining) = self.config.cycle_timeout.checked_sub(elapsed) {
+        if let Some(remaining) = self.config.cycle_period.checked_sub(elapsed) {
             sleep(remaining);
         } else {
             // cycle overran its budget

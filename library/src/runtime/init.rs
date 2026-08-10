@@ -41,7 +41,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         session: SessionHandshake<T>,
     ) -> RuntimeInitializeResult<Self> {
         // --- send hello ---
-        let mut session = session.complete()?;
+        let mut session = session.begin_sync()?;
 
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
@@ -75,7 +75,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         }
 
         // --- initialize ethercat ---
-        let mut session = session.complete()?;
+        let mut session = session.begin_initialization()?;
         let mut hardware_registry = HashMap::new();
 
         let (ecat_controller, mut sub_devices) =
@@ -179,7 +179,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             sub_devices,
             ecat_controller,
             config: config.config,
-            session: session.complete()?,
+            session: session.upgrade()?,
 
             // set into future so first export always succeeds - nice
             last_export_ts: Instant::now() - Duration::from_secs(420),
