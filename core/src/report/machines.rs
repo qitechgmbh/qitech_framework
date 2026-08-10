@@ -58,13 +58,13 @@ pub enum ConfigPropertyWriteOutcome {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ConfigPropertyWriteError {
-    #[error("value type mismatch")]
+    #[error("value type does not match the expected type")]
     ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
 
     #[error("resource is not writable")]
     NotWritable,
 
-    #[error("value had invalid type")]
+    #[error("value violates the resource constraints")]
     ConstraintViolation(#[from] ConstraintViolationError),
 }
 

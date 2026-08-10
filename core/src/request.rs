@@ -154,24 +154,24 @@ pub enum MachineSubscribeError {
     #[error(transparent)]
     ResourceAccess(#[from] ResourceAccessError),
 
-    #[error("provider does not have requested machine")]
+    #[error("provider not found")]
     ProviderNotFound,
 
-    #[error("provider does not have requested machine")]
+    #[error("subscriber not found")]
     SubscriberNotFound,
 
-    #[error("provider does not have a subscription for subscriber")]
+    #[error("subscriber is already subscribed")]
     AlreadySubscribed,
 
-    #[error("unsupported machine")]
+    #[error("machine is not supported")]
     UnsupportedMachine,
 
-    #[error("too many subscriptions")]
+    #[error("subscription limit exceeded")]
     TooManySubscriptions,
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MachineUnsubscribeError {
-    #[error("provider does not have a subscription for subscriber")]
+    #[error("subscription not found")]
     SubscriptionNotFound,
 }

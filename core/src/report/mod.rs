@@ -1,3 +1,4 @@
+use core::fmt;
 use std::mem;
 use std::time::Duration;
 
@@ -174,4 +175,16 @@ pub enum ResourceKind {
     Measurement,
     Command,
     Event,
+}
+
+impl fmt::Display for ResourceKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ResourceKind::ConfigProperty => write!(f, "ConfigProperty"),
+            ResourceKind::StateProperty => write!(f, "StateProperty"),
+            ResourceKind::Measurement => write!(f, "Measurement"),
+            ResourceKind::Command => write!(f, "Command"),
+            ResourceKind::Event => write!(f, "Event"),
+        }
+    }
 }

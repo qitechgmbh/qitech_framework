@@ -61,7 +61,7 @@ impl<Metadata> PropertyRegistry<Metadata> {
             if descriptor.type_id != type_id {
                 return Err(ResourceAccessError::TypeMismatch {
                     actual: descriptor.type_name.to_owned(),
-                    received: type_name.to_owned(),
+                    expected: type_name.to_owned(),
                 });
             }
 

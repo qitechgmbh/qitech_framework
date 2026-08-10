@@ -25,11 +25,11 @@ pub enum ResourceAccessError {
     #[error("machine not found")]
     MachineNotFound,
 
-    #[error("resource not found")]
+    #[error("resource not found: {kind} at '{path}'")]
     ResourceNotFound { kind: ResourceKind, path: String },
 
-    #[error("resource type mismatch: expected {actual}, received {received}")]
-    TypeMismatch { actual: String, received: String },
+    #[error("resource type mismatch: expected {expected}, received {actual}")]
+    TypeMismatch { expected: String, actual: String },
 }
 
 // --- write capability ---
@@ -167,48 +167,48 @@ impl fmt::Display for Constraints {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum ConstraintViolationError {
-    #[error("types didn't match")]
+    #[error("value type does not match the expected type")]
     TypeMismatch,
 
-    #[error("value {value} is below the minimum {min}")]
+    #[error("value {value} is below the minimum allowed value {min}")]
     BelowMin {
         value: ScalarValue,
         min: ScalarValue,
     },
 
-    #[error("value {value} is above the maximum {max}")]
+    #[error("value {value} is above the maximum allowed value {max}")]
     AboveMax {
         value: ScalarValue,
         max: ScalarValue,
     },
 
-    #[error("minimum {min} cannot be greater than maximum {max}")]
+    #[error("invalid constraint range: minimum {min} is greater than maximum {max}")]
     IllegalRange {
         min: ScalarValue,
         max: ScalarValue,
     },
 
-    #[error("...")]
+    #[error("no allowed values are configured")]
     NoAllowedVariants,
 
     #[error("value {value} cannot be null")]
     CannotBeNull { value: ScalarValue },
 
-    #[error("string length {length} is below the minimum {min}")]
+    #[error("string length {length} is below the minimum allowed length {min}")]
     StringTooShort { length: usize, min: usize },
 
-    #[error("string length {length} is above the maximum {max}")]
+    #[error("string length {length} exceeds the maximum allowed length {max}")]
     StringTooLong { length: usize, max: usize },
 
-    #[error("string does not match required pattern: {pattern}")]
-    IllegalPattern { 
+    #[error("string does not match the required pattern: {pattern}")]
+    IllegalPattern {
         pattern: String,
         error: String,
     },
 
-    #[error("string does not match required pattern: {pattern}")]
+    #[error("string does not match the required pattern: {pattern}")]
     PatternMismatch { pattern: String },
 
-    #[error("value {value:?} is not one of the allowed enum variants")]
+    #[error("value {value:?} is not one of the allowed variants")]
     ForbiddenVariant { value: ScalarValue },
 }
