@@ -31,7 +31,7 @@ pub fn main() {
         .machine::<LaserV1>();
 
     // --- run it ---
-    run_tui(config)
+    run_headless(config)
 }
 
 fn run_headless(config: RuntimeConfiguration) {

@@ -313,7 +313,7 @@ impl PropertyAdapter for f64 {
                 semantic: FloatSemantic::Quantity(_),
                 ..
             }
-        ) && !definition.nullable
+        )
     }
 
     fn apply_constraints(
