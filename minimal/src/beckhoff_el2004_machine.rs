@@ -1,7 +1,12 @@
 use std::{cell::RefCell, rc::Rc, time::Instant};
 
-use qitech_framework::machine::{MachineIdentification, ActResult, BuildContext, BuildResult, ConfigProperty, Machine, MachineBuild, MachineDescriptor};
-use qitech_lib::ethercat_hal::{devices::beckhoff_modules::el2004::EL2004, io::digital_output::DigitalOutputDevice};
+use qitech_framework::machine::{
+    ActResult, BuildContext, BuildResult, ConfigProperty, Machine, MachineBuild, MachineDescriptor,
+    MachineIdentification,
+};
+use qitech_lib::ethercat_hal::{
+    devices::beckhoff_modules::el2004::EL2004, io::digital_output::DigitalOutputDevice,
+};
 
 pub struct EL2004Machine {
     leds: [ConfigProperty<bool>; 4],
@@ -9,14 +14,10 @@ pub struct EL2004Machine {
 }
 
 impl EL2004Machine {
-
     fn update_led(&mut self, port: usize) -> ActResult {
         let value = self.leds[port].get();
 
-        self
-            .el2004
-            .borrow_mut()
-            .set_output(port, value);
+        self.el2004.borrow_mut().set_output(port, value);
 
         Ok(())
     }
@@ -39,14 +40,12 @@ impl EL2004Machine {
 }
 
 impl Machine for EL2004Machine {
-
     fn act(&mut self, _now: Instant) -> ActResult {
         Ok(())
     }
 }
 
 impl MachineBuild for EL2004Machine {
-
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
         let el2004 = ctx.find_ethercat_device::<EL2004>(1)?;
 
@@ -82,7 +81,6 @@ impl MachineBuild for EL2004Machine {
 }
 
 impl MachineDescriptor for EL2004Machine {
-
     const SCHEMA: &'static str = include_str!("../schemas/beckhoff_el2004_machine.yaml");
 
     const IDENTIFICATION: MachineIdentification = MachineIdentification {

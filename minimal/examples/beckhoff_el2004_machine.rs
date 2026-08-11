@@ -10,7 +10,7 @@ pub fn main() {
         .ethercat(EtherCATConfig {
             interface_scan_interval: Duration::from_secs(1),
             master_config: None,
-            stay_in_preop: false
+            stay_in_preop: false,
         })
         .machine::<EL2004Machine>();
 
@@ -18,4 +18,3 @@ pub fn main() {
     run_tui(config)
     // run_headless(config)
 }
-

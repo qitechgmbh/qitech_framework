@@ -104,9 +104,9 @@ impl TransactionsView {
 
             let request = match &t.request {
                 RuntimeRequestKind::WriteMachineDeviceInfo {
-                    machine_ident,
-                    role,
-                    subdevice_index,
+                    machine_ident: _,
+                    role: _,
+                    subdevice_index: _,
                 } => "_".to_string(),
                 RuntimeRequestKind::SetConfigProperty {
                     target,
@@ -115,14 +115,14 @@ impl TransactionsView {
                 } => {
                     format!("SetConfigProperty({}, {}, {})", target, path, value)
                 }
-                RuntimeRequestKind::ExecuteCommand { target, path } => "_".to_string(),
+                RuntimeRequestKind::ExecuteCommand { target: _, path: _ } => "_".to_string(),
                 RuntimeRequestKind::SubscribeMachine {
-                    provider,
-                    subscriber,
+                    provider: _,
+                    subscriber: _,
                 } => "_".to_string(),
                 RuntimeRequestKind::UnsubscribeMachine {
-                    provider,
-                    subscriber,
+                    provider: _,
+                    subscriber: _,
                 } => "_".to_string(),
             };
 

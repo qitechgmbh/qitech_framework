@@ -11,7 +11,6 @@ use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::controller::SessionHandshake;
 use qitech_framework_core::session::error::SchemaSyncError;
 
-use crate::types::AppAction;
 
 pub enum SessionMessage {
     Schemas(HashMap<MachineIdentification, MachineSchema>),
