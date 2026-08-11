@@ -219,7 +219,7 @@ where
             });
         };
 
-        if !T::validate_scalar_property_definition(def) {
+        if !T::validate_scalar_property_definition(def, false) {
             return Err(BuildError::IllegalResourceType {
                 kind: ResourceKind::ConfigProperty,
                 path: self.path.to_string(),

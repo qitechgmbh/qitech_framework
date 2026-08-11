@@ -82,6 +82,9 @@ pub enum ActErrorKind {
 
     #[error(transparent)]
     ConstraintViolation(#[from] ConstraintViolationError),
+
+    #[error("{0}")]
+    Custom(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

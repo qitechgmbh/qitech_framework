@@ -26,9 +26,15 @@ pub trait PropertyAdapter: 'static {
     fn into_scalar(value: Self::Type) -> ScalarValue;
     fn from_scalar(value: ScalarValue) -> Result<Self::Type, ScalarValueTypeMismatchError>;
 
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool;
+    fn validate_scalar_property_definition(
+        definition: &ScalarPropertyDefinition,
+        ignore_nullable: bool,
+    ) -> bool;
 
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool;
+    fn validate_measurement_definition(
+        definition: &MeasurementDefinition,
+        ignore_nullable: bool,
+    ) -> bool;
 
     fn apply_constraints(
         constraints: &<Self::Type as PropertyType>::Constraints,
@@ -63,12 +69,25 @@ impl<const CAPACITY: usize> PropertyAdapter for heapless::String<CAPACITY> {
         ScalarValue::String(value.to_string())
     }
 
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::String) && !definition.nullable
+    fn validate_scalar_property_definition(
+        definition: &ScalarPropertyDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
+        matches!(definition.kind, ScalarPropertyKind::String)
     }
 
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        _ = definition;
+    fn validate_measurement_definition(
+        definition: &MeasurementDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
         false
     }
 
@@ -128,12 +147,26 @@ impl PropertyAdapter for bool {
         ScalarValue::Boolean(value)
     }
 
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::Boolean) && !definition.nullable
+    fn validate_scalar_property_definition(
+        definition: &ScalarPropertyDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
+        matches!(definition.kind, ScalarPropertyKind::Boolean)
     }
 
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        matches!(definition.kind, MeasurementKind::Boolean) && !definition.nullable
+    fn validate_measurement_definition(
+        definition: &MeasurementDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
+        matches!(definition.kind, MeasurementKind::Boolean)
     }
 
     fn apply_constraints(
@@ -171,12 +204,26 @@ impl PropertyAdapter for i64 {
         ScalarValue::Integer(value)
     }
 
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        matches!(definition.kind, ScalarPropertyKind::Integer) && !definition.nullable
+    fn validate_scalar_property_definition(
+        definition: &ScalarPropertyDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
+        matches!(definition.kind, ScalarPropertyKind::Integer)
     }
 
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        matches!(definition.kind, MeasurementKind::Integer { .. }) && !definition.nullable
+    fn validate_measurement_definition(
+        definition: &MeasurementDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
+        matches!(definition.kind, MeasurementKind::Integer { .. })
     }
 
     fn apply_constraints(
@@ -236,16 +283,30 @@ impl PropertyAdapter for f64 {
         ScalarValue::Float(value)
     }
 
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+    fn validate_scalar_property_definition(
+        definition: &ScalarPropertyDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
         !matches!(
             definition.kind,
             ScalarPropertyKind::Float {
                 semantic: FloatSemantic::Quantity(_)
             }
-        ) && !definition.nullable
+        )
     }
 
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
+    fn validate_measurement_definition(
+        definition: &MeasurementDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        if !ignore_nullable && definition.nullable {
+            return false;
+        }
+
         !matches!(
             definition.kind,
             MeasurementKind::Float {
@@ -315,14 +376,27 @@ macro_rules! impl_uom_unit {
             }
 
             // TODO: implement
-            fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
+            fn validate_scalar_property_definition(
+                definition: &ScalarPropertyDefinition,
+                ignore_nullable: bool,
+            ) -> bool {
+                if !ignore_nullable && definition.nullable {
+                    return false;
+                }
+
                 _ = definition;
                 true
             }
 
             // TODO: implement
-            fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-                _ = definition;
+            fn validate_measurement_definition(
+                definition: &MeasurementDefinition,
+                ignore_nullable: bool,
+            ) -> bool {
+                if !ignore_nullable && definition.nullable {
+                    return false;
+                }
+
                 true
             }
 
@@ -383,12 +457,20 @@ where
         }
     }
 
-    fn validate_scalar_property_definition(definition: &ScalarPropertyDefinition) -> bool {
-        T::validate_scalar_property_definition(definition)
+    fn validate_scalar_property_definition(
+        definition: &ScalarPropertyDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        _ = ignore_nullable;
+        T::validate_scalar_property_definition(definition, true)
     }
 
-    fn validate_measurement_definition(definition: &MeasurementDefinition) -> bool {
-        T::validate_measurement_definition(definition)
+    fn validate_measurement_definition(
+        definition: &MeasurementDefinition,
+        ignore_nullable: bool,
+    ) -> bool {
+        _ = ignore_nullable;
+        T::validate_measurement_definition(definition, true)
     }
 
     fn apply_constraints(

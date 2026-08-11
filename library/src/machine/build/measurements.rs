@@ -54,7 +54,7 @@ where
             });
         };
 
-        if !T::validate_measurement_definition(def) {
+        if !T::validate_measurement_definition(def, false) {
             return Err(BuildError::IllegalResourceType {
                 kind: ResourceKind::Measurement,
                 path: self.path.to_string(),

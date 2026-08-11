@@ -82,11 +82,25 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn validate_scalar_property_definition(definition: &qitech_framework::__private::ScalarPropertyDefinition) -> bool {
+            fn validate_scalar_property_definition(
+                definition: &qitech_framework::__private::ScalarPropertyDefinition,
+                ignore_nullable: bool,
+            ) -> bool {
+                if !ignore_nullable && definition.nullable {
+                    return false;
+                }
+
                 true
             }
 
-            fn validate_measurement_definition(definition: &qitech_framework::__private::MeasurementDefinition) -> bool {
+            fn validate_measurement_definition(
+                definition: &qitech_framework::__private::MeasurementDefinition,
+                ignore_nullable: bool,
+            ) -> bool {
+                if !ignore_nullable && definition.nullable {
+                    return false;
+                }
+
                 true
             }
 
