@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::time::Instant;
+use std::time::Duration;
 
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
@@ -44,7 +44,7 @@ pub use event::EventEmitter;
 
 pub trait Machine: Any {
     /// Defines the update cycle of a machine.
-    fn act(&mut self, now: Instant) -> ActResult;
+    fn act(&mut self, dt: Duration) -> ActResult;
 
     /// Allows a machine to create remote properties.
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {

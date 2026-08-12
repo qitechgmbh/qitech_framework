@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 use std::thread::sleep;
+use std::time::Duration;
 use std::time::Instant;
 
 use bitvec::order::Lsb0;
@@ -59,21 +60,25 @@ pub struct Runtime<T: RuntimeTransport> {
 }
 
 impl<T: RuntimeTransport> Runtime<T> {
-    pub fn run(mut self) -> Result<(), RuntimeError> {
-        loop {
-            let now = Instant::now();
-            self.tick(now)?;
-        }
-    }
+pub fn run(mut self) -> Result<(), RuntimeError> {
+    let mut last_update = Instant::now();
 
-    fn tick(&mut self, now: Instant) -> Result<(), RuntimeError> {
+    loop {
+        let now = Instant::now();
+        let dt = now.duration_since(last_update);
+        last_update = now;
+        self.tick(now, dt)?;
+    }
+}
+
+    fn tick(&mut self, now: Instant, dt: Duration) -> Result<(), RuntimeError> {
         if self.controller_finished() {
             return Err(RuntimeError::EtherCATControllerDied);
         }
 
         self.write_ecat_inputs();
         self.process_requests();
-        self.run_machines(now);
+        self.run_machines(dt);
 
         // --- sync cache so subscribed properties get the latest data next cycle ---
         self.resources.config_properties.sync_cache();
@@ -185,11 +190,11 @@ impl<T: RuntimeTransport> Runtime<T> {
         self.export_count.set(self.export_count.get() + 1);
     }
 
-    fn run_machines(&mut self, now: Instant) {
+    fn run_machines(&mut self, dt: Duration) {
         let mut i = 0;
 
         while i < self.machines.len() {
-            match self.machines[i].machine.act(now) {
+            match self.machines[i].machine.act(dt) {
                 Ok(()) => i += 1,
 
                 Err(e) if e.impact != ActErrorImpact::Irrecoverable => i += 1,
