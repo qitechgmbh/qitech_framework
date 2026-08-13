@@ -1,0 +1,9 @@
+[package]
+name = "el_2004"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+qitech_lib.workspace = true
+qitech_framework.workspace = true
+qitech_framework_tui.workspace = true

@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "examples/minimal_machines/*", 
+    "examples/concepts/*",
     "core",
     "macros",
     "library",
@@ -10,8 +12,13 @@ members = [
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.90"
+repository = "https://github.com/qitechgmbh/qitech_framework"
+keywords = ["ethercat", "machine", "tui"]
+categories = [""]
+license = "LGPL-3.0-only"
+exclude = [".github", ".vscode"]
 edition = "2024"
+rust-version = "1.90"
 
 [workspace.dependencies]
 qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="530355c00baf6335f6085441c2a497d9ac060af6" }
