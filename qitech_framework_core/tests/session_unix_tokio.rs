@@ -1,4 +1,4 @@
-#![cfg(feature = "session_unix")]
+#![cfg(feature = "session_tokio")]
 
 use std::thread;
 use std::time::Duration;
@@ -176,7 +176,7 @@ fn controller(path: String) {
                         serial: 0,
                     },
                     path: "just_some_config".to_string(),
-                    value: ScalarValue::Float(Some(1.0)),
+                    value: ScalarValue::Float(1.0),
                 },
             })
             .await

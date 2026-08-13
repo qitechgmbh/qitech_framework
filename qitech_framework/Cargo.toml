@@ -1,0 +1,39 @@
+[package]
+name = "qitech_framework"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# --- internal deps ---
+qitech_framework_core.workspace = true
+qitech_framework_macros.workspace = true
+
+# --- workspace deps ---
+serde.workspace = true
+serde_json.workspace = true
+yaml_serde.workspace = true
+
+tokio.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+qitech_lib.workspace = true
+thiserror.workspace = true
+
+# --- unique deps ---
+postcard = { workspace = true, features = ["alloc"]}
+heapless =  { workspace = true, features = ["serde"] }
+
+udev.workspace = true
+bitvec.workspace = true
+serialport.workspace = true
+tokio-serial.workspace = true
+
+# --- uom ---
+regex.workspace = true
+tracing.workspace = true
+crossbeam.workspace = true
+
+[build-dependencies]
+toml.workspace = true
+serde = { workspace = true, features = ["derive"] }

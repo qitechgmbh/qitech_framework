@@ -1,0 +1,40 @@
+[package]
+name = "qitech_framework_core"
+version = "0.1.0"
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# --- general ---
+serde.workspace = true
+thiserror.workspace = true
+
+# --- schema ---
+indexmap = { workspace = true, optional = true }
+yaml_serde  = { workspace = true, optional = true }
+unic-langid = { workspace = true, optional = true }
+
+# --- protocol ---
+chrono.workspace = true
+postcard.workspace = true
+
+# --- crossbeam session ---
+crossbeam = { workspace = true, optional = true }
+
+# --- unix session ---
+tokio = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
+
+[build-dependencies]
+serde.workspace = true
+toml.workspace = true
+
+[features]
+default = ["schema", "session_crossbeam", "session_tokio"]
+schema = ["dep:yaml_serde", "dep:indexmap", "dep:unic-langid"]
+
+session_crossbeam = ["dep:crossbeam"]
+session_tokio = ["dep:tokio", "dep:tokio-util", "dep:futures", "dep:bytes"]

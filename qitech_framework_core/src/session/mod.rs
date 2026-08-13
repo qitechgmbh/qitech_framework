@@ -15,5 +15,5 @@ mod crossbeam;
 #[cfg(feature = "session_crossbeam")]
 pub use crossbeam::crossbeam;
 
-#[cfg(feature = "session_unix")]
+#[cfg(feature = "session_tokio")]
 pub mod unix;

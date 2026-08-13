@@ -62,12 +62,6 @@ pub enum BuildError {
     ConstraintViolation(#[from] ConstraintViolationError),
 }
 
-impl From<anyhow::Error> for BuildError {
-    fn from(err: anyhow::Error) -> Self {
-        BuildError::EtherCATConfigureError(err.to_string())
-    }
-}
-
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
 #[error("{kind}")]
 pub struct ActError {

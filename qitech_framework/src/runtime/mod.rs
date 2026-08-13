@@ -60,16 +60,16 @@ pub struct Runtime<T: RuntimeTransport> {
 }
 
 impl<T: RuntimeTransport> Runtime<T> {
-pub fn run(mut self) -> Result<(), RuntimeError> {
-    let mut last_update = Instant::now();
+    pub fn run(mut self) -> Result<(), RuntimeError> {
+        let mut last_update = Instant::now();
 
-    loop {
-        let now = Instant::now();
-        let dt = now.duration_since(last_update);
-        last_update = now;
-        self.tick(now, dt)?;
+        loop {
+            let now = Instant::now();
+            let dt = now.duration_since(last_update);
+            last_update = now;
+            self.tick(now, dt)?;
+        }
     }
-}
 
     fn tick(&mut self, now: Instant, dt: Duration) -> Result<(), RuntimeError> {
         if self.controller_finished() {
