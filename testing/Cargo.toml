@@ -1,9 +1,19 @@
 [package]
-name = "minimal"
+name = "testing"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-qitech_framework = { path = "../library" }
-qitech_framework_tui = { path = "../tui" }
-qitech_lib = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+qitech_lib.workspace = true
+qitech_framework.workspace = true
+qitech_framework_hub.workspace = true
+qitech_framework_tui.workspace = true
+qitech_framework_core.workspace = true
+
+tower-http = { workspace = true, features =  ["cors","trace"] }
+tokio = { workspace = true, features = ["full"] }
+axum.workspace = true
+
+socketioxide = { version = "0.15.2", features = ["msgpack"] }
+tracing = "0.1.44"

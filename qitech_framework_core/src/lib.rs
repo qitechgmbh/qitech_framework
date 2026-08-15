@@ -37,3 +37,9 @@ pub mod vendors {
         generated::get_id(name)
     }
 }
+
+pub trait Controller {
+    type Config;
+    type Error;
+    fn run(config: Self::Config) -> Result<(), Self::Error>;
+}

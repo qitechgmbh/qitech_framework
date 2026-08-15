@@ -17,3 +17,9 @@ pub use crossbeam::crossbeam;
 
 #[cfg(feature = "session_tokio")]
 pub mod unix;
+
+#[cfg(feature = "session_tokio")]
+mod tokio_mpsc;
+
+#[cfg(feature = "session_tokio")]
+pub use tokio_mpsc::tokio_mpsc;

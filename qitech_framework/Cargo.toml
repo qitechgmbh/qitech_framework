@@ -6,6 +6,8 @@ rust-version.workspace = true
 
 [dependencies]
 # --- internal deps ---
+qitech_framework_tui.workspace = true
+qitech_framework_hub.workspace = true
 qitech_framework_core.workspace = true
 qitech_framework_macros.workspace = true
 

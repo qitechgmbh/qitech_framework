@@ -11,25 +11,25 @@ serde.workspace = true
 thiserror.workspace = true
 
 # --- schema ---
-indexmap = { workspace = true, optional = true }
+indexmap = { workspace = true, features = ["serde"], optional = true  }
 yaml_serde  = { workspace = true, optional = true }
-unic-langid = { workspace = true, optional = true }
+unic-langid = { workspace = true, features = ["serde"], optional = true  }
 
 # --- protocol ---
-chrono.workspace = true
-postcard.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+postcard = { workspace = true, features = ["alloc"] }
 
 # --- crossbeam session ---
 crossbeam = { workspace = true, optional = true }
 
 # --- unix session ---
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["full"], optional = true }
 bytes = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 tokio-util = { workspace = true, optional = true }
 
 [build-dependencies]
-serde.workspace = true
+serde = { workspace = true, features = ["derive"] }
 toml.workspace = true
 
 [features]

@@ -19,7 +19,6 @@ impl<T> SessionHandshake<T>
 where
     T: AsyncControllerTransport,
 {
-    #[allow(dead_code)]
     pub(crate) fn new(transport: T) -> Self {
         Self { transport }
     }
@@ -125,7 +124,6 @@ impl<T> SessionRunning<T>
 where
     T: AsyncControllerTransport,
 {
-    /// blocking read
     pub async fn recv_report(&mut self) -> Result<RuntimeReport, SessionRecvError> {
         match self.transport.recv().await? {
             RuntimeMessage::Report(report) => Ok(*report),
@@ -133,7 +131,6 @@ where
         }
     }
 
-    /// non blocking send
     pub async fn send_request(&mut self, request: RuntimeRequest) -> Result<(), TransportError> {
         self.transport
             .send(ControllerMessage::Request(request))

@@ -21,7 +21,7 @@ pub use parser::ParseError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineSchema {
-    // --- meta data ---
+    // --- metadata ---
     pub qms_version: Version,
     pub revision: u32,
 
