@@ -101,16 +101,19 @@ impl RuntimeConfiguration {
         self
     }
 
-    /// Claim the module with the given `serial` for `ident`.
+    /// Claim the module with the given `device_id` for `ident`.
     ///
-    /// `serial` is register `0000h`, which is factory-set and unique — unlike the device id,
-    /// which ships as `01` on every module. Init resolves it to a live module through one
-    /// broadcast discovery sweep.
+    /// `device_id` is register `0001h` — the address the bus routes replies on, set per module
+    /// with the `assign_ids` tool. Init resolves it to a live module through one broadcast
+    /// discovery sweep, which also supplies the unicast address.
+    ///
+    /// Modules ship as `01`, so give each one a distinct id before configuring it here. Two
+    /// modules sharing an id cannot be told apart and init refuses both rather than guessing.
     ///
     /// One call claims one module for one machine instance, so N scales become N machines.
     pub fn xtrem_device<D: XtremDeviceBuild + 'static>(
         mut self,
-        serial: u32,
+        device_id: u8,
         ident: MachineIdentificationUnique,
         mode: ScaleMode,
     ) -> Self {
@@ -125,7 +128,7 @@ impl RuntimeConfiguration {
             Ok(dev)
         });
 
-        config.entries.insert(serial, XtremEntry { ident, init });
+        config.entries.insert(device_id, XtremEntry { ident, init });
 
         self.xtrem_mode = XtremMode::Enabled(config);
         self
@@ -213,8 +216,8 @@ pub struct XtremConfig {
     pub bus: XtremBusConfig,
     pub discovery_window: Duration,
 
-    /// Keyed by module serial number (register `0000h`).
-    pub entries: HashMap<u32, XtremEntry>,
+    /// Keyed by module device id (register `0001h`).
+    pub entries: HashMap<u8, XtremEntry>,
 }
 
 impl Default for XtremConfig {
