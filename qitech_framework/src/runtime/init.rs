@@ -7,6 +7,7 @@ use std::time::Instant;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::report::XtremModuleMetadata;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::session::RuntimeSessionProvider;
@@ -14,10 +15,12 @@ use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
+use qitech_lib::xtrem::XtremBusHandle;
 
 use crate::machine::BuildContext;
 use crate::machine::Hardware;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
+use crate::machine::hardware::XtremDeviceIdentified;
 use crate::resource::Journals;
 use crate::resource::PropertyRegistry;
 use crate::resource::ResourceRegistry;
@@ -27,6 +30,7 @@ use crate::runtime::RuntimeConfiguration;
 use crate::runtime::config::EtherCATMode;
 use crate::runtime::config::MachineRegistration;
 use crate::runtime::config::ModbusRtuMode;
+use crate::runtime::config::XtremMode;
 use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::error::RuntimeInitializeResult;
 use crate::runtime::ethercat;
@@ -34,6 +38,7 @@ use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
 use crate::runtime::types::MachineRegistryEntry;
+use crate::runtime::xtrem;
 
 impl<T: RuntimeTransport> Runtime<T> {
     pub fn init<P: RuntimeSessionProvider<Transport = T>>(
@@ -120,6 +125,9 @@ impl<T: RuntimeTransport> Runtime<T> {
             }
         }
 
+        // --- initialize xtrem ---
+        let xtrem_bus = Self::init_xtrem(config.xtrem_mode, &mut session, &mut hardware_registry)?;
+
         // --- build machines ---
         session.send_event(RuntimeInitEvent::BuildingMachines)?;
 
@@ -180,6 +188,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             machines,
             sub_devices,
             ecat_controller,
+            _xtrem_bus: xtrem_bus,
             config: config.config,
             session: session.upgrade()?,
 
@@ -192,6 +201,99 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- and yield the runtime finally ---
         Ok(rt)
+    }
+
+    /// Open the shared XTREM bus, sweep the subnet, and hand every claimed module to the
+    /// machine that configured its serial.
+    ///
+    /// Returns the bus handle so the caller can keep the receive task alive. A module that is
+    /// missing or refuses to initialize is reported and skipped — one absent scale must not
+    /// take the whole runtime down with it.
+    fn init_xtrem(
+        mode: XtremMode,
+        session: &mut SessionInitializing<T>,
+        hardware_registry: &mut HardwareRegistry,
+    ) -> RuntimeInitializeResult<Option<XtremBusHandle>> {
+        let XtremMode::Enabled(config) = mode else {
+            return Ok(None);
+        };
+
+        session.send_event(RuntimeInitEvent::XtremDiscoveryStarted)?;
+
+        let handle = match xtrem::open_bus(&config) {
+            Ok(v) => v,
+            Err(e) => {
+                session.send_event(RuntimeInitEvent::XtremBusFailed {
+                    error: e.to_string(),
+                })?;
+
+                return Ok(None);
+            }
+        };
+
+        let probes = match xtrem::discover(&handle, config.discovery_window) {
+            Ok(v) => v,
+            Err(e) => {
+                session.send_event(RuntimeInitEvent::XtremBusFailed {
+                    error: e.to_string(),
+                })?;
+
+                return Ok(None);
+            }
+        };
+
+        // --- report everything that answered, claimed or not ---
+        // An unclaimed module is not an error: listing it is how an installer finds the serial
+        // to configure for a newly added scale.
+        session.send_event(RuntimeInitEvent::XtremDiscoveryCompleted {
+            modules: probes
+                .iter()
+                .map(|probe| XtremModuleMetadata {
+                    serial: probe.serial,
+                    device_id: probe.device_id,
+                    addr: probe.addr.to_string(),
+                    id_collision: probe.id_collision,
+                })
+                .collect(),
+        })?;
+
+        for (serial, entry) in config.entries {
+            let Some(probe) = probes.iter().find(|probe| probe.serial == serial) else {
+                session.send_event(RuntimeInitEvent::XtremDeviceNotFound { serial })?;
+                continue;
+            };
+
+            // The bus routes replies by ID_O, so two modules answering to one device id would
+            // silently feed each other's readings into both drivers. Refuse rather than lie.
+            if probe.id_collision {
+                session.send_event(RuntimeInitEvent::XtremDeviceIdCollision {
+                    serial,
+                    device_id: probe.device_id,
+                })?;
+
+                continue;
+            }
+
+            let device = match (entry.init)(&handle, probe) {
+                Ok(v) => v,
+                Err(error) => {
+                    session
+                        .send_event(RuntimeInitEvent::XtremCouldNotInitialize { serial, error })?;
+
+                    continue;
+                }
+            };
+
+            hardware_registry
+                .entry(entry.ident)
+                .or_insert_with(Vec::new)
+                .push(Hardware::Xtrem(XtremDeviceIdentified {
+                    device,
+                    probe: probe.clone(),
+                }));
+        }
+
+        Ok(Some(handle))
     }
 
     fn init_machines(

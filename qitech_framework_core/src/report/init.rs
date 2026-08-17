@@ -37,6 +37,28 @@ pub enum RuntimeInitEvent {
         error: String,
     },
 
+    // --- xtrem ---
+    XtremDiscoveryStarted,
+    XtremBusFailed {
+        error: String,
+    },
+    XtremDiscoveryCompleted {
+        modules: Vec<XtremModuleMetadata>,
+    },
+    XtremDeviceNotFound {
+        serial: u32,
+    },
+    /// Another module on the bus answers to the same `ID_O`. The bus routes replies by that
+    /// field, so attaching both would cross-feed their readings.
+    XtremDeviceIdCollision {
+        serial: u32,
+        device_id: u8,
+    },
+    XtremCouldNotInitialize {
+        serial: u32,
+        error: String,
+    },
+
     // --- machine ---
     BuildingMachines,
     MachineBuildStarted {
@@ -57,6 +79,7 @@ pub enum RuntimeInitStatus {
     EtherCATDiscovery,
     EtherCATInitializingDevices,
     ModbusRTUDiscovery,
+    XtremDiscovery,
     BuildingMachines,
     Finalizing,
     Completed,
@@ -70,6 +93,7 @@ impl RuntimeInitStatus {
             RuntimeInitStatus::EtherCATDiscovery => "ethercat_discovery",
             RuntimeInitStatus::EtherCATInitializingDevices => "ethercat_initializing_devices",
             RuntimeInitStatus::ModbusRTUDiscovery => "modbus_rtu_discovery",
+            RuntimeInitStatus::XtremDiscovery => "xtrem_discovery",
             RuntimeInitStatus::BuildingMachines => "building_machines",
             RuntimeInitStatus::Finalizing => "finalizing",
             RuntimeInitStatus::Completed => "completed",
@@ -105,6 +129,14 @@ impl From<&RuntimeInitEvent> for RuntimeInitStatus {
             | ModbusRTUDeviceNotFound { .. }
             | ModbusRTUCouldNotInitialize { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
 
+            // --- xtrem ---
+            XtremDiscoveryStarted
+            | XtremBusFailed { .. }
+            | XtremDiscoveryCompleted { .. }
+            | XtremDeviceNotFound { .. }
+            | XtremDeviceIdCollision { .. }
+            | XtremCouldNotInitialize { .. } => RuntimeInitStatus::XtremDiscovery,
+
             // --- building machines ---
             BuildingMachines | MachineBuildStarted { .. } | MachineBuildCompleted { .. } => {
                 RuntimeInitStatus::BuildingMachines
@@ -124,6 +156,18 @@ pub enum EtherCATStatus {
     PreOp,
     PreopPdi,
     Op,
+}
+
+/// One XTREM module the discovery sweep answered from, claimed or not. Unclaimed modules are
+/// reported too — that is how an installer finds the serial to configure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XtremModuleMetadata {
+    /// Register `0000h`. Factory-set and unique, so this is the stable identity to configure on.
+    pub serial: u32,
+    pub device_id: u8,
+    /// Rendered rather than a `SocketAddrV4`, so the report stays cheap to encode and display.
+    pub addr: String,
+    pub id_collision: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
