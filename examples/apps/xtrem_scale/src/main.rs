@@ -1,4 +1,6 @@
 use std::cell::RefCell;
+use std::net::Ipv4Addr;
+use std::net::SocketAddrV4;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -20,16 +22,24 @@ use qitech_framework::vendors;
 use qitech_lib::units::Mass;
 use qitech_lib::units::mass::kilogram;
 use qitech_lib::xtrem::ScaleMode;
+use qitech_lib::xtrem::XtremBusConfig;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremScale;
 
-/// Serial numbers of the modules on the bus (register `0000h`, factory-set and unique).
+/// Serial number of the module on the bus (register `0000h`, factory-set and unique).
 ///
-/// Run `cargo run -p xtrem --example discover` to read them off the hardware, or start this app
-/// and read them out of the `XtremDiscoveryCompleted` init event — every module that answers the
-/// sweep is listed there, claimed or not.
-const SCALE_A_SERIAL: u32 = 1234567;
-const SCALE_B_SERIAL: u32 = 7654321;
+/// Run `cargo run -p xtrem --example discover` to read it off the hardware, or start this app and
+/// read it out of the `XtremDiscoveryCompleted` init event — every module that answers the sweep
+/// is listed there, claimed or not.
+const SCALE_SERIAL: u32 = 579002;
+
+/// Directed broadcast for the machine subnet, plus the port the modules listen on (register
+/// `0701h`).
+///
+/// This has to be the subnet's own broadcast address, not the `255.255.255.255` default: on a
+/// host with more than one interface the all-ones address leaves via the default route, which is
+/// the office network rather than the machine network, and no module ever hears the sweep.
+const BROADCAST: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::new(192, 168, 4, 255), 4444);
 
 #[tokio::main]
 pub async fn main() {
@@ -38,20 +48,25 @@ pub async fn main() {
         .with_ansi(true)
         .init();
 
+    let bus = XtremBusConfig {
+        broadcast_addr: BROADCAST,
+        ..Default::default()
+    };
+
     // One `.machine::<ScaleV1>()` registers the *type*; each `.xtrem_device` line claims one
-    // module for one machine instance, so two scales show up as two machines. To add a third,
+    // module for one machine instance, so N lines produce N machines. To add a second scale,
     // give it a unique device id with `cargo run -p xtrem --example assign_ids` (every module
-    // ships as `01`), then add one more line here.
+    // ships as `01`), then add:
+    //
+    //     .xtrem_device::<XtremScale>(<serial>, ScaleV1::IDENTIFICATION.unique(2), ScaleMode::Poll)
     let config_rt = RuntimeConfiguration::new()
-        .xtrem(XtremConfig::default())
+        .xtrem(XtremConfig {
+            bus,
+            ..Default::default()
+        })
         .xtrem_device::<XtremScale>(
-            SCALE_A_SERIAL,
+            SCALE_SERIAL,
             ScaleV1::IDENTIFICATION.unique(1),
-            ScaleMode::Poll,
-        )
-        .xtrem_device::<XtremScale>(
-            SCALE_B_SERIAL,
-            ScaleV1::IDENTIFICATION.unique(2),
             ScaleMode::Poll,
         )
         .machine::<ScaleV1>();
