@@ -4385,6 +4385,7 @@ dependencies = [
  "qitech_framework_tui",
  "qitech_lib",
  "serde",
+ "serde_json",
  "socketioxide",
  "tokio",
  "tower-http",

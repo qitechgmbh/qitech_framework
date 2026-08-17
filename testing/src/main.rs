@@ -10,6 +10,8 @@ use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 mod laser_v1;
 use laser_v1::LaserV1;
 
+mod api;
+
 #[tokio::main]
 pub async fn main() {
     const LASER_SLAVE_ID: u8 = 1;
@@ -38,7 +40,6 @@ struct PrintModule;
 impl Module for PrintModule {
     async fn run(self, mut ctx: ModuleContext) {
         loop {
-            ctx.
             // ctx.request_tx.send(value);
 
             let report = ctx.report_rx.recv().await.unwrap();

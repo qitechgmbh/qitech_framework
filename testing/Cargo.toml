@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 qitech_lib.workspace = true
 qitech_framework.workspace = true
 qitech_framework_hub.workspace = true
