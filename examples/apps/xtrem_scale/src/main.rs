@@ -26,13 +26,16 @@ use qitech_lib::xtrem::XtremBusConfig;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremScale;
 
-/// Device id of the module on the bus (register `0001h`) — the address the bus routes replies on.
+/// Device ids of the modules on the bus (register `0001h`) — the address the bus routes replies
+/// on, and the reason each module needs a distinct one.
 ///
-/// Run `cargo run -p xtrem --example discover` to read it off the hardware, or start this app and
-/// read it out of the `XtremDiscoveryCompleted` init event — every module that answers the sweep
-/// is listed there, claimed or not. Modules ship as `01`; assign distinct ids with
+/// Run `cargo run -p xtrem --example discover` to read them off the hardware, or start this app
+/// and read them out of the `XtremDiscoveryCompleted` init event — every module that answers the
+/// sweep is listed there, claimed or not. Modules ship as `01`; assign distinct ids with
 /// `cargo run -p xtrem --example assign_ids`.
-const SCALE_DEVICE_ID: u8 = 0x03;
+const SCALE_1_DEVICE_ID: u8 = 0x03;
+const SCALE_2_DEVICE_ID: u8 = 0x04;
+const SCALE_3_DEVICE_ID: u8 = 0x05;
 
 /// Directed broadcast for the machine subnet, plus the port the modules listen on (register
 /// `0701h`).
@@ -50,31 +53,43 @@ pub async fn main() {
         .init();
 
     let bus = XtremBusConfig {
+        // TODO: put this in the xtrenm runtime config.
         broadcast_addr: BROADCAST,
         ..Default::default()
     };
 
     // One `.machine::<ScaleV1>()` registers the *type*; each `.xtrem_device` line claims one
-    // module for one machine instance, so N lines produce N machines. To add a second scale,
-    // give it a unique device id with `cargo run -p xtrem --example assign_ids` (every module
-    // ships as `01`), then add:
-    //
-    //     .xtrem_device::<XtremScale>(0x04, ScaleV1::IDENTIFICATION.unique(2), ScaleMode::Poll)
+    // module for one machine instance, so these three lines produce three machines. To add a
+    // fourth, give it a unique device id with `cargo run -p xtrem --example assign_ids` (every
+    // module ships as `01`) and add one more line.
     let config_rt = RuntimeConfiguration::new()
         .xtrem(XtremConfig {
             bus,
             ..Default::default()
         })
         .xtrem_device::<XtremScale>(
-            SCALE_DEVICE_ID,
+            SCALE_1_DEVICE_ID,
             ScaleV1::IDENTIFICATION.unique(1),
+            ScaleMode::Poll,
+        )
+        .xtrem_device::<XtremScale>(
+            SCALE_2_DEVICE_ID,
+            ScaleV1::IDENTIFICATION.unique(2),
+            ScaleMode::Poll,
+        )
+        .xtrem_device::<XtremScale>(
+            SCALE_3_DEVICE_ID,
+            ScaleV1::IDENTIFICATION.unique(3),
             ScaleMode::Poll,
         )
         .machine::<ScaleV1>();
 
-    run_with_tui(config_rt, TuiConfiguration::default().refresh_rate(Duration::from_millis(10)))
-        .await
-        .unwrap()
+    run_with_tui(
+        config_rt,
+        TuiConfiguration::default().refresh_rate(Duration::from_millis(10)),
+    )
+    .await
+    .unwrap()
 }
 
 #[derive(Machine)]
