@@ -19,6 +19,7 @@ use qitech_framework::machine::Measurement;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine_build;
 use qitech_framework::run_with_hub;
+use qitech_framework::run_with_tui;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::vendors;
 use qitech_lib::modbus::ModbusDevice;
@@ -52,7 +53,7 @@ pub async fn main() {
     let config_hub = HubConfiguration::new().actor(ApiActor);
 
     // --- run ---
-    run_with_hub(config_rt, config_hub).await.unwrap()
+    run_with_tui(config_rt, Default::default()).await.unwrap()
 }
 
 #[derive(Machine)]

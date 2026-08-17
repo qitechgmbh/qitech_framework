@@ -34,7 +34,9 @@ pub mod __private {
     pub use crate::resource::conversion::PropertyType;
 }
 
-pub fn run_standalone(runtime_config: RuntimeConfiguration) {}
+pub fn run_standalone(runtime_config: RuntimeConfiguration) {
+    
+}
 
 pub async fn run_with_hub(
     config_runtime: RuntimeConfiguration,

@@ -1,4 +1,4 @@
-# Minimal-Example Beckhoff EL2004 Digital Output 
+# Minimal-Example Digital Output Video-Skript
 
 In diesem Skript zeigen wir wie man das QiTech Framework nutzt um eine Digital-Output EtherCAT klemme anzusteuern.
 
@@ -8,8 +8,8 @@ In diesem Skript zeigen wir wie man das QiTech Framework nutzt um eine Digital-O
 
 ```toml
 [dependencies]
-qitech_framework = { git = "https://github.com/qitechgmbh/qitech_framework", rev = "812babfe83dd4d14a3e16d40e1174b5b4718e017" }
-qitech_framework_tui = { git = "https://github.com/qitechgmbh/qitech_framework", rev = "812babfe83dd4d14a3e16d40e1174b5b4718e017" }
+qitech_framework = { git = "https://github.com/qitechgmbh/qitech_framework", rev = "53853813d1182f74924ec493d710bc8f75752ea5" }
+qitech_framework_tui = { git = "https://github.com/qitechgmbh/qitech_framework", rev = "53853813d1182f74924ec493d710bc8f75752ea5" }
 ```
 
 ## Start QiTech Runtime without any hardware
@@ -39,18 +39,9 @@ Einmal ausführen → nichts geht. Dann cargo build und run mit sudo!
 ## Selbe Config mit TUI
 
 ```rust
-let (session_rt, session_tui) = session::crossbeam(64);
-
-thread::spawn(move || {
-    let rt = Runtime::init(config, session_rt).expect("Failed to create runtime!");
-    rt.run().expect("Runtime error!");
-});
-
-// run slightly faster than the export interval so we don't stay behind
-let config = TuiConfiguration::new().refresh_rate(Duration::from_secs_f64(1.0 / 40.0));
-
-let app = Tui::create(config).unwrap();
-app.run(session_tui).unwrap()
+run_with_tui(config_rt, TuiConfiguration::default())
+.await
+.unwrap()
 ```
 
 ## Neue Machine erstellen. Hier Beispielhaft den EL2004 Digital Output (LEDs an/aus)

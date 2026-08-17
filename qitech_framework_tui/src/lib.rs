@@ -121,7 +121,7 @@ impl Tui {
 
         let session = provider.provide().await?;
 
-        thread::spawn(move || session::run(session, tx, rx_action));
+        tokio::spawn(session::run(session, tx, rx_action));
 
         self.terminal
             .draw(|frame| self.root.render(frame, self.state.as_ctx()))?;

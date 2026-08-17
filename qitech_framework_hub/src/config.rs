@@ -9,10 +9,15 @@ use crate::SchemaRegistry;
 use crate::Swappable;
 use crate::modules::Actor;
 use crate::modules::ActorContext;
+use crate::modules::Listener;
 use crate::types::RuntimeRequestReceiver;
 use crate::types::RuntimeRequestSender;
 
 type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
+
+pub struct ListenerInstance {
+    on_hello_rejected: Pin<Box<dyn Future<Output = ()> + Send>>,
+}
 
 pub struct HubConfiguration {
     pub(crate) report_tx: RuntimeReportSender,
@@ -20,6 +25,9 @@ pub struct HubConfiguration {
     pub(crate) request_rx: RuntimeRequestReceiver,
     pub(crate) machines: Swappable<MachineRegistry>,
     pub(crate) schemas: Swappable<SchemaRegistry>,
+
+    // --- modules ---
+    pub(crate) listeners: Vec<Box<dyn Listener>>,
     pub(crate) actors: Vec<RunnerFuture>,
 }
 
@@ -35,10 +43,11 @@ impl HubConfiguration {
             machines: Default::default(),
             schemas: Default::default(),
             actors: Default::default(),
+            listeners: Default::default(),
         }
     }
 
-    pub fn reactor(mut self) -> Self {
+    pub fn listener<L: Listener>(mut self, listener: L) -> Self {
         self
     }
 

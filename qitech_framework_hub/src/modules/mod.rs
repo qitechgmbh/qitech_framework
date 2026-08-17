@@ -1,3 +1,4 @@
+use std::pin::Pin;
 use std::sync::Arc;
 
 use qitech_framework_core::report::RuntimeInitEvent;
@@ -5,6 +6,7 @@ use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::session::error::HelloMatchError;
 use tokio::sync::oneshot;
 
@@ -12,6 +14,9 @@ use crate::MachineRegistry;
 use crate::RuntimeRequestSender;
 use crate::SchemaRegistry;
 use crate::Swappable;
+
+/// provider for making queries to retrieve data
+pub trait QueryProvider: Send + Sync {}
 
 #[derive(Debug, Clone)]
 pub struct ActorContext {
@@ -39,24 +44,36 @@ pub trait Actor: Send + Sync {
     fn run(self, ctx: ActorContext) -> impl Future<Output = ()> + Send + 'static;
 }
 
-pub trait Listener {
-    /// Called when the runtime's hello message is rejected.
-    async fn on_hello_rejected(error: HelloMatchError) {}
+type BoxFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
-    /// Called when a schema is received for synchronization.
-    ///
-    /// The reactor may reject the schema.
-    async fn on_schema_sync(schemas: Arc<SchemaRegistry>) {}
+pub trait Listener: Send {
+    fn on_hello_rejected<'a>(
+        &'a mut self,
+        error: HelloMatchError,
+    ) -> BoxFuture<'a>;
 
-    /// Called when a schema is rejected.
-    async fn on_schema_rejected(reason: Arc<String>) {}
+    fn on_schema_sync<'a>(
+        &'a mut self,
+        schema: &'a MachineSchema,
+    ) -> BoxFuture<'a>;
 
-    /// Called when an initialization event is received from the runtime.
-    async fn on_init_event_received(event: Arc<RuntimeInitEvent>) {}
+    fn on_schema_rejected<'a>(
+        &'a mut self,
+        reason: Arc<String>,
+    ) -> BoxFuture<'a>;
 
-    /// Called when a report is received from the runtime.
-    async fn on_report_received(report: Arc<RuntimeReport>) {}
+    fn on_init_event_received<'a>(
+        &'a mut self,
+        event: Arc<RuntimeInitEvent>,
+    ) -> BoxFuture<'a>;
 
-    /// Called when a request is dispatched to the runtime.
-    async fn on_transaction_completed(request: Arc<RuntimeRequest>) {}
+    fn on_report_received<'a>(
+        &'a mut self,
+        report: Arc<RuntimeReport>,
+    ) -> BoxFuture<'a>;
+
+    fn on_transaction_completed<'a>(
+        &'a mut self,
+        request: Arc<RuntimeRequest>,
+    ) -> BoxFuture<'a>;
 }
