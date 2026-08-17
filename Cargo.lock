@@ -923,6 +923,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "debug"
+version = "0.1.0"
+dependencies = [
+ "qitech_framework",
+ "qitech_lib",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "defmt"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3175,6 +3186,8 @@ dependencies = [
  "qitech_framework",
  "qitech_lib",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
