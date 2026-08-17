@@ -257,28 +257,26 @@ impl<T: RuntimeTransport> Runtime<T> {
                 .collect(),
         })?;
 
-        for (serial, entry) in config.entries {
-            let Some(probe) = probes.iter().find(|probe| probe.serial == serial) else {
-                session.send_event(RuntimeInitEvent::XtremDeviceNotFound { serial })?;
+        for (device_id, entry) in config.entries {
+            let Some(probe) = probes.iter().find(|probe| probe.device_id == device_id) else {
+                session.send_event(RuntimeInitEvent::XtremDeviceNotFound { device_id })?;
                 continue;
             };
 
-            // The bus routes replies by ID_O, so two modules answering to one device id would
-            // silently feed each other's readings into both drivers. Refuse rather than lie.
+            // The bus routes replies by ID_O, so a shared device id does not identify a module:
+            // both would feed their readings into both drivers. Refuse rather than lie.
             if probe.id_collision {
-                session.send_event(RuntimeInitEvent::XtremDeviceIdCollision {
-                    serial,
-                    device_id: probe.device_id,
-                })?;
-
+                session.send_event(RuntimeInitEvent::XtremDeviceIdCollision { device_id })?;
                 continue;
             }
 
             let device = match (entry.init)(&handle, probe) {
                 Ok(v) => v,
                 Err(error) => {
-                    session
-                        .send_event(RuntimeInitEvent::XtremCouldNotInitialize { serial, error })?;
+                    session.send_event(RuntimeInitEvent::XtremCouldNotInitialize {
+                        device_id,
+                        error,
+                    })?;
 
                     continue;
                 }
