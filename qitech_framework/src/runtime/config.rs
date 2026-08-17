@@ -10,6 +10,12 @@ use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::modbus::ModbusSettings;
+use qitech_lib::xtrem::ScaleMode;
+use qitech_lib::xtrem::XtremBusConfig;
+use qitech_lib::xtrem::XtremBusHandle;
+use qitech_lib::xtrem::XtremDevice;
+use qitech_lib::xtrem::XtremProbe;
+use qitech_lib::xtrem::discovery;
 
 use crate::machine::BuildContext;
 use crate::machine::Machine;
@@ -17,6 +23,7 @@ use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
+use crate::runtime::xtrem::XtremDeviceBuild;
 
 #[derive(Default)]
 pub struct RuntimeConfiguration {
@@ -24,6 +31,7 @@ pub struct RuntimeConfiguration {
     pub(crate) machines: Vec<MachineRegistration>,
     pub(crate) ethercat_mode: EtherCATMode,
     pub(crate) modbus_rtu_mode: ModbusRtuMode,
+    pub(crate) xtrem_mode: XtremMode,
 }
 
 impl RuntimeConfiguration {
@@ -76,6 +84,50 @@ impl RuntimeConfiguration {
             .insert(id_path.to_string(), ModbusRtuEntry { ident, init });
 
         self.modbus_rtu_mode = ModbusRtuMode::Enabled(config);
+        self
+    }
+
+    /// Set the bus-level XTREM settings — bind address, broadcast address, discovery window.
+    ///
+    /// Devices are registered separately with [`RuntimeConfiguration::xtrem_device`]. Any that
+    /// were already registered are kept, so the two can be called in either order.
+    pub fn xtrem(mut self, config: XtremConfig) -> Self {
+        let entries = match self.xtrem_mode {
+            XtremMode::Enabled(previous) => previous.entries,
+            _ => Default::default(),
+        };
+
+        self.xtrem_mode = XtremMode::Enabled(XtremConfig { entries, ..config });
+        self
+    }
+
+    /// Claim the module with the given `serial` for `ident`.
+    ///
+    /// `serial` is register `0000h`, which is factory-set and unique — unlike the device id,
+    /// which ships as `01` on every module. Init resolves it to a live module through one
+    /// broadcast discovery sweep.
+    ///
+    /// One call claims one module for one machine instance, so N scales become N machines.
+    pub fn xtrem_device<D: XtremDeviceBuild + 'static>(
+        mut self,
+        serial: u32,
+        ident: MachineIdentificationUnique,
+        mode: ScaleMode,
+    ) -> Self {
+        let mut config = match self.xtrem_mode {
+            XtremMode::Enabled(config) => config,
+            _ => XtremConfig::default(),
+        };
+
+        let init = Box::new(move |bus: &XtremBusHandle, probe: &XtremProbe| {
+            let dev = D::build(bus, probe, mode).map_err(|e| format!("{e}"))?;
+            let dev: Rc<RefCell<dyn XtremDevice>> = Rc::new(RefCell::new(dev));
+            Ok(dev)
+        });
+
+        config.entries.insert(serial, XtremEntry { ident, init });
+
+        self.xtrem_mode = XtremMode::Enabled(config);
         self
     }
 
@@ -147,6 +199,39 @@ pub struct ModbusRtuEntry {
     pub init: NewModbusDeviceFn,
 }
 
+#[derive(Default)]
+pub enum XtremMode {
+    #[default]
+    Disabled,
+    Enabled(XtremConfig),
+
+    #[allow(unused)]
+    Mock,
+}
+
+pub struct XtremConfig {
+    pub bus: XtremBusConfig,
+    pub discovery_window: Duration,
+
+    /// Keyed by module serial number (register `0000h`).
+    pub entries: HashMap<u32, XtremEntry>,
+}
+
+impl Default for XtremConfig {
+    fn default() -> Self {
+        Self {
+            bus: Default::default(),
+            discovery_window: discovery::DEFAULT_DISCOVERY_WINDOW,
+            entries: Default::default(),
+        }
+    }
+}
+
+pub struct XtremEntry {
+    pub ident: MachineIdentificationUnique,
+    pub init: NewXtremDeviceFn,
+}
+
 pub(crate) struct MachineRegistration {
     pub schema: &'static str,
     pub build: BuildMachineFn,
@@ -156,3 +241,8 @@ pub(crate) struct MachineRegistration {
 
 pub type NewModbusDeviceFn =
     Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>;
+
+pub type NewXtremDeviceFn = Box<
+    dyn Fn(&XtremBusHandle, &XtremProbe) -> Result<Rc<RefCell<dyn XtremDevice + 'static>>, String>
+        + Send,
+>;
