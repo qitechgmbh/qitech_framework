@@ -46,16 +46,15 @@ pub enum RuntimeInitEvent {
         modules: Vec<XtremModuleMetadata>,
     },
     XtremDeviceNotFound {
-        serial: u32,
+        device_id: u8,
     },
-    /// Another module on the bus answers to the same `ID_O`. The bus routes replies by that
-    /// field, so attaching both would cross-feed their readings.
+    /// More than one module answers to this `ID_O`. The bus routes replies by that field, so
+    /// the id does not identify a module and attaching would cross-feed their readings.
     XtremDeviceIdCollision {
-        serial: u32,
         device_id: u8,
     },
     XtremCouldNotInitialize {
-        serial: u32,
+        device_id: u8,
         error: String,
     },
 

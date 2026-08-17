@@ -26,12 +26,13 @@ use qitech_lib::xtrem::XtremBusConfig;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremScale;
 
-/// Serial number of the module on the bus (register `0000h`, factory-set and unique).
+/// Device id of the module on the bus (register `0001h`) — the address the bus routes replies on.
 ///
 /// Run `cargo run -p xtrem --example discover` to read it off the hardware, or start this app and
 /// read it out of the `XtremDiscoveryCompleted` init event — every module that answers the sweep
-/// is listed there, claimed or not.
-const SCALE_SERIAL: u32 = 579002;
+/// is listed there, claimed or not. Modules ship as `01`; assign distinct ids with
+/// `cargo run -p xtrem --example assign_ids`.
+const SCALE_DEVICE_ID: u8 = 0x03;
 
 /// Directed broadcast for the machine subnet, plus the port the modules listen on (register
 /// `0701h`).
@@ -58,14 +59,14 @@ pub async fn main() {
     // give it a unique device id with `cargo run -p xtrem --example assign_ids` (every module
     // ships as `01`), then add:
     //
-    //     .xtrem_device::<XtremScale>(<serial>, ScaleV1::IDENTIFICATION.unique(2), ScaleMode::Poll)
+    //     .xtrem_device::<XtremScale>(0x04, ScaleV1::IDENTIFICATION.unique(2), ScaleMode::Poll)
     let config_rt = RuntimeConfiguration::new()
         .xtrem(XtremConfig {
             bus,
             ..Default::default()
         })
         .xtrem_device::<XtremScale>(
-            SCALE_SERIAL,
+            SCALE_DEVICE_ID,
             ScaleV1::IDENTIFICATION.unique(1),
             ScaleMode::Poll,
         )
