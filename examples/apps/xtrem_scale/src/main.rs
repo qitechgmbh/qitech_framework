@@ -72,7 +72,7 @@ pub async fn main() {
         )
         .machine::<ScaleV1>();
 
-    run_with_tui(config_rt, TuiConfiguration::default())
+    run_with_tui(config_rt, TuiConfiguration::default().refresh_rate(Duration::from_millis(10)))
         .await
         .unwrap()
 }
