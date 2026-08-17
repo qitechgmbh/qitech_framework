@@ -1,6 +1,7 @@
 use std::io;
 use std::io::Stdout;
 use std::panic;
+use std::process::exit;
 use std::time::Duration;
 
 use chrono::Local;
@@ -57,7 +58,7 @@ pub struct TuiConfiguration {
 impl TuiConfiguration {
     pub fn new() -> Self {
         Self {
-            cycle_time: Duration::from_secs_f64(1.0 / 4.0),
+            cycle_time: Duration::from_secs_f64(1.0 / 32.0),
         }
     }
 

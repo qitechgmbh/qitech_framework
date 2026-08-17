@@ -65,7 +65,9 @@ async fn wrapped_run<T: ControllerTransport>(
             .expect("should not outlive main thread");
 
         match rx.try_recv() {
-            Ok(request) => session.send_request(request).await.expect("idk"),
+            Ok(request) => {
+                session.send_request(request).await.expect("idk");
+            },
             Err(_) => continue,
         }
     }

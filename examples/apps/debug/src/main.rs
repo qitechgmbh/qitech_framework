@@ -5,6 +5,7 @@ use std::time::Duration;
 use qitech_framework::HubConfiguration;
 use qitech_framework::Machine;
 use qitech_framework::MachineIdentification;
+use qitech_framework::TuiConfiguration;
 use qitech_framework::machine::ActError;
 use qitech_framework::machine::ActErrorImpact;
 use qitech_framework::machine::ActErrorKind;
@@ -20,6 +21,7 @@ use qitech_framework::machine::StateProperty;
 use qitech_framework::machine_build;
 use qitech_framework::run_debug;
 use qitech_framework::run_with_hub;
+use qitech_framework::run_with_tui;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::vendors;
 use qitech_lib::modbus::ModbusDevice;
@@ -53,7 +55,7 @@ pub async fn main() {
     let config_hub = HubConfiguration::new().actor(ApiActor);
 
     // --- run ---
-    run_debug(config_rt)
+    _ = run_with_tui(config_rt, TuiConfiguration::new().refresh_rate(Duration::from_millis(16))).await;
 }
 
 #[derive(Machine)]
