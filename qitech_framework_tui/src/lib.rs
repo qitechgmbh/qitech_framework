@@ -1,7 +1,6 @@
 use std::io;
 use std::io::Stdout;
 use std::panic;
-use std::thread;
 use std::time::Duration;
 
 use chrono::Local;

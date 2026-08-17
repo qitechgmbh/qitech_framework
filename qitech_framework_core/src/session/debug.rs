@@ -1,3 +1,4 @@
+use crate::session::RuntimeSessionProvider;
 use crate::session::protocol::ControllerMessage;
 use crate::session::protocol::RuntimeMessage;
 use crate::session::runtime;
@@ -8,6 +9,16 @@ use crate::session::transport::TransportError;
 pub fn runtime() -> runtime::SessionHandshake<DebugRuntimeTransport> {
     let transport = DebugRuntimeTransport { state: 0 };
     SessionHandshake::new(transport)
+}
+
+pub struct DebugRuntimeSessionProvider;
+
+impl RuntimeSessionProvider for DebugRuntimeSessionProvider {
+    type Transport = DebugRuntimeTransport;
+
+    fn provide(&mut self) -> Result<SessionHandshake<Self::Transport>, TransportError> {
+        Ok(SessionHandshake::new(DebugRuntimeTransport { state: 0 }))
+    }
 }
 
 pub struct DebugRuntimeTransport {

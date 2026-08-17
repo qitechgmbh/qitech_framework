@@ -47,7 +47,11 @@ impl HubConfiguration {
         }
     }
 
-    pub fn listener<L: Listener>(mut self, listener: L) -> Self {
+    pub fn listener<L>(mut self, listener: L) -> Self
+    where
+        L: Listener + 'static,
+    {
+        self.listeners.push(Box::new(listener));
         self
     }
 

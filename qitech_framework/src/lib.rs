@@ -3,6 +3,7 @@ use std::thread;
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineIdentificationUnique;
 pub use qitech_framework_core::session;
+use qitech_framework_core::session::debug::DebugRuntimeSessionProvider;
 pub use qitech_framework_core::vendors;
 pub use qitech_framework_hub::HubConfiguration;
 pub use qitech_framework_macros::*;
@@ -34,8 +35,9 @@ pub mod __private {
     pub use crate::resource::conversion::PropertyType;
 }
 
-pub fn run_standalone(runtime_config: RuntimeConfiguration) {
-    
+pub fn run_debug(config: RuntimeConfiguration) {
+    let runtime = Runtime::init(config, DebugRuntimeSessionProvider).unwrap();
+    runtime.run().unwrap();
 }
 
 pub async fn run_with_hub(
@@ -49,9 +51,9 @@ pub async fn run_with_hub(
         runtime.run().unwrap();
     });
 
-    qitech_framework_hub::run(config_hub, provider_controller).await;
+    _ = runtime_thread;
 
-    panic!("oh no ");
+    qitech_framework_hub::run(config_hub, provider_controller).await;
     Ok(())
 }
 

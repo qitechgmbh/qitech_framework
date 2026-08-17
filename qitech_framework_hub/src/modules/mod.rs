@@ -1,6 +1,7 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequest;
@@ -46,34 +47,38 @@ pub trait Actor: Send + Sync {
 
 type BoxFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
+#[async_trait]
 pub trait Listener: Send {
-    fn on_hello_rejected<'a>(
-        &'a mut self,
-        error: HelloMatchError,
-    ) -> BoxFuture<'a>;
+    async fn on_hello_rejected(&mut self, error: HelloMatchError) {
+        _ = error;
+    }
 
-    fn on_schema_sync<'a>(
-        &'a mut self,
-        schema: &'a MachineSchema,
-    ) -> BoxFuture<'a>;
+    async fn on_schema_sync(&mut self, schema: &MachineSchema) {
+        _ = schema;
+    }
 
-    fn on_schema_rejected<'a>(
-        &'a mut self,
-        reason: Arc<String>,
-    ) -> BoxFuture<'a>;
+    async fn on_schema_rejected(&mut self, reason: Arc<String>) {
+        _ = reason;
+    }
 
-    fn on_init_event_received<'a>(
-        &'a mut self,
+    async fn on_init_event_received(
+        &mut self,
         event: Arc<RuntimeInitEvent>,
-    ) -> BoxFuture<'a>;
+    ) {
+        _ = event;
+    }
 
-    fn on_report_received<'a>(
-        &'a mut self,
+    async fn on_report_received(
+        &mut self,
         report: Arc<RuntimeReport>,
-    ) -> BoxFuture<'a>;
+    ) {
+        _ = report;
+    }
 
-    fn on_transaction_completed<'a>(
-        &'a mut self,
+    async fn on_transaction_completed(
+        &mut self,
         request: Arc<RuntimeRequest>,
-    ) -> BoxFuture<'a>;
+    ) {
+        _ = request;
+    }
 }
