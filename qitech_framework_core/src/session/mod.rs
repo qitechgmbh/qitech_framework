@@ -1,6 +1,6 @@
 pub mod debug;
 pub mod error;
-mod protocol;
+pub mod protocol;
 
 pub mod runtime;
 pub use runtime::RuntimeSessionProvider;

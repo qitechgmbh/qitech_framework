@@ -1,7 +1,6 @@
 use std::io;
 use std::io::Stdout;
 use std::panic;
-use std::process::exit;
 use std::time::Duration;
 
 use chrono::Local;
@@ -190,23 +189,25 @@ impl Tui {
                 }
             }
 
-            match rx.try_recv() {
-                Ok(msg) => match msg {
-                    SessionMessage::Schemas(schemas) => {
-                        self.state.schemas = schemas;
-                    }
-                    SessionMessage::InitEvent(event) => {
-                        self.on_init_event(event);
-                    }
-                    SessionMessage::Report(report) => {
-                        self.on_report(*report);
-                    }
-                    SessionMessage::Disconnected => {
-                        self.state.rt_status = RuntimeStatus::Disconnected;
-                    }
-                },
-                Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => return Ok(()),
+            loop {
+                match rx.try_recv() {
+                    Ok(msg) => match msg {
+                        SessionMessage::Schemas(schemas) => {
+                            self.state.schemas = schemas;
+                        }
+                        SessionMessage::InitEvent(event) => {
+                            self.on_init_event(event);
+                        }
+                        SessionMessage::Report(report) => {
+                            self.on_report(*report);
+                        }
+                        SessionMessage::Disconnected => {
+                            self.state.rt_status = RuntimeStatus::Disconnected;
+                        }
+                    },
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => return Ok(()),
+                }
             }
 
             // --- draw ---

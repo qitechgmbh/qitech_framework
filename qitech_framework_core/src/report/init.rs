@@ -49,7 +49,6 @@ pub enum RuntimeInitEvent {
 
     // --- finalizing ---
     EtherCATFinalizing,
-    Finished,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -113,7 +112,6 @@ impl From<&RuntimeInitEvent> for RuntimeInitStatus {
 
             // --- finishing ---
             EtherCATFinalizing => RuntimeInitStatus::Finalizing,
-            Finished => RuntimeInitStatus::Completed,
         }
     }
 }

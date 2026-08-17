@@ -170,8 +170,6 @@ impl<T: RuntimeTransport> Runtime<T> {
         }
 
         // --- return initialized runtime ---
-        session.send_event(RuntimeInitEvent::Finished)?;
-
         let mut rt = Runtime {
             // machine_registry,
             // hardware_registry,

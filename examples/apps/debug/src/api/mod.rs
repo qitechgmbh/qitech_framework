@@ -1,5 +1,11 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use qitech_framework_core::report::RuntimeInitEvent;
+use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_hub::Actor;
 use qitech_framework_hub::ActorContext;
+use qitech_framework_hub::Listener;
 use tokio::net::TcpListener;
 
 mod adapter;
@@ -7,6 +13,27 @@ mod socketio;
 mod v1;
 // mod v2;
 // mod v3;
+
+// -> Query Provider: query().config()
+
+// What does db want to persist -> init event, transactions, reports
+// event log: runtime send hello, init event: 
+// but also capture the outgoing messages
+
+pub struct ApiListener;
+
+#[async_trait]
+impl Listener for ApiListener {
+    async fn on_init_event_received(&mut self, event: Arc<RuntimeInitEvent>) {
+        _ = event;
+        println!("RECEIVED EVENT");
+    }
+
+    async fn on_report_received(&mut self, event: Arc<RuntimeReport>) {
+        _ = event;
+        println!("RECEIVED REPORT");
+    }
+}
 
 pub struct ApiActor;
 

@@ -5,7 +5,6 @@ use std::time::Duration;
 use qitech_framework::HubConfiguration;
 use qitech_framework::Machine;
 use qitech_framework::MachineIdentification;
-use qitech_framework::TuiConfiguration;
 use qitech_framework::machine::ActError;
 use qitech_framework::machine::ActErrorImpact;
 use qitech_framework::machine::ActErrorKind;
@@ -19,7 +18,6 @@ use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::Measurement;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine_build;
-use qitech_framework::run_debug;
 use qitech_framework::run_with_hub;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::RuntimeConfiguration;
@@ -32,6 +30,7 @@ use qitech_lib::units::length::millimeter;
 
 mod api;
 use api::ApiActor;
+use api::ApiListener;
 
 #[tokio::main]
 pub async fn main() {
@@ -52,10 +51,13 @@ pub async fn main() {
         .machine::<LaserV1>();
 
     // --- configure hub ---
-    let config_hub = HubConfiguration::new().actor(ApiActor);
+    let config_hub = HubConfiguration::new()
+        .listener(ApiListener)
+        .actor(ApiActor)
+        ;
 
     // --- run ---
-    _ = run_with_tui(config_rt, TuiConfiguration::new().refresh_rate(Duration::from_millis(16))).await;
+    run_with_tui(config_rt, Default::default()).await.unwrap();
 }
 
 #[derive(Machine)]

@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::process::exit;
 use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Duration;

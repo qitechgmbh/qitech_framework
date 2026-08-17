@@ -6,6 +6,7 @@ use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::error::SchemaSyncError;
 use tokio::sync::mpsc;
 
+use crate::Listener;
 use crate::types::RuntimeReportSender;
 use crate::types::SchemaRegistry;
 use crate::types::Swappable;
@@ -16,6 +17,7 @@ pub async fn run<T: ControllerTransport>(
     schema_registry: Swappable<SchemaRegistry>,
     report_sender: RuntimeReportSender,
     request_dispatcher_tx: mpsc::Sender<mpsc::Sender<RuntimeRequest>>,
+    mut listeners: Vec<Box<dyn Listener>>,
 ) {
     loop {
         tracing::info!("connecting to runtime");
@@ -115,9 +117,15 @@ pub async fn run<T: ControllerTransport>(
                         "received runtime report"
                     );
 
+                    let report = Arc::new(report);
+
                     report_sender
-                        .send(Arc::new(report))
+                        .send(report.clone())
                         .expect("report receiver must live for the lifetime of the program");
+
+                    for listener in &mut listeners {
+                        listener.on_report_received(report.clone()).await;
+                    }
                 }
 
                 request = rx.recv() => {

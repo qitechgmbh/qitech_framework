@@ -27,7 +27,7 @@ impl<T> SessionHandshake<T>
 where
     T: ControllerTransport,
 {
-    pub fn new(transport: T) -> Self {
+    pub(crate) fn new(transport: T) -> Self {
         Self { transport }
     }
 
