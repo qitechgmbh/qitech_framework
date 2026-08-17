@@ -10,7 +10,8 @@ pub async fn run(
     mut listeners: Vec<Box<dyn Listener>>,
 ) {
     loop {
-        let msg = message_rx.recv()
+        let msg = message_rx
+            .recv()
             .await
             .expect("session manager dropped message tx");
 
@@ -25,7 +26,7 @@ pub async fn run(
                 for listener in &mut listeners {
                     listener.on_report_received(report.clone()).await;
                 }
-            },
+            }
             _ => {}
         }
     }

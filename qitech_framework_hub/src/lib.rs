@@ -21,9 +21,9 @@ pub use modules::Actor;
 pub use modules::ActorContext;
 pub use modules::Listener;
 
+mod listener_manager;
 mod session_manager;
 mod transaction_manager;
-mod listener_manager;
 
 pub async fn run<T: ControllerTransport + 'static>(
     config: HubConfiguration,
@@ -48,7 +48,7 @@ pub async fn run<T: ControllerTransport + 'static>(
     ));
 
     // tasks.spawn(listener_manager::run(
-    //     message_rx, 
+    //     message_rx,
     //     config.listeners,
     // ));
 

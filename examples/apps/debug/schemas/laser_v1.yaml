@@ -13,9 +13,63 @@ config:
     tolerance:
       upper: !millimeter
       lower: !millimeter
-  
+
+  a: !integer
+  b: !integer
+  c: !integer
+  d: !integer
+  e: !integer
+  f: !integer
+  g: !integer
+  h: !integer
+  i: !integer
+  j: !integer
+  k: !integer
+  l: !integer
+  m: !integer
+  n: !integer
+  o: !integer
+  p: !integer
+  q: !integer
+  r: !integer
+  s: !integer
+  t: !integer
+  u: !integer
+  v: !integer
+  w: !integer
+  x: !integer
+  y: !integer
+  z: !integer
+
 state:
   in_tolerance: !boolean
+
+  a: !integer
+  b: !integer
+  c: !integer
+  d: !integer
+  e: !integer
+  f: !integer
+  g: !integer
+  h: !integer
+  i: !integer
+  j: !integer
+  k: !integer
+  l: !integer
+  m: !integer
+  n: !integer
+  o: !integer
+  p: !integer
+  q: !integer
+  r: !integer
+  s: !integer
+  t: !integer
+  u: !integer
+  v: !integer
+  w: !integer
+  x: !integer
+  y: !integer
+  z: !integer
 
 measurements:
   diameter: !millimeter
@@ -23,5 +77,87 @@ measurements:
   diameter_y: !?millimeter
   roundness: !?float
 
+  a: !integer
+  b: !integer
+  c: !integer
+  d: !integer
+  e: !integer
+  f: !integer
+  g: !integer
+  h: !integer
+  i: !integer
+  j: !integer
+  k: !integer
+  l: !integer
+  m: !integer
+  n: !integer
+  o: !integer
+  p: !integer
+  q: !integer
+  r: !integer
+  s: !integer
+  t: !integer
+  u: !integer
+  v: !integer
+  w: !integer
+  x: !integer
+  y: !integer
+  z: !integer
+
+commands: 
+  a: !command
+  b: !command
+  c: !command
+  d: !command
+  e: !command
+  f: !command
+  g: !command
+  h: !command
+  i: !command
+  j: !command
+  k: !command
+  l: !command
+  m: !command
+  n: !command
+  o: !command
+  p: !command
+  q: !command
+  r: !command
+  s: !command
+  t: !command
+  u: !command
+  v: !command
+  w: !command
+  x: !command
+  y: !command
+  z: !command
+
 events: 
   out_of_tolerance: !event
+
+  a: !event
+  b: !event
+  c: !event
+  d: !event
+  e: !event
+  f: !event
+  g: !event
+  h: !event
+  i: !event
+  j: !event
+  k: !event
+  l: !event
+  m: !event
+  n: !event
+  o: !event
+  p: !event
+  q: !event
+  r: !event
+  s: !event
+  t: !event
+  u: !event
+  v: !event
+  w: !event
+  x: !event
+  y: !event
+  z: !event

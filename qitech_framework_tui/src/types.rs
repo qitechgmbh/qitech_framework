@@ -3,6 +3,7 @@ use std::ptr;
 
 use chrono::DateTime;
 use chrono::Local;
+use crossterm::event::KeyCode;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
@@ -208,6 +209,11 @@ impl AppContext {
     pub fn schemas(&self) -> &HashMap<MachineIdentification, MachineSchema> {
         unsafe { &*self.schemas }
     }
+}
+
+pub enum KeyEventResult<T> {
+    Bubble(KeyCode),
+    Consume(T),
 }
 
 pub enum AppAction {

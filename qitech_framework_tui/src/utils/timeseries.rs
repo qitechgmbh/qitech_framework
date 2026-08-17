@@ -100,6 +100,7 @@ impl Timeseries {
         Some(self.buf[index])
     }
 
+    #[allow(dead_code)]
     pub fn oldest(&self) -> Option<Sample> {
         if self.len == 0 {
             return None;
@@ -108,26 +109,32 @@ impl Timeseries {
         Some(self.buf[self.head])
     }
 
+    #[allow(dead_code)]
     pub fn min(&self) -> Option<f64> {
         self.min
     }
 
+    #[allow(dead_code)]
     pub fn max(&self) -> Option<f64> {
         self.max
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[allow(dead_code)]
     pub fn capacity(&self) -> usize {
         self.buf.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[allow(dead_code)]
     pub fn is_full(&self) -> bool {
         self.len == self.buf.len()
     }

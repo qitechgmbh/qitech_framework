@@ -17,7 +17,7 @@ mod v1;
 // -> Query Provider: query().config()
 
 // What does db want to persist -> init event, transactions, reports
-// event log: runtime send hello, init event: 
+// event log: runtime send hello, init event:
 // but also capture the outgoing messages
 
 pub struct ApiListener;

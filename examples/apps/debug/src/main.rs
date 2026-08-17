@@ -53,8 +53,7 @@ pub async fn main() {
     // --- configure hub ---
     let config_hub = HubConfiguration::new()
         .listener(ApiListener)
-        .actor(ApiActor)
-        ;
+        .actor(ApiActor);
 
     // --- run ---
     run_with_tui(config_rt, Default::default()).await.unwrap();

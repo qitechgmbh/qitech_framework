@@ -48,17 +48,11 @@ pub trait Listener: Send {
         _ = schema;
     }
 
-    async fn on_init_event_received(
-        &mut self,
-        event: Arc<RuntimeInitEvent>,
-    ) {
+    async fn on_init_event_received(&mut self, event: Arc<RuntimeInitEvent>) {
         _ = event;
     }
 
-    async fn on_report_received(
-        &mut self,
-        report: Arc<RuntimeReport>,
-    ) {
+    async fn on_report_received(&mut self, report: Arc<RuntimeReport>) {
         _ = report;
     }
 }

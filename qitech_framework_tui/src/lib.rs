@@ -31,6 +31,7 @@ use qitech_framework_core::session::ControllerTransport;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
+mod components;
 mod session;
 mod types;
 mod utils;

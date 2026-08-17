@@ -1,7 +1,6 @@
 use chrono::Utc;
 use crossterm::event::KeyCode;
 use ratatui::Frame;
-use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::style::Style;
@@ -10,131 +9,15 @@ use ratatui::text::Span;
 use ratatui::widgets::Axis;
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
-use ratatui::widgets::Cell;
 use ratatui::widgets::Chart;
 use ratatui::widgets::Dataset;
 use ratatui::widgets::GraphType;
-use ratatui::widgets::Row;
-use ratatui::widgets::Table;
 
 use crate::types::AppAction;
 use crate::widgets::machines_view::MachinesContext;
-use crate::widgets::tab_view::TabItem;
+use crate::widgets::measurements::MeasurementsView;
+use crate::widgets::measurements::Mode;
 
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
-enum Mode {
-    #[default]
-    Navigate,
-    Graph,
-}
-
-#[derive(Default)]
-pub struct MeasurementsView {
-    selected: usize,
-    mode: Mode,
-
-    // --- graph state ---
-    zoom: u8,
-    offset: f64,
-}
-
-impl TabItem<MachinesContext> for MeasurementsView {
-    fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
-        match self.mode {
-            Mode::Navigate => self.on_key_navigation(code, ctx),
-            Mode::Graph => self.on_key_chart(code),
-        }
-    }
-
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
-        match self.mode {
-            Mode::Navigate => self.render_navigation(frame, area, ctx, in_focus),
-            Mode::Graph => self.render_chart(frame, area, ctx, in_focus),
-        }
-    }
-}
-
-// navigation
-impl MeasurementsView {
-    fn on_key_navigation(
-        &mut self,
-        code: KeyCode,
-        ctx: MachinesContext,
-    ) -> Result<AppAction, KeyCode> {
-        let machine = unsafe { &*ctx.selected };
-
-        match code {
-            KeyCode::Char(' ') => {
-                self.mode = Mode::Graph;
-            }
-
-            KeyCode::Up => {
-                if self.selected == 0 {
-                    return Err(code);
-                }
-
-                self.selected -= 1;
-            }
-
-            KeyCode::Down => {
-                if self.selected == machine.measurements.len().saturating_sub(1) {
-                    return Err(code);
-                }
-
-                self.selected += 1;
-            }
-
-            _ => return Err(code),
-        }
-
-        Ok(AppAction::NoAction)
-    }
-
-    fn render_navigation(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        ctx: MachinesContext,
-        in_focus: bool,
-    ) {
-        let machine = unsafe { &*ctx.selected };
-
-        let rows: Vec<Row> = machine
-            .measurements
-            .iter()
-            .enumerate()
-            .map(|(i, (_, field))| {
-                let selected = i == self.selected;
-
-                let style = if selected && in_focus {
-                    Style::reset().fg(Color::LightBlue)
-                } else {
-                    Style::reset()
-                };
-
-                let value = match field.values.newest() {
-                    Some(sample) => match sample.value {
-                        Some(v) => format!("{:.2}", v),
-                        None => "null".to_string(),
-                    },
-                    None => "N/A".to_string(),
-                };
-
-                Row::new(vec![Cell::from(field.label.clone()), Cell::from(value)]).style(style)
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .style(Style::reset());
-
-        frame.render_widget(table, area);
-    }
-}
-
-// chart
 impl MeasurementsView {
     fn zoom_factor(&self) -> f64 {
         (1u32 << self.zoom as u32) as f64
@@ -144,7 +27,7 @@ impl MeasurementsView {
         600.0 / self.zoom_factor()
     }
 
-    fn on_key_chart(&mut self, code: KeyCode) -> Result<AppAction, KeyCode> {
+    pub fn on_key_chart(&mut self, code: KeyCode) -> Result<AppAction, KeyCode> {
         match code {
             KeyCode::Left => {
                 self.offset += self.window() / 4.0;
@@ -185,10 +68,20 @@ impl MeasurementsView {
         }
     }
 
-    fn render_chart(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
+    pub fn render_chart(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        ctx: MachinesContext,
+        in_focus: bool,
+    ) {
         let machine = unsafe { &*ctx.selected };
+        let prop_count = machine.measurements.len().saturating_sub(1);
 
-        let Some((name, field)) = machine.measurements.get_index(self.selected) else {
+        // --- clamp to current limit ---
+        let selected = self.navigation.pos().min(prop_count);
+
+        let Some((name, field)) = machine.measurements.get_index(selected) else {
             return;
         };
 

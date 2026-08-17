@@ -67,7 +67,7 @@ async fn wrapped_run<T: ControllerTransport>(
         match rx.try_recv() {
             Ok(request) => {
                 session.send_request(request).await.expect("idk");
-            },
+            }
             Err(_) => continue,
         }
     }
