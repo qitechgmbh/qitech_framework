@@ -3,11 +3,16 @@ use std::fmt::Debug;
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
+use axum::response::IntoResponse;
+use axum::response::Response;
 use qitech_framework::MachineIdentificationUnique;
 use qitech_framework::machine::MachineSubscribeError;
-use qitech_framework_core::report::{ConfigPropertyWriteError, ResourceAccessError};
-use qitech_framework_core::request::{MachineExecuteCommandError, MachineSetConfigProperty, MachineUnsubscribeError, RuntimeRequestError};
+use qitech_framework_core::report::ConfigPropertyWriteError;
+use qitech_framework_core::report::ResourceAccessError;
+use qitech_framework_core::request::MachineExecuteCommandError;
+use qitech_framework_core::request::MachineSetConfigProperty;
+use qitech_framework_core::request::MachineUnsubscribeError;
+use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_hub::ActorContext;
 use serde::Deserialize;
 use serde_json::json;
@@ -21,10 +26,7 @@ pub struct Request {
     pub data: serde_json::Value,
 }
 
-pub async fn post(
-    State(ctx): State<ActorContext>,
-    Json(body): Json<Request>,
-) -> Response {
+pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> Response {
     let request = match body.ident.identification {
         LaserV1::IDENTIFICATION => match adapter::laser_v1::map_request(body.ident, body.data) {
             Ok(request) => request,
@@ -58,7 +60,8 @@ pub async fn post(
             Json(serde_json::json!({
                 "status": "accepted",
             })),
-        ).into_response(),
+        )
+            .into_response(),
 
         Ok(Err(e)) => RuntimeRequestHttpError(e).into_response(),
 
@@ -70,8 +73,9 @@ pub async fn post(
                 Json(serde_json::json!({
                     "error": "runtime_unavailable",
                     "message": "No runtime is currently connected",
-                }))
-            ).into_response()
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -112,9 +116,7 @@ impl IntoResponse for RuntimeRequestHttpError {
                 ResourceAccessError::TypeMismatch { expected, actual } => error_response(
                     StatusCode::BAD_REQUEST,
                     "resource_type_mismatch",
-                    format!(
-                        "Expected resource type `{expected}`, but got `{actual}`"
-                    ),
+                    format!("Expected resource type `{expected}`, but got `{actual}`"),
                 ),
             }
         }
@@ -127,9 +129,7 @@ impl IntoResponse for RuntimeRequestHttpError {
             ),
 
             RuntimeRequestError::MachineSetConfigProperty(error) => match error {
-                MachineSetConfigProperty::ResourceAccess(error) => {
-                    resource_access_response(error)
-                }
+                MachineSetConfigProperty::ResourceAccess(error) => resource_access_response(error),
 
                 MachineSetConfigProperty::WriteError(error) => match error {
                     ConfigPropertyWriteError::ValueTypeMismatch(err) => error_response(
@@ -165,9 +165,7 @@ impl IntoResponse for RuntimeRequestHttpError {
             },
 
             RuntimeRequestError::MachineSubscribe(error) => match error {
-                MachineSubscribeError::ResourceAccess(error) => {
-                    resource_access_response(error)
-                }
+                MachineSubscribeError::ResourceAccess(error) => resource_access_response(error),
 
                 MachineSubscribeError::ProviderNotFound => error_response(
                     StatusCode::NOT_FOUND,
