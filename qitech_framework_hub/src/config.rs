@@ -7,12 +7,12 @@ use crate::MachineRegistry;
 use crate::RuntimeReportSender;
 use crate::SchemaRegistry;
 use crate::Swappable;
-use crate::modules::Runner;
-use crate::modules::RunnerContext;
+use crate::modules::Actor;
+use crate::modules::ActorContext;
 use crate::types::RuntimeRequestReceiver;
 use crate::types::RuntimeRequestSender;
 
-type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send + Sync>>;
+type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 pub struct HubConfiguration {
     pub(crate) report_tx: RuntimeReportSender,
@@ -42,14 +42,14 @@ impl HubConfiguration {
         self
     }
 
-    pub fn runner<R: Runner>(mut self, runner: R) -> Self {
-        let ctx = RunnerContext {
+    pub fn actor<A: Actor>(mut self, actor: A) -> Self {
+        let ctx = ActorContext {
             schemas: self.schemas.clone(),
             machines: self.machines.clone(),
             request_tx: self.request_tx.clone(),
         };
 
-        // self.runners.push(Box::pin(runner.run(ctx)));
+        self.actors.push(Box::pin(actor.run(ctx)));
         self
     }
 }

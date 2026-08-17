@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use qitech_framework_core::request::RuntimeRequest;
@@ -8,7 +7,6 @@ use qitech_framework_core::session::error::SchemaSyncError;
 use tokio::sync::mpsc;
 
 use crate::types::RuntimeReportSender;
-use crate::types::RuntimeRequestResponder;
 use crate::types::SchemaRegistry;
 use crate::types::Swappable;
 
@@ -99,8 +97,6 @@ pub async fn run<T: ControllerTransport>(
             .await
             .expect("transaction manager dropped receiver");
 
-        let mut pending_requests: HashMap<u64, RuntimeRequestResponder> = Default::default();
-
         loop {
             tokio::select! {
                 biased;
@@ -118,28 +114,6 @@ pub async fn run<T: ControllerTransport>(
                         response_count = report.responses.len(),
                         "received runtime report"
                     );
-
-                    for response in &report.responses {
-                        let Some(entry) = pending_requests.remove(&response.request_id) else {
-                            tracing::warn!(
-                                request_id = response.request_id,
-                                "received response for unknown request"
-                            );
-                            break;
-                        };
-
-                        tracing::debug!(
-                            request_id = response.request_id,
-                            "received request response"
-                        );
-
-                        if entry.send(response.result.clone()).is_err() {
-                            tracing::debug!(
-                                request_id = response.request_id,
-                                "request responder was dropped"
-                            );
-                        }
-                    }
 
                     report_sender
                         .send(Arc::new(report))
@@ -167,9 +141,6 @@ pub async fn run<T: ControllerTransport>(
             }
         }
 
-        tracing::info!(
-            pending_requests = pending_requests.len(),
-            "runtime session ended; reconnecting"
-        );
+        tracing::info!("runtime session ended; reconnecting");
     }
 }

@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use qitech_framework::Machine;
+use qitech_framework::TuiConfiguration;
 use qitech_framework::machine::ActResult;
 use qitech_framework::machine::BuildContext;
 use qitech_framework::machine::BuildResult;
@@ -12,7 +13,6 @@ use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_framework::TuiConfiguration;
 use qitech_lib::ethercat_hal::devices::beckhoff_modules::el2004::EL2004;
 use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 
@@ -23,7 +23,8 @@ pub async fn main() {
         .machine::<MyMachine>();
 
     run_with_tui(config_rt, TuiConfiguration::default())
-        .await.unwrap()
+        .await
+        .unwrap()
 }
 
 #[derive(Machine)]

@@ -27,26 +27,32 @@ use qitech_lib::modbus::devices::qitech_laser::LaserError;
 use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
 
+mod api;
+use api::ApiActor;
+
 #[tokio::main]
 pub async fn main() {
     tracing_subscriber::fmt()
         .with_target(false)
         .with_ansi(true)
+        // .with_max_level(tracing::Level::DEBUG)
         .init();
 
+    // --- configure runtime ---
     let config_rt = RuntimeConfiguration::new()
         .modbus_rtu_device::<LaserDevice>(
-            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0".to_string(),
+            "pci-0000:c6:00.0-usbv2-0:2.3:1.0-port0".to_string(),
             LaserV1::IDENTIFICATION.unique(1),
             1,
             None,
         )
         .machine::<LaserV1>();
 
-    let config_hub = HubConfiguration::new();
+    // --- configure hub ---
+    let config_hub = HubConfiguration::new().actor(ApiActor);
 
-    run_with_hub(config_rt, config_hub)
-        .await.unwrap()
+    // --- run ---
+    run_with_hub(config_rt, config_hub).await.unwrap()
 }
 
 #[derive(Machine)]

@@ -234,8 +234,8 @@ impl PropertyAdapter for i64 {
             && *value < min
         {
             return Err(ConstraintViolationError::BelowMin {
-                value: ScalarValue::Integer(min),
-                min: ScalarValue::Integer(*value),
+                value: ScalarValue::Integer(*value),
+                min: ScalarValue::Integer(min),
             });
         }
 
@@ -324,8 +324,8 @@ impl PropertyAdapter for f64 {
             && *value < min
         {
             return Err(ConstraintViolationError::BelowMin {
-                value: ScalarValue::Float(min),
-                min: ScalarValue::Float(*value),
+                value: ScalarValue::Float(*value),
+                min: ScalarValue::Float(min),
             });
         }
 

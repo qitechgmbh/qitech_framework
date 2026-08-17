@@ -17,8 +17,8 @@ mod config;
 pub use config::HubConfiguration;
 
 mod modules;
-pub use modules::Runner;
-pub use modules::RunnerContext;
+pub use modules::Actor;
+pub use modules::ActorContext;
 
 mod session_manager;
 mod transaction_manager;

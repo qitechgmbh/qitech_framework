@@ -41,6 +41,7 @@ pub type RuntimeRequestReceiver = mpsc::Receiver<(
 
 pub type RuntimeRequestResponder = oneshot::Sender<Result<(), RuntimeRequestError>>;
 
+#[derive(Debug)]
 pub struct MachineEntry {
     pub updated_at: DateTime<Utc>,
     pub config_props: IndexMap<String, ConfigPropertyEntry>,
@@ -48,6 +49,7 @@ pub struct MachineEntry {
     pub measurements: IndexMap<String, MeasurementEntry>,
 }
 
+#[derive(Debug)]
 pub struct ConfigPropertyEntry {
     pub kind: ScalarPropertyKind,
     pub records: Vec<EventRecord<ConfigPropertyEvent>>,
@@ -58,12 +60,14 @@ pub struct ConfigPropertyEntry {
     pub constraints: Constraints,
 }
 
+#[derive(Debug)]
 pub struct StatePropertyEntry {
     pub kind: ScalarPropertyKind,
     pub records: Vec<EventRecord<ConfigPropertyEvent>>,
     pub value: ScalarValue,
 }
 
+#[derive(Debug)]
 pub struct MeasurementEntry {
     pub label: String,
     pub value: Option<f64>,

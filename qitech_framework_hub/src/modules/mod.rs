@@ -3,24 +3,43 @@ use std::sync::Arc;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequest;
+use qitech_framework_core::request::RuntimeRequestError;
+use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_core::session::error::HelloMatchError;
+use tokio::sync::oneshot;
 
 use crate::MachineRegistry;
 use crate::RuntimeRequestSender;
 use crate::SchemaRegistry;
 use crate::Swappable;
 
-pub struct RunnerContext {
+#[derive(Debug, Clone)]
+pub struct ActorContext {
     pub schemas: Swappable<SchemaRegistry>,
     pub machines: Swappable<MachineRegistry>,
-    pub request_tx: RuntimeRequestSender,
+    pub(crate) request_tx: RuntimeRequestSender,
 }
 
-pub trait Runner: Send + Sync {
-    async fn run(self, ctx: RunnerContext);
+impl ActorContext {
+    pub async fn send_request(
+        &self,
+        request: RuntimeRequestKind,
+    ) -> Result<Result<(), RuntimeRequestError>, oneshot::error::RecvError> {
+        let (tx, rx) = oneshot::channel();
+        self.request_tx
+            .send((request, tx))
+            .await
+            .expect("transaction manager dropped request_tx");
+
+        rx.await
+    }
 }
 
-pub trait Reactor {
+pub trait Actor: Send + Sync {
+    fn run(self, ctx: ActorContext) -> impl Future<Output = ()> + Send + 'static;
+}
+
+pub trait Listener {
     /// Called when the runtime's hello message is rejected.
     async fn on_hello_rejected(error: HelloMatchError) {}
 

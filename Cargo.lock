@@ -926,8 +926,13 @@ dependencies = [
 name = "debug"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "qitech_framework",
+ "qitech_framework_core",
+ "qitech_framework_hub",
  "qitech_lib",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

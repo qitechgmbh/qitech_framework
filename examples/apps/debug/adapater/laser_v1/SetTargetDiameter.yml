@@ -1,0 +1,30 @@
+info:
+  name: SetTargetDiameter
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:3001/api/v1/machine/mutate
+  body:
+    type: json
+    data: |-
+      {
+        "ident": {
+          "identification": {
+            "vendor_id": 1,
+            "machine_id": 6
+          },
+          "serial": 1
+        },
+        "data": {
+          "SetTargetDiameter": 1.0
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

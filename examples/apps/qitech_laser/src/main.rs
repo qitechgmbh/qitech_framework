@@ -44,7 +44,8 @@ pub async fn main() {
         .machine::<LaserV1>();
 
     run_with_tui(config_rt, TuiConfiguration::default())
-        .await.unwrap()
+        .await
+        .unwrap()
 }
 
 #[derive(Machine)]
