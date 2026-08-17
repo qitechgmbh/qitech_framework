@@ -1,90 +1,196 @@
-use std::{cell::RefCell, rc::Rc, time::Instant};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
 
-use qitech_framework::machine::{
-    ActResult, BuildContext, BuildResult, ConfigProperty, Machine, MachineBuild, MachineDescriptor,
-    MachineIdentification,
-};
-use qitech_lib::ethercat_hal::{
-    devices::beckhoff_modules::el2004::EL2004, io::digital_output::DigitalOutputDevice,
-};
+use qitech_framework::Machine;
+use qitech_framework::MachineIdentification;
+use qitech_framework::machine::ActError;
+use qitech_framework::machine::ActErrorImpact;
+use qitech_framework::machine::ActErrorKind;
+use qitech_framework::machine::ActResult;
+use qitech_framework::machine::BuildContext;
+use qitech_framework::machine::BuildResult;
+use qitech_framework::machine::ConfigProperty;
+use qitech_framework::machine::EventEmitter;
+use qitech_framework::machine::Machine;
+use qitech_framework::machine::MachineBuild;
+use qitech_framework::machine::Measurement;
+use qitech_framework::machine::StateProperty;
+use qitech_framework::machine_build;
+use qitech_framework::run_with_tui;
+use qitech_framework::runtime::EtherCATConfig;
+use qitech_framework::runtime::RuntimeConfiguration;
+use qitech_framework::TuiConfiguration;
+use qitech_framework::vendors;
+use qitech_lib::modbus::ModbusDevice;
+use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
+use qitech_lib::modbus::devices::qitech_laser::LaserError;
+use qitech_lib::units::Length;
+use qitech_lib::units::length::millimeter;
 
-pub struct EL2004Machine {
-    leds: [ConfigProperty<bool>; 4],
-    el2004: Rc<RefCell<EL2004>>,
+#[tokio::main]
+pub async fn main() {
+    let config_rt = RuntimeConfiguration::new()
+        .ethercat(EtherCATConfig::default())
+        .machine::<LaserV1>();
+
+    run_with_tui(config_rt, TuiConfiguration::default())
+        .await.unwrap()
 }
 
-impl EL2004Machine {
-    fn update_led(&mut self, port: usize) -> ActResult {
-        let value = self.leds[port].get();
+#[derive(Machine)]
+pub struct LaserV1 {
+    // --- hardware ---
+    device: Rc<RefCell<LaserDevice>>,
 
-        self.el2004.borrow_mut().set_output(port, value);
+    // -- config ---
+    diameter_target: ConfigProperty<Length>,
+    diameter_tolerance_upper: ConfigProperty<Length>,
+    diameter_tolerance_lower: ConfigProperty<Length>,
 
-        Ok(())
-    }
+    // --- state ---
+    in_tolerance: StateProperty<bool>,
 
-    fn on_led1_changed(&mut self) -> ActResult {
-        self.update_led(0)
-    }
+    // --- measurements ---
+    diameter: Measurement<Length>,
+    diameter_x: Measurement<Option<Length>>,
+    diameter_y: Measurement<Option<Length>>,
+    roundness: Measurement<Option<f64>>,
 
-    fn on_led2_changed(&mut self) -> ActResult {
-        self.update_led(1)
-    }
+    // --- events ---
+    out_of_tolerance: EventEmitter<()>,
 
-    fn on_led3_changed(&mut self) -> ActResult {
-        self.update_led(2)
-    }
-
-    fn on_led4_changed(&mut self) -> ActResult {
-        self.update_led(3)
-    }
+    // -- misc ---
+    request_timer: Duration,
 }
 
-impl Machine for EL2004Machine {
-    fn act(&mut self, _now: Instant) -> ActResult {
-        Ok(())
-    }
-}
+impl MachineBuild for LaserV1 {
+    #[machine_build(LaserV1)]
+    fn build(ctx: &mut BuildContext<'_>) -> BuildResult<Self> {
+        let device = ctx.get_modbus_rtu_device::<LaserDevice>(0)?;
 
-impl MachineBuild for EL2004Machine {
-    fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
-        let el2004 = ctx.find_ethercat_device::<EL2004>(1)?;
-
-        let led1_on = ctx
-            .config::<bool>("led1_on")
-            .default(false)
-            .on_external_changed(EL2004Machine::on_led1_changed)
+        let diameter_target = ctx
+            .config::<millimeter>("diameter.target")
+            .default(1.75)
+            .minimum(0.0)
             .build()?;
 
-        let led2_on = ctx
-            .config::<bool>("led2_on")
-            .default(false)
-            .on_external_changed(EL2004Machine::on_led2_changed)
+        let diameter_tolerance_lower = ctx
+            .config::<millimeter>("diameter.tolerance.lower")
+            .default(0.05)
+            .minimum(0.0)
             .build()?;
 
-        let led3_on = ctx
-            .config::<bool>("led3_on")
-            .default(false)
-            .on_external_changed(EL2004Machine::on_led3_changed)
-            .build()?;
-
-        let led4_on = ctx
-            .config::<bool>("led4_on")
-            .default(false)
-            .on_external_changed(EL2004Machine::on_led4_changed)
+        let diameter_tolerance_upper = ctx
+            .config::<millimeter>("diameter.tolerance.upper")
+            .default(0.05)
+            .minimum(0.0)
             .build()?;
 
         Ok(Self {
-            el2004,
-            leds: [led1_on, led2_on, led3_on, led4_on],
+            device,
+            diameter_target,
+            diameter_tolerance_upper,
+            diameter_tolerance_lower,
+            in_tolerance: ctx.state::<bool>("in_tolerance").build()?,
+            diameter: ctx.measurement::<millimeter>("diameter").build()?,
+            diameter_x: ctx
+                .measurement::<Option<millimeter>>("diameter_x")
+                .build()?,
+            diameter_y: ctx
+                .measurement::<Option<millimeter>>("diameter_y")
+                .build()?,
+            roundness: ctx.measurement::<Option<f64>>("roundness").build()?,
+            out_of_tolerance: ctx.event("out_of_tolerance").build()?,
+            request_timer: Duration::ZERO,
         })
     }
 }
 
-impl MachineDescriptor for EL2004Machine {
-    const SCHEMA: &'static str = include_str!("../schemas/beckhoff_el2004_machine.yaml");
+impl Machine for LaserV1 {
+    fn act(&mut self, dt: Duration) -> ActResult {
+        self.update_device(dt)?;
 
-    const IDENTIFICATION: MachineIdentification = MachineIdentification {
-        machine_id: 0x0a,
-        vendor_id: 1,
+        if let Some(m) = self.device.borrow().measurement.clone() {
+            fn convert(value: u16) -> Length {
+                Length::new::<millimeter>(value as f64 / 1000.0)
+            }
+
+            self.diameter.set(convert(m.diameter));
+            self.diameter_x.set(Some(convert(m.x_axis)));
+            self.diameter_y.set(Some(convert(m.y_axis)));
+        }
+
+        let roundness = self.compute_roundness();
+        self.roundness.set(roundness);
+
+        let in_tolerance = self.compute_in_tolerance();
+        if self.in_tolerance.set(in_tolerance) && !in_tolerance {
+            // value changed from in tolerance -> out of tolerance
+            self.out_of_tolerance.emit(&());
+        };
+
+        Ok(())
+    }
+}
+
+impl LaserV1 {
+    pub const IDENTIFICATION: MachineIdentification = MachineIdentification {
+        vendor_id: vendors::QITECH.id,
+        machine_id: 6,
     };
+
+    fn update_device(&mut self, dt: Duration) -> ActResult {
+        let mut laser = self.device.borrow_mut();
+
+        if let Err(e) = laser.handle_response()
+            && let Some(laser_error) = e.downcast_ref::<LaserError>()
+            && let LaserError::IoErr() = laser_error
+        {
+            return Err(ActError {
+                kind: ActErrorKind::HardwareFault("Physical hardware I/O broke.".into()),
+                impact: ActErrorImpact::Irrecoverable,
+            });
+        }
+
+        self.request_timer = self.request_timer.saturating_sub(dt);
+
+        if self.request_timer.is_zero() {
+            self.request_timer = Duration::from_millis(6);
+
+            if let Err(err) = laser.send_next_request() {
+                println!("send_next_request {:?}", err);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Roundness = min(x, y) / max(x, y)
+    fn compute_roundness(&mut self) -> Option<f64> {
+        let (Some(x), Some(y)) = (
+            self.diameter_x.get_as::<millimeter>(),
+            self.diameter_y.get_as::<millimeter>(),
+        ) else {
+            return None;
+        };
+
+        if x > 0.0 && y > 0.0 {
+            let roundness = f64::min(x, y) / f64::max(x, y);
+            Some(roundness)
+        } else if x == 0.0 && y == 0.0 {
+            Some(0.0)
+        } else {
+            None
+        }
+    }
+
+    /// Calculates if the current diameter is inside of the tolerance
+    fn compute_in_tolerance(&mut self) -> bool {
+        let target = self.diameter_target.get();
+        let top = target + self.diameter_tolerance_upper.get();
+        let bottom = target - self.diameter_tolerance_lower.get();
+
+        self.diameter.get() < top && self.diameter.get() > bottom
+    }
 }

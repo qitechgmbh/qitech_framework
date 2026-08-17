@@ -44,7 +44,10 @@ pub use event::EventEmitter;
 
 pub trait Machine: Any {
     /// Defines the update cycle of a machine.
-    fn act(&mut self, dt: Duration) -> ActResult;
+    fn act(&mut self, dt: Duration) -> ActResult {
+        _ = dt;
+        Ok(())
+    }
 
     /// Allows a machine to create remote properties.
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {

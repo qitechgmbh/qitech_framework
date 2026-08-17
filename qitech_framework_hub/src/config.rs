@@ -1,45 +1,61 @@
-use std::time::Duration;
+use std::pin::Pin;
 
-mod defaults {
-    use super::*;
-    pub const AUTO_MIGRATE: bool = false;
-    pub const API_PORT: u16 = 3001;
-    pub const COMMIT_INTERVAL: Duration = Duration::from_secs(5);
+use tokio::sync::broadcast;
+use tokio::sync::mpsc;
+
+use crate::MachineRegistry;
+use crate::RuntimeReportSender;
+use crate::SchemaRegistry;
+use crate::Swappable;
+use crate::modules::Runner;
+use crate::modules::RunnerContext;
+use crate::types::RuntimeRequestReceiver;
+use crate::types::RuntimeRequestSender;
+
+type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send + Sync>>;
+
+pub struct HubConfiguration {
+    pub(crate) report_tx: RuntimeReportSender,
+    pub(crate) request_tx: RuntimeRequestSender,
+    pub(crate) request_rx: RuntimeRequestReceiver,
+    pub(crate) machines: Swappable<MachineRegistry>,
+    pub(crate) schemas: Swappable<SchemaRegistry>,
+    pub(crate) actors: Vec<RunnerFuture>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Config {
-    /// database configuration
-    pub db: DatabaseConfig,
+impl HubConfiguration {
+    pub fn new() -> Self {
+        let (report_tx, _) = broadcast::channel(32);
+        let (request_tx, request_rx) = mpsc::channel(128);
 
-    /// Should the hub attempt to migrate the database
-    /// if it is outdated automatically
-    pub auto_migrate: bool,
-
-    /// address for the api server.
-    /// Default is `3001`
-    pub api_port: u16,
-
-    /// interval for exporting data into database.
-    /// Default is `5s`
-    pub commit_interval: Duration,
-}
-
-impl Default for Config {
-    fn default() -> Self {
         Self {
-            db: Default::default(),
-            auto_migrate: defaults::AUTO_MIGRATE,
-            api_port: defaults::API_PORT,
-            commit_interval: defaults::COMMIT_INTERVAL,
+            report_tx,
+            request_tx,
+            request_rx,
+            machines: Default::default(),
+            schemas: Default::default(),
+            actors: Default::default(),
         }
+    }
+
+    pub fn reactor(mut self) -> Self {
+        self
+    }
+
+    pub fn runner<R: Runner>(mut self, runner: R) -> Self {
+        let ctx = RunnerContext {
+            schemas: self.schemas.clone(),
+            machines: self.machines.clone(),
+            request_tx: self.request_tx.clone(),
+        };
+
+        // self.runners.push(Box::pin(runner.run(ctx)));
+        self
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct DatabaseConfig {
-    pub url: String,
-    pub user: String,
-    pub password: Option<String>,
-    pub name: String,
+impl Default for HubConfiguration {
+    fn default() -> Self {
+        Self::new()
+    }
 }

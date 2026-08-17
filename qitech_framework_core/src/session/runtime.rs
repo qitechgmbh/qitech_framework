@@ -10,6 +10,13 @@ use crate::session::protocol::RuntimeMessage;
 use crate::session::transport::RuntimeTransport;
 use crate::session::transport::TransportError;
 
+// --- provider ---
+pub trait RuntimeSessionProvider {
+    type Transport: RuntimeTransport;
+
+    fn provide(&mut self) -> Result<SessionHandshake<Self::Transport>, TransportError>;
+}
+
 // --- send hello ---
 pub struct SessionHandshake<T>
 where

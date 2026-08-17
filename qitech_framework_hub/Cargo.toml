@@ -37,5 +37,7 @@ postcard.workspace = true
 bytes.workspace = true
 
 [dev-dependencies]
+qitech_lib.workspace = true
+qitech_framework.workspace = true
 testcontainers = { workspace = true, features = ["http_wait_plain"]}
 tracing.workspace = true

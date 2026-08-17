@@ -51,7 +51,6 @@ impl RuntimeTransport for DebugRuntimeTransport {
             }
         }
 
-        _ = msg;
         Ok(())
     }
 }

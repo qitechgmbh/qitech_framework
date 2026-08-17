@@ -27,8 +27,8 @@ use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework_core::session::ControllerSessionProvider;
 use qitech_framework_core::session::ControllerTransport;
-use qitech_framework_core::session::controller::SessionHandshake;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -109,12 +109,17 @@ impl Tui {
         })
     }
 
-    pub fn run<T>(mut self, session: SessionHandshake<T>) -> anyhow::Result<()>
+    pub async fn run<T>(
+        mut self,
+        mut provider: impl ControllerSessionProvider<Transport = T>,
+    ) -> anyhow::Result<()>
     where
         T: ControllerTransport + Send + 'static,
     {
         let (tx, rx) = crossbeam::channel::bounded(128);
         let (tx_req, rx_action) = crossbeam::channel::bounded(128);
+
+        let session = provider.provide().await?;
 
         thread::spawn(move || session::run(session, tx, rx_action));
 

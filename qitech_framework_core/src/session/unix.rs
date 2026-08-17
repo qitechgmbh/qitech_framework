@@ -14,11 +14,11 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::UnixStream as AsyncUnixStream;
 
-use crate::session::controller_async;
+use crate::session::controller;
 use crate::session::protocol::ControllerMessage;
 use crate::session::protocol::RuntimeMessage;
 use crate::session::runtime;
-use crate::session::transport::AsyncControllerTransport;
+use crate::session::transport::ControllerTransport;
 use crate::session::transport::RuntimeTransport;
 use crate::session::transport::TransportError;
 
@@ -117,10 +117,10 @@ impl RuntimeTransport for UnixRuntimeTransport {
 // --- controller async ---
 pub async fn controller_tokio(
     path: impl AsRef<Path>,
-) -> Result<controller_async::SessionHandshake<UnixTokioControllerTransport>, TransportError> {
+) -> Result<controller::SessionHandshake<UnixTokioControllerTransport>, TransportError> {
     let stream = AsyncUnixStream::connect(path).await?;
 
-    Ok(controller_async::SessionHandshake::new(
+    Ok(controller::SessionHandshake::new(
         UnixTokioControllerTransport::new(stream),
     ))
 }
@@ -139,7 +139,7 @@ impl UnixTokioControllerTransport {
     }
 }
 
-impl AsyncControllerTransport for UnixTokioControllerTransport {
+impl ControllerTransport for UnixTokioControllerTransport {
     async fn recv(&mut self) -> Result<RuntimeMessage, TransportError> {
         loop {
             if let Some(message) = self.codec.decode::<RuntimeMessage>()? {

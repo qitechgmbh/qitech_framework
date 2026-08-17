@@ -158,7 +158,6 @@ fn controller(path: String) {
         let mut session = session
             .complete(|event| {
                 println!("[Controller] Received event: {event:?}");
-                Ok(())
             })
             .await
             .expect("[Controller] handshake failed");

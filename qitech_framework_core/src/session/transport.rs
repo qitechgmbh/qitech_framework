@@ -11,13 +11,9 @@ pub trait RuntimeTransport {
     fn send(&mut self, msg: RuntimeMessage) -> Result<(), TransportError>;
 }
 
-pub trait ControllerTransport {
-    fn recv(&mut self) -> Result<RuntimeMessage, TransportError>;
-    fn send(&mut self, msg: ControllerMessage) -> Result<(), TransportError>;
-}
-
-pub trait AsyncControllerTransport: Send + Sync {
+pub trait ControllerTransport: Send + Sync {
     fn recv(&mut self) -> impl Future<Output = Result<RuntimeMessage, TransportError>> + Send;
+
     fn send(
         &mut self,
         msg: ControllerMessage,

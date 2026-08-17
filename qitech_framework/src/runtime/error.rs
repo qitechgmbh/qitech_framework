@@ -1,6 +1,7 @@
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::schema::ParseError;
 use qitech_framework_core::session::error::HandshakeError;
+use qitech_framework_core::session::error::TransportError;
 use thiserror::Error;
 
 pub type RuntimeInitializeResult<T> = Result<T, RuntimeInitializeError>;
@@ -8,6 +9,9 @@ pub type EtherCATInitializeResult<T> = Result<T, EtherCATInitializeError>;
 
 #[derive(Error, Debug)]
 pub enum RuntimeInitializeError {
+    #[error("failed to create runtime session: {0}")]
+    CreateSession(TransportError),
+
     #[error("bridge initialization failed: {0}")]
     Handshake(#[from] HandshakeError),
 

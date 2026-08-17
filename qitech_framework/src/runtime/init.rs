@@ -9,8 +9,8 @@ use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
+use qitech_framework_core::session::RuntimeSessionProvider;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::SessionHandshake;
 use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
@@ -36,10 +36,14 @@ use crate::runtime::types::MachineInstance;
 use crate::runtime::types::MachineRegistryEntry;
 
 impl<T: RuntimeTransport> Runtime<T> {
-    pub fn init(
+    pub fn init<P: RuntimeSessionProvider<Transport = T>>(
         config: RuntimeConfiguration,
-        session: SessionHandshake<T>,
+        mut provider: P,
     ) -> RuntimeInitializeResult<Self> {
+        let session = provider
+            .provide()
+            .map_err(RuntimeInitializeError::CreateSession)?;
+
         // --- send hello ---
         let mut session = session.begin_sync()?;
 

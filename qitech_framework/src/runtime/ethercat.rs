@@ -50,7 +50,7 @@ pub fn init<T: RuntimeTransport>(
         interface: interface.clone(),
     })?;
 
-    let controller = ethercat_hal::init_ethercat(&interface, config.master_config);
+    let controller = ethercat_hal::init_ethercat(&interface, Some(config.master_config));
 
     let state = match controller.app_handle.get_state() {
         ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,

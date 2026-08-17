@@ -4,7 +4,7 @@
 }:
 with pkgs;
 mkShell {
-  name = "control-v2";
+  name = "qitech_framework";
   buildInputs = [
     rustc
     cargo
