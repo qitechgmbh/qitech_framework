@@ -51,6 +51,7 @@ impl StatusDisplay {
                     "🟡 Initializing EtherCAT Devices"
                 }
                 RuntimeInitStatus::ModbusRTUDiscovery => "🟡 Modbus RTU Discovery",
+                RuntimeInitStatus::XtremDiscovery => "🟡 XTREM Discovery",
                 RuntimeInitStatus::BuildingMachines => "🟡 Building Machines",
                 RuntimeInitStatus::Finalizing => "🟡 Finalizing",
                 RuntimeInitStatus::Completed => "🔵 Initialization Completed",

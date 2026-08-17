@@ -29,6 +29,9 @@ pub enum BuildError {
     #[error("expected a serial device at index {index}")]
     ExpectedSerialDeviceAtIndex { index: usize },
 
+    #[error("expected an XTREM device at index {index}")]
+    ExpectedXtremDeviceAtIndex { index: usize },
+
     #[error("failed to configure hardware: {0}")]
     HardwareConfig(String),
 

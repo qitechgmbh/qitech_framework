@@ -14,6 +14,7 @@ use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionRunning;
+use qitech_lib::xtrem::XtremBusHandle;
 use types::Config;
 
 pub mod error;
@@ -28,10 +29,13 @@ mod ethercat;
 mod init;
 mod modbus_rtu;
 mod utils;
+mod xtrem;
 
 mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
+pub use config::XtremConfig;
+pub use xtrem::XtremDeviceBuild;
 
 use crate::resource::Journals;
 use crate::resource::ResourceRegistry;
@@ -50,6 +54,10 @@ pub struct Runtime<T: RuntimeTransport> {
     machines: Vec<MachineInstance>,
     sub_devices: Vec<EtherCATSubDevice>,
     ecat_controller: Option<EtherCATController>,
+
+    /// Keeps the XTREM receive task alive. Each `XtremScale` only holds a clone, so without
+    /// this the socket would die the moment the last scale-owning machine is removed.
+    _xtrem_bus: Option<XtremBusHandle>,
 
     // --- misc ---
     config: Config,
