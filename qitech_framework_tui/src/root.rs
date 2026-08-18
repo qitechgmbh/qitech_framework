@@ -10,12 +10,12 @@ use ratatui::widgets::Borders;
 
 use crate::types::AppAction;
 use crate::types::AppContext;
-use crate::widgets::MachinesView;
+use crate::types::KeyResult;
+use crate::widgets::MachinesPage;
 use crate::widgets::StatusDisplay;
 use crate::widgets::TabView;
-use crate::widgets::Widget;
 use crate::widgets::tab_view::TabEntry;
-use crate::widgets::transactions::TransactionsView;
+use crate::widgets::transactions::TransactionsPage;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Focus {
@@ -39,11 +39,11 @@ impl UIRoot {
                 vec![
                     TabEntry {
                         title: "Machines",
-                        item: Box::new(MachinesView::new()),
+                        item: Box::new(MachinesPage::new()),
                     },
                     TabEntry {
                         title: "Transactions",
-                        item: Box::new(TransactionsView::new()),
+                        item: Box::new(TransactionsPage::new()),
                     },
                     // TabEntry {
                     //     title: "EtherCAT",
@@ -52,25 +52,6 @@ impl UIRoot {
                 ],
             ),
         }
-    }
-
-    pub fn render(&self, frame: &mut Frame, ctx: AppContext) {
-        const TITLE: &str = " QiTech Control (Terminal Edition) ";
-
-        let outer = Block::default().borders(Borders::ALL).title(TITLE);
-
-        frame.render_widget(&outer, frame.area());
-
-        let inner = outer.inner(frame.area());
-
-        let chunks = Layout::vertical([Constraint::Length(4), Constraint::Min(0)]).split(inner);
-
-        // --- render components ---
-        self.status
-            .render(frame, chunks[0], ctx, self.focus == Focus::Status);
-
-        self.pages
-            .render(frame, chunks[1], ctx, self.focus == Focus::Content);
     }
 
     pub fn on_key(&mut self, event: KeyEvent, ctx: AppContext) -> Result<AppAction, KeyEvent> {
@@ -84,8 +65,8 @@ impl UIRoot {
             },
 
             Focus::Content => match self.pages.on_key(event.code, ctx) {
-                Ok(v) => Ok(v),
-                Err(_) => match event.code {
+                KeyResult::Handled(v) => Ok(v),
+                KeyResult::Bubble(_) => match event.code {
                     KeyCode::Up => {
                         self.focus = Focus::Status;
                         Ok(AppAction::NoAction)
@@ -94,5 +75,22 @@ impl UIRoot {
                 },
             },
         }
+    }
+
+    pub fn render(&mut self, frame: &mut Frame, ctx: AppContext) {
+        const TITLE: &str = " QiTech Control (Terminal Edition) ";
+
+        let outer = Block::default().borders(Borders::ALL).title(TITLE);
+        frame.render_widget(&outer, frame.area());
+
+        let inner = outer.inner(frame.area());
+        let chunks = Layout::vertical([Constraint::Length(4), Constraint::Min(0)]).split(inner);
+
+        // --- render components ---
+        self.status
+            .render(frame, chunks[0], self.focus == Focus::Status, ctx);
+
+        self.pages
+            .render(frame, chunks[1], self.focus == Focus::Content, ctx);
     }
 }

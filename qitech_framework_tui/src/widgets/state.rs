@@ -1,5 +1,5 @@
 use crossterm::event::KeyCode;
-use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::StatePropertyEvent;
 use ratatui::Frame;
 use ratatui::layout::Constraint;
 use ratatui::layout::Rect;
@@ -13,6 +13,7 @@ use crate::components::Navigation;
 use crate::types::AppAction;
 use crate::types::KeyResult;
 use crate::types::MachineEntry;
+use crate::types::StatePropertyFieldState;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
@@ -23,11 +24,11 @@ pub enum Mode {
     Inspect((Navigation, EventLogMenu, InspectView)),
 }
 
-pub struct CommandsView {
+pub struct StatePage {
     mode: Mode,
 }
 
-impl CommandsView {
+impl StatePage {
     pub fn new() -> Self {
         Self {
             mode: Mode::Navigate(Default::default()),
@@ -35,7 +36,7 @@ impl CommandsView {
     }
 }
 
-impl TabItem<MachinesContext> for CommandsView {
+impl TabItem<MachinesContext> for StatePage {
     fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
         let (mode, result) = match self.mode.clone() {
             Mode::Navigate(navigation) => Self::on_key_navigate(navigation, code, ctx),
@@ -71,14 +72,14 @@ impl TabItem<MachinesContext> for CommandsView {
 }
 
 // --- navigate ---
-impl CommandsView {
+impl StatePage {
     pub fn on_key_navigate(
         mut navigation: Navigation,
         code: KeyCode,
         ctx: MachinesContext,
     ) -> (Mode, KeyResult<AppAction>) {
         let machine = ctx.selected();
-        let prop_count = machine.commands.len().saturating_sub(1);
+        let prop_count = machine.state.len().saturating_sub(1);
 
         // --- let component handle event ---
         let Err(code) = navigation.on_key(code, prop_count) else {
@@ -88,40 +89,29 @@ impl CommandsView {
             );
         };
 
-        if prop_count == 0 {
-            // no items
-            return (Mode::Navigate(navigation), KeyResult::Bubble(code));
-        }
-
         // -- ensure the value is clamped before reading---
         navigation.clamp(prop_count);
 
         // --- retrieve and ensure the property is initialized ---
         let (key, field) = ctx
             .selected()
-            .commands
+            .state
             .get_index(navigation.pos())
             .expect("failed to read from clamped index");
 
-        if field.records.is_empty() {
-            (Mode::Navigate(navigation), KeyResult::Bubble(code))
-        } else {
-            match code {
+        match &field.state {
+            StatePropertyFieldState::NotInitialized => {
+                (Mode::Navigate(navigation), KeyResult::Bubble(code))
+            }
+
+            StatePropertyFieldState::Initialized { .. } => match code {
                 KeyCode::Char(' ') => (
                     Mode::History((navigation, EventLogMenu::new(key.clone()))),
                     KeyResult::Handled(AppAction::NoAction),
                 ),
 
-                KeyCode::Enter => (
-                    Mode::Navigate(navigation),
-                    KeyResult::Handled(AppAction::ExecuteCommand {
-                        machine: machine.ident,
-                        resource: key.clone(),
-                    }),
-                ),
-
                 code => (Mode::Navigate(navigation), KeyResult::Bubble(code)),
-            }
+            },
         }
     }
 
@@ -132,16 +122,13 @@ impl CommandsView {
         in_focus: bool,
         machine: &MachineEntry,
     ) {
-        let items = machine.commands.iter().map(|(_, field)| {
-            let value = if field.records.is_empty() {
-                "N/A"
-            } else if field.capability.is_forbidden() {
-                "Disabled"
-            } else {
-                "Enabled"
+        let items = machine.state.iter().map(|(_, field)| {
+            let value = match &field.state {
+                StatePropertyFieldState::NotInitialized => "N/A".to_string(),
+                StatePropertyFieldState::Initialized { value } => value.to_string(),
             };
 
-            (field.label.clone(), value.to_string())
+            (field.label.clone(), value)
         });
 
         navigation.render(frame, area, items, in_focus);
@@ -149,7 +136,7 @@ impl CommandsView {
 }
 
 // --- history ---
-impl CommandsView {
+impl StatePage {
     pub fn on_key_history(
         navigation: Navigation,
         mut history: EventLogMenu,
@@ -158,7 +145,7 @@ impl CommandsView {
     ) -> (Mode, KeyResult<AppAction>) {
         let field = ctx
             .selected()
-            .commands
+            .state
             .get(history.label())
             .expect("selected property dissapeared");
 
@@ -197,20 +184,19 @@ impl CommandsView {
         machine: &MachineEntry,
     ) {
         let field = machine
-            .commands
+            .state
             .get(history.label())
             .expect("selected property entry dissapeared");
 
         let rows = field.records.iter().rev().map(|record| {
             let (event, value) = match &record.event {
-                CommandEvent::Registered => ("Registered".to_string(), String::default()),
-                CommandEvent::CapabilityChanged(capabiltiy) => {
-                    ("CapabilityChanged".to_string(), format!("{capabiltiy}"))
+                StatePropertyEvent::Registered { value } => {
+                    ("Registered".to_string(), format!("value={value}"))
                 }
-                CommandEvent::Executed(result) => (
-                    "Executed".to_string(),
-                    if result.is_ok() { "success" } else { "failed" }.to_string(),
-                ),
+
+                StatePropertyEvent::ValueChanged { value } => {
+                    ("ValueChanged".to_string(), format!("{value}"))
+                }
             };
 
             Row::new([
@@ -234,7 +220,7 @@ impl CommandsView {
 }
 
 // --- inspect ---
-impl CommandsView {
+impl StatePage {
     pub fn on_key_inspect(
         navigation: Navigation,
         history: EventLogMenu,
@@ -262,83 +248,3 @@ impl CommandsView {
         }
     }
 }
-
-/*
-impl TabItem<MachinesContext> for CommandsView {
-    fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
-        let machine = unsafe { &*ctx.selected };
-
-        match code {
-            KeyCode::Up => {
-                if self.selected == 0 {
-                    return KeyResult::Bubble(code);
-                }
-
-                self.selected = self.selected.saturating_sub(1);
-            }
-
-            KeyCode::Down => {
-                let max = machine.commands.len().saturating_sub(1);
-                self.selected = (self.selected + 1).min(max);
-            }
-
-            KeyCode::Enter => {
-                let (key, _) = machine.commands.get_index(self.selected).unwrap();
-                return KeyResult::Handled(AppAction::ExecuteCommand {
-                    machine: machine.ident,
-                    resource: key.clone(),
-                });
-            }
-
-            _ => return KeyResult::Bubble(code),
-        }
-
-        KeyResult::Handled(AppAction::NoAction)
-    }
-
-    fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: MachinesContext) {
-        let machine = unsafe { &*ctx.selected };
-
-        // Number of rows that fit in the available area.
-        // If you later wrap the table in a Block, subtract 2 for the borders.
-        let visible = area.height as usize;
-
-        let total = machine.commands.len();
-
-        let offset = if total <= visible {
-            0
-        } else {
-            self.selected
-                .saturating_sub(visible / 2)
-                .min(total - visible)
-        };
-
-        let rows: Vec<Row> = machine
-            .commands
-            .iter()
-            .skip(offset)
-            .take(visible)
-            .enumerate()
-            .map(|(visible_index, (_, field))| {
-                let index = offset + visible_index;
-
-                let style = if index == self.selected && in_focus {
-                    Style::default().fg(Color::LightBlue)
-                } else {
-                    Style::default()
-                };
-
-                Row::new(vec![Cell::from(field.label.as_str())]).style(style)
-            })
-            .collect();
-
-        let table = Table::new(
-            rows,
-            [Constraint::Percentage(60), Constraint::Percentage(40)],
-        )
-        .style(Style::default());
-
-        frame.render_widget(table, area);
-    }
-}
-*/

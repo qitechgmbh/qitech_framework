@@ -399,15 +399,11 @@ impl Tui {
                 continue;
             };
 
-            match record.event {
-                CommandEvent::Registered => {}
-                CommandEvent::CapabilityChanged(after) => {
-                    item.enabled = after;
-                }
-                CommandEvent::Executed(result) => {
-                    _ = result;
-                }
+            if let CommandEvent::CapabilityChanged(after) = &record.event {
+                item.capability = after.clone();
             }
+
+            item.records.push(record);
         }
 
         for record in report.event_records {

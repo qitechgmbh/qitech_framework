@@ -22,7 +22,6 @@ thiserror.workspace = true
 postcard = { workspace = true, features = ["alloc"] }
 heapless = { workspace = true, features = ["serde"] }
 serialport.workspace = true
-udev = "0.9.3"
 tokio-serial = "5.5.0"
 bitvec = "1"
 

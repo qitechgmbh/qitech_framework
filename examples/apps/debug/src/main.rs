@@ -16,9 +16,9 @@ use qitech_framework::machine::EventEmitter;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::Measurement;
+use qitech_framework::machine::OperationCapability;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine_build;
-use qitech_framework::run_with_hub;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::vendors;
@@ -50,10 +50,10 @@ pub async fn main() {
         )
         .machine::<LaserV1>();
 
-    // --- configure hub ---
-    let config_hub = HubConfiguration::new()
-        .listener(ApiListener)
-        .actor(ApiActor);
+    // // --- configure hub ---
+    // let config_hub = HubConfiguration::new()
+    //     .listener(ApiListener)
+    //     .actor(ApiActor);
 
     // --- run ---
     run_with_tui(config_rt, Default::default()).await.unwrap();
@@ -107,6 +107,20 @@ impl MachineBuild for LaserV1 {
             .default(0.05)
             .minimum(0.0)
             .build()?;
+
+        fn can_execute(m: &LaserV1) -> OperationCapability {
+            _ = m;
+            OperationCapability::Forbidden { reason: "I feel like it".to_string() }
+        }
+
+        ctx.command("a")
+            .can_execute(can_execute)
+            .execute(|_: &mut Self| {
+                Err(ActError { 
+                    kind: ActErrorKind::Custom("Oh no".to_string()), 
+                    impact: ActErrorImpact::Ignore 
+                })
+            }).build()?;
 
         Ok(Self {
             device,

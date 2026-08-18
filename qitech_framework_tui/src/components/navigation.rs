@@ -8,7 +8,7 @@ use ratatui::widgets::Cell;
 use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Navigation {
     selected: usize,
 }
@@ -42,7 +42,7 @@ impl Navigation {
         Ok(())
     }
 
-    pub fn render<I>(&self, frame: &mut Frame, area: Rect, items: I, in_focus: bool)
+    pub fn render<I>(&mut self, frame: &mut Frame, area: Rect, items: I, in_focus: bool)
     where
         I: IntoIterator<Item = (String, String)>,
     {
@@ -59,12 +59,15 @@ impl Navigation {
             return;
         }
 
-        let selected = self.selected.min(total - 1);
+        // --- clamp value in case the count decreased ---
+        self.selected = self.selected.min(total - 1);
 
         let offset = if total <= visible {
             0
         } else {
-            selected.saturating_sub(visible / 2).min(total - visible)
+            self.selected
+                .saturating_sub(visible / 2)
+                .min(total - visible)
         };
 
         let rows: Vec<Row> = items
@@ -75,7 +78,7 @@ impl Navigation {
             .map(|(visible_index, (label, value))| {
                 let index = offset + visible_index;
 
-                let style = if index == selected && in_focus {
+                let style = if index == self.selected && in_focus {
                     Style::reset().fg(Color::LightBlue)
                 } else {
                     Style::reset()

@@ -8,23 +8,20 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 
-pub struct InspectMenu {
+#[derive(Clone)]
+pub struct InspectView {
     scroll: u16,
     label: String,
     content: String,
 }
 
-impl InspectMenu {
+impl InspectView {
     pub fn new(label: String, content: String) -> Self {
         Self {
             scroll: 0,
             label,
             content,
         }
-    }
-
-    pub fn label(&self) -> &str {
-        &self.label
     }
 
     pub fn on_key(&mut self, code: KeyCode) -> Result<(), KeyCode> {
@@ -34,16 +31,18 @@ impl InspectMenu {
             KeyCode::Up => {
                 self.scroll = self.scroll.saturating_sub(1);
             }
+
             KeyCode::Down => {
                 self.scroll = self.scroll.saturating_add(1).min(limit);
             }
+
             _ => return Err(code),
         }
 
         Ok(())
     }
 
-    pub fn render(&self, frame: &mut Frame, area: Rect) {
+    pub fn render(&mut self, frame: &mut Frame, area: Rect) {
         let block = Block::default()
             .borders(Borders::ALL)
             .title(format!(" Inspect ({}) ", self.label))
@@ -59,12 +58,11 @@ impl InspectMenu {
 
         // Like Navigation's `offset`: once we reach the end,
         // keep the last line at the bottom of the viewport.
-        let max_scroll = content_lines.saturating_sub(inner.height as usize);
-
-        let scroll = (self.scroll as usize).min(max_scroll) as u16;
+        let max_scroll = content_lines.saturating_sub(inner.height as usize) as u16;
+        self.scroll = self.scroll.min(max_scroll);
 
         let paragraph = Paragraph::new(self.content.as_str())
-            .scroll((scroll, 0))
+            .scroll((self.scroll, 0))
             .block(block);
 
         frame.render_widget(paragraph, area);

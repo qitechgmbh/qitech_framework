@@ -9,6 +9,7 @@ use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EtherCATStatus;
@@ -159,7 +160,8 @@ impl AppState {
                 name.clone(),
                 CommandField {
                     label: name.clone(),
-                    enabled: OperationCapability::Allowed,
+                    capability: OperationCapability::Allowed,
+                    records: Default::default(),
                 },
             );
         }
@@ -211,9 +213,9 @@ impl AppContext {
     }
 }
 
-pub enum KeyEventResult<T> {
+pub enum KeyResult<T> {
     Bubble(KeyCode),
-    Consume(T),
+    Handled(T),
 }
 
 pub enum AppAction {
@@ -293,7 +295,8 @@ pub struct MeasurementField {
 
 pub struct CommandField {
     pub label: String,
-    pub enabled: OperationCapability,
+    pub capability: OperationCapability,
+    pub records: Vec<EventRecord<CommandEvent>>,
 }
 
 pub struct EventEmitterField {

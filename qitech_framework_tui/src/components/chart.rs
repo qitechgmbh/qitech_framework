@@ -13,12 +13,28 @@ use ratatui::widgets::Chart;
 use ratatui::widgets::Dataset;
 use ratatui::widgets::GraphType;
 
-use crate::types::AppAction;
-use crate::widgets::machines_view::MachinesContext;
-use crate::widgets::measurements::MeasurementsView;
-use crate::widgets::measurements::Mode;
+use crate::types::KeyResult;
+use crate::utils::Timeseries;
 
-impl MeasurementsView {
+pub enum ChartComponentAction {
+    NoAction,
+    Exit,
+}
+
+#[derive(Clone)]
+pub struct ChartComponent {
+    zoom: u8,
+    offset: f64,
+}
+
+impl ChartComponent {
+    pub fn new() -> Self {
+        Self {
+            zoom: 0,
+            offset: 0.0,
+        }
+    }
+
     fn zoom_factor(&self) -> f64 {
         (1u32 << self.zoom as u32) as f64
     }
@@ -27,78 +43,52 @@ impl MeasurementsView {
         600.0 / self.zoom_factor()
     }
 
-    pub fn on_key_chart(&mut self, code: KeyCode) -> Result<AppAction, KeyCode> {
+    pub fn on_key(&mut self, code: KeyCode) -> KeyResult<ChartComponentAction> {
         match code {
             KeyCode::Left => {
                 self.offset += self.window() / 4.0;
-                Ok(AppAction::NoAction)
+                KeyResult::Handled(ChartComponentAction::NoAction)
             }
 
             KeyCode::Right => {
                 self.offset = (self.offset - self.window() / 4.0).max(0.0);
-                Ok(AppAction::NoAction)
+                KeyResult::Handled(ChartComponentAction::NoAction)
             }
 
             KeyCode::Up | KeyCode::Down => {
                 // consume to disable navigation
-                Ok(AppAction::NoAction)
+                KeyResult::Handled(ChartComponentAction::NoAction)
             }
 
-            KeyCode::Esc => {
-                self.mode = Mode::Navigate;
-                Ok(AppAction::NoAction)
-            }
-
-            KeyCode::Char(' ') => {
-                self.mode = Mode::Navigate;
-                Ok(AppAction::NoAction)
-            }
+            KeyCode::Esc => KeyResult::Handled(ChartComponentAction::Exit),
 
             KeyCode::Char('+') => {
                 self.zoom = (self.zoom + 1).min(6); // 2^6 = 64x
-                Ok(AppAction::NoAction)
+                KeyResult::Handled(ChartComponentAction::NoAction)
             }
 
             KeyCode::Char('-') => {
                 self.zoom = self.zoom.saturating_sub(1);
-                Ok(AppAction::NoAction)
+                KeyResult::Handled(ChartComponentAction::NoAction)
             }
 
-            _ => Err(code),
+            _ => KeyResult::Bubble(code),
         }
     }
 
-    pub fn render_chart(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        ctx: MachinesContext,
-        in_focus: bool,
-    ) {
-        let machine = unsafe { &*ctx.selected };
-        let prop_count = machine.measurements.len().saturating_sub(1);
-
-        // --- clamp to current limit ---
-        let selected = self.navigation.pos().min(prop_count);
-
-        let Some((name, field)) = machine.measurements.get_index(selected) else {
-            return;
-        };
-
-        let now = field
-            .values
+    pub fn render(&self, frame: &mut Frame, area: Rect, label: &str, timeseries: &Timeseries) {
+        let now = timeseries
             .newest()
             .map(|s| s.timestamp)
             .unwrap_or_else(Utc::now);
 
         let window = self.window();
 
-        // Visible age range
+        // visible age range
         let x_max = -self.offset;
         let x_min = x_max - window;
 
-        let data: Vec<(f64, f64)> = field
-            .values
+        let data: Vec<(f64, f64)> = timeseries
             .iter()
             .filter_map(|sample| {
                 sample.value.map(|v| {
@@ -129,19 +119,19 @@ impl MeasurementsView {
             (y_max - y_min) * 0.1
         };
 
-        let current = field.values.newest().and_then(|sample| sample.value);
+        let current = timeseries.newest().and_then(|sample| sample.value);
 
         let title = match current {
             Some(v) => format!(
                 "{} ({:.2}) [Zoom {}x | Offset {:.1}s]",
-                name,
+                label,
                 v,
                 self.zoom_factor(),
                 self.offset,
             ),
             None => format!(
                 "{} (N/A) [Zoom {}x | Offset {:.1}s]",
-                name,
+                label,
                 self.zoom_factor(),
                 self.offset,
             ),
@@ -153,16 +143,10 @@ impl MeasurementsView {
             .style(Style::default().fg(Color::Green))
             .data(&data);
 
-        let border_style = if in_focus {
-            Style::default().fg(Color::Blue)
-        } else {
-            Style::default()
-        };
-
         let block = Block::default()
             .title(title)
             .borders(Borders::ALL)
-            .border_style(border_style);
+            .border_style(Style::reset().fg(Color::Yellow));
 
         let chart = Chart::new(vec![dataset])
             .block(block)

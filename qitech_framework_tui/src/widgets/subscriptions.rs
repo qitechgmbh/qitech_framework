@@ -9,6 +9,7 @@ use ratatui::widgets::List;
 use ratatui::widgets::ListItem;
 
 use crate::types::AppAction;
+use crate::types::KeyResult;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
@@ -25,14 +26,14 @@ pub struct SubscriptionsView {
 }
 
 impl TabItem<MachinesContext> for SubscriptionsView {
-    fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
+    fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
         match self.mode {
             Mode::Navigate => self.on_key_navigation(code, ctx),
             Mode::Select(_) => self.on_key_select(code, ctx),
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: MachinesContext) {
         match self.mode {
             Mode::Navigate => self.render_navigation(frame, area, ctx, in_focus),
             Mode::Select(_) => self.render_select(frame, area, ctx, in_focus),
@@ -51,11 +52,7 @@ impl SubscriptionsView {
 
 // --- navigation ---
 impl SubscriptionsView {
-    fn on_key_navigation(
-        &mut self,
-        code: KeyCode,
-        ctx: MachinesContext,
-    ) -> Result<AppAction, KeyCode> {
+    fn on_key_navigation(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
         let machine = unsafe { &*ctx.selected };
 
         match code {
@@ -65,10 +62,10 @@ impl SubscriptionsView {
 
             KeyCode::Char('-') => {
                 let Some(provider) = machine.subscriptions.get_index(self.selected) else {
-                    return Ok(AppAction::NoAction);
+                    return KeyResult::Handled(AppAction::NoAction);
                 };
 
-                return Ok(AppAction::Unsubscribe {
+                return KeyResult::Handled(AppAction::Unsubscribe {
                     provider: *provider,
                     subscriber: machine.ident,
                 });
@@ -76,7 +73,7 @@ impl SubscriptionsView {
 
             KeyCode::Up => {
                 if self.selected == 0 {
-                    return Err(code);
+                    return KeyResult::Bubble(code);
                 }
 
                 self.selected -= 1;
@@ -84,16 +81,16 @@ impl SubscriptionsView {
 
             KeyCode::Down => {
                 if self.selected == machine.subscriptions.len().saturating_sub(1) {
-                    return Err(code);
+                    return KeyResult::Bubble(code);
                 }
 
                 self.selected += 1;
             }
 
-            _ => return Err(code),
+            _ => return KeyResult::Bubble(code),
         }
 
-        Ok(AppAction::NoAction)
+        KeyResult::Handled(AppAction::NoAction)
     }
 
     fn render_navigation(
@@ -134,7 +131,7 @@ impl SubscriptionsView {
 
 // --- select ---
 impl SubscriptionsView {
-    fn on_key_select(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
+    fn on_key_select(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
         let selected = unsafe { &*ctx.selected };
         let machines = unsafe { &*ctx.machines };
 
@@ -159,7 +156,7 @@ impl SubscriptionsView {
                 let provider = candidates[pos].ident;
                 self.mode = Mode::Navigate;
 
-                return Ok(AppAction::Subscribe {
+                return KeyResult::Handled(AppAction::Subscribe {
                     provider,
                     subscriber: selected.ident,
                 });
@@ -171,7 +168,7 @@ impl SubscriptionsView {
 
             KeyCode::Up => {
                 if pos == 0 {
-                    return Err(code);
+                    return KeyResult::Bubble(code);
                 }
 
                 self.mode = Mode::Select(pos - 1);
@@ -179,16 +176,16 @@ impl SubscriptionsView {
 
             KeyCode::Down => {
                 if pos == candidates.len().saturating_sub(1) {
-                    return Err(code);
+                    return KeyResult::Bubble(code);
                 }
 
                 self.mode = Mode::Select(pos + 1);
             }
 
-            _ => return Err(code),
+            _ => return KeyResult::Bubble(code),
         }
 
-        Ok(AppAction::NoAction)
+        KeyResult::Handled(AppAction::NoAction)
     }
 
     fn render_select(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {

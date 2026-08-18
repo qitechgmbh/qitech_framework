@@ -11,27 +11,28 @@ use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 use ratatui::widgets::TableState;
 
-pub enum HistoryAction {
+pub enum EventLogViewAction {
     NoAction,
     Inspect(usize),
     Bubble(KeyCode),
     Exit,
 }
 
-pub struct HistoryContent<'a, I>
+pub struct EventLogContent<'a, I>
 where
     I: Iterator<Item = Row<'a>>,
 {
     pub rows: I,
-    pub columns: Vec<(Constraint, String)>,
+    pub cols: Vec<(Constraint, String)>,
 }
 
-pub struct HistoryMenu {
+#[derive(Clone)]
+pub struct EventLogMenu {
     pos: usize,
     label: String,
 }
 
-impl HistoryMenu {
+impl EventLogMenu {
     pub fn new(label: String) -> Self {
         Self { pos: 0, label }
     }
@@ -40,34 +41,30 @@ impl HistoryMenu {
         &self.label
     }
 
-    pub fn on_key(&mut self, code: KeyCode, limit: usize) -> HistoryAction {
+    pub fn on_key(&mut self, code: KeyCode, limit: usize) -> EventLogViewAction {
         match code {
-            KeyCode::Esc => HistoryAction::Exit,
+            KeyCode::Esc => return EventLogViewAction::Exit,
+            KeyCode::Up => self.pos = self.pos.saturating_sub(1),
+            KeyCode::Down => self.pos = self.pos.saturating_add(1).min(limit),
 
-            KeyCode::Up => {
-                self.pos = self.pos.saturating_sub(1);
-                HistoryAction::NoAction
-            }
+            // Consume navigation buttons
+            KeyCode::Left | KeyCode::Right => return EventLogViewAction::NoAction,
 
-            KeyCode::Down => {
-                self.pos = (self.pos + 1).min(limit);
-                HistoryAction::NoAction
-            }
-
-            KeyCode::Char(' ') => HistoryAction::Inspect(self.pos),
-
-            _ => HistoryAction::Bubble(code),
+            KeyCode::Char(' ') => return EventLogViewAction::Inspect(self.pos),
+            _ => return EventLogViewAction::Bubble(code),
         }
+
+        EventLogViewAction::NoAction
     }
 
     pub fn render<'a, I: Iterator<Item = Row<'a>>>(
-        &self,
+        &mut self,
         frame: &mut Frame,
         area: Rect,
-        content: HistoryContent<'a, I>,
+        content: EventLogContent<'a, I>,
     ) {
-        let headers = content.columns.iter().map(|(_, name)| name.as_str());
-        let widths = content.columns.iter().map(|(constraint, _)| *constraint);
+        let headers = content.cols.iter().map(|(_, name)| name.as_str());
+        let widths = content.cols.iter().map(|(constraint, _)| *constraint);
 
         let table = Table::new(content.rows, widths)
             .header(Row::new(headers).style(Style::reset().add_modifier(Modifier::BOLD)))

@@ -15,6 +15,7 @@ use ratatui::widgets::Table;
 
 use crate::types::AppAction;
 use crate::types::AppContext;
+use crate::types::KeyResult;
 use crate::widgets::tab_view::TabItem;
 
 #[derive(Default, PartialEq)]
@@ -24,29 +25,38 @@ enum Mode {
     Inspect,
 }
 
-pub struct TransactionsView {
-    mode: Mode,
-    selected: usize,
+struct Entry {
+    // ID
+    // Timestamp
+    // Request
+    // Result
 }
 
-impl TransactionsView {
+pub struct TransactionsPage {
+    mode: Mode,
+    selected: usize,
+    entries: Vec<Entry>,
+}
+
+impl TransactionsPage {
     pub fn new() -> Self {
         Self {
             mode: Mode::Navigate,
+            entries: Vec::default(),
             selected: 0,
         }
     }
 }
 
-impl TabItem<AppContext> for TransactionsView {
-    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
+impl TabItem<AppContext> for TransactionsPage {
+    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> KeyResult<AppAction> {
         match self.mode {
-            Mode::Navigate => self.on_key_navigate(code, ctx),
-            Mode::Inspect => self.on_key_inspect(code, ctx),
+            Mode::Navigate => self.on_key_navigate(code),
+            Mode::Inspect => self.on_key_inspect(code),
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: AppContext) {
         match self.mode {
             Mode::Navigate => self.render_navigate(frame, area, ctx, in_focus),
             Mode::Inspect => self.render_inspect(frame, area, ctx, in_focus),
@@ -55,32 +65,33 @@ impl TabItem<AppContext> for TransactionsView {
 }
 
 // --- navigate ---
-impl TransactionsView {
-    fn on_key_navigate(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
+impl TransactionsPage {
+    pub fn update_navigate(&mut self, ctx: AppContext) {
         let transactions = unsafe { &*ctx.transactions };
 
-        match code {
-            KeyCode::Up => {
-                if self.selected == 0 {
-                    return Err(code);
-                }
+        // --- clamp selection to length ---
+        self.selected = self.selected.min(transactions.len().saturating_sub(1));
+    }
 
-                self.selected = self.selected.saturating_sub(1);
+    fn on_key_navigate(&mut self, code: KeyCode) -> KeyResult<AppAction> {
+        match code {
+            KeyCode::Up if self.selected > 0 => {
+                self.selected -= 1;
             }
 
             KeyCode::Down => {
-                let max = transactions.len().saturating_sub(1);
-                self.selected = (self.selected + 1).min(max);
+                let limit = self.entries.len().saturating_sub(1);
+                self.selected = (self.selected + 1).min(limit);
             }
 
             KeyCode::Char(' ') => {
                 self.mode = Mode::Inspect;
             }
 
-            _ => return Err(code),
+            _ => return KeyResult::Bubble(code),
         }
 
-        Ok(AppAction::NoAction)
+        KeyResult::Handled(AppAction::NoAction)
     }
 
     fn render_navigate(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
@@ -160,15 +171,13 @@ impl TransactionsView {
 }
 
 // --- inspect ---
-impl TransactionsView {
-    fn on_key_inspect(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
-        _ = ctx;
-
+impl TransactionsPage {
+    fn on_key_inspect(&mut self, code: KeyCode) -> KeyResult<AppAction> {
         if matches!(code, KeyCode::Esc) || matches!(code, KeyCode::Char(' ')) {
             self.mode = Mode::Navigate;
         }
 
-        Ok(AppAction::NoAction)
+        KeyResult::Handled(AppAction::NoAction)
     }
 
     fn render_inspect(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {

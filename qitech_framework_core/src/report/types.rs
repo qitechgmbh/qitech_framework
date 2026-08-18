@@ -105,8 +105,8 @@ pub enum Constraints {
     #[default]
     None,
     Numeric {
-        min: Option<ScalarValue>,
-        max: Option<ScalarValue>,
+        min: ScalarValue,
+        max: ScalarValue,
     },
     String {
         min_length: Option<usize>,
@@ -123,33 +123,7 @@ impl fmt::Display for Constraints {
         match self {
             Self::None => write!(f, "None"),
 
-            Self::Numeric {
-                min: Some(min),
-                max: Some(max),
-            } => {
-                write!(f, "[{min}, {max}]")
-            }
-
-            Self::Numeric {
-                min: Some(min),
-                max: None,
-            } => {
-                write!(f, "[{min}, ..]")
-            }
-
-            Self::Numeric {
-                min: None,
-                max: Some(max),
-            } => {
-                write!(f, "[.., {max}]")
-            }
-
-            Self::Numeric {
-                min: None,
-                max: None,
-            } => {
-                write!(f, "[.., ..]")
-            }
+            Self::Numeric { min, max } => write!(f, "[{min}, {max}]",),
 
             Self::String {
                 min_length,

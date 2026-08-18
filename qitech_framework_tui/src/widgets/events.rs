@@ -14,6 +14,7 @@ use ratatui::widgets::Table;
 use ratatui::widgets::TableState;
 
 use crate::types::AppAction;
+use crate::types::KeyResult;
 use crate::widgets::machines_view::MachinesContext;
 use crate::widgets::tab_view::TabItem;
 
@@ -32,7 +33,7 @@ pub struct EventsView {
 }
 
 impl TabItem<MachinesContext> for EventsView {
-    fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> Result<AppAction, KeyCode> {
+    fn on_key(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
         match self.mode {
             Mode::Navigate => self.on_key_navigate(code, ctx),
             Mode::History(pos) => self.on_key_history(code, ctx, pos),
@@ -40,7 +41,7 @@ impl TabItem<MachinesContext> for EventsView {
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: MachinesContext) {
         _ = in_focus;
 
         match self.mode {
@@ -53,17 +54,13 @@ impl TabItem<MachinesContext> for EventsView {
 
 // --- navigate ---
 impl EventsView {
-    fn on_key_navigate(
-        &mut self,
-        code: KeyCode,
-        ctx: MachinesContext,
-    ) -> Result<AppAction, KeyCode> {
+    fn on_key_navigate(&mut self, code: KeyCode, ctx: MachinesContext) -> KeyResult<AppAction> {
         let machine = unsafe { &*ctx.selected };
 
         match code {
             KeyCode::Up => {
                 if self.selected == 0 {
-                    return Err(code);
+                    return KeyResult::Bubble(code);
                 }
 
                 self.selected -= 1;
@@ -78,10 +75,10 @@ impl EventsView {
                 self.mode = Mode::History(0);
             }
 
-            _ => return Err(code),
+            _ => return KeyResult::Bubble(code),
         }
 
-        Ok(AppAction::NoAction)
+        KeyResult::Handled(AppAction::NoAction)
     }
 
     fn render_navigate(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, in_focus: bool) {
@@ -134,7 +131,7 @@ impl EventsView {
         code: KeyCode,
         ctx: MachinesContext,
         pos: usize,
-    ) -> Result<AppAction, KeyCode> {
+    ) -> KeyResult<AppAction> {
         let machine = unsafe { &*ctx.selected };
 
         let (_, field) = machine.events.get_index(self.selected).unwrap();
@@ -149,7 +146,7 @@ impl EventsView {
             }
 
             // don't consume exit button
-            KeyCode::Char('q') => return Err(code),
+            KeyCode::Char('q') => return KeyResult::Bubble(code),
 
             KeyCode::Up => {
                 self.mode = Mode::History(pos.saturating_sub(1));
@@ -163,7 +160,7 @@ impl EventsView {
             _ => {}
         }
 
-        Ok(AppAction::NoAction)
+        KeyResult::Handled(AppAction::NoAction)
     }
 
     fn render_history(&self, frame: &mut Frame, area: Rect, ctx: MachinesContext, pos: usize) {
@@ -208,18 +205,18 @@ impl EventsView {
 
 // --- inspect ---
 impl EventsView {
-    fn on_key_inspect(&mut self, code: KeyCode, pos: usize) -> Result<AppAction, KeyCode> {
+    fn on_key_inspect(&mut self, code: KeyCode, pos: usize) -> KeyResult<AppAction> {
         match code {
             KeyCode::Esc => {
                 self.mode = Mode::History(pos);
-                Ok(AppAction::NoAction)
+                KeyResult::Handled(AppAction::NoAction)
             }
 
             // don't consume exit button
-            KeyCode::Char('q') => Err(code),
+            KeyCode::Char('q') => KeyResult::Bubble(code),
 
             // consume other keys
-            _ => Ok(AppAction::NoAction),
+            _ => KeyResult::Handled(AppAction::NoAction),
         }
     }
 

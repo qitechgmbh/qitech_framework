@@ -11,6 +11,7 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Tabs;
 
 use crate::types::AppAction;
+use crate::types::KeyResult;
 
 pub struct TabView<Ctx: Copy> {
     tabs: Vec<TabEntry<Ctx>>,
@@ -31,57 +32,56 @@ impl<Ctx: Copy> TabView<Ctx> {
 }
 
 impl<Ctx: Copy> TabView<Ctx> {
-    pub fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> Result<AppAction, KeyCode> {
+    pub fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> KeyResult<AppAction> {
         if self.tabs.is_empty() {
-            return Err(code);
+            return KeyResult::Bubble(code);
         }
 
         if self.focus == Focus::Tabs {
-            return match code {
+            match code {
                 KeyCode::Left if self.selected_tab > 0 => {
                     self.selected_tab -= 1;
-                    Ok(AppAction::NoAction)
                 }
 
                 KeyCode::Right if self.selected_tab < (self.tabs.len() - 1) => {
                     self.selected_tab += 1;
-                    Ok(AppAction::NoAction)
                 }
 
                 KeyCode::Down => {
                     self.focus = Focus::Content;
-                    return Ok(AppAction::NoAction);
                 }
 
-                _ => Err(code),
-            };
+                _ => return KeyResult::Bubble(code),
+            }
+
+            return KeyResult::Handled(AppAction::NoAction);
         }
 
         // focus on content
         match self.tabs[self.selected_tab].item.on_key(code, ctx) {
-            Ok(v) => Ok(v),
-            Err(k) => match k {
+            KeyResult::Handled(v) => KeyResult::Handled(v),
+            KeyResult::Bubble(code) => match code {
                 KeyCode::Up => {
                     self.focus = Focus::Tabs;
-                    Ok(AppAction::NoAction)
+                    KeyResult::Handled(AppAction::NoAction)
                 }
 
                 KeyCode::Left if self.always_switch && self.selected_tab > 0 => {
                     self.selected_tab -= 1;
-                    Ok(AppAction::NoAction)
+                    KeyResult::Handled(AppAction::NoAction)
                 }
 
                 KeyCode::Right if self.always_switch && self.selected_tab + 1 < self.tabs.len() => {
                     self.selected_tab += 1;
-                    Ok(AppAction::NoAction)
+                    KeyResult::Handled(AppAction::NoAction)
                 }
 
-                _ => Err(k),
+                _ => KeyResult::Bubble(code),
             },
         }
     }
 
-    pub fn render(&self, frame: &mut Frame, area: Rect, ctx: Ctx, in_focus: bool) {
+    pub fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: Ctx) {
         let border_style = if in_focus && self.focus == Focus::Tabs {
             Style::reset().fg(Color::Blue)
         } else {
@@ -120,8 +120,8 @@ impl<Ctx: Copy> TabView<Ctx> {
         self.tabs[self.selected_tab].item.render(
             frame,
             inner,
-            ctx,
             in_focus && self.focus == Focus::Content,
+            ctx,
         );
     }
 }
@@ -138,6 +138,6 @@ pub struct TabEntry<Ctx> {
 }
 
 pub trait TabItem<Ctx> {
-    fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> Result<AppAction, KeyCode>;
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: Ctx, in_focus: bool);
+    fn on_key(&mut self, code: KeyCode, ctx: Ctx) -> KeyResult<AppAction>;
+    fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: Ctx);
 }

@@ -17,9 +17,10 @@ use ratatui::widgets::Table;
 pub enum EditorAction {
     NoAction,
     Abort,
-    Yield(String),
+    Submit(String),
 }
 
+#[derive(Clone)]
 pub struct EditMenu {
     label: String,
     value: String,
@@ -45,7 +46,7 @@ impl EditMenu {
 
             KeyCode::Enter => {
                 return Ok(match self.dirty {
-                    true => EditorAction::Yield(mem::take(&mut self.value)),
+                    true => EditorAction::Submit(mem::take(&mut self.value)),
                     false => EditorAction::Abort,
                 });
             }

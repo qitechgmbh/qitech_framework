@@ -7,13 +7,14 @@ use ratatui::layout::Rect;
 use crate::controls::DropDown;
 use crate::types::AppAction;
 use crate::types::AppContext;
+use crate::types::KeyResult;
 use crate::types::MachineEntry;
 use crate::widgets::TabView;
 use crate::widgets::command::CommandsView;
 use crate::widgets::config::ConfigPage;
 use crate::widgets::events::EventsView;
-use crate::widgets::measurements::MeasurementsView;
-use crate::widgets::state::StateView;
+use crate::widgets::measurements::MeasurementsPage;
+use crate::widgets::state::StatePage;
 use crate::widgets::subscriptions::SubscriptionsView;
 use crate::widgets::tab_view::TabEntry;
 use crate::widgets::tab_view::TabItem;
@@ -24,38 +25,48 @@ pub struct MachinesContext {
     pub machines: *const [MachineEntry],
 }
 
+impl MachinesContext {
+    pub fn selected(&self) -> &MachineEntry {
+        unsafe { &*self.selected }
+    }
+
+    // pub fn machines(&self) -> &[MachineEntry] {
+    //     unsafe { &*self.machines }
+    // }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Focus {
     Picker,
     Tabs,
 }
 
-pub struct MachinesView {
+pub struct MachinesPage {
     focus: Focus,
     drop_down: DropDown,
-    machines: TabView<MachinesContext>,
+    tabs: TabView<MachinesContext>,
 }
 
-impl MachinesView {
+impl MachinesPage {
     pub fn new() -> Self {
         let config = TabEntry {
             title: "Config",
-            item: Box::new(ConfigPage::default()),
+            item: Box::new(ConfigPage::new()),
         };
 
         let state = TabEntry {
             title: "State",
-            item: Box::new(StateView::default()),
+            item: Box::new(StatePage::new()),
         };
 
         let measurements = TabEntry {
             title: "Measurements",
-            item: Box::new(MeasurementsView::default()),
+            item: Box::new(MeasurementsPage::new()),
         };
 
         let commands = TabEntry {
             title: "Commands",
-            item: Box::new(CommandsView::default()),
+            item: Box::new(CommandsView::new()),
         };
 
         let events = TabEntry {
@@ -70,8 +81,8 @@ impl MachinesView {
 
         Self {
             focus: Focus::Picker,
-            drop_down: DropDown::new("machine"),
-            machines: TabView::new(
+            drop_down: DropDown::new("machine".to_string()),
+            tabs: TabView::new(
                 true,
                 vec![config, state, measurements, commands, events, subscriptions],
             ),
@@ -79,88 +90,82 @@ impl MachinesView {
     }
 }
 
-impl TabItem<AppContext> for MachinesView {
-    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> Result<AppAction, KeyCode> {
-        let machines: &[MachineEntry] = unsafe { &*ctx.machines };
-
-        if machines.is_empty() {
-            return Err(code);
+impl TabItem<AppContext> for MachinesPage {
+    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> KeyResult<AppAction> {
+        if ctx.machines.is_empty() {
+            return KeyResult::Bubble(code);
         }
 
+        let ctx_tab = MachinesContext {
+            selected: &ctx.machines()[self.drop_down.selected()] as *const MachineEntry,
+            machines: ctx.machines(),
+        };
+
         match self.focus {
-            Focus::Picker => {
-                let limit = machines.len().saturating_sub(1);
+            Focus::Picker => match self.drop_down.on_key(code) {
+                KeyResult::Handled(_) => KeyResult::Handled(AppAction::NoAction),
 
-                match self.drop_down.on_key(code, limit) {
-                    Ok(()) => Ok(AppAction::NoAction),
-
-                    Err(KeyCode::Down) => {
-                        self.focus = Focus::Tabs;
-                        Ok(AppAction::NoAction)
-                    }
-
-                    Err(k) => Err(k),
+                KeyResult::Bubble(KeyCode::Down) => {
+                    self.focus = Focus::Tabs;
+                    KeyResult::Handled(AppAction::NoAction)
                 }
-            }
 
-            Focus::Tabs => {
-                let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
-                let ctx = MachinesContext {
-                    selected: machine,
-                    machines,
-                };
+                KeyResult::Bubble(k) => KeyResult::Bubble(k),
+            },
 
-                match self.machines.on_key(code, ctx) {
-                    Ok(action) => Ok(action),
+            Focus::Tabs => match self.tabs.on_key(code, ctx_tab) {
+                KeyResult::Handled(action) => KeyResult::Handled(action),
 
-                    Err(KeyCode::Up) => {
-                        self.focus = Focus::Picker;
-                        Ok(AppAction::NoAction)
-                    }
-
-                    Err(k) => Err(k),
+                KeyResult::Bubble(KeyCode::Up) => {
+                    self.focus = Focus::Picker;
+                    KeyResult::Handled(AppAction::NoAction)
                 }
-            }
+
+                KeyResult::Bubble(k) => KeyResult::Bubble(k),
+            },
         }
     }
 
-    fn render(&self, frame: &mut Frame, area: Rect, ctx: AppContext, in_focus: bool) {
-        let machines = unsafe { &*ctx.machines };
+    fn render(&mut self, frame: &mut Frame, area: Rect, in_focus: bool, ctx: AppContext) {
+        let machines = ctx.machines();
 
-        let items: Vec<String> = machines
+        // --- update drop down ---
+        let options: Vec<String> = machines
             .iter()
             .map(|machine| format!("{} ({})", machine.title.as_str(), machine.ident.serial))
             .collect();
 
-        let drop_down_height = self.drop_down.rendered_height(&items);
-
         let chunks = Layout::vertical([
-            Constraint::Length(drop_down_height as u16),
+            Constraint::Length(self.drop_down.rendered_height(&options) as u16),
             Constraint::Min(0),
         ])
         .split(area);
 
-        // Render dropdown
+        // --- render dropdown ---
         self.drop_down.render(
             frame,
             chunks[0],
             in_focus && self.focus == Focus::Picker,
-            &items,
+            options,
         );
 
+        // --- render remaining area ---
         if machines.is_empty() {
             return;
         }
 
-        let selected = &machines[self.drop_down.selected()] as *const MachineEntry;
-        let machines_ctx = MachinesContext { selected, machines };
+        let machine = &machines[self.drop_down.selected()] as *const MachineEntry;
 
-        // Render remaining area
-        self.machines.render(
+        let ctx_tab = MachinesContext {
+            selected: machine,
+            machines,
+        };
+
+        self.tabs.render(
             frame,
             chunks[1],
-            machines_ctx,
             in_focus && self.focus == Focus::Tabs,
+            ctx_tab,
         );
     }
 }
