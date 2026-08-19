@@ -110,17 +110,20 @@ impl MachineBuild for LaserV1 {
 
         fn can_execute(m: &LaserV1) -> OperationCapability {
             _ = m;
-            OperationCapability::Forbidden { reason: "I feel like it".to_string() }
+            OperationCapability::Forbidden {
+                reason: "I feel like it".to_string(),
+            }
         }
 
         ctx.command("a")
             .can_execute(can_execute)
             .execute(|_: &mut Self| {
-                Err(ActError { 
-                    kind: ActErrorKind::Custom("Oh no".to_string()), 
-                    impact: ActErrorImpact::Ignore 
+                Err(ActError {
+                    kind: ActErrorKind::Custom("Oh no".to_string()),
+                    impact: ActErrorImpact::Ignore,
                 })
-            }).build()?;
+            })
+            .build()?;
 
         Ok(Self {
             device,

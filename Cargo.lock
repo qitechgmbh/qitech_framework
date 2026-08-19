@@ -4916,6 +4916,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wago_750_531"
+version = "0.1.0"
+dependencies = [
+ "qitech_framework",
+ "qitech_framework_tui",
+ "qitech_lib",
+ "tokio",
+]
+
+[[package]]
 name = "want"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
