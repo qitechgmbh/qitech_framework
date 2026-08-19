@@ -4,7 +4,7 @@ revision: 1
 identification:
   name: EL2004
   vendor_id: 1
-  machine_id: 0x0a
+  machine_id: 0x40
 
 config:
   led1_on: !boolean

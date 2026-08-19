@@ -47,7 +47,7 @@ impl Machine for EL2004Machine {
 
 impl MachineBuild for EL2004Machine {
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
-        let el2004 = ctx.find_ethercat_device::<EL2004>(1)?;
+        let el2004 = ctx.find_ethercat_device::<EL2004>(2)?;
 
         let led1_on = ctx
             .config::<bool>("led1_on")
@@ -84,7 +84,7 @@ impl MachineDescriptor for EL2004Machine {
     const SCHEMA: &'static str = include_str!("../schemas/beckhoff_el2004_machine.yaml");
 
     const IDENTIFICATION: MachineIdentification = MachineIdentification {
-        machine_id: 0x0a,
+        machine_id: 0x40,
         vendor_id: 1,
     };
 }
