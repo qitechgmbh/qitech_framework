@@ -69,7 +69,7 @@ pub async fn run_with_tui(
         Ok(())
     });
 
-    let tui_result = match Tui::create(tui_config) {
+    let _tui_result = match Tui::create(tui_config) {
         Ok(tui) => tui.run(tui_provider).await,
         Err(err) => Err(err),
     };

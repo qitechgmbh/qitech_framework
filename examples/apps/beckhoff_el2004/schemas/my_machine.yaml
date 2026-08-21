@@ -3,8 +3,8 @@ revision: 1
 
 identification:
   name: my_machine
-  vendor_id: 1
-  machine_id: 10
+  vendor_id: 69
+  machine_id: 420
 
 config:
   led1_on: !boolean

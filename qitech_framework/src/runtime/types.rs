@@ -37,6 +37,13 @@ pub(crate) struct MachineRegistryEntry {
     pub(crate) build: BuildMachineFn,
 }
 
+pub(crate) struct MachineIdentificationPreset {
+    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) vendor_id: u32,
+    pub(crate) product_id: u32,
+    pub(crate) revision: Option<u32>,
+}
+
 pub(crate) struct MachineInstance {
     pub(crate) ident: MachineIdentificationUnique,
     pub(crate) machine: Box<dyn Machine>,
