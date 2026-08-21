@@ -9,17 +9,25 @@ use qitech_framework::machine::BuildResult;
 use qitech_framework::machine::ConfigProperty;
 use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
+use qitech_framework::machine::MachineDescriptor;
 use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_lib::ethercat_hal::devices::beckhoff_modules::el2004::EL2004;
+use qitech_lib::ethercat_hal::devices::beckhoff_modules::el2004::EL2004_PRODUCT_ID;
+use qitech_lib::ethercat_hal::devices::beckhoff_modules::el2004::EL2004_VENDOR_ID;
 use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 
 #[tokio::main]
 pub async fn main() {
     let config_rt = RuntimeConfiguration::new()
         .ethercat(EtherCATConfig::default())
+        .assign_ethercat_device(
+            EL2004_VENDOR_ID,
+            EL2004_PRODUCT_ID,
+            MyMachine::IDENTIFICATION.unique(1),
+        )
         .machine::<MyMachine>();
 
     run_with_tui(config_rt, TuiConfiguration::default())
@@ -46,7 +54,7 @@ impl MyMachine {
 impl MachineBuild for MyMachine {
     #[machine_build(MyMachine)]
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
-        let el2004 = ctx.find_ethercat_device::<EL2004>(1)?;
+        let el2004 = ctx.find_ethercat_device_by_type::<EL2004>()?;
 
         let led1_on = ctx
             .config::<bool>("led1_on")

@@ -26,6 +26,9 @@ pub enum BuildError {
     #[error("expected an EtherCAT device at index {index}")]
     ExpectedEtherCATDeviceAtIndex { index: usize },
 
+    #[error("no EtherCAT device of type {type_name}")]
+    MissingEtherCATDevice { type_name: String },
+
     #[error("expected a serial device at index {index}")]
     ExpectedSerialDeviceAtIndex { index: usize },
 

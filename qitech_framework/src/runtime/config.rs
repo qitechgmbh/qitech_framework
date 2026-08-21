@@ -17,6 +17,7 @@ use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
+use crate::runtime::types::MachineIdentificationPreset;
 
 #[derive(Default)]
 pub struct RuntimeConfiguration {
@@ -48,6 +49,26 @@ impl RuntimeConfiguration {
 
     pub fn ethercat(mut self, config: EtherCATConfig) -> Self {
         self.ethercat_mode = EtherCATMode::Enabled(config);
+        self
+    }
+
+    pub fn assign_ethercat_device(
+        mut self,
+        vendor_id: u32,
+        product_id: u32,
+        ident: MachineIdentificationUnique,
+    ) -> Self {
+        if let EtherCATMode::Enabled(config) = &mut self.ethercat_mode {
+            config.preset_idents.push(MachineIdentificationPreset {
+                ident,
+                vendor_id,
+                product_id,
+                revision: None,
+            });
+        } else {
+            panic!("Need to enable ethercat first!");
+        }
+
         self
     }
 
@@ -117,6 +138,7 @@ pub enum EtherCATMode {
 pub struct EtherCATConfig {
     pub interface_scan_interval: Duration,
     pub master_config: MasterConfiguration,
+    pub preset_idents: Vec<MachineIdentificationPreset>,
 }
 
 impl Default for EtherCATConfig {
@@ -124,6 +146,7 @@ impl Default for EtherCATConfig {
         Self {
             interface_scan_interval: Duration::from_secs(2),
             master_config: Default::default(),
+            preset_idents: Vec::new(),
         }
     }
 }

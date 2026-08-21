@@ -30,7 +30,7 @@ impl BuildContext<'_> {
             return Err(BuildError::ExpectedEtherCATDeviceAtIndex { index });
         };
 
-        downcast_ecat_dev(index, device.clone())
+        downcast_ecat_dev(device.clone()).ok_or(cast_error_at::<T>(index))
     }
 
     pub fn find_ethercat_device_and_addr<T>(
@@ -47,8 +47,21 @@ impl BuildContext<'_> {
                 info: ident,
             },
         ) = self.find_ethercat_by_role(role)?;
-        let device = downcast_ecat_dev(index, device.clone())?;
+        let device = downcast_ecat_dev(device.clone()).ok_or(cast_error_at::<T>(index))?;
         Ok((device, ident.device_address))
+    }
+
+    pub fn find_ethercat_device_by_type<T>(&self) -> Result<Rc<RefCell<T>>, BuildError>
+    where
+        T: EthercatDevice,
+    {
+        let found = self.hardware.iter().find_map(|hw| if let Hardware::Ethercat(identified) = hw {
+            downcast_ecat_dev(identified.device.clone())
+        } else {
+            None
+        });
+
+        found.ok_or(BuildError::MissingEtherCATDevice { type_name: std::any::type_name::<T>().to_string() })
     }
 
     pub fn find_ethercat_device<T>(&self, role: u16) -> Result<Rc<RefCell<T>>, BuildError>
@@ -79,7 +92,7 @@ impl BuildContext<'_> {
             return Err(BuildError::ExpectedSerialDeviceAtIndex { index });
         };
 
-        downcast_modbus_dev(index, device.clone())
+        downcast_modbus_dev(device.clone()).ok_or(cast_error_at::<T>(index))
     }
 }
 
@@ -110,27 +123,30 @@ impl BuildContext<'_> {
 
 // --- utils ---
 fn downcast_ecat_dev<T: 'static>(
-    index: usize,
     device: Rc<RefCell<dyn EthercatDevice>>,
-) -> Result<Rc<RefCell<T>>, BuildError> {
+) -> Option<Rc<RefCell<T>>> {
     if !device.borrow().as_any().is::<T>() {
-        let expected = type_name::<T>().to_string();
-        return Err(BuildError::DeviceTypeMismatch { index, expected });
+        return None;
     }
+
     let raw_trait_ptr = Rc::into_raw(device);
     let raw_concrete_ptr = raw_trait_ptr as *const RefCell<T>;
-    unsafe { Ok(Rc::from_raw(raw_concrete_ptr)) }
+    unsafe { Some(Rc::from_raw(raw_concrete_ptr)) }
 }
 
 fn downcast_modbus_dev<T: 'static>(
-    index: usize,
     device: Rc<RefCell<dyn ModbusDevice>>,
-) -> Result<Rc<RefCell<T>>, BuildError> {
+) -> Option<Rc<RefCell<T>>> {
     if !device.borrow().as_any().is::<T>() {
-        let expected = type_name::<T>().to_string();
-        return Err(BuildError::DeviceTypeMismatch { index, expected });
+        return None
     }
+
     let raw_trait_ptr = Rc::into_raw(device);
     let raw_concrete_ptr = raw_trait_ptr as *const RefCell<T>;
-    unsafe { Ok(Rc::from_raw(raw_concrete_ptr)) }
+    unsafe { Some(Rc::from_raw(raw_concrete_ptr)) }
+}
+
+fn cast_error_at<T: 'static>(index: usize) -> BuildError {
+    let expected = type_name::<T>().to_string();
+    BuildError::DeviceTypeMismatch { index, expected }
 }
