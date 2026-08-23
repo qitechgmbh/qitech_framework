@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -33,16 +34,25 @@ use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::runtime::EtherCATConfig;
 use crate::runtime::EtherCATController;
-use crate::runtime::EtherCATSubDevice;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineIdentificationPreset;
+
+struct EtherCATSubDevice {
+    pub meta: MetaSubdevice,
+    pub handle: Rc<RefCell<dyn EthercatDevice + 'static>>,
+}
+
+/// EtherCAT devices identified by some mechanism are accumulated into this map.
+///
+/// We use the device address as key. As such a device may ever only get mapped once.
+type IdentifiedDevicesByAddress = HashMap<u16, EtherCATDeviceIdentified>;
 
 #[tracing::instrument(skip_all)]
 pub fn init<T: RuntimeTransport>(
     config: EtherCATConfig,
     session: &mut SessionInitializing<T>,
     hardware_registry: &mut HardwareRegistry,
-) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
+) -> RuntimeInitializeResult<(EtherCATController, Vec<EtherCATDeviceIdentified>)> {
     session.send_event(RuntimeInitEvent::EtherCATDiscoveryStarted)?;
 
     let interface = find_interface(config.interface_scan_interval);
@@ -52,40 +62,41 @@ pub fn init<T: RuntimeTransport>(
     })?;
 
     let controller = ethercat_hal::init_ethercat(&interface, Some(config.master_config));
-
-    let state = match controller.app_handle.get_state() {
-        ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
-        ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
-        ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
-        ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
-        ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
-        ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
-    };
+    let state = get_ethercat_state(&controller);
 
     session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
     session.send_event(RuntimeInitEvent::EtherCATInitializationStarted)?;
     let subdevices = setup(&controller)?;
 
-    let state = match controller.app_handle.get_state() {
+    let state = get_ethercat_state(&controller);
+    session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
+
+    let mut devices_by_address = IdentifiedDevicesByAddress::new();
+
+    identify_devices_by_presets(&mut devices_by_address, &subdevices, &config.preset_idents);
+
+    if config.assign_devices_by_eeprom_read {
+        let eeprom_data = read_eeprom_identifications(&controller);
+        identify_devices_by_eeprom(&mut devices_by_address, &subdevices, &eeprom_data);
+    }
+
+    send_ecat_metadata(session, &devices_by_address)?;
+
+    register_devices(hardware_registry, &devices_by_address);
+
+    let subdevices = devices_by_address.into_values().collect();
+    Ok((controller, subdevices))
+}
+
+fn get_ethercat_state(controller: &EtherCATController) -> EtherCATStatus {
+    match controller.app_handle.get_state() {
         ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
         ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
         ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
         ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
         ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
         ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
-    };
-    session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
-
-    let eeprom_idents = read_eeprom_identifications(&controller);
-    let ecat_metadata = build_ecat_metadata(&subdevices, &eeprom_idents, &config.preset_idents);
-
-    append_ethercat(hardware_registry, &ecat_metadata, &subdevices);
-
-    session.send_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
-        devices: ecat_metadata,
-    })?;
-
-    Ok((Some(controller), subdevices))
+    }
 }
 
 #[tracing::instrument]
@@ -123,7 +134,7 @@ pub fn find_interface(retry_delay: Duration) -> String {
 }
 
 #[tracing::instrument(skip_all)]
-pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<EtherCATSubDevice>> {
+fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<EtherCATSubDevice>> {
     // switch into pre op mode
     controller
         .channel
@@ -166,7 +177,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
     let mut subdevices = Vec::new();
 
     for meta in meta_subdevices {
-        let dev = match device_from_subdevice_identity_rc(&meta) {
+        let handle = match device_from_subdevice_identity_rc(&meta) {
             Ok(d) => d,
             Err(_) => {
                 tracing::warn!(name = ?meta.get_name(), "no EtherCAT device implementation");
@@ -174,7 +185,8 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
             }
         };
 
-        subdevices.push((meta, dev.clone()));
+        subdevices.push(EtherCATSubDevice { meta, handle: handle.clone() });
+
         if meta.vendor == BECKHOFF_VENDOR_ID {
             controller
                 .channel
@@ -189,7 +201,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
 #[tracing::instrument(skip_all)]
 pub fn finalize(
     controller: &EtherCATController,
-    sub_devices: &mut Vec<EtherCATSubDevice>,
+    subdevices: &mut Vec<EtherCATDeviceIdentified>,
 ) -> RuntimeInitializeResult<()> {
     // go into op mode
     controller
@@ -205,7 +217,8 @@ pub fn finalize(
         .try_get_subdevices_vec_sync()
         .map_err(EtherCATInitializeError::FailedToGetSubDevices)?;
 
-    for (meta, _) in sub_devices {
+    for subdevice in subdevices {
+        let meta = &mut subdevice.meta;
         let Some(src) = find_subdevice(&src, meta.device_address) else {
             return Err(RuntimeInitializeError::AssertionFailed(
                 "EtherCAT device suddenly missing in finalize_ethercat",
@@ -238,11 +251,10 @@ fn wait_for_op_state(controller: &EtherCATController) -> EtherCATInitializeResul
     Ok(())
 }
 
-fn find_subdevice(sub_devices: &[MetaSubdevice], device_address: u16) -> Option<&MetaSubdevice> {
-    sub_devices
+fn find_subdevice(subdevices: &[MetaSubdevice], device_address: u16) -> Option<&MetaSubdevice> {
+    subdevices
         .iter()
         .find(|&device| device.device_address == device_address)
-        .map(|v| v as _)
 }
 
 fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
@@ -265,126 +277,113 @@ fn read_eeprom_identifications(controller: &EtherCATController) -> Vec<MachineDe
     Vec::new()
 }
 
-fn build_ecat_metadata(
-    subdevices: &[EtherCATSubDevice],
-    eeprom_idents: &[MachineDeviceInfo],
-    preset_idents: &[MachineIdentificationPreset],
-) -> Vec<EtherCATDeviceMetadata> {
-    subdevices
-        .iter()
-        .map(|(meta, _)| {
-            let device_machine_identification = eeprom_idents
-                .iter()
-                .find(|info| info.device_address == meta.device_address)
-                .map(|info| {
-                    let machine_ident = preset_idents
-                        .iter()
-                        .find_map(|preset| {
-                            if meta.vendor == preset.vendor_id
-                                && meta.product_id == preset.product_id
-                                && preset.revision.is_none_or(|rev| rev == meta.revision)
-                            {
-                                Some(preset.ident)
-                            } else {
-                                None
-                            }
-                        })
-                        .unwrap_or(MachineIdentificationUnique {
-                            identification: MachineIdentification {
-                                vendor_id: info.machine_vendor,
-                                machine_id: info.machine_id,
-                            },
-                            serial: info.machine_serial,
-                        });
+fn register_devices(hardware_registry: &mut HardwareRegistry, devices_by_address: &IdentifiedDevicesByAddress) {
+    for (_, device) in devices_by_address.into_iter() {
+        hardware_registry
+            .entry(device.ident)
+            .or_default()
+            .push(Hardware::Ethercat(device.clone()));
 
-                    DeviceMachineIdentification {
-                        machine_ident,
-                        role: info.role,
-                    }
-                });
-
-            EtherCATDeviceMetadata {
-                configured_address: meta.device_address,
-                name: meta.get_name().expect("please be a utf-8"),
-                vendor_id: meta.vendor,
-                product_id: meta.product_id,
-                revision: meta.revision,
-                device_identification: DeviceIdentification {
-                    device_machine_identification,
-                    device_hardware_identification: DeviceHardwareIdentification::Ethercat(
-                        DeviceHardwareIdentificationEthercat {
-                            subdevice_index: meta.device_address as usize,
-                        },
-                    ),
-                },
-            }
-        })
-        .collect()
+    }
 }
 
-fn append_ethercat(
-    hardware_registry: &mut HardwareRegistry,
-    ecat_metadata: &[EtherCATDeviceMetadata],
-    mapped_ecat_devices: &[EtherCATSubDevice],
-) {
-    let combined_list = create_mapped_ethercat_devices(ecat_metadata, mapped_ecat_devices);
+fn send_ecat_metadata<T: RuntimeTransport>(
+    session: &mut SessionInitializing<T>,
+    devices_by_address: &IdentifiedDevicesByAddress,
+) -> RuntimeInitializeResult<()> {
 
-    for (info, device) in combined_list {
-        let identification = MachineIdentificationUnique {
-            serial: info.machine_serial,
+    let ecat_metadata = devices_by_address
+        .iter()
+        .map(|(addr, device)| EtherCATDeviceMetadata {
+            configured_address: *addr,
+            name: device.meta.get_name().expect("please be a utf-8"),
+            vendor_id: device.meta.vendor,
+            product_id: device.meta.product_id,
+            revision: device.meta.revision,
+            device_identification: DeviceIdentification {
+                device_machine_identification: Some(DeviceMachineIdentification {
+                    machine_ident: device.ident,
+                    role: device.role.unwrap_or_default(),
+                }),
+                device_hardware_identification: DeviceHardwareIdentification::Ethercat(
+                    DeviceHardwareIdentificationEthercat {
+                        subdevice_index: *addr as usize,
+                    },
+                ),
+            },
+        })
+        .collect();
+
+    session.send_event(RuntimeInitEvent::EtherCATDeviceInitializationCompleted {
+        devices: ecat_metadata,
+    })?;
+
+    Ok(())
+}
+
+fn identify_devices_by_presets(
+    devices_by_address: &mut IdentifiedDevicesByAddress,
+    subdevices: &[EtherCATSubDevice],
+    presets: &[MachineIdentificationPreset],
+) {
+    for preset in presets {
+        let Some(subdevice) = subdevices.iter().find(|sub| preset.matches(&sub.meta)) else {
+            tracing::debug!(
+                "Subdevice with vendor={}, product={} for preset not found, moving on...",
+                preset.vendor_id,
+                preset.product_id
+            );
+            continue;
+        };
+
+        devices_by_address.insert(
+            subdevice.meta.device_address,
+            EtherCATDeviceIdentified {
+                meta: subdevice.meta,
+                handle: subdevice.handle.clone(),
+                ident: preset.ident,
+                role: None,
+            },
+        );
+    }
+}
+
+fn identify_devices_by_eeprom(
+    devices_by_address: &mut IdentifiedDevicesByAddress,
+    subdevices: &[EtherCATSubDevice],
+    eeprom_data: &[MachineDeviceInfo],
+) {
+    for info in eeprom_data {
+        let addr = info.device_address;
+        if devices_by_address.contains_key(&addr) {
+            tracing::debug!(
+                "Device {:04x} already identified! Ignoring identity from eeprom.",
+                addr
+            );
+            continue;
+        }
+
+        let subdevice = subdevices
+            .iter()
+            .find(|sub| sub.meta.device_address == addr)
+            .expect("A subdevice that reported its identiy via the eeprom must exist!");
+
+        let ident = MachineIdentificationUnique {
             identification: MachineIdentification {
                 vendor_id: info.machine_vendor,
                 machine_id: info.machine_id,
             },
+            serial: info.machine_serial,
         };
 
-        hardware_registry
-            .entry(identification)
-            .or_default()
-            .push(Hardware::Ethercat(EtherCATDeviceIdentified {
-                device,
-                info,
-            }));
+        devices_by_address.insert(
+            addr,
+            EtherCATDeviceIdentified {
+                meta: subdevice.meta,
+                handle: subdevice.handle.clone(),
+                ident,
+                role: Some(info.role),
+            },
+        );
     }
-}
-
-fn create_mapped_ethercat_devices(
-    ecat_metadata: &[EtherCATDeviceMetadata],
-    mapped_ecat_devices: &[EtherCATSubDevice],
-) -> Vec<(MachineDeviceInfo, Rc<RefCell<dyn EthercatDevice>>)> {
-    let mut result = Vec::new();
-
-    for meta in ecat_metadata {
-        let addr = meta.configured_address;
-        for (subdevice, device) in mapped_ecat_devices {
-            if subdevice.device_address == addr {
-                if let Some(ident) = meta
-                    .device_identification
-                    .device_machine_identification
-                    .clone()
-                {
-                    let info = MachineDeviceInfo {
-                        role: ident.role,
-                        machine_vendor: ident.machine_ident.identification.vendor_id,
-                        machine_id: ident.machine_ident.identification.machine_id,
-                        machine_serial: ident.machine_ident.serial,
-                        device_address: subdevice.device_address,
-                    };
-
-                    result.push((info, device.clone()));
-                } else {
-                    tracing::debug!(
-                        "Not mappping unidentified subdevice {} at {:04x}",
-                        meta.name,
-                        meta.configured_address
-                    );
-                }
-
-                break;
-            }
-        }
-    }
-
-    result.sort_by_key(|(info, _)| (info.machine_id, info.machine_serial));
-    result
 }

@@ -49,7 +49,7 @@ impl TransactionsPage {
 }
 
 impl TabItem<AppContext> for TransactionsPage {
-    fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> KeyResult<AppAction> {
+    fn on_key(&mut self, code: KeyCode, _ctx: AppContext) -> KeyResult<AppAction> {
         match self.mode {
             Mode::Navigate => self.on_key_navigate(code),
             Mode::Inspect => self.on_key_inspect(code),
@@ -115,9 +115,9 @@ impl TransactionsPage {
 
             let request = match &t.request {
                 RuntimeRequestKind::WriteMachineDeviceInfo {
-                    machine_ident,
-                    role,
-                    subdevice_index,
+                    machine_ident: _,
+                    role: _,
+                    subdevice_index: _,
                 } => "_".to_string(),
                 RuntimeRequestKind::SetConfigProperty {
                     target,
@@ -126,14 +126,14 @@ impl TransactionsPage {
                 } => {
                     format!("SetConfigProperty({}, {}, {})", target, path, value)
                 }
-                RuntimeRequestKind::ExecuteCommand { target, path } => "_".to_string(),
+                RuntimeRequestKind::ExecuteCommand { target: _, path: _ } => "_".to_string(),
                 RuntimeRequestKind::SubscribeMachine {
-                    provider,
-                    subscriber,
+                    provider: _,
+                    subscriber: _,
                 } => "_".to_string(),
                 RuntimeRequestKind::UnsubscribeMachine {
-                    provider,
-                    subscriber,
+                    provider: _,
+                    subscriber: _,
                 } => "_".to_string(),
             };
 

@@ -84,7 +84,8 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         let (ecat_controller, mut sub_devices) =
             if let EtherCATMode::Enabled(config) = config.ethercat_mode {
-                ethercat::init(config, &mut session, &mut hardware_registry)?
+                let (controller, subdevices) = ethercat::init(config, &mut session, &mut hardware_registry)?;
+                (Some(controller), subdevices)
             } else {
                 (None, Vec::default())
             };

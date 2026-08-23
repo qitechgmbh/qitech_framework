@@ -1,7 +1,5 @@
 use std::any::TypeId;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,7 +11,6 @@ use qitech_lib::ethercat_hal::EtherCATControl;
 use qitech_lib::ethercat_hal::Mailbox;
 use qitech_lib::ethercat_hal::MetaSubdevice;
 use qitech_lib::ethercat_hal::TripleBufConsumer;
-use qitech_lib::ethercat_hal::devices::EthercatDevice;
 
 use crate::machine::BuildContext;
 use crate::machine::CommandHandle;
@@ -28,7 +25,6 @@ pub(crate) type BuildMachineFn =
     fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
 
 pub(crate) type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
-pub(crate) type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
 
 pub(crate) struct MachineRegistryEntry {
     pub(crate) schema: MachineSchema,
@@ -42,6 +38,14 @@ pub(crate) struct MachineIdentificationPreset {
     pub(crate) vendor_id: u32,
     pub(crate) product_id: u32,
     pub(crate) revision: Option<u32>,
+}
+
+impl MachineIdentificationPreset {
+    pub(crate) fn matches(&self, meta: &MetaSubdevice) -> bool {
+        self.vendor_id == meta.vendor
+            && self.product_id == meta.product_id
+            && self.revision.is_none_or(|rev| rev == meta.revision)
+    }
 }
 
 pub(crate) struct MachineInstance {

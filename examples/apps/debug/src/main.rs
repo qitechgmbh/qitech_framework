@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use qitech_framework::HubConfiguration;
 use qitech_framework::Machine;
 use qitech_framework::MachineIdentification;
 use qitech_framework::machine::ActError;
@@ -29,8 +28,6 @@ use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
 
 mod api;
-use api::ApiActor;
-use api::ApiListener;
 
 #[tokio::main]
 pub async fn main() {
@@ -110,17 +107,20 @@ impl MachineBuild for LaserV1 {
 
         fn can_execute(m: &LaserV1) -> OperationCapability {
             _ = m;
-            OperationCapability::Forbidden { reason: "I feel like it".to_string() }
+            OperationCapability::Forbidden {
+                reason: "I feel like it".to_string(),
+            }
         }
 
         ctx.command("a")
             .can_execute(can_execute)
             .execute(|_: &mut Self| {
-                Err(ActError { 
-                    kind: ActErrorKind::Custom("Oh no".to_string()), 
-                    impact: ActErrorImpact::Ignore 
+                Err(ActError {
+                    kind: ActErrorKind::Custom("Oh no".to_string()),
+                    impact: ActErrorImpact::Ignore,
                 })
-            }).build()?;
+            })
+            .build()?;
 
         Ok(Self {
             device,

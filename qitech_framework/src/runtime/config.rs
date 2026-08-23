@@ -52,6 +52,16 @@ impl RuntimeConfiguration {
         self
     }
 
+    pub fn assign_ethercat_by_eeprom_read(mut self) -> Self {
+        if let EtherCATMode::Enabled(config) = &mut self.ethercat_mode {
+            config.assign_devices_by_eeprom_read = true;
+        } else {
+            panic!("Need to enable ethercat first!");
+        }
+
+        self
+    }
+
     pub fn assign_ethercat_device(
         mut self,
         vendor_id: u32,
@@ -139,6 +149,7 @@ pub struct EtherCATConfig {
     pub interface_scan_interval: Duration,
     pub master_config: MasterConfiguration,
     pub preset_idents: Vec<MachineIdentificationPreset>,
+    pub assign_devices_by_eeprom_read: bool,
 }
 
 impl Default for EtherCATConfig {
@@ -147,6 +158,7 @@ impl Default for EtherCATConfig {
             interface_scan_interval: Duration::from_secs(2),
             master_config: Default::default(),
             preset_idents: Vec::new(),
+            assign_devices_by_eeprom_read: false,
         }
     }
 }

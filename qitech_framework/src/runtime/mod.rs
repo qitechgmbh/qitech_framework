@@ -20,7 +20,6 @@ pub mod error;
 
 mod types;
 use types::EtherCATController;
-use types::EtherCATSubDevice;
 use types::MachineInstance;
 use types::MachineRegistry;
 
@@ -33,6 +32,7 @@ mod config;
 pub use config::EtherCATConfig;
 pub use config::RuntimeConfiguration;
 
+use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::resource::Journals;
 use crate::resource::ResourceRegistry;
 use crate::runtime::error::RuntimeError;
@@ -48,7 +48,7 @@ pub struct Runtime<T: RuntimeTransport> {
 
     // --- instances ---
     machines: Vec<MachineInstance>,
-    sub_devices: Vec<EtherCATSubDevice>,
+    sub_devices: Vec<EtherCATDeviceIdentified>,
     ecat_controller: Option<EtherCATController>,
 
     // --- misc ---
@@ -227,9 +227,11 @@ impl<T: RuntimeTransport> Runtime<T> {
             .expect("There should always be an input (latest state)");
 
         for i in 0..self.sub_devices.len() {
-            let (meta_dev, dev) = &self.sub_devices[i];
+            let subdevice = &self.sub_devices[i];
+            let meta = subdevice.meta;
+            let dev = &subdevice.handle;
 
-            let input_slice = &inputs[meta_dev.start_tx..meta_dev.end_tx];
+            let input_slice = &inputs[meta.start_tx..meta.end_tx];
             let input_bits_slice = BitSlice::<u8, Lsb0>::from_slice(input_slice);
 
             let mut dev = dev.borrow_mut();
@@ -248,9 +250,11 @@ impl<T: RuntimeTransport> Runtime<T> {
         };
 
         for i in 0..self.sub_devices.len() {
-            let (meta_dev, dev) = &self.sub_devices[i];
+            let subdevice = &self.sub_devices[i];
+            let meta = subdevice.meta;
+            let dev = &subdevice.handle;
 
-            let output_slice = &mut outputs[meta_dev.start_rx..meta_dev.end_rx];
+            let output_slice = &mut outputs[meta.start_rx..meta.end_rx];
             let output_bits = BitSlice::<u8, Lsb0>::from_slice_mut(output_slice);
 
             let mut dev = dev.borrow_mut();

@@ -24,13 +24,13 @@ impl BuildContext<'_> {
     where
         T: EthercatDevice,
     {
-        let Hardware::Ethercat(EtherCATDeviceIdentified { device, .. }) =
+        let Hardware::Ethercat(dev) =
             self.hardware_at(index)?
         else {
             return Err(BuildError::ExpectedEtherCATDeviceAtIndex { index });
         };
 
-        downcast_ecat_dev(device.clone()).ok_or(cast_error_at::<T>(index))
+        downcast_ecat_dev(dev.handle.clone()).ok_or(cast_error_at::<T>(index))
     }
 
     pub fn find_ethercat_device_and_addr<T>(
@@ -42,26 +42,27 @@ impl BuildContext<'_> {
     {
         let (
             index,
-            EtherCATDeviceIdentified {
-                device,
-                info: ident,
-            },
+            dev,
         ) = self.find_ethercat_by_role(role)?;
-        let device = downcast_ecat_dev(device.clone()).ok_or(cast_error_at::<T>(index))?;
-        Ok((device, ident.device_address))
+        let device = downcast_ecat_dev(dev.handle.clone()).ok_or(cast_error_at::<T>(index))?;
+        Ok((device, dev.meta.device_address))
     }
 
     pub fn find_ethercat_device_by_type<T>(&self) -> Result<Rc<RefCell<T>>, BuildError>
     where
         T: EthercatDevice,
     {
-        let found = self.hardware.iter().find_map(|hw| if let Hardware::Ethercat(identified) = hw {
-            downcast_ecat_dev(identified.device.clone())
-        } else {
-            None
+        let found = self.hardware.iter().find_map(|hw| {
+            if let Hardware::Ethercat(dev) = hw {
+                downcast_ecat_dev(dev.handle.clone())
+            } else {
+                None
+            }
         });
 
-        found.ok_or(BuildError::MissingEtherCATDevice { type_name: std::any::type_name::<T>().to_string() })
+        found.ok_or(BuildError::MissingEtherCATDevice {
+            type_name: std::any::type_name::<T>().to_string(),
+        })
     }
 
     pub fn find_ethercat_device<T>(&self, role: u16) -> Result<Rc<RefCell<T>>, BuildError>
@@ -74,7 +75,7 @@ impl BuildContext<'_> {
 
     pub fn find_ethercat_device_addr(&self, role: u16) -> Result<u16, BuildError> {
         self.find_ethercat_by_role(role)
-            .map(|(_, hw)| hw.info.device_address)
+            .map(|(_, dev)| dev.meta.device_address)
     }
 }
 
@@ -111,9 +112,9 @@ impl BuildContext<'_> {
         self.hardware
             .iter()
             .enumerate()
-            .find_map(|(i, hw)| match hw {
-                Hardware::Ethercat(identified) if identified.info.role == role => {
-                    Some((i, identified))
+            .find_map(|(index, hw)| match hw {
+                Hardware::Ethercat(dev) if dev.role.is_some_and(|r| r == role) => {
+                    Some((index, dev))
                 }
                 _ => None,
             })
@@ -138,7 +139,7 @@ fn downcast_modbus_dev<T: 'static>(
     device: Rc<RefCell<dyn ModbusDevice>>,
 ) -> Option<Rc<RefCell<T>>> {
     if !device.borrow().as_any().is::<T>() {
-        return None
+        return None;
     }
 
     let raw_trait_ptr = Rc::into_raw(device);
