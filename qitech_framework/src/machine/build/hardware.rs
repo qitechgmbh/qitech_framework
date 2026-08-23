@@ -33,7 +33,7 @@ impl BuildContext<'_> {
         downcast_ecat_dev(dev.handle.clone()).ok_or(cast_error_at::<T>(index))
     }
 
-    pub fn find_ethercat_device_and_addr<T>(
+    pub fn find_ethercat_device_and_addr_by_role<T>(
         &self,
         role: u16,
     ) -> Result<(Rc<RefCell<T>>, u16), BuildError>
@@ -43,12 +43,12 @@ impl BuildContext<'_> {
         let (
             index,
             dev,
-        ) = self.find_ethercat_by_role(role)?;
+        ) = self.find_indexed_ethercat_by_role(role)?;
         let device = downcast_ecat_dev(dev.handle.clone()).ok_or(cast_error_at::<T>(index))?;
         Ok((device, dev.meta.device_address))
     }
 
-    pub fn find_ethercat_device_by_type<T>(&self) -> Result<Rc<RefCell<T>>, BuildError>
+    pub fn find_ethercat_device<T>(&self) -> Result<Rc<RefCell<T>>, BuildError>
     where
         T: EthercatDevice,
     {
@@ -65,16 +65,16 @@ impl BuildContext<'_> {
         })
     }
 
-    pub fn find_ethercat_device<T>(&self, role: u16) -> Result<Rc<RefCell<T>>, BuildError>
+    pub fn find_ethercat_device_by_role<T>(&self, role: u16) -> Result<Rc<RefCell<T>>, BuildError>
     where
         T: EthercatDevice,
     {
-        self.find_ethercat_device_and_addr::<T>(role)
+        self.find_ethercat_device_and_addr_by_role::<T>(role)
             .map(|(device, _)| device)
     }
 
     pub fn find_ethercat_device_addr(&self, role: u16) -> Result<u16, BuildError> {
-        self.find_ethercat_by_role(role)
+        self.find_indexed_ethercat_by_role(role)
             .map(|(_, dev)| dev.meta.device_address)
     }
 }
@@ -105,7 +105,7 @@ impl BuildContext<'_> {
             .ok_or(BuildError::ExpectedHardwareAtIndex { index })
     }
 
-    fn find_ethercat_by_role(
+    fn find_indexed_ethercat_by_role(
         &self,
         role: u16,
     ) -> Result<(usize, &EtherCATDeviceIdentified), BuildError> {

@@ -54,7 +54,7 @@ impl MyMachine {
 impl MachineBuild for MyMachine {
     #[machine_build(MyMachine)]
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
-        let el2004 = ctx.find_ethercat_device_by_type::<EL2004>()?;
+        let el2004 = ctx.find_ethercat_device::<EL2004>()?;
 
         let led1_on = ctx
             .config::<bool>("led1_on")
