@@ -75,9 +75,9 @@ name = "VolumeRate"
 units = ["CubicMeterPerSecond", "LiterPerSecond", "LiterPerMinute"]
 
 [[quantity]]
-name = "Power"
+name = "Energy"
 units = ["Joule", "WattHour", "KilowattHour"]
 
 [[quantity]]
-name = "Energy"
+name = "Power"
 units = ["Milliwatt", "Watt", "Kilowatt"]

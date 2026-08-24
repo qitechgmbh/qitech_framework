@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -20,6 +21,19 @@ mod v1;
 // event log: runtime send hello, init event:
 // but also capture the outgoing messages
 
+pub struct SharedState {
+    adapters: HashMap<i64, i64>,
+}
+
+struct MachineInstance {
+    // pub config: IndexMap<String, ConfigField>,
+}
+
+trait MachineStreamAdapter {
+    fn init_measurements_event(instance: &MachineInstance);
+    fn init_state_event(instance: &MachineInstance);
+}
+
 pub struct ApiListener;
 
 #[async_trait]
@@ -29,8 +43,12 @@ impl Listener for ApiListener {
         println!("RECEIVED EVENT");
     }
 
-    async fn on_report_received(&mut self, event: Arc<RuntimeReport>) {
-        _ = event;
+    async fn on_report_received(&mut self, report: Arc<RuntimeReport>) {
+        for snapshot in &report.machines.measurement_snapshots {
+            
+        }
+
+        _ = report;
         println!("RECEIVED REPORT");
     }
 }
