@@ -137,11 +137,6 @@ impl BuildContext<'_> {
 }
 
 // --- utils ---
-/// Narrow an `Rc<RefCell<dyn Trait>>` down to its concrete type.
-///
-/// Every device trait exposes its own inherent `as_any`, so the type check is handed in as
-/// `as_any` rather than expressed as a bound — that keeps one implementation covering EtherCAT,
-/// Modbus, and XTREM instead of a near-identical copy per trait.
 fn downcast_dev<D, T>(
     index: usize,
     device: Rc<RefCell<D>>,

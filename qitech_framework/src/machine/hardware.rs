@@ -28,8 +28,5 @@ pub struct ModbusRTUDeviceIdentified {
 #[derive(Clone)]
 pub struct XtremDeviceIdentified {
     pub device: Rc<RefCell<dyn XtremDevice>>,
-
-    /// What the discovery sweep learned: serial, device id, and unicast address. Kept so a
-    /// machine can surface its module's identity without probing the bus again.
     pub probe: XtremProbe,
 }

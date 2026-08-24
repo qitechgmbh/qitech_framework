@@ -87,10 +87,6 @@ impl RuntimeConfiguration {
         self
     }
 
-    /// Set the bus-level XTREM settings — bind address, broadcast address, discovery window.
-    ///
-    /// Devices are registered separately with [`RuntimeConfiguration::xtrem_device`]. Any that
-    /// were already registered are kept, so the two can be called in either order.
     pub fn xtrem(mut self, config: XtremConfig) -> Self {
         let entries = match self.xtrem_mode {
             XtremMode::Enabled(previous) => previous.entries,
@@ -101,16 +97,6 @@ impl RuntimeConfiguration {
         self
     }
 
-    /// Claim the module with the given `device_id` for `ident`.
-    ///
-    /// `device_id` is register `0001h` — the address the bus routes replies on, set per module
-    /// with the `assign_ids` tool. Init resolves it to a live module through one broadcast
-    /// discovery sweep, which also supplies the unicast address.
-    ///
-    /// Modules ship as `01`, so give each one a distinct id before configuring it here. Two
-    /// modules sharing an id cannot be told apart and init refuses both rather than guessing.
-    ///
-    /// One call claims one module for one machine instance, so N scales become N machines.
     pub fn xtrem_device<D: XtremDeviceBuild + 'static>(
         mut self,
         device_id: u8,
