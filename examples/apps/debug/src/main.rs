@@ -19,7 +19,7 @@ use qitech_framework::machine::Measurement;
 use qitech_framework::machine::OperationCapability;
 use qitech_framework::machine::StateProperty;
 use qitech_framework::machine_build;
-use qitech_framework::run_with_tui;
+use qitech_framework::run_with_hub;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::vendors;
 use qitech_lib::modbus::ModbusDevice;
@@ -43,20 +43,20 @@ pub async fn main() {
     // --- configure runtime ---
     let config_rt = RuntimeConfiguration::new()
         .modbus_rtu_device::<LaserDevice>(
-            "pci-0000:c6:00.0-usbv2-0:2.4:1.0-port0".to_string(),
+            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0".to_string(),
             LaserV1::IDENTIFICATION.unique(1),
             1,
             None,
         )
         .machine::<LaserV1>();
 
-    // // --- configure hub ---
-    // let config_hub = HubConfiguration::new()
-    //     .listener(ApiListener)
-    //     .actor(ApiActor);
+    // --- configure hub ---
+    let config_hub = HubConfiguration::new()
+        .listener(ApiListener)
+        .actor(ApiActor);
 
     // --- run ---
-    run_with_tui(config_rt, Default::default()).await.unwrap();
+    run_with_hub(config_rt, config_hub).await.unwrap();
 }
 
 #[derive(Machine)]

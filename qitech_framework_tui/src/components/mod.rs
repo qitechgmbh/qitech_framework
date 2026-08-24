@@ -11,7 +11,7 @@ pub use event_log::EventLogViewAction;
 
 mod editor;
 pub use editor::EditMenu;
-pub use editor::EditorAction;
+pub use editor::EditMenuAction;
 
 mod chart;
 pub use chart::ChartComponent;

@@ -18,7 +18,7 @@ impl Navigation {
         self.selected
     }
 
-    pub fn clamp(&mut self, limit: usize) {
+    pub fn apply_limit(&mut self, limit: usize) {
         self.selected = self.selected.min(limit);
     }
 

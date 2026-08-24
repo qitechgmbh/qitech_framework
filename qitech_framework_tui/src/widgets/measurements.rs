@@ -81,7 +81,7 @@ impl MeasurementsPage {
         };
 
         // --- ensure the value is clamped before reading ---
-        navigation.clamp(prop_count);
+        navigation.apply_limit(prop_count);
 
         // --- retrieve and ensure the property is initialized ---
         let (_, field) = ctx
@@ -150,7 +150,7 @@ impl MeasurementsPage {
         machine: &MachineEntry,
     ) {
         let props = &machine.measurements;
-        navigation.clamp(props.len().saturating_sub(1));
+        navigation.apply_limit(props.len().saturating_sub(1));
 
         let pos = navigation.pos();
         let Some((name, field)) = machine.measurements.get_index(pos) else {

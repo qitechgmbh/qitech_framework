@@ -10,7 +10,7 @@ use ratatui::layout::Rect;
 use ratatui::widgets::Row;
 
 use crate::components::EditMenu;
-use crate::components::EditorAction;
+use crate::components::EditMenuAction;
 use crate::components::EventLogContent;
 use crate::components::EventLogMenu;
 use crate::components::EventLogViewAction;
@@ -114,7 +114,7 @@ impl ConfigPage {
         };
 
         // -- ensure the value is clamped before reading---
-        navigation.clamp(prop_count);
+        navigation.apply_limit(prop_count);
 
         // --- retrieve and ensure the property is initialized ---
         let (key, field) = ctx
@@ -335,17 +335,17 @@ impl ConfigPage {
         mut editor: EditMenu,
     ) -> (Mode, KeyResult<AppAction>) {
         match editor.on_key(code) {
-            Ok(EditorAction::NoAction) => (
+            Ok(EditMenuAction::NoAction) => (
                 Mode::Editing((navigation, editor)),
                 KeyResult::Handled(AppAction::NoAction),
             ),
 
-            Ok(EditorAction::Abort) => (
+            Ok(EditMenuAction::Abort) => (
                 Mode::Navigate(navigation),
                 KeyResult::Handled(AppAction::NoAction),
             ),
 
-            Ok(EditorAction::Submit(value)) => {
+            Ok(EditMenuAction::Submit(value)) => {
                 let machine = ctx.selected();
                 let action = Self::edit_to_action(machine, editor.label(), value);
                 (Mode::Navigate(navigation), KeyResult::Handled(action))

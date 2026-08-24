@@ -90,7 +90,7 @@ impl StatePage {
         };
 
         // -- ensure the value is clamped before reading---
-        navigation.clamp(prop_count);
+        navigation.apply_limit(prop_count);
 
         // --- retrieve and ensure the property is initialized ---
         let (key, field) = ctx

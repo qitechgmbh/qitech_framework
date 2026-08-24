@@ -73,3 +73,11 @@ units = ["MillimeterPerSecond", "MeterPerSecond", "MeterPerMinute"]
 [[quantity]]
 name = "VolumeRate"
 units = ["CubicMeterPerSecond", "LiterPerSecond", "LiterPerMinute"]
+
+[[quantity]]
+name = "Power"
+units = ["Joule", "WattHour", "KilowattHour"]
+
+[[quantity]]
+name = "Energy"
+units = ["Milliwatt", "Watt", "Kilowatt"]

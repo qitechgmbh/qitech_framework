@@ -14,7 +14,7 @@ use ratatui::widgets::Paragraph;
 use ratatui::widgets::Row;
 use ratatui::widgets::Table;
 
-pub enum EditorAction {
+pub enum EditMenuAction {
     NoAction,
     Abort,
     Submit(String),
@@ -40,14 +40,14 @@ impl EditMenu {
         &self.label
     }
 
-    pub fn on_key(&mut self, code: KeyCode) -> Result<EditorAction, KeyCode> {
+    pub fn on_key(&mut self, code: KeyCode) -> Result<EditMenuAction, KeyCode> {
         match code {
-            KeyCode::Esc => return Ok(EditorAction::Abort),
+            KeyCode::Esc => return Ok(EditMenuAction::Abort),
 
             KeyCode::Enter => {
                 return Ok(match self.dirty {
-                    true => EditorAction::Submit(mem::take(&mut self.value)),
-                    false => EditorAction::Abort,
+                    true => EditMenuAction::Submit(mem::take(&mut self.value)),
+                    false => EditMenuAction::Abort,
                 });
             }
 
@@ -69,7 +69,7 @@ impl EditMenu {
             _ => {}
         }
 
-        Ok(EditorAction::NoAction)
+        Ok(EditMenuAction::NoAction)
     }
 
     pub fn render(&self, frame: &mut Frame, area: Rect, metadata: Vec<Row>) {
