@@ -48,8 +48,6 @@ pub enum RuntimeInitEvent {
     XtremDeviceNotFound {
         device_id: u8,
     },
-    /// More than one module answers to this `ID_O`. The bus routes replies by that field, so
-    /// the id does not identify a module and attaching would cross-feed their readings.
     XtremDeviceIdCollision {
         device_id: u8,
     },
@@ -157,14 +155,11 @@ pub enum EtherCATStatus {
     Op,
 }
 
-/// One XTREM module the discovery sweep answered from, claimed or not. Unclaimed modules are
-/// reported too — that is how an installer finds the serial to configure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct XtremModuleMetadata {
     /// Register `0000h`. Factory-set and unique, so this is the stable identity to configure on.
     pub serial: u32,
     pub device_id: u8,
-    /// Rendered rather than a `SocketAddrV4`, so the report stays cheap to encode and display.
     pub addr: String,
     pub id_collision: bool,
 }

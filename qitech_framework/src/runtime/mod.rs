@@ -55,8 +55,6 @@ pub struct Runtime<T: RuntimeTransport> {
     sub_devices: Vec<EtherCATSubDevice>,
     ecat_controller: Option<EtherCATController>,
 
-    /// Keeps the XTREM receive task alive. Each `XtremScale` only holds a clone, so without
-    /// this the socket would die the moment the last scale-owning machine is removed.
     _xtrem_bus: Option<XtremBusHandle>,
 
     // --- misc ---

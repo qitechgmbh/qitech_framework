@@ -53,15 +53,10 @@ pub async fn main() {
         .init();
 
     let bus = XtremBusConfig {
-        // TODO: put this in the xtrenm runtime config.
         broadcast_addr: BROADCAST,
         ..Default::default()
     };
 
-    // One `.machine::<ScaleV1>()` registers the *type*; each `.xtrem_device` line claims one
-    // module for one machine instance, so these three lines produce three machines. To add a
-    // fourth, give it a unique device id with `cargo run -p xtrem --example assign_ids` (every
-    // module ships as `01`) and add one more line.
     let config_rt = RuntimeConfiguration::new()
         .xtrem(XtremConfig {
             bus,
@@ -178,10 +173,6 @@ impl ScaleV1 {
     };
 
     /// Drive one polling step.
-    ///
-    /// Nothing here is fatal. A refused command, a dropped frame, or a module that stops
-    /// answering all surface through `take_error` and are logged — the driver recovers on its
-    /// own, and a single bad reading should not take the machine down.
     fn update_device(&mut self, dt: Duration) {
         let mut scale = self.device.borrow_mut();
 

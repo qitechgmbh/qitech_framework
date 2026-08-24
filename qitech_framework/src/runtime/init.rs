@@ -203,12 +203,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         Ok(rt)
     }
 
-    /// Open the shared XTREM bus, sweep the subnet, and hand every claimed module to the
-    /// machine that configured its serial.
-    ///
-    /// Returns the bus handle so the caller can keep the receive task alive. A module that is
-    /// missing or refuses to initialize is reported and skipped — one absent scale must not
-    /// take the whole runtime down with it.
+    /// Open the shared XTREM bus
     fn init_xtrem(
         mode: XtremMode,
         session: &mut SessionInitializing<T>,
@@ -243,8 +238,6 @@ impl<T: RuntimeTransport> Runtime<T> {
         };
 
         // --- report everything that answered, claimed or not ---
-        // An unclaimed module is not an error: listing it is how an installer finds the serial
-        // to configure for a newly added scale.
         session.send_event(RuntimeInitEvent::XtremDiscoveryCompleted {
             modules: probes
                 .iter()
@@ -263,8 +256,6 @@ impl<T: RuntimeTransport> Runtime<T> {
                 continue;
             };
 
-            // The bus routes replies by ID_O, so a shared device id does not identify a module:
-            // both would feed their readings into both drivers. Refuse rather than lie.
             if probe.id_collision {
                 session.send_event(RuntimeInitEvent::XtremDeviceIdCollision { device_id })?;
                 continue;
