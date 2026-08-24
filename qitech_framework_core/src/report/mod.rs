@@ -40,6 +40,7 @@ pub use init::EtherCATDeviceMetadata;
 pub use init::EtherCATStatus;
 pub use init::RuntimeInitEvent;
 pub use init::RuntimeInitStatus;
+pub use init::XtremModuleMetadata;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RuntimeReport {
