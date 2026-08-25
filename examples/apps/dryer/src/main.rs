@@ -39,7 +39,7 @@ pub async fn main() {
 
     let config_rt = RuntimeConfiguration::new()
         .modbus_rtu_device::<DryerDevice>(
-            "/dev/ttyUSB0".to_string(),
+            "pci-0000:07:00.4-usbv2-0:1:1.0-port0".to_string(),
             DryerV1::IDENTIFICATION.unique(1),
             1,
             None,
