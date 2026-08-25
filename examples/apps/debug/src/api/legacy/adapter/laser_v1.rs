@@ -1,6 +1,6 @@
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework_core::ScalarValue;
-use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework::RuntimeRequestKind;
+use qitech_framework::ScalarValue;
 use serde::Deserialize;
 
 use crate::api::legacy::MachineLegacyDataAdapter;

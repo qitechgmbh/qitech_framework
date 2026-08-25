@@ -4,8 +4,8 @@ use axum::extract::State;
 use axum::http::Response;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use qitech_framework_core::ident::DeviceMachineAssignment;
-use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework::RuntimeRequestKind;
+use qitech_framework::ident::DeviceMachineAssignment;
 use qitech_framework_hub::ActorContext;
 use serde::Deserialize;
 

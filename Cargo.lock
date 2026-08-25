@@ -736,7 +736,6 @@ dependencies = [
  "async-trait",
  "axum",
  "qitech_framework",
- "qitech_framework_core",
  "qitech_framework_hub",
  "qitech_lib",
  "serde",

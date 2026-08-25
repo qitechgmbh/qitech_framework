@@ -4,9 +4,9 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework_core::schema::MachineSchema;
 
 mod types;
+use qitech_framework::MachineSchema;
 use types::MachineInstance;
 
 mod legacy;

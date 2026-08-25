@@ -7,7 +7,6 @@ edition = "2024"
 qitech_lib.workspace = true
 qitech_framework.workspace = true
 qitech_framework_hub.workspace = true
-qitech_framework_core.workspace = true
 
 tracing.workspace = true
 axum.workspace = true

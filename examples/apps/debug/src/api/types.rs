@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
+use qitech_framework::ConfigPropertyEventRecord;
+use qitech_framework::Constraints;
+use qitech_framework::ScalarValue;
+use qitech_framework::StatePropertyEventRecord;
 use qitech_framework::machine::OperationCapability;
-use qitech_framework_core::ScalarValue;
-use qitech_framework_core::report::ConfigPropertyEvent;
-use qitech_framework_core::report::Constraints;
-use qitech_framework_core::report::EventRecord;
-use qitech_framework_core::report::StatePropertyEvent;
 
 #[derive(Default, Clone)]
 pub struct MachineInstance {
@@ -20,13 +19,13 @@ pub struct ConfigPropertyInfo {
     pub default: ScalarValue,
     pub capability: OperationCapability,
     pub constraints: Constraints,
-    pub records: Vec<EventRecord<ConfigPropertyEvent>>,
+    pub records: Vec<ConfigPropertyEventRecord>,
 }
 
 #[derive(Clone)]
 pub struct StatePropertyInfo {
     pub value: ScalarValue,
-    pub records: Vec<EventRecord<StatePropertyEvent>>,
+    pub records: Vec<StatePropertyEventRecord>,
 }
 
 #[derive(Clone)]

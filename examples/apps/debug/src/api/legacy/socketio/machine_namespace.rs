@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use qitech_framework::ConfigPropertyEvent;
+use qitech_framework::ConfigPropertyWriteOutcome;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework_core::report::ConfigPropertyEvent;
-use qitech_framework_core::report::ConfigPropertyWriteOutcome;
-use qitech_framework_core::report::MachinesReport;
-use qitech_framework_core::report::StatePropertyEvent;
-use qitech_framework_core::schema::MachineSchema;
+use qitech_framework::MachineSchema;
+use qitech_framework::MachinesReport;
+use qitech_framework::StatePropertyEvent;
 use socketioxide::extract::SocketRef;
 
 use crate::api::legacy::adapter;

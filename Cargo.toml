@@ -20,12 +20,14 @@ edition = "2024"
 rust-version = "1.90"
 
 [workspace.dependencies]
+# --- internal deps ---
 qitech_framework = { path = "qitech_framework", version = "0.1.0" }
 qitech_framework_tui = { path = "qitech_framework_tui", version = "0.1.0" }
 qitech_framework_hub = { path = "qitech_framework_hub", version = "0.1.0" }
 qitech_framework_core = { path = "qitech_framework_core", version = "0.1.0" }
 qitech_framework_macros = { path = "qitech_framework_macros", version = "0.1.0" }
 
+# --- external deps ---
 anyhow = "1.0.103"
 arc-swap = "1.9.2"
 axum = "0.8"

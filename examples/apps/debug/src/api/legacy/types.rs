@@ -11,8 +11,8 @@ pub struct EtherCATDeviceMetadata {
     pub device_identification: DeviceIdentification,
 }
 
-impl From<qitech_framework_core::report::EtherCATDeviceMetadata> for EtherCATDeviceMetadata {
-    fn from(value: qitech_framework_core::report::EtherCATDeviceMetadata) -> Self {
+impl From<qitech_framework::EtherCATDeviceMetadata> for EtherCATDeviceMetadata {
+    fn from(value: qitech_framework::EtherCATDeviceMetadata) -> Self {
         EtherCATDeviceMetadata {
             configured_address: value.configured_address,
             name: value.name,
@@ -20,22 +20,30 @@ impl From<qitech_framework_core::report::EtherCATDeviceMetadata> for EtherCATDev
             product_id: value.product_id,
             revision: value.revision,
             device_identification: DeviceIdentification {
-                device_machine_identification: value.device_identification.assignment.map(|x| DeviceMachineIdentification {
-                    machine_identification_unique: MachineIdentificationUnique {
-                        machine_identification: MachineIdentification {
-                            vendor: x.machine.machine.vendor_id,
-                            machine: x.machine.machine.machine_id,
+                device_machine_identification: value.device_identification.assignment.map(|x| {
+                    DeviceMachineIdentification {
+                        machine_identification_unique: MachineIdentificationUnique {
+                            machine_identification: MachineIdentification {
+                                vendor: x.machine.machine.vendor_id,
+                                machine: x.machine.machine.machine_id,
+                            },
+                            serial: x.machine.serial,
                         },
-                        serial: x.machine.serial,
-                    },
-                    role: x.role,
-                }),
-                device_hardware_identification: DeviceHardwareIdentification::Ethercat(DeviceHardwareIdentificationEthercat {
-                    subdevice_index: match value.device_identification.hardware {
-                        qitech_framework_core::ident::DeviceHardwareIdentification::Ethercat(ident) => ident.subdevice_index,
-                        qitech_framework_core::ident::DeviceHardwareIdentification::Serial(_) => unreachable!(),
+                        role: x.role,
                     }
                 }),
+                device_hardware_identification: DeviceHardwareIdentification::Ethercat(
+                    DeviceHardwareIdentificationEthercat {
+                        subdevice_index: match value.device_identification.hardware {
+                            qitech_framework::DeviceHardwareIdentification::Ethercat(ident) => {
+                                ident.subdevice_index
+                            }
+                            qitech_framework::DeviceHardwareIdentification::Serial(_) => {
+                                unreachable!()
+                            }
+                        },
+                    },
+                ),
             },
         }
     }

@@ -1,7 +1,22 @@
 use std::thread;
 
+pub use qitech_framework_core::ScalarValue;
+pub use qitech_framework_core::ident;
+pub use qitech_framework_core::ident::DeviceHardwareIdentification;
 pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineInstanceIdentification;
+pub use qitech_framework_core::report::ConfigPropertyEvent;
+pub use qitech_framework_core::report::ConfigPropertyWriteOutcome;
+pub use qitech_framework_core::report::Constraints;
+pub use qitech_framework_core::report::EtherCATDeviceMetadata;
+pub use qitech_framework_core::report::EtherCATStatus;
+use qitech_framework_core::report::EventRecord;
+pub use qitech_framework_core::report::MachinesReport;
+pub use qitech_framework_core::report::RuntimeInitEvent;
+pub use qitech_framework_core::report::RuntimeReport;
+pub use qitech_framework_core::report::StatePropertyEvent;
+pub use qitech_framework_core::request::RuntimeRequestKind;
+pub use qitech_framework_core::schema::MachineSchema;
 pub use qitech_framework_core::session;
 use qitech_framework_core::session::debug::DebugRuntimeSessionProvider;
 pub use qitech_framework_core::vendors;
@@ -18,6 +33,9 @@ pub mod machine;
 mod resource;
 
 pub mod runtime;
+
+pub type ConfigPropertyEventRecord = EventRecord<ConfigPropertyEvent>;
+pub type StatePropertyEventRecord = EventRecord<StatePropertyEvent>;
 
 #[doc(hidden)]
 /// exposed for proc macros
@@ -53,7 +71,9 @@ pub async fn run_with_hub(
 
     _ = runtime_thread;
 
-    qitech_framework_hub::run(config_hub, provider_controller).await;
+    qitech_framework_hub::run(config_hub, provider_controller)
+        .await
+        .unwrap();
     Ok(())
 }
 
@@ -65,7 +85,7 @@ pub async fn run_with_tui(
 
     let runtime_thread = thread::spawn(move || -> anyhow::Result<()> {
         let runtime = Runtime::init(runtime_config, runtime_provider)?;
-        runtime.run();
+        runtime.run().unwrap();
         Ok(())
     });
 
@@ -76,7 +96,7 @@ pub async fn run_with_tui(
 
     let runtime_result = runtime_thread.join().unwrap();
 
-    // tui_result?;
+    tui_result?;
     runtime_result?;
 
     Ok(())

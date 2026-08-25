@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use qitech_framework::EtherCATStatus;
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework_core::report::EtherCATStatus;
 use socketioxide::extract::SocketRef;
 
 use crate::api::legacy;

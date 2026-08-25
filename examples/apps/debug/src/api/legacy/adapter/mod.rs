@@ -1,6 +1,6 @@
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework_core::request::RuntimeRequestKind;
+use qitech_framework::RuntimeRequestKind;
 
 use crate::api::types::MachineInstance;
 
