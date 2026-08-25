@@ -1,0 +1,15 @@
+[package]
+name = "dryer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+qitech_lib.workspace = true
+qitech_framework.workspace = true
+anyhow.workspace = true
+libc = "0.2"
+tokio-modbus = "0.17.0"
+
+tracing.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber.workspace = true
