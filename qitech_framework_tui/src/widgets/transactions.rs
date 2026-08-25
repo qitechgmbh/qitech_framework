@@ -50,6 +50,8 @@ impl TransactionsPage {
 
 impl TabItem<AppContext> for TransactionsPage {
     fn on_key(&mut self, code: KeyCode, ctx: AppContext) -> KeyResult<AppAction> {
+        _ = ctx;
+
         match self.mode {
             Mode::Navigate => self.on_key_navigate(code),
             Mode::Inspect => self.on_key_inspect(code),
@@ -66,13 +68,6 @@ impl TabItem<AppContext> for TransactionsPage {
 
 // --- navigate ---
 impl TransactionsPage {
-    pub fn update_navigate(&mut self, ctx: AppContext) {
-        let transactions = unsafe { &*ctx.transactions };
-
-        // --- clamp selection to length ---
-        self.selected = self.selected.min(transactions.len().saturating_sub(1));
-    }
-
     fn on_key_navigate(&mut self, code: KeyCode) -> KeyResult<AppAction> {
         match code {
             KeyCode::Up if self.selected > 0 => {
@@ -118,7 +113,13 @@ impl TransactionsPage {
                     machine_ident,
                     role,
                     subdevice_index,
-                } => "_".to_string(),
+                } => {
+                    format!(
+                        "WriteMachineDeviceInfo({}, {}, {})",
+                        machine_ident, role, subdevice_index
+                    )
+                }
+
                 RuntimeRequestKind::SetConfigProperty {
                     target,
                     path,
@@ -126,15 +127,24 @@ impl TransactionsPage {
                 } => {
                     format!("SetConfigProperty({}, {}, {})", target, path, value)
                 }
-                RuntimeRequestKind::ExecuteCommand { target, path } => "_".to_string(),
+
+                RuntimeRequestKind::ExecuteCommand { target, path } => {
+                    format!("ExecuteCommand({}, {})", target, path)
+                }
+
                 RuntimeRequestKind::SubscribeMachine {
                     provider,
                     subscriber,
-                } => "_".to_string(),
+                } => {
+                    format!("SubscribeMachine({}, {})", provider, subscriber)
+                }
+
                 RuntimeRequestKind::UnsubscribeMachine {
                     provider,
                     subscriber,
-                } => "_".to_string(),
+                } => {
+                    format!("UnsubscribeMachine({}, {})", provider, subscriber)
+                }
             };
 
             let mut row = Row::new([

@@ -194,6 +194,7 @@ impl AppState {
 pub struct AppContext {
     pub rt_status: RuntimeStatus,
     pub ecat_status: EtherCATStatus,
+    #[allow(unused)]
     pub schemas: *const HashMap<MachineIdentification, MachineSchema>,
     pub machines: *const [MachineEntry],
     pub transactions: *const [Transaction],
@@ -204,10 +205,12 @@ impl AppContext {
         unsafe { &*self.machines }
     }
 
+    #[allow(unused)]
     pub fn transactions(&self) -> &[Transaction] {
         unsafe { &*self.transactions }
     }
 
+    #[allow(unused)]
     pub fn schemas(&self) -> &HashMap<MachineIdentification, MachineSchema> {
         unsafe { &*self.schemas }
     }
@@ -277,6 +280,7 @@ pub enum ConfigFieldState {
 }
 
 pub struct StatePropertyField {
+    #[allow(unused)]
     pub kind: ScalarPropertyKind,
     pub label: String,
     pub state: StatePropertyFieldState,
@@ -304,6 +308,7 @@ pub struct EventEmitterField {
     pub records: Vec<EventRecord<String>>,
 }
 
+#[allow(unused)]
 pub struct SubscriptionField {
     pub label: String,
 }

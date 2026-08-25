@@ -29,7 +29,6 @@ pub async fn run<T: ControllerTransport + 'static>(
     provider: impl ControllerSessionProvider<Transport = T> + 'static,
 ) -> Result<(), i64> {
     let (request_dispatcher_tx, request_dispatcher_rx) = mpsc::channel(1024);
-    // let (message_tx, message_rx) = mpsc::channel(128);
     let mut tasks = JoinSet::new();
 
     tasks.spawn(session_manager::run(
@@ -45,11 +44,6 @@ pub async fn run<T: ControllerTransport + 'static>(
         config.request_rx,
         request_dispatcher_rx,
     ));
-
-    // tasks.spawn(listener_manager::run(
-    //     message_rx,
-    //     config.listeners,
-    // ));
 
     // --- start actors ---
     for actor in config.actors {

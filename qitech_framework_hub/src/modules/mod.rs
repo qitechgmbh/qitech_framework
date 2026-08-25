@@ -10,9 +10,6 @@ use crate::RuntimeRequestSender;
 use crate::SchemaRegistry;
 use crate::Swappable;
 
-// /// provider for making queries to retrieve data
-// pub trait QueryProvider: Send + Sync {}
-
 #[derive(Debug, Clone)]
 pub struct ActorContext {
     pub schemas: Swappable<SchemaRegistry>,

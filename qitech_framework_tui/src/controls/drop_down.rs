@@ -78,7 +78,7 @@ impl DropDown {
         KeyResult::Handled(())
     }
 
-    pub fn rendered_height(&self, options: &Vec<String>) -> usize {
+    pub fn rendered_height(&self, options: &[String]) -> usize {
         match self.state {
             State::Closed => 3,
             State::Open(_) => 2 + options.len(),
