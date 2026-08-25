@@ -6,6 +6,7 @@ use tower_http::cors::CorsLayer;
 use crate::api::SharedState;
 use crate::api::legacy::LegacySharedState;
 use crate::api::legacy::init_socket_io;
+use crate::api::legacy::v1;
 
 pub struct ApiServer {
     state: SharedState,
@@ -24,7 +25,7 @@ impl ApiServer {
 impl Actor for ApiServer {
     async fn run(self, ctx: ActorContext) {
         let router = axum::Router::new()
-            // .nest("/api/v1", v1::router())
+            .nest("/api/v1", v1::router())
             // .nest("/api/v2", v2::router())
             // .nest("/api/v3", v3::router())
             .layer(init_socket_io(

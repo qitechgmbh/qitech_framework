@@ -2,13 +2,19 @@ use std::collections::HashMap;
 
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
+use qitech_framework_core::report::ConfigPropertyEvent;
+use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 use qitech_framework_core::report::MachinesReport;
+use qitech_framework_core::report::StatePropertyEvent;
+use qitech_framework_core::schema::MachineSchema;
 use socketioxide::extract::SocketRef;
 
-use crate::api::legacy::adapter::MachineLegacyDataAdapter;
+use crate::api::legacy::adapter;
 use crate::api::legacy::socketio::events::SocketIOEvent;
+use crate::api::types::ConfigPropertyInfo;
 use crate::api::types::MachineInstance;
 use crate::api::types::MeasurementInfo;
+use crate::api::types::StatePropertyInfo;
 
 #[derive(Default, Clone)]
 pub struct MachineNamespaceManager {
@@ -16,25 +22,132 @@ pub struct MachineNamespaceManager {
 }
 
 impl MachineNamespaceManager {
-    pub fn register(&mut self, ident: MachineInstanceIdentification) {
+    pub fn register(&mut self, ident: MachineInstanceIdentification, schema: &MachineSchema) {
         if self.registry.contains_key(&ident) {
             return;
+        }
+
+        let mut config_properties = HashMap::new();
+        for name in schema.config_properties.keys() {
+            config_properties.insert(name.clone(), None);
+        }
+
+        let mut state_properties = HashMap::new();
+        for name in schema.state_properties.keys() {
+            state_properties.insert(name.clone(), None);
+        }
+
+        let mut measurements = HashMap::new();
+        for name in schema.measurements.keys() {
+            measurements.insert(name.clone(), None);
         }
 
         self.registry.insert(
             ident,
             Entry {
                 sockets: Default::default(),
-                instance: Default::default(),
+                instance: MachineInstance {
+                    config_properties,
+                    state_properties,
+                    measurements,
+                },
+                emitted_default_state: false,
             },
         );
     }
 
-    pub fn update(
-        &mut self,
-        report: &MachinesReport,
-        adapters: &HashMap<MachineIdentification, MachineLegacyDataAdapter>,
-    ) {
+    pub fn update(&mut self, report: &MachinesReport) {
+        for record in &report.config_property_records {
+            let Some(entry) = self.registry.get_mut(&record.machine) else {
+                // no machine registered under that uid
+                continue;
+            };
+
+            let Some(info) = entry.instance.config_properties.get_mut(&record.path) else {
+                // not defined in schema
+                continue;
+            };
+
+            if let ConfigPropertyEvent::Registered {
+                default,
+                capability,
+                constraints,
+            } = record.event.clone()
+            {
+                *info = Some(ConfigPropertyInfo {
+                    value: default.clone(),
+                    default,
+                    capability,
+                    constraints,
+                    records: Vec::default(),
+                });
+
+                continue;
+            }
+
+            let info = info.as_mut().expect("Property should be registered now...");
+
+            match record.event.clone() {
+                ConfigPropertyEvent::Registered { .. } => {
+                    unreachable!()
+                }
+
+                ConfigPropertyEvent::DefaultChanged(value) => {
+                    info.default = value;
+                }
+
+                ConfigPropertyEvent::CapabilityChanged(value) => {
+                    info.capability = value;
+                }
+
+                ConfigPropertyEvent::ConstraintsChanged(value) => {
+                    info.constraints = value;
+                }
+
+                ConfigPropertyEvent::Written { value, outcome, .. } => {
+                    if !matches!(
+                        outcome,
+                        ConfigPropertyWriteOutcome::Accepted { changed: true }
+                    ) {
+                        continue;
+                    }
+
+                    info.value = value;
+                }
+            }
+        }
+
+        for record in &report.state_property_records {
+            let Some(entry) = self.registry.get_mut(&record.machine) else {
+                // no machine registered under that uid
+                continue;
+            };
+
+            let Some(info) = entry.instance.state_properties.get_mut(&record.path) else {
+                // not defined in schema
+                continue;
+            };
+
+            if let StatePropertyEvent::Registered { value } = record.event.clone() {
+                *info = Some(StatePropertyInfo {
+                    value,
+                    records: Default::default(),
+                });
+
+                continue;
+            }
+
+            match record.event.clone() {
+                StatePropertyEvent::Registered { value }
+                | StatePropertyEvent::ValueChanged { value } => {
+                    *info = Some(StatePropertyInfo {
+                        value,
+                        records: Default::default(),
+                    })
+                }
+            }
+        }
+
         for snapshot in &report.measurement_snapshots {
             let Some(entry) = self.registry.get_mut(&snapshot.machine) else {
                 // no machine registered under that uid
@@ -52,15 +165,24 @@ impl MachineNamespaceManager {
         }
 
         for (ident, entry) in &mut self.registry {
-            let Some(adapter) = adapters.get(&ident.machine) else {
+            let Some(adapter) = adapter::get(ident.machine) else {
                 continue;
             };
 
-            tracing::info!("dispatching live values for: {ident}");
+            // --- emit state event ---
+            if let Some(data) =
+                (adapter.init_state_event)(&entry.instance, entry.emitted_default_state)
+            {
+                let event = SocketIOEvent::new("StateEvent", data);
+                Self::broadcast(&mut entry.sockets, event);
+                entry.emitted_default_state = true;
+            }
 
-            let data = (adapter.init_measurements_event)(&entry.instance);
-            let event = SocketIOEvent::new("LiveValuesEvent", data);
-            Self::broadcast(&mut entry.sockets, event);
+            // --- emit live values ---
+            if let Some(data) = (adapter.init_measurements_event)(&entry.instance) {
+                let event = SocketIOEvent::new("LiveValuesEvent", data);
+                Self::broadcast(&mut entry.sockets, event);
+            }
         }
     }
 
@@ -115,6 +237,7 @@ impl MachineNamespaceManager {
 pub struct Entry {
     sockets: Vec<SocketRef>,
     instance: MachineInstance,
+    emitted_default_state: bool,
 }
 
 pub fn machine_namespace_path_to_ident(s: &str) -> Result<MachineInstanceIdentification, String> {

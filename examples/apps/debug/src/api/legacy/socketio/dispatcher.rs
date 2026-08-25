@@ -49,13 +49,19 @@ impl Listener for SocketIODispatcher {
             }
 
             RuntimeInitEvent::MachineBuildCompleted { ident, result } => {
+                let schemas = self.state.schemas.read();
+
+                let Some(schema) = schemas.get(&ident.machine) else {
+                    return;
+                };
+
                 self.state_legacy
                     .ns_main
                     .update(|ns| ns.add_machine(ident, result.map_err(|e| e.to_string())));
 
                 self.state_legacy
                     .ns_machines
-                    .update(|ns| ns.register(ident));
+                    .update(|ns| ns.register(ident, schema));
             }
 
             _ => {}
@@ -65,6 +71,6 @@ impl Listener for SocketIODispatcher {
     fn on_report_received(&mut self, report: &RuntimeReport) {
         self.state_legacy
             .ns_machines
-            .update(|ns| ns.update(&report.machines, &self.state_legacy.adapters));
+            .update(|ns| ns.update(&report.machines));
     }
 }

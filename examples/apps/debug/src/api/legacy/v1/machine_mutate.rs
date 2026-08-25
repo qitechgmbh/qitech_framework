@@ -5,6 +5,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::response::Response;
+use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
 use qitech_framework::machine::MachineSubscribeError;
 use qitech_framework_core::report::ConfigPropertyWriteError;
@@ -15,40 +16,74 @@ use qitech_framework_core::request::MachineUnsubscribeError;
 use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_hub::ActorContext;
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json::json;
 
-use crate::LaserV1;
-use crate::api::adapter;
+use crate::api::legacy::adapter;
+use crate::api::legacy::types::MachineIdentificationUnique;
 
 #[derive(Debug, Deserialize)]
 pub struct Request {
-    pub ident: MachineInstanceIdentification,
+    pub machine_identification_unique: MachineIdentificationUnique,
     pub data: serde_json::Value,
 }
 
-pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> Response {
-    /*
-    let request = match body.ident.identification {
-        LaserV1::IDENTIFICATION => match adapter::laser_v1::map_request(body.ident, body.data) {
-            Ok(request) => request,
-            Err(err) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({
-                        "error": "invalid_request",
-                        "message": err.to_string(),
-                    })),
-                )
-                    .into_response();
-            }
-        },
+#[derive(Debug, Serialize)]
+pub struct MutationResponse {
+    pub success: bool,
+    pub error: Option<String>,
+}
 
-        _ => {
+impl MutationResponse {
+    pub fn success() -> Self {
+        Self {
+            success: true,
+            error: None,
+        }
+    }
+
+    pub fn error(error: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            error: Some(error.into()),
+        }
+    }
+}
+
+pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> Response {
+    let ident = MachineInstanceIdentification {
+        machine: MachineIdentification {
+            vendor_id: body
+                .machine_identification_unique
+                .machine_identification
+                .vendor,
+            machine_id: body
+                .machine_identification_unique
+                .machine_identification
+                .machine,
+        },
+        serial: body.machine_identification_unique.serial,
+    };
+
+    let Some(adapter) = adapter::get(ident.machine) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "no_such_machine",
+                "message": "-",
+            })),
+        )
+            .into_response();
+    };
+
+    let request = match (adapter.convert_request)(ident, body.data) {
+        Ok(v) => v,
+        Err(e) => {
             return (
-                StatusCode::NOT_FOUND,
+                StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({
-                    "error": "machine_not_supported",
-                    "message": "The requested machine is not supported",
+                    "error": "invalid_request",
+                    "message": e.to_string(),
                 })),
             )
                 .into_response();
@@ -79,9 +114,6 @@ pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) ->
                 .into_response()
         }
     }
-    */
-
-    (StatusCode::OK, ()).into_response()
 }
 
 pub struct RuntimeRequestHttpError(pub RuntimeRequestError);
