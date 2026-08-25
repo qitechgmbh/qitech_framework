@@ -2,22 +2,13 @@ use std::fmt::Debug;
 
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::response::Response;
+use axum::response::Response as AxumResponse;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework::machine::MachineSubscribeError;
-use qitech_framework_core::report::ConfigPropertyWriteError;
-use qitech_framework_core::report::ResourceAccessError;
-use qitech_framework_core::request::MachineExecuteCommandError;
-use qitech_framework_core::request::MachineSetConfigProperty;
-use qitech_framework_core::request::MachineUnsubscribeError;
-use qitech_framework_core::request::RuntimeRequestError;
 use qitech_framework_hub::ActorContext;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 
 use crate::api::legacy::adapter;
 use crate::api::legacy::types::MachineIdentificationUnique;
@@ -50,7 +41,7 @@ impl MutationResponse {
     }
 }
 
-pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> Response {
+pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> AxumResponse {
     let ident = MachineInstanceIdentification {
         machine: MachineIdentification {
             vendor_id: body
@@ -66,60 +57,36 @@ pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) ->
     };
 
     let Some(adapter) = adapter::get(ident.machine) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": "no_such_machine",
-                "message": "-",
-            })),
-        )
-            .into_response();
+        return Json(MutationResponse::error("no_such_machine")).into_response();
     };
 
     let request = match (adapter.convert_request)(ident, body.data) {
-        Ok(v) => v,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({
-                    "error": "invalid_request",
-                    "message": e.to_string(),
-                })),
-            )
-                .into_response();
+        Ok(request) => request,
+        Err(error) => {
+            return Json(MutationResponse::error(error.to_string())).into_response();
         }
     };
 
     match ctx.send_request(request).await {
-        Ok(Ok(())) => (
-            StatusCode::ACCEPTED,
-            Json(serde_json::json!({
-                "status": "accepted",
-            })),
-        )
-            .into_response(),
+        Ok(Ok(())) => Json(MutationResponse::success()).into_response(),
 
-        Ok(Err(e)) => RuntimeRequestHttpError(e).into_response(),
+        Ok(Err(error)) => {
+            // You can either preserve the detailed error text...
+            Json(MutationResponse::error(error.to_string())).into_response()
+        }
 
-        Err(err) => {
-            tracing::error!(%err, "failed to send runtime request");
-
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(serde_json::json!({
-                    "error": "runtime_unavailable",
-                    "message": "No runtime is currently connected",
-                })),
-            )
-                .into_response()
+        Err(error) => {
+            tracing::error!(%error, "failed to send runtime request");
+            Json(MutationResponse::error("No runtime is currently connected")).into_response()
         }
     }
 }
 
+/*
 pub struct RuntimeRequestHttpError(pub RuntimeRequestError);
 
 impl IntoResponse for RuntimeRequestHttpError {
-    fn into_response(self) -> Response {
+    fn into_response(self) -> AxumResponse {
         fn error_response(
             status: StatusCode,
             error: &'static str,
@@ -244,3 +211,4 @@ impl IntoResponse for RuntimeRequestHttpError {
         }
     }
 }
+*/

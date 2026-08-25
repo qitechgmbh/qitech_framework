@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequestError;
@@ -40,7 +39,6 @@ pub trait Actor: Send + Sync {
     fn run(self, ctx: ActorContext) -> impl Future<Output = ()> + Send + 'static;
 }
 
-#[async_trait]
 pub trait Listener: Send {
     fn on_schema_sync(&mut self, schema: &MachineSchema) {
         _ = schema;

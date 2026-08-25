@@ -6,27 +6,18 @@ use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
 use qitech_framework_core::schema::MachineSchema;
 
+mod types;
+use types::MachineInstance;
+
 mod legacy;
 pub use legacy::LegacySharedState;
 pub use legacy::SocketIODispatcher;
 
-mod types;
-use types::MachineInstance;
-
 mod server;
-pub use server::ApiServer;
-
-// mod v2;
-// mod v3;
-
-// -> Query Provider: query().config()
-
-// What does db want to persist -> init event, transactions, reports
-// event log: runtime send hello, init event:
-// but also capture the outgoing messages
+pub use server::Server;
 
 #[derive(Default, Clone)]
-struct Swappable<T: Clone>(Arc<ArcSwap<T>>);
+pub struct Swappable<T: Clone>(Arc<ArcSwap<T>>);
 
 impl<T: Clone> Swappable<T> {
     pub fn read(&self) -> arc_swap::Guard<Arc<T>> {

@@ -8,7 +8,7 @@ mod machine;
 use machine::LaserV1;
 
 mod api;
-use api::ApiServer;
+use api::Server;
 use api::SharedState;
 use api::SocketIODispatcher;
 
@@ -40,7 +40,7 @@ pub async fn main() {
 
     let config_hub = HubConfiguration::new()
         .listener(SocketIODispatcher::new(state.clone(), state_legacy.clone()))
-        .actor(ApiServer::new(state, state_legacy));
+        .actor(Server::new(state, state_legacy));
 
     // --- run ---
     run_with_hub(config_rt, config_hub).await.unwrap();

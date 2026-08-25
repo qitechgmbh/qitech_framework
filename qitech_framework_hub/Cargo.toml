@@ -4,41 +4,23 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# --- internal deps ---
 qitech_framework_core.workspace = true
 
-# --- workspace deps ---
-anyhow.workspace = true
-serde.workspace = true
-tokio.workspace = true
+# --- external deps ---
+arc-swap.workspace = true
 chrono.workspace = true
 indexmap.workspace = true
-
-# parsing
+serde.workspace = true
 serde_json.workspace = true
-
-# database
-clickhouse = { workspace = true, features = ["inserter", "chrono"] }
-
-# networking555
-tower-http = { workspace = true,  features = ["cors","trace"] }
-axum.workspace = true
-
-# async
-tokio-util.workspace = true
-futures.workspace = true
-
-# misc
-arc-swap.workspace = true
-uuid.workspace = true
-
+tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
-postcard.workspace = true
-bytes.workspace = true
-async-trait = "0.1.92"
 
-[dev-dependencies]
-qitech_lib.workspace = true
-qitech_framework.workspace = true
-testcontainers = { workspace = true, features = ["http_wait_plain"]}
-tracing.workspace = true
+# # database
+# clickhouse = { workspace = true, features = ["inserter", "chrono"] }
+
+# [dev-dependencies]
+# qitech_lib.workspace = true
+# qitech_framework.workspace = true
+# testcontainers = { workspace = true, features = ["http_wait_plain"]}
+# tracing.workspace = true

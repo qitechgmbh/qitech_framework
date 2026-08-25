@@ -21,7 +21,6 @@ pub use modules::Actor;
 pub use modules::ActorContext;
 pub use modules::Listener;
 
-mod listener_manager;
 mod session_manager;
 mod transaction_manager;
 

@@ -15,10 +15,6 @@ use crate::types::RuntimeRequestSender;
 
 type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
-pub struct ListenerInstance {
-    on_hello_rejected: Pin<Box<dyn Future<Output = ()> + Send>>,
-}
-
 pub struct HubConfiguration {
     pub(crate) report_tx: RuntimeReportSender,
     pub(crate) request_tx: RuntimeRequestSender,

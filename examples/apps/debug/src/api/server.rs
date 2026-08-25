@@ -8,12 +8,12 @@ use crate::api::legacy::LegacySharedState;
 use crate::api::legacy::init_socket_io;
 use crate::api::legacy::v1;
 
-pub struct ApiServer {
+pub struct Server {
     state: SharedState,
     state_legacy: LegacySharedState,
 }
 
-impl ApiServer {
+impl Server {
     pub fn new(state: SharedState, state_legacy: LegacySharedState) -> Self {
         Self {
             state,
@@ -22,7 +22,7 @@ impl ApiServer {
     }
 }
 
-impl Actor for ApiServer {
+impl Actor for Server {
     async fn run(self, ctx: ActorContext) {
         let router = axum::Router::new()
             .nest("/api/v1", v1::router())
