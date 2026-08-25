@@ -7,14 +7,14 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
-use crate::ident::MachineIdentificationUnique;
+use crate::ident::MachineInstanceIdentification;
 use crate::report::ResourceKind;
 
 // --- record ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventRecord<T> {
     pub timestamp: DateTime<Utc>,
-    pub machine: MachineIdentificationUnique,
+    pub machine: MachineInstanceIdentification,
     pub path: String,
     pub event: T,
 }

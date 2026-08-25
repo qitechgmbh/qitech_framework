@@ -7,9 +7,9 @@ use std::time::Instant;
 use qitech_framework_core::ident::DeviceHardwareIdentification;
 use qitech_framework_core::ident::DeviceHardwareIdentificationEthercat;
 use qitech_framework_core::ident::DeviceIdentification;
-use qitech_framework_core::ident::DeviceMachineIdentification;
+use qitech_framework_core::ident::DeviceMachineAssignment;
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::EtherCATDeviceMetadata;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitEvent;
@@ -280,9 +280,9 @@ fn build_ecat_metadata(
             let device_machine_identification = idents
                 .iter()
                 .find(|info| info.device_address == meta.device_address)
-                .map(|info| DeviceMachineIdentification {
-                    machine_ident: MachineIdentificationUnique {
-                        identification: MachineIdentification {
+                .map(|info| DeviceMachineAssignment {
+                    machine: MachineInstanceIdentification {
+                        machine: MachineIdentification {
                             vendor_id: info.machine_vendor,
                             machine_id: info.machine_id,
                         },
@@ -298,8 +298,8 @@ fn build_ecat_metadata(
                 product_id: meta.product_id,
                 revision: meta.revision,
                 device_identification: DeviceIdentification {
-                    device_machine_identification,
-                    device_hardware_identification: DeviceHardwareIdentification::Ethercat(
+                    assignment: device_machine_identification,
+                    hardware: DeviceHardwareIdentification::Ethercat(
                         DeviceHardwareIdentificationEthercat {
                             subdevice_index: meta.device_address as usize,
                         },
@@ -318,9 +318,9 @@ fn append_ethercat(
     let combined_list = create_mapped_ethercat_devices(device_infos, mapped_ecat_devices);
 
     for (info, device) in combined_list {
-        let identification = MachineIdentificationUnique {
+        let identification = MachineInstanceIdentification {
             serial: info.machine_serial,
-            identification: MachineIdentification {
+            machine: MachineIdentification {
                 vendor_id: info.machine_vendor,
                 machine_id: info.machine_id,
             },

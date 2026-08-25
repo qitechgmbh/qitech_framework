@@ -1,6 +1,6 @@
 use std::fs;
 
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::request::ReadMachineDeviceInfoError;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
@@ -10,14 +10,14 @@ use crate::runtime::types::MachineInstance;
 
 pub fn find_machine(
     machines: &mut [MachineInstance],
-    ident: MachineIdentificationUnique,
+    ident: MachineInstanceIdentification,
 ) -> Option<&mut MachineInstance> {
     machines.iter_mut().find(|instance| instance.ident == ident)
 }
 
 pub fn write_machine_device_info(
     controller: &EtherCATController,
-    machine_ident: MachineIdentificationUnique,
+    machine_ident: MachineInstanceIdentification,
     role: u16,
     subdevice_index: usize,
 ) -> Result<(), WriteMachineDeviceInfoError> {
@@ -27,7 +27,7 @@ pub fn write_machine_device_info(
     let ident = idents.iter_mut().find(|i| i.device_address == dev_addr);
 
     let m_serial = machine_ident.serial;
-    let m_ident = machine_ident.identification;
+    let m_ident = machine_ident.machine;
 
     if let Some(ident) = ident {
         ident.role = role;

@@ -7,7 +7,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::ident::MachineIdentificationUnique;
+use crate::ident::MachineInstanceIdentification;
 use crate::request::RuntimeResponse;
 
 mod types;
@@ -76,22 +76,22 @@ impl RuntimeReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeEvent {
     AddedMachine {
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
     },
 
     RemovedMachine {
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
     },
 
     SubscriptionAdded {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
+        provider: MachineInstanceIdentification,
+        subscriber: MachineInstanceIdentification,
         resources: Vec<MachineResource>,
     },
 
     SubscriptionRemoved {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
+        provider: MachineInstanceIdentification,
+        subscriber: MachineInstanceIdentification,
     },
 }
 

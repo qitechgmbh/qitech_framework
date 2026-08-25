@@ -4,14 +4,14 @@ use axum::extract::State;
 use axum::http::Response;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use qitech_framework_core::ident::DeviceMachineIdentification;
+use qitech_framework_core::ident::DeviceMachineAssignment;
 use qitech_framework_core::request::RuntimeRequestKind;
 use qitech_framework_hub::ActorContext;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Request {
-    pub ident_device: DeviceMachineIdentification,
+    pub ident_device: DeviceMachineAssignment,
     pub ident_hardware: DeviceHardwareIdentificationEthercat,
 }
 
@@ -22,7 +22,7 @@ pub struct DeviceHardwareIdentificationEthercat {
 
 pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> Response<Body> {
     let res = ctx.send_request(RuntimeRequestKind::WriteMachineDeviceInfo {
-        machine_ident: body.ident_device.machine_ident,
+        machine_ident: body.ident_device.machine,
         role: body.ident_device.role,
         subdevice_index: body.ident_hardware.subdevice_index,
     });

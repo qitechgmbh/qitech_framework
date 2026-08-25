@@ -57,6 +57,10 @@ pub async fn run<T: ControllerTransport>(
 
                 let ident = schema.identification;
 
+                for listener in &mut listeners {
+                    listener.on_schema_sync(&schema);
+                }
+
                 if schemas.insert(ident, schema).is_some() {
                     tracing::warn!(?ident, "runtime sent duplicate schema");
                     return Err(SchemaSyncError::DuplicateItem);
@@ -81,6 +85,10 @@ pub async fn run<T: ControllerTransport>(
         let mut session = match session
             .complete(|event| {
                 tracing::debug!(?event, "received runtime initialization event");
+
+                for listener in &mut listeners {
+                    listener.on_init_event_received(&event);
+                }
             })
             .await
         {
@@ -124,7 +132,7 @@ pub async fn run<T: ControllerTransport>(
                         .expect("report receiver must live for the lifetime of the program");
 
                     for listener in &mut listeners {
-                        listener.on_report_received(report.clone()).await;
+                        listener.on_report_received(&report);
                     }
                 }
 

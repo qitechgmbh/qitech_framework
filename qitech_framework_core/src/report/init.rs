@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::ident::DeviceIdentification;
-use crate::ident::MachineIdentificationUnique;
+use crate::ident::MachineInstanceIdentification;
 use crate::report::error::BuildError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,10 +40,11 @@ pub enum RuntimeInitEvent {
     // --- machine ---
     BuildingMachines,
     MachineBuildStarted {
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
     },
+
     MachineBuildCompleted {
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
         result: Result<(), BuildError>,
     },
 

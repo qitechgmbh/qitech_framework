@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::rc::Rc;
 
 use chrono::Utc;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::EventRecord;
@@ -25,7 +25,7 @@ pub(crate) struct Journal<T: Debug> {
 }
 
 impl<T: Debug> Journal<T> {
-    pub(crate) fn record(&self, machine: MachineIdentificationUnique, path: &str, event: T) {
+    pub(crate) fn record(&self, machine: MachineInstanceIdentification, path: &str, event: T) {
         self.buffer.borrow_mut().push(EventRecord {
             timestamp: Utc::now(),
             machine,

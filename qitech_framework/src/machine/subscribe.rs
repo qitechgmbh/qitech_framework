@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::request::MachineSubscribeError;
 use qitech_framework_core::with_uom_quantities;
 
@@ -57,12 +57,12 @@ with_uom_quantities!(impl_uom);
 // --- context ---
 pub struct SubscribeContext<'a> {
     pub(crate) token: LifetimeToken,
-    pub(crate) provider: MachineIdentificationUnique,
+    pub(crate) provider: MachineInstanceIdentification,
     pub(crate) resources: &'a ResourceRegistry,
 }
 
 impl<'a> SubscribeContext<'a> {
-    pub const fn provider(&self) -> MachineIdentificationUnique {
+    pub const fn provider(&self) -> MachineInstanceIdentification {
         self.provider
     }
 

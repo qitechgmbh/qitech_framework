@@ -206,7 +206,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         let mut machines: Vec<MachineInstance> = Vec::new();
 
         for (ident_unique, hardware) in hardware_registry {
-            let ident = ident_unique.identification;
+            let ident = ident_unique.machine;
 
             let Some(entry) = machine_registry.get(&ident) else {
                 session.send_event(RuntimeInitEvent::MachineBuildCompleted {

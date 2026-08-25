@@ -3,7 +3,7 @@ use std::any::type_name;
 use std::borrow::Cow;
 use std::ptr::NonNull;
 
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::ResourceAccessError;
 use qitech_framework_core::report::ResourceKind;
 
@@ -39,7 +39,7 @@ impl<Metadata> PropertyRegistry<Metadata> {
 
     pub fn get_cached<T: 'static>(
         &self,
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
         resource: &'static str,
     ) -> Result<NonNull<T>, ResourceAccessError> {
         let type_id = TypeId::of::<T>();
@@ -90,7 +90,7 @@ impl<Metadata> PropertyRegistry<Metadata> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct SlotDescriptor<Metadata = ()> {
-    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) ident: MachineInstanceIdentification,
     pub(crate) resource: Cow<'static, str>,
     pub(crate) type_id: TypeId,
     pub(crate) type_name: &'static str,
@@ -111,7 +111,7 @@ pub struct PropertyRegistrar<'a, Metadata = ()> {
 impl<Metadata> PropertyRegistrar<'_, Metadata> {
     pub fn register<T: Clone + 'static>(
         &mut self,
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
         resource: Cow<'static, str>,
         value: T,
         metadata: Metadata,

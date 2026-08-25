@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::schema::MachineSchema;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
@@ -23,7 +23,7 @@ mod measurements;
 mod state_property;
 
 pub struct BuildContext<'a> {
-    pub(crate) ident: MachineIdentificationUnique,
+    pub(crate) ident: MachineInstanceIdentification,
     pub(crate) schema: &'a MachineSchema,
     pub(crate) export_count: Rc<Cell<u64>>,
 
@@ -56,7 +56,7 @@ pub struct BuildContext<'a> {
 }
 
 impl<'a> BuildContext<'a> {
-    pub fn ident(&self) -> MachineIdentificationUnique {
+    pub fn ident(&self) -> MachineInstanceIdentification {
         self.ident
     }
 }

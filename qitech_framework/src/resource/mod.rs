@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::rc::Weak;
 
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 
 mod bump_allocator;
 pub(crate) use bump_allocator::BumpAllocator;
@@ -29,7 +29,7 @@ pub struct ResourceRegistry {
 // --- key ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ResourceKey {
-    pub ident: MachineIdentificationUnique,
+    pub ident: MachineInstanceIdentification,
     pub path: &'static str,
 }
 

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
@@ -44,15 +42,15 @@ pub trait Actor: Send + Sync {
 
 #[async_trait]
 pub trait Listener: Send {
-    async fn on_schema_sync(&mut self, schema: &MachineSchema) {
+    fn on_schema_sync(&mut self, schema: &MachineSchema) {
         _ = schema;
     }
 
-    async fn on_init_event_received(&mut self, event: Arc<RuntimeInitEvent>) {
+    fn on_init_event_received(&mut self, event: &RuntimeInitEvent) {
         _ = event;
     }
 
-    async fn on_report_received(&mut self, report: Arc<RuntimeReport>) {
+    fn on_report_received(&mut self, report: &RuntimeReport) {
         _ = report;
     }
 }

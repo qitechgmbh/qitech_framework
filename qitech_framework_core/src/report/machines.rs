@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::ScalarValue;
 use crate::ScalarValueTypeMismatchError;
-use crate::ident::MachineIdentificationUnique;
+use crate::ident::MachineInstanceIdentification;
 use crate::report::Constraints;
 use crate::report::EventRecord;
 use crate::report::OperationCapability;
@@ -78,7 +78,7 @@ pub enum StatePropertyEvent {
 // --- measurements ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasurementSnapshot {
-    pub machine: MachineIdentificationUnique,
+    pub machine: MachineInstanceIdentification,
     pub path: String,
     pub value: Option<f64>,
 }

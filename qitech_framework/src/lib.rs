@@ -1,7 +1,7 @@
 use std::thread;
 
 pub use qitech_framework_core::ident::MachineIdentification;
-pub use qitech_framework_core::ident::MachineIdentificationUnique;
+pub use qitech_framework_core::ident::MachineInstanceIdentification;
 pub use qitech_framework_core::session;
 use qitech_framework_core::session::debug::DebugRuntimeSessionProvider;
 pub use qitech_framework_core::vendors;

@@ -24,7 +24,7 @@ pub async fn run(
             RuntimeMessage::Report(report) => {
                 let report = Arc::new(*report);
                 for listener in &mut listeners {
-                    listener.on_report_received(report.clone()).await;
+                    listener.on_report_received(&report);
                 }
             }
             _ => {}

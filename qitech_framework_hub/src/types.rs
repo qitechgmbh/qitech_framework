@@ -7,7 +7,7 @@ use chrono::Utc;
 use indexmap::IndexMap;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::Constraints;
 use qitech_framework_core::report::EventRecord;
@@ -25,7 +25,7 @@ use tokio::sync::oneshot;
 pub type Swappable<T> = Arc<ArcSwap<T>>;
 
 pub type SchemaRegistry = BTreeMap<MachineIdentification, MachineSchema>;
-pub type MachineRegistry = BTreeMap<MachineIdentificationUnique, MachineEntry>;
+pub type MachineRegistry = BTreeMap<MachineInstanceIdentification, MachineEntry>;
 
 pub type RuntimeReportSender = broadcast::Sender<Arc<RuntimeReport>>;
 pub type RuntimeReportReceiver = broadcast::Receiver<Arc<RuntimeReport>>;

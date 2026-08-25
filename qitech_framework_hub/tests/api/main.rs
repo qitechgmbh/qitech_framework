@@ -19,7 +19,7 @@ use qitech_framework_core::RuntimeReport;
 use qitech_framework_core::RuntimeReportData;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::schema::MachinesReport;
 use qitech_framework_core::vendors;
 use qitech_framework_hub::Config;
@@ -92,16 +92,16 @@ async fn my_test() -> anyhow::Result<()> {
     sleep(Duration::from_millis(250)).await;
 
     // --- Step 1: emit connected machines ---
-    let ident_m0 = MachineIdentificationUnique {
-        identification: MachineIdentification {
+    let ident_m0 = MachineInstanceIdentification {
+        machine: MachineIdentification {
             vendor_id: vendors::QITECH.id,
             machine_id: 10,
         },
         serial: 0,
     };
 
-    let ident_m1 = MachineIdentificationUnique {
-        identification: MachineIdentification {
+    let ident_m1 = MachineInstanceIdentification {
+        machine: MachineIdentification {
             vendor_id: vendors::QITECH.id,
             machine_id: 20,
         },

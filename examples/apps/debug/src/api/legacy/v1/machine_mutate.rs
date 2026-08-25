@@ -5,7 +5,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::response::Response;
-use qitech_framework::MachineIdentificationUnique;
+use qitech_framework::MachineInstanceIdentification;
 use qitech_framework::machine::MachineSubscribeError;
 use qitech_framework_core::report::ConfigPropertyWriteError;
 use qitech_framework_core::report::ResourceAccessError;
@@ -22,11 +22,12 @@ use crate::api::adapter;
 
 #[derive(Debug, Deserialize)]
 pub struct Request {
-    pub ident: MachineIdentificationUnique,
+    pub ident: MachineInstanceIdentification,
     pub data: serde_json::Value,
 }
 
 pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> Response {
+    /*
     let request = match body.ident.identification {
         LaserV1::IDENTIFICATION => match adapter::laser_v1::map_request(body.ident, body.data) {
             Ok(request) => request,
@@ -78,6 +79,9 @@ pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) ->
                 .into_response()
         }
     }
+    */
+
+    (StatusCode::OK, ()).into_response()
 }
 
 pub struct RuntimeRequestHttpError(pub RuntimeRequestError);

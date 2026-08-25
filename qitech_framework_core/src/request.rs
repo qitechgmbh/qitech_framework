@@ -5,7 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
-use crate::ident::MachineIdentificationUnique;
+use crate::ident::MachineInstanceIdentification;
 use crate::report::CommandExecuteError;
 use crate::report::ConfigPropertyWriteError;
 use crate::report::ResourceAccessError;
@@ -23,7 +23,7 @@ pub struct RuntimeRequest {
 pub enum RuntimeRequestKind {
     WriteMachineDeviceInfo {
         /// machine hardware identification
-        machine_ident: MachineIdentificationUnique,
+        machine_ident: MachineInstanceIdentification,
 
         /// role of the device
         role: u16,
@@ -33,24 +33,24 @@ pub enum RuntimeRequestKind {
     },
 
     SetConfigProperty {
-        target: MachineIdentificationUnique,
+        target: MachineInstanceIdentification,
         path: String,
         value: ScalarValue,
     },
 
     ExecuteCommand {
-        target: MachineIdentificationUnique,
+        target: MachineInstanceIdentification,
         path: String,
     },
 
     SubscribeMachine {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
+        provider: MachineInstanceIdentification,
+        subscriber: MachineInstanceIdentification,
     },
 
     UnsubscribeMachine {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
+        provider: MachineInstanceIdentification,
+        subscriber: MachineInstanceIdentification,
     },
 }
 

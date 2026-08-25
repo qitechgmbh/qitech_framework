@@ -15,7 +15,7 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
@@ -421,7 +421,7 @@ impl Tui {
 
     fn find_machine_mut(
         &mut self,
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
     ) -> Option<&mut MachineEntry> {
         self.state.machines.iter_mut().find(|m| m.ident == ident)
     }

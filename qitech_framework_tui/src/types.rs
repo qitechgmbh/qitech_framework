@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::Constraints;
@@ -62,8 +62,8 @@ impl AppState {
         }
     }
 
-    pub fn add_machine(&mut self, ident_unique: MachineIdentificationUnique) {
-        let ident = ident_unique.identification;
+    pub fn add_machine(&mut self, ident_unique: MachineInstanceIdentification) {
+        let ident = ident_unique.machine;
 
         let Some(schema) = self.schemas.get(&ident) else {
             return;
@@ -221,21 +221,21 @@ pub enum KeyResult<T> {
 pub enum AppAction {
     NoAction,
     SetConfig {
-        machine: MachineIdentificationUnique,
+        machine: MachineInstanceIdentification,
         resource: String,
         value: ScalarValue,
     },
     ExecuteCommand {
-        machine: MachineIdentificationUnique,
+        machine: MachineInstanceIdentification,
         resource: String,
     },
     Subscribe {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
+        provider: MachineInstanceIdentification,
+        subscriber: MachineInstanceIdentification,
     },
     Unsubscribe {
-        provider: MachineIdentificationUnique,
-        subscriber: MachineIdentificationUnique,
+        provider: MachineInstanceIdentification,
+        subscriber: MachineInstanceIdentification,
     },
 }
 
@@ -250,13 +250,13 @@ pub struct Transaction {
 
 pub struct MachineEntry {
     pub title: String,
-    pub ident: MachineIdentificationUnique,
+    pub ident: MachineInstanceIdentification,
     pub config: IndexMap<String, ConfigField>,
     pub state: IndexMap<String, StatePropertyField>,
     pub measurements: IndexMap<String, MeasurementField>,
     pub commands: IndexMap<String, CommandField>,
     pub events: IndexMap<String, EventEmitterField>,
-    pub subscriptions: IndexSet<MachineIdentificationUnique>,
+    pub subscriptions: IndexSet<MachineInstanceIdentification>,
 }
 
 pub struct ConfigField {

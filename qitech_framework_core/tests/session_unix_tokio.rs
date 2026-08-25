@@ -6,7 +6,7 @@ use std::time::Duration;
 use chrono::Utc;
 use qitech_framework_core::ScalarValue;
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
@@ -167,8 +167,8 @@ fn controller(path: String) {
             .send_request(RuntimeRequest {
                 request_id: 0,
                 kind: RuntimeRequestKind::SetConfigProperty {
-                    target: MachineIdentificationUnique {
-                        identification: MachineIdentification {
+                    target: MachineInstanceIdentification {
+                        machine: MachineIdentification {
                             vendor_id: 0,
                             machine_id: 0,
                         },

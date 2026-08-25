@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-use qitech_framework_core::ident::MachineIdentificationUnique;
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::modbus::ModbusDevice;
@@ -54,7 +54,7 @@ impl RuntimeConfiguration {
     pub fn modbus_rtu_device<D: ModbusDevice + 'static>(
         mut self,
         id_path: impl ToString,
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
         slave_id: u8,
         settings: Option<ModbusSettings>,
     ) -> Self {
@@ -143,7 +143,7 @@ pub struct ModbusRtuConfig {
 }
 
 pub struct ModbusRtuEntry {
-    pub ident: MachineIdentificationUnique,
+    pub ident: MachineInstanceIdentification,
     pub init: NewModbusDeviceFn,
 }
 

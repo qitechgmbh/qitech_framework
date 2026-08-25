@@ -2,7 +2,7 @@ use std::any::Any;
 use std::time::Duration;
 
 pub use qitech_framework_core::ident::MachineIdentification;
-pub use qitech_framework_core::ident::MachineIdentificationUnique;
+pub use qitech_framework_core::ident::MachineInstanceIdentification;
 pub use qitech_framework_core::report::OperationCapability;
 pub use qitech_framework_core::report::error::ActError;
 pub use qitech_framework_core::report::error::ActErrorImpact;
@@ -56,7 +56,7 @@ pub trait Machine: Any {
     }
 
     /// Called when a machine is notified that a subscription was terminated.
-    fn unsubscribe(&mut self, ident: MachineIdentificationUnique) {
+    fn unsubscribe(&mut self, ident: MachineInstanceIdentification) {
         _ = ident;
     }
 }
