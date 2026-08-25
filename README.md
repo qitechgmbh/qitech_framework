@@ -1,4 +1,8 @@
-# Read Me is Work In Progress ¯\\\_(ツ)\_/¯
+# QiTech Framework
+
+A Framework for developing EtherCAT and Modbus based machines.
+
+## NOTE: This repository is currently in the experimental phase, therefore expect breaking changes between commits
 
 Examples
 
