@@ -91,7 +91,7 @@ impl MeasurementsPage {
             .expect("failed to read from clamped index");
 
         match field.values.newest() {
-            Some(_) if let KeyCode::Char(' ') = code => (
+            Some(_) if matches!(code, KeyCode::Char(' ')) => (
                 Mode::Chart((navigation, ChartComponent::new())),
                 KeyResult::Handled(AppAction::NoAction),
             ),

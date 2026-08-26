@@ -129,7 +129,7 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
                         .allowed
                         .iter()
                         .cloned()
-                        .map(Self::into_scalar)
+                        .map(|v| Self::into_scalar(v).r#enum().expect("Cannot be null"))
                         .collect(),
                 }
             }
