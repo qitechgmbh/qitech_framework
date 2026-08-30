@@ -1,0 +1,13 @@
+qms_version: 1.0
+revision: 1
+identification:
+  name: AnalogIO
+  vendor_id: 0
+  machine_id: 0
+config:
+  ao1: !float
+  ao2: !float
+  ai1_mA: !float
+  ai2_mA: !float
+  ai4_mA: !float
+  ai3_mA: !float

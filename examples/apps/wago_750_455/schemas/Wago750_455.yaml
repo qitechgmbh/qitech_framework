@@ -1,0 +1,11 @@
+qms_version: 1.0
+revision: 1
+identification:
+  name: Wago750_455
+  vendor_id: 0
+  machine_id: 0
+config:
+  ai1_mA: !float
+  ai2_mA: !float
+  ai3_mA: !float
+  ai4_mA: !float

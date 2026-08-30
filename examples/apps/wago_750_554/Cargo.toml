@@ -1,0 +1,11 @@
+[package]
+name = "wago_750_554"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+qitech_framework.workspace = true
+qitech_framework_tui.workspace = true
+qitech_lib.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
