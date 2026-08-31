@@ -127,8 +127,8 @@ impl Machine for LaserV1 {
             }
 
             self.diameter.set(convert(m.diameter));
-            self.diameter_x.set(Some(convert(m.x_axis)));
-            self.diameter_y.set(Some(convert(m.y_axis)));
+            self.diameter_x.set(m.x_axis.map(convert));
+            self.diameter_y.set(m.y_axis.map(convert));
         }
 
         let roundness = self.compute_roundness();
