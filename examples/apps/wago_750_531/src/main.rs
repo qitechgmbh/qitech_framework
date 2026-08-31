@@ -102,4 +102,3 @@ impl MachineBuild for Wago750_531Machine {
         })
     }
 }
-

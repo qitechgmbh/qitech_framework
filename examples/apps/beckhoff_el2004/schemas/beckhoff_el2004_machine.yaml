@@ -2,9 +2,9 @@ qms_version: 1.0
 revision: 1
 
 identification:
-  name: my_machine
+  name: beckhoff_el2004
   vendor_id: 1
-  machine_id: 10
+  machine_id: 64
 
 config:
   led1_on: !boolean
