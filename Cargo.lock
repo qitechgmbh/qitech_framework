@@ -295,6 +295,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "beckhoff_el2004"
+version = "0.1.0"
+dependencies = [
+ "qitech_framework",
+ "qitech_lib",
+ "tokio",
+]
+
+[[package]]
+name = "beckhoff_el4008"
+version = "0.1.0"
+dependencies = [
+ "qitech_framework",
+ "qitech_lib",
+ "tokio",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -445,7 +463,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "anyhow",
  "libc",
@@ -825,15 +843,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 
 [[package]]
-name = "el_2004"
-version = "0.1.0"
-dependencies = [
- "qitech_framework",
- "qitech_lib",
- "tokio",
-]
-
-[[package]]
 name = "embassy-time"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -983,7 +992,7 @@ dependencies = [
 [[package]]
 name = "ethercat_hal"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -1006,7 +1015,7 @@ dependencies = [
 [[package]]
 name = "ethercat_hal_derive"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "deluxe",
  "proc-macro2",
@@ -1811,7 +1820,7 @@ dependencies = [
 [[package]]
 name = "modbus"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "anyhow",
  "common",
@@ -2368,7 +2377,7 @@ dependencies = [
 [[package]]
 name = "qitech_lib"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "bitvec",
  "common",
@@ -3660,7 +3669,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 [[package]]
 name = "units"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "uom",
 ]
@@ -3724,6 +3733,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d9b2acfb050df409c972a37d3b8e08cdea3bddb0c09db9d53137e504cfabed0"
 dependencies = [
  "utf8parse",
+]
+
+[[package]]
+name = "wago_750_531"
+version = "0.1.0"
+dependencies = [
+ "qitech_framework",
+ "qitech_framework_tui",
+ "qitech_lib",
+ "tokio",
 ]
 
 [[package]]
@@ -4115,7 +4134,7 @@ dependencies = [
 [[package]]
 name = "xtrem"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=35361fbd8607647e95a6ef192b55335856f54e1a#35361fbd8607647e95a6ef192b55335856f54e1a"
+source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae#1cb01be2b3d59cf4d4a3d26111ffbd758bf99cae"
 dependencies = [
  "anyhow",
  "common",
