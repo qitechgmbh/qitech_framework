@@ -2,7 +2,7 @@ qms_version: 1.0
 revision: 1
 
 identification:
-  name: Wago750_531
+  name: wago_750_531
   vendor_id: 0
   machine_id: 0
 
