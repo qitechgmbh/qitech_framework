@@ -1,5 +1,5 @@
 [package]
-name = "el_2004"
+name = "beckhoff_el2004"
 version = "0.1.0"
 edition = "2024"
 
