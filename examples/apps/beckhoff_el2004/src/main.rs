@@ -20,7 +20,7 @@ use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 pub async fn main() {
     let config_rt = RuntimeConfiguration::new()
         .ethercat(EtherCATConfig::default())
-        .machine::<MyMachine>();
+        .machine::<BeckhoffEL2004Machine>();
 
     run_with_tui(config_rt, TuiConfiguration::default())
         .await
@@ -28,14 +28,14 @@ pub async fn main() {
 }
 
 #[derive(Machine)]
-pub struct MyMachine {
+pub struct BeckhoffEL2004Machine {
     el2004: Rc<RefCell<EL2004>>,
     leds: [ConfigProperty<bool>; 4],
 }
 
-impl Machine for MyMachine {}
+impl Machine for BeckhoffEL2004Machine {}
 
-impl MyMachine {
+impl BeckhoffEL2004Machine {
     fn update_led(&mut self, port: usize) -> ActResult {
         let value = self.leds[port].get();
         self.el2004.borrow_mut().set_output(port, value);
@@ -43,29 +43,29 @@ impl MyMachine {
     }
 }
 
-impl MachineBuild for MyMachine {
-    #[machine_build(MyMachine)]
+impl MachineBuild for BeckhoffEL2004Machine {
+    #[machine_build(BeckhoffEL2004Machine)]
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
         let el2004 = ctx.find_ethercat_device::<EL2004>(1)?;
 
         let led1_on = ctx
             .config::<bool>("led1_on")
-            .on_external_changed(|m: &mut MyMachine| m.update_led(1))
+            .on_external_changed(|m: &mut BeckhoffEL2004Machine| m.update_led(1))
             .build()?;
 
         let led2_on = ctx
             .config::<bool>("led2_on")
-            .on_external_changed(|m: &mut MyMachine| m.update_led(1))
+            .on_external_changed(|m: &mut BeckhoffEL2004Machine| m.update_led(1))
             .build()?;
 
         let led3_on = ctx
             .config::<bool>("led3_on")
-            .on_external_changed(|m: &mut MyMachine| m.update_led(2))
+            .on_external_changed(|m: &mut BeckhoffEL2004Machine| m.update_led(2))
             .build()?;
 
         let led4_on = ctx
             .config::<bool>("led4_on")
-            .on_external_changed(|m: &mut MyMachine| m.update_led(3))
+            .on_external_changed(|m: &mut BeckhoffEL2004Machine| m.update_led(3))
             .build()?;
 
         Ok(Self {
