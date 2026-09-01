@@ -1,0 +1,13 @@
+qms_version: 1.0
+revision: 1
+
+identification:
+  name: wago_750_402
+  vendor_id: 0
+  machine_id: 0
+
+state:
+  led1_on: !boolean
+  led2_on: !boolean
+  led3_on: !boolean
+  led4_on: !boolean
