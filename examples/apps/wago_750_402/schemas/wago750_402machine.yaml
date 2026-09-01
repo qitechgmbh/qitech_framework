@@ -7,7 +7,7 @@ identification:
   machine_id: 0
 
 state:
-  led1_on: !boolean
-  led2_on: !boolean
-  led3_on: !boolean
-  led4_on: !boolean
+  in1: !boolean
+  in2: !boolean
+  in3: !boolean
+  in4: !boolean
