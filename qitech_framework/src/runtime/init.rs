@@ -89,20 +89,45 @@ impl<T: RuntimeTransport> Runtime<T> {
                 (None, Vec::default())
             };
 
-        // --- initialize modbus rtu ---
-        if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
-            session.send_event(RuntimeInitEvent::ModbusRTUDiscoveryStarted)?;
+        // --- discover modbus rtu ports (always, so the Setup page has something to show even
+        //     when no driver is registered for this build) ---
+        session.send_event(RuntimeInitEvent::ModbusRTUDiscoveryStarted)?;
+        let modbus_devices = modbus_rtu::list_modbus_devices();
 
-            for (path, entry) in config.entries {
-                let Some(path) = modbus_rtu::resolve_serial_by_path(&path) else {
-                    session.send_event(RuntimeInitEvent::ModbusRTUDeviceNotFound { path })?;
+        // --- initialize assigned modbus rtu devices ---
+        if let ModbusRtuMode::Enabled(config) = config.modbus_rtu_mode {
+            for device in &modbus_devices {
+                let Some(assignment) = &device.assignment else {
                     continue;
                 };
 
-                let dev_path = path.clone();
-                let result = (entry.init)(dev_path);
+                let Some(driver) = config.drivers.get(&assignment.machine.machine) else {
+                    session.send_event(RuntimeInitEvent::ModbusRTUNoDriverForMachine {
+                        port: device.port.clone(),
+                        machine: assignment.machine.machine,
+                    })?;
+                    continue;
+                };
 
-                let device = match result {
+                let Some(node) = &device.device_node else {
+                    session.send_event(RuntimeInitEvent::ModbusRTUDeviceNotFound {
+                        path: device.port.clone(),
+                    })?;
+                    continue;
+                };
+
+                // a slave id of 0 (the Modbus broadcast address, never a valid target to poll)
+                // is used as the "unset" sentinel by the assignment UI, falling back to the
+                // driver's own default.
+                let slave_id = if assignment.slave_id == 0 {
+                    driver.default_slave_id
+                } else {
+                    assignment.slave_id
+                };
+
+                let result = (driver.init)(node.clone(), slave_id);
+
+                let device_handle = match result {
                     Ok(v) => v,
                     Err(e) => {
                         session.send_event(RuntimeInitEvent::ModbusRTUCouldNotInitialize {
@@ -114,11 +139,17 @@ impl<T: RuntimeTransport> Runtime<T> {
                 };
 
                 hardware_registry
-                    .entry(entry.ident)
+                    .entry(assignment.machine)
                     .or_insert_with(Vec::new)
-                    .push(Hardware::ModbusRTU(ModbusRTUDeviceIdentified { device }));
+                    .push(Hardware::ModbusRTU(ModbusRTUDeviceIdentified {
+                        device: device_handle,
+                    }));
             }
         }
+
+        session.send_event(RuntimeInitEvent::ModbusRTUDiscoveryCompleted {
+            devices: modbus_devices,
+        })?;
 
         // --- build machines ---
         session.send_event(RuntimeInitEvent::BuildingMachines)?;

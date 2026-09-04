@@ -11,6 +11,7 @@ pub use value::ScalarValueKind;
 pub use value::ScalarValueTypeMismatchError;
 
 pub mod ident;
+pub mod modbus;
 pub mod report;
 pub mod request;
 pub mod session;

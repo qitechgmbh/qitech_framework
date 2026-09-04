@@ -26,7 +26,7 @@ use types::MachineRegistry;
 
 mod ethercat;
 mod init;
-mod modbus_rtu;
+pub mod modbus_rtu;
 mod utils;
 
 mod config;

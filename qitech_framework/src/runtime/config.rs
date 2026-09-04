@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-use qitech_framework_core::ident::MachineInstanceIdentification;
+use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::modbus::ModbusDevice;
@@ -51,29 +51,36 @@ impl RuntimeConfiguration {
         self
     }
 
-    pub fn modbus_rtu_device<D: ModbusDevice + 'static>(
+    /// Register a driver for a machine *type*: "machines of type `machine` are driven over
+    /// Modbus RTU by `D`". The USB serial port and machine instance (serial number) are not
+    /// known at compile time - they come from the user-configured assignments persisted via
+    /// `runtime::modbus_rtu`, matched up at runtime init.
+    pub fn modbus_rtu_driver<D: ModbusDevice + 'static>(
         mut self,
-        id_path: impl ToString,
-        ident: MachineInstanceIdentification,
-        slave_id: u8,
+        machine: MachineIdentification,
+        default_slave_id: u8,
         settings: Option<ModbusSettings>,
     ) -> Self {
         let mut config = match self.modbus_rtu_mode {
             ModbusRtuMode::Enabled(config) => config,
             _ => ModbusRtuConfig {
-                entries: Default::default(),
+                drivers: Default::default(),
             },
         };
 
-        let init = Box::new(move |path: String| {
+        let init = Box::new(move |path: String, slave_id: u8| {
             let dev = D::new(path, slave_id, settings).map_err(|e| format!("{e}"))?;
             let dev: Rc<RefCell<dyn ModbusDevice>> = Rc::new(RefCell::new(dev));
             Ok(dev)
         });
 
-        config
-            .entries
-            .insert(id_path.to_string(), ModbusRtuEntry { ident, init });
+        config.drivers.insert(
+            machine,
+            ModbusRtuDriver {
+                init,
+                default_slave_id,
+            },
+        );
 
         self.modbus_rtu_mode = ModbusRtuMode::Enabled(config);
         self
@@ -139,12 +146,12 @@ pub enum ModbusRtuMode {
 }
 
 pub struct ModbusRtuConfig {
-    pub entries: HashMap<String, ModbusRtuEntry>,
+    pub drivers: HashMap<MachineIdentification, ModbusRtuDriver>,
 }
 
-pub struct ModbusRtuEntry {
-    pub ident: MachineInstanceIdentification,
+pub struct ModbusRtuDriver {
     pub init: NewModbusDeviceFn,
+    pub default_slave_id: u8,
 }
 
 pub(crate) struct MachineRegistration {
@@ -155,4 +162,4 @@ pub(crate) struct MachineRegistration {
 }
 
 pub type NewModbusDeviceFn =
-    Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>;
+    Box<dyn Fn(String, u8) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>;

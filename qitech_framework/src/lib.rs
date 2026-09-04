@@ -11,6 +11,8 @@ pub use qitech_framework_core::report::Constraints;
 pub use qitech_framework_core::report::EtherCATDeviceMetadata;
 pub use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::EventRecord;
+pub use qitech_framework_core::modbus::ModbusRTUDeviceMetadata;
+pub use qitech_framework_core::modbus::ModbusRtuAssignment;
 pub use qitech_framework_core::report::MachinesReport;
 pub use qitech_framework_core::report::RuntimeInitEvent;
 pub use qitech_framework_core::report::RuntimeReport;

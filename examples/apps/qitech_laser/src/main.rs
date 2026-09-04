@@ -35,12 +35,7 @@ pub async fn main() {
         .init();
 
     let config_rt = RuntimeConfiguration::new()
-        .modbus_rtu_device::<LaserDevice>(
-            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0".to_string(),
-            LaserV1::IDENTIFICATION.unique(1),
-            1,
-            None,
-        )
+        .modbus_rtu_driver::<LaserDevice>(LaserV1::IDENTIFICATION, 1, None)
         .machine::<LaserV1>();
 
     run_with_tui(config_rt, TuiConfiguration::default())

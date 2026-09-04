@@ -4,7 +4,9 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::ident::DeviceIdentification;
+use crate::ident::MachineIdentification;
 use crate::ident::MachineInstanceIdentification;
+use crate::modbus::ModbusRTUDeviceMetadata;
 use crate::report::error::BuildError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,8 +31,15 @@ pub enum RuntimeInitEvent {
 
     // --- modbus rtu ---
     ModbusRTUDiscoveryStarted,
+    ModbusRTUDiscoveryCompleted {
+        devices: Vec<ModbusRTUDeviceMetadata>,
+    },
     ModbusRTUDeviceNotFound {
         path: String,
+    },
+    ModbusRTUNoDriverForMachine {
+        port: String,
+        machine: MachineIdentification,
     },
 
     ModbusRTUCouldNotInitialize {
@@ -103,7 +112,9 @@ impl From<&RuntimeInitEvent> for RuntimeInitStatus {
 
             // --- modbus rtu ---
             ModbusRTUDiscoveryStarted
+            | ModbusRTUDiscoveryCompleted { .. }
             | ModbusRTUDeviceNotFound { .. }
+            | ModbusRTUNoDriverForMachine { .. }
             | ModbusRTUCouldNotInitialize { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
 
             // --- building machines ---
