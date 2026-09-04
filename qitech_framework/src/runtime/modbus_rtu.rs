@@ -85,9 +85,31 @@ fn discover_ports() -> Vec<DiscoveredPort> {
     let ports: Vec<(String, String)> = if !by_path_entries.is_empty() {
         by_path_entries
     } else {
-        usb_by_node
-            .keys()
-            .map(|node| (node.clone(), node.clone()))
+        let mut by_suffix: HashMap<&str, &str> = HashMap::new();
+
+        for node in usb_by_node.keys() {
+            let basename = node.rsplit('/').next().unwrap_or(node);
+            let Some(suffix) = basename
+                .strip_prefix("cu.")
+                .or_else(|| basename.strip_prefix("tty."))
+            else {
+                by_suffix.insert(node, node);
+                continue;
+            };
+
+            by_suffix
+                .entry(suffix)
+                .and_modify(|existing| {
+                    if node.contains("/cu.") || node.starts_with("cu.") {
+                        *existing = node;
+                    }
+                })
+                .or_insert(node);
+        }
+
+        by_suffix
+            .into_values()
+            .map(|node| (node.to_string(), node.to_string()))
             .collect()
     };
 
