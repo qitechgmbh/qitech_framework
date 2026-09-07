@@ -70,7 +70,7 @@ impl MeasurementsPage {
         ctx: MachinesContext,
     ) -> (Mode, KeyResult<AppAction>) {
         let machine = ctx.selected();
-        let prop_count = machine.state.len().saturating_sub(1);
+        let prop_count = machine.measurements.len().saturating_sub(1);
 
         // --- let component handle event ---
         let Err(code) = navigation.on_key(code, prop_count) else {
