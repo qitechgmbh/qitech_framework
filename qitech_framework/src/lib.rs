@@ -12,6 +12,7 @@ pub use qitech_framework_core::report::EtherCATDeviceMetadata;
 pub use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::EventRecord;
 pub use qitech_framework_core::report::MachinesReport;
+pub use qitech_framework_core::report::RuntimeEvent;
 pub use qitech_framework_core::report::RuntimeInitEvent;
 pub use qitech_framework_core::report::RuntimeReport;
 pub use qitech_framework_core::report::StatePropertyEvent;
