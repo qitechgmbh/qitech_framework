@@ -4,6 +4,7 @@ use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::session::ControllerSessionProvider;
 use qitech_framework_core::session::ControllerTransport;
 use qitech_framework_core::session::error::SchemaSyncError;
+use qitech_framework_core::session::error::TransportError;
 use tokio::sync::mpsc;
 
 use crate::Listener;
@@ -27,6 +28,13 @@ pub async fn run<T: ControllerTransport>(
                 tracing::info!("runtime connection established");
                 connection
             }
+
+            Err(TransportError::Disconnected) => {
+                // provider permantenly lost connection (e.g. mpsc channel dropped)
+                tracing::info!("provider lost connection, stopping SessionManager");
+                return;
+            }
+
             Err(err) => {
                 tracing::error!(%err, "failed to connect to runtime");
                 continue;

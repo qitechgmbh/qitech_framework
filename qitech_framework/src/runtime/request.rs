@@ -199,6 +199,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 // --- allow machine to handle subscription ---
                 instance.machine.subscribe(&mut ctx)?;
+                instance.subscriptions.insert(provider, token_provider);
 
                 self.report.events.push(RuntimeEvent::SubscriptionAdded {
                     provider,
