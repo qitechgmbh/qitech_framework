@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use qitech_framework::Machine;
 use qitech_framework::TuiConfiguration;
 use qitech_framework::machine::ActResult;
@@ -14,8 +17,6 @@ use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use qitech_lib::ethercat_hal::devices::wago_modules::wago_750_354::Wago750_354;
 use qitech_lib::ethercat_hal::devices::wago_modules::wago_750_531::Wago750_531;
 use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[tokio::main]
 pub async fn main() {

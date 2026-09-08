@@ -211,8 +211,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         Vec<(MachineInstanceIdentification, Result<(), BuildError>)>,
     ) {
         let mut machines: Vec<MachineInstance> = Vec::new();
-        let mut outcomes: Vec<(MachineInstanceIdentification, Result<(), BuildError>)> =
-            Vec::new();
+        let mut outcomes: Vec<(MachineInstanceIdentification, Result<(), BuildError>)> = Vec::new();
 
         for (ident_unique, hardware) in hardware_registry {
             let ident = ident_unique.machine;
