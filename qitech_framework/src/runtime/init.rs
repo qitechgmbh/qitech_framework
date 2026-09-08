@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
+use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeInitEvent;
@@ -11,7 +12,6 @@ use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
 use qitech_framework_core::session::RuntimeSessionProvider;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
@@ -133,15 +133,14 @@ impl<T: RuntimeTransport> Runtime<T> {
             measurements: PropertyRegistry::new(ResourceKind::Measurement, 4096),
         };
 
-        let machines = Self::init_machines(
-            &mut session,
+        let (machines, build_outcomes) = Self::init_machines(
             export_count.clone(),
             &machine_registry,
             &hardware_registry,
             ecat_controller.as_ref().map(|v| v.channel.clone()),
             &mut journals,
             &mut resources,
-        )?;
+        );
 
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
@@ -167,6 +166,12 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
             };
             session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
+        }
+
+        // --- announce machine build results, now that the bus is confirmed Op
+        //     (or immediately, if ethercat is disabled entirely) ---
+        for (ident, result) in build_outcomes {
+            session.send_event(RuntimeInitEvent::MachineBuildCompleted { ident, result })?;
         }
 
         // --- return initialized runtime ---
@@ -195,24 +200,25 @@ impl<T: RuntimeTransport> Runtime<T> {
     }
 
     fn init_machines(
-        session: &mut SessionInitializing<T>,
         export_count: Rc<Cell<u64>>,
         machine_registry: &MachineRegistry,
         hardware_registry: &HardwareRegistry,
         ecat_interface: Option<EtherCATThreadChannel>,
         journals: &mut Journals,
         resources: &mut ResourceRegistry,
-    ) -> RuntimeInitializeResult<Vec<MachineInstance>> {
+    ) -> (
+        Vec<MachineInstance>,
+        Vec<(MachineInstanceIdentification, Result<(), BuildError>)>,
+    ) {
         let mut machines: Vec<MachineInstance> = Vec::new();
+        let mut outcomes: Vec<(MachineInstanceIdentification, Result<(), BuildError>)> =
+            Vec::new();
 
         for (ident_unique, hardware) in hardware_registry {
             let ident = ident_unique.machine;
 
             let Some(entry) = machine_registry.get(&ident) else {
-                session.send_event(RuntimeInitEvent::MachineBuildCompleted {
-                    ident: *ident_unique,
-                    result: Err(BuildError::MachineTypeNotRegistered),
-                })?;
+                outcomes.push((*ident_unique, Err(BuildError::MachineTypeNotRegistered)));
 
                 continue;
             };
@@ -240,10 +246,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             let machine = match (entry.build)(&mut ctx) {
                 Ok(v) => v,
                 Err(e) => {
-                    session.send_event(RuntimeInitEvent::MachineBuildCompleted {
-                        ident: *ident_unique,
-                        result: Err(e),
-                    })?;
+                    outcomes.push((*ident_unique, Err(e)));
 
                     continue;
                 }
@@ -279,13 +282,10 @@ impl<T: RuntimeTransport> Runtime<T> {
                 subscriptions: Default::default(),
             });
 
-            // --- emit event ---
-            session.send_event(RuntimeInitEvent::MachineBuildCompleted {
-                ident: *ident_unique,
-                result: Ok(()),
-            })?;
+            // --- record outcome ---
+            outcomes.push((*ident_unique, Ok(())));
         }
 
-        Ok(machines)
+        (machines, outcomes)
     }
 }
