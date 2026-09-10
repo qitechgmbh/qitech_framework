@@ -49,7 +49,5 @@ pub trait Listener: Send {
         _ = report;
     }
 
-    fn on_runtime_disconnected(&mut self) {
-        // default implementation does nothing
-    }
+    fn on_runtime_disconnected(&mut self) {}
 }
