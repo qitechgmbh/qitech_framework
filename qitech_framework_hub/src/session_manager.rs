@@ -123,6 +123,9 @@ pub async fn run<T: ControllerTransport>(
                     let report = match report {
                         Ok(report) => report,
                         Err(err) => {
+                            for listener in &mut listeners {
+                                listener.on_runtime_disconnected();
+                            }
                             tracing::warn!(%err, "runtime connection lost while receiving report");
                             break;
                         }
