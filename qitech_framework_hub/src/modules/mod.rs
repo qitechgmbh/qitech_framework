@@ -48,4 +48,6 @@ pub trait Listener: Send {
     fn on_report_received(&mut self, report: &RuntimeReport) {
         _ = report;
     }
+
+    fn on_runtime_disconnected(&mut self) {}
 }
