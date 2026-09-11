@@ -37,6 +37,25 @@ pub enum RuntimeInitEvent {
         error: String,
     },
 
+    // --- xtrem ---
+    XtremDiscoveryStarted,
+    XtremBusFailed {
+        error: String,
+    },
+    XtremDiscoveryCompleted {
+        modules: Vec<XtremModuleMetadata>,
+    },
+    XtremDeviceNotFound {
+        device_id: u8,
+    },
+    XtremDeviceIdCollision {
+        device_id: u8,
+    },
+    XtremCouldNotInitialize {
+        device_id: u8,
+        error: String,
+    },
+
     // --- machine ---
     BuildingMachines,
     MachineBuildStarted {
@@ -58,6 +77,7 @@ pub enum RuntimeInitStatus {
     EtherCATDiscovery,
     EtherCATInitializingDevices,
     ModbusRTUDiscovery,
+    XtremDiscovery,
     BuildingMachines,
     Finalizing,
     Completed,
@@ -71,6 +91,7 @@ impl RuntimeInitStatus {
             RuntimeInitStatus::EtherCATDiscovery => "ethercat_discovery",
             RuntimeInitStatus::EtherCATInitializingDevices => "ethercat_initializing_devices",
             RuntimeInitStatus::ModbusRTUDiscovery => "modbus_rtu_discovery",
+            RuntimeInitStatus::XtremDiscovery => "xtrem_discovery",
             RuntimeInitStatus::BuildingMachines => "building_machines",
             RuntimeInitStatus::Finalizing => "finalizing",
             RuntimeInitStatus::Completed => "completed",
@@ -106,6 +127,14 @@ impl From<&RuntimeInitEvent> for RuntimeInitStatus {
             | ModbusRTUDeviceNotFound { .. }
             | ModbusRTUCouldNotInitialize { .. } => RuntimeInitStatus::ModbusRTUDiscovery,
 
+            // --- xtrem ---
+            XtremDiscoveryStarted
+            | XtremBusFailed { .. }
+            | XtremDiscoveryCompleted { .. }
+            | XtremDeviceNotFound { .. }
+            | XtremDeviceIdCollision { .. }
+            | XtremCouldNotInitialize { .. } => RuntimeInitStatus::XtremDiscovery,
+
             // --- building machines ---
             BuildingMachines | MachineBuildStarted { .. } | MachineBuildCompleted { .. } => {
                 RuntimeInitStatus::BuildingMachines
@@ -125,6 +154,15 @@ pub enum EtherCATStatus {
     PreOp,
     PreopPdi,
     Op,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XtremModuleMetadata {
+    /// Register `0000h`. Factory-set and unique, so this is the stable identity to configure on.
+    pub serial: u32,
+    pub device_id: u8,
+    pub addr: String,
+    pub id_collision: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
