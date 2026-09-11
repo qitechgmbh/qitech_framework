@@ -100,7 +100,7 @@ impl RuntimeConfiguration {
     pub fn xtrem_device<D: XtremDeviceBuild + 'static>(
         mut self,
         device_id: u8,
-        ident: MachineIdentificationUnique,
+        ident: MachineInstanceIdentification,
         mode: ScaleMode,
     ) -> Self {
         let mut config = match self.xtrem_mode {
@@ -217,7 +217,7 @@ impl Default for XtremConfig {
 }
 
 pub struct XtremEntry {
-    pub ident: MachineIdentificationUnique,
+    pub ident: MachineInstanceIdentification,
     pub init: NewXtremDeviceFn,
 }
 
