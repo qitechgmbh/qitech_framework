@@ -131,6 +131,7 @@ pub async fn run<T: ControllerTransport>(
                         }
                     };
 
+                    #[cfg(feature = "tracing")]
                     tracing::debug!(
                         response_count = report.responses.len(),
                         "received runtime report"

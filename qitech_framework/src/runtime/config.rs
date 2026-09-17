@@ -8,8 +8,6 @@ use std::time::Duration;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
-use qitech_lib::modbus::ModbusDevice;
-use qitech_lib::modbus::ModbusSettings;
 use qitech_lib::xtrem::ScaleMode;
 use qitech_lib::xtrem::XtremBusConfig;
 use qitech_lib::xtrem::XtremBusHandle;
@@ -21,6 +19,7 @@ use crate::machine::BuildContext;
 use crate::machine::Machine;
 use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
+use crate::modbus::ModbusRTUBusConfig;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
 use crate::runtime::xtrem::XtremDeviceBuild;
@@ -30,13 +29,25 @@ pub struct RuntimeConfiguration {
     pub(crate) config: Config,
     pub(crate) machines: Vec<MachineRegistration>,
     pub(crate) ethercat_mode: EtherCATMode,
-    pub(crate) modbus_rtu_mode: ModbusRtuMode,
     pub(crate) xtrem_mode: XtremMode,
+
+    pub(crate) modbus_rtu_buses: Vec<ModbusRTUBusConfig>,
 }
 
 impl RuntimeConfiguration {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn when<F>(mut self, condition: bool, f: F) -> Self
+    where
+        F: FnOnce(&mut Self),
+    {
+        if condition {
+            f(&mut self);
+        }
+
+        self
     }
 
     pub fn requests_per_cycle_max(mut self, value: usize) -> Self {
@@ -59,31 +70,10 @@ impl RuntimeConfiguration {
         self
     }
 
-    pub fn modbus_rtu_device<D: ModbusDevice + 'static>(
-        mut self,
-        id_path: impl ToString,
-        ident: MachineInstanceIdentification,
-        slave_id: u8,
-        settings: Option<ModbusSettings>,
-    ) -> Self {
-        let mut config = match self.modbus_rtu_mode {
-            ModbusRtuMode::Enabled(config) => config,
-            _ => ModbusRtuConfig {
-                entries: Default::default(),
-            },
-        };
-
-        let init = Box::new(move |path: String| {
-            let dev = D::new(path, slave_id, settings).map_err(|e| format!("{e}"))?;
-            let dev: Rc<RefCell<dyn ModbusDevice>> = Rc::new(RefCell::new(dev));
-            Ok(dev)
-        });
-
-        config
-            .entries
-            .insert(id_path.to_string(), ModbusRtuEntry { ident, init });
-
-        self.modbus_rtu_mode = ModbusRtuMode::Enabled(config);
+    pub fn modbus_rtu_bus(mut self, config: ModbusRTUBusConfig) -> Self {
+        // TODO: move to build process
+        // assert!(!self.modbus_rtu_buses.iter().any(|existing| existing.port == config.port));
+        self.modbus_rtu_buses.push(config);
         self
     }
 
@@ -170,25 +160,6 @@ impl Default for EtherCATConfig {
 }
 
 #[derive(Default)]
-pub enum ModbusRtuMode {
-    #[default]
-    Disabled,
-    Enabled(ModbusRtuConfig),
-
-    #[allow(unused)]
-    Mock,
-}
-
-pub struct ModbusRtuConfig {
-    pub entries: HashMap<String, ModbusRtuEntry>,
-}
-
-pub struct ModbusRtuEntry {
-    pub ident: MachineInstanceIdentification,
-    pub init: NewModbusDeviceFn,
-}
-
-#[derive(Default)]
 pub enum XtremMode {
     #[default]
     Disabled,
@@ -227,9 +198,6 @@ pub(crate) struct MachineRegistration {
     pub type_id: TypeId,
     pub type_name: &'static str,
 }
-
-pub type NewModbusDeviceFn =
-    Box<dyn Fn(String) -> Result<Rc<RefCell<dyn ModbusDevice + 'static>>, String> + Send>;
 
 pub type NewXtremDeviceFn = Box<
     dyn Fn(&XtremBusHandle, &XtremProbe) -> Result<Rc<RefCell<dyn XtremDevice + 'static>>, String>

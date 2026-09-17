@@ -1,6 +1,6 @@
 use axum::Router;
 use axum::routing::post;
-use qitech_framework_hub::ActorContext;
+use qitech_framework_ctrl::ActorContext;
 
 pub mod machine_mutate;
 pub mod write_machine_device_identification;

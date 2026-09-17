@@ -14,7 +14,7 @@ use types::SchemaRegistry;
 use types::Swappable;
 
 mod config;
-pub use config::HubConfiguration;
+pub use config::ControllerBuilder;
 
 mod modules;
 pub use modules::Actor;
@@ -25,7 +25,7 @@ mod session_manager;
 mod transaction_manager;
 
 pub async fn run<T: ControllerTransport + 'static>(
-    config: HubConfiguration,
+    config: ControllerBuilder,
     provider: impl ControllerSessionProvider<Transport = T> + 'static,
 ) -> Result<(), i64> {
     let (request_dispatcher_tx, request_dispatcher_rx) = mpsc::channel(1024);

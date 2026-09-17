@@ -1,4 +1,4 @@
-use qitech_framework::HubConfiguration;
+use qitech_framework::ControllerBuilder;
 use qitech_framework::run_with_hub;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
@@ -38,7 +38,7 @@ pub async fn main() {
     let state = SharedState::default();
     let state_legacy = LegacySharedState::new();
 
-    let config_hub = HubConfiguration::new()
+    let config_hub = ControllerBuilder::new()
         .listener(SocketIODispatcher::new(state.clone(), state_legacy.clone()))
         .actor(Server::new(state, state_legacy));
 

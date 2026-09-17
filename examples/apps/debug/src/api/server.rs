@@ -1,5 +1,5 @@
-use qitech_framework_hub::Actor;
-use qitech_framework_hub::ActorContext;
+use qitech_framework_ctrl::Actor;
+use qitech_framework_ctrl::ActorContext;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 

@@ -6,7 +6,7 @@ use axum::response::IntoResponse;
 use axum::response::Response as AxumResponse;
 use qitech_framework::MachineIdentification;
 use qitech_framework::MachineInstanceIdentification;
-use qitech_framework_hub::ActorContext;
+use qitech_framework_ctrl::ActorContext;
 use serde::Deserialize;
 use serde::Serialize;
 

@@ -1,5 +1,5 @@
 [package]
-name = "qitech_framework_hub"
+name = "qitech_framework_ctrl"
 version = "0.1.0"
 edition = "2024"
 
@@ -24,3 +24,6 @@ tracing.workspace = true
 # qitech_framework.workspace = true
 # testcontainers = { workspace = true, features = ["http_wait_plain"]}
 # tracing.workspace = true
+
+[features]
+tracing=[]

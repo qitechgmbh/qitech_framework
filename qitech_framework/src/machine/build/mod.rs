@@ -59,4 +59,20 @@ impl<'a> BuildContext<'a> {
     pub fn ident(&self) -> MachineInstanceIdentification {
         self.ident
     }
+
+    /*
+    pub fn nested<'b, M: Machine, N>(
+        &'a mut self, 
+        name: &'static str,
+        mapper: fn(&mut M) -> &mut N,
+    ) -> NestedBuildContext<'a, 'b> {
+        NestedBuildContext { ctx: self }
+    }
+    */
 }
+
+/*
+pub struct NestedBuildContext<'a, 'b> {
+    ctx: &'b mut BuildContext<'a>
+}
+*/

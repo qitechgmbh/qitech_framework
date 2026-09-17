@@ -1,0 +1,16 @@
+todo (ALL regardless of priority):
+-> implement concepts
+-> merge init_events with events
+-> merge events into report and simplify data model
+-> merge tui and hub into controller interface modules
+-> expose global event log in tui
+-> ethercat: extract discovery logic into control and instead move 
+    to EtherCATBus that asks for interface directly akin to how it is used in production
+- modbus_rtu: Define ModbusRTUBus and assign devices to it then handle it via a BusManager
+- xtrem: same as modbus rtu principle
+- implement mock machine support
+- allow ethercat hotplugging
+
+
+-> New flow with machines:
+-> On startup simply start the runtime loop 

@@ -1,8 +1,6 @@
 use std::borrow::Cow;
-use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::bail;
 use chrono::Utc;
 use qitech_framework_core::LogLevel;
 use qitech_framework_core::LogOrigin;
@@ -22,9 +20,9 @@ use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::schema::MachinesReport;
 use qitech_framework_core::vendors;
-use qitech_framework_hub::Config;
-use qitech_framework_hub::DatabaseConfig;
-use qitech_framework_hub::Embedded;
+use qitech_framework_ctrl::Config;
+use qitech_framework_ctrl::DatabaseConfig;
+use qitech_framework_ctrl::Embedded;
 use testcontainers::GenericImage;
 use testcontainers::ImageExt;
 use testcontainers::core::ContainerPort;
@@ -32,7 +30,6 @@ use testcontainers::core::Mount;
 use testcontainers::core::WaitFor;
 use testcontainers::core::wait::HttpWaitStrategy;
 use testcontainers::runners::AsyncRunner;
-use tokio::process::Command;
 use tokio::time::sleep;
 
 pub const CLICKHOUSE_PORT: ContainerPort = ContainerPort::Tcp(8123);
@@ -77,7 +74,7 @@ async fn my_test() -> anyhow::Result<()> {
     sleep(Duration::from_millis(100)).await;
 
     // --- create hub instance ---
-    let (hub, mut session) = Embedded::new(
+    let (app, mut session) = Embedded::new(
         config,
         vec![
             include_str!("../schemas/machine_0.yaml").to_string(),
@@ -86,7 +83,7 @@ async fn my_test() -> anyhow::Result<()> {
     )
     .await?;
 
-    tokio::spawn(hub.run());
+    tokio::spawn(app.run());
 
     // give hub time to initialize
     sleep(Duration::from_millis(250)).await;
@@ -197,25 +194,6 @@ async fn my_test() -> anyhow::Result<()> {
 
     // println!("running api requests");
     // run_bruno_requests().await?;
-
-    Ok(())
-}
-
-async fn run_bruno_requests() -> anyhow::Result<()> {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/api/requests");
-
-    let output = Command::new("bru")
-        .current_dir(root)
-        .arg("run")
-        .output()
-        .await?;
-
-    println!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
-    println!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
-
-    if !output.status.success() {
-        bail!("Bruno execution failed");
-    }
 
     Ok(())
 }

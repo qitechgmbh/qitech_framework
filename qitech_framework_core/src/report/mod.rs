@@ -76,6 +76,23 @@ impl RuntimeReport {
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeEvent {
+    EtherCATStateUpdate(EtherCATStatus),
+
+    // --- ether cat ---
+    EtherCATInitializationStarted {
+        interface: String,
+    },
+
+    EtherCATDeviceInitializationFailed {
+        interface: String,
+        error: String,
+    },
+
+    EtherCATDeviceInitializationCompleted {
+        interface: String,
+        devices: Vec<EtherCATDeviceMetadata>,
+    },
+
     AddedMachine {
         ident: MachineInstanceIdentification,
     },

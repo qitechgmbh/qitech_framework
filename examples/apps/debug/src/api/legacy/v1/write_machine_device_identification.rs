@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use qitech_framework::RuntimeRequestKind;
 use qitech_framework::ident::DeviceMachineAssignment;
-use qitech_framework_hub::ActorContext;
+use qitech_framework_ctrl::ActorContext;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]

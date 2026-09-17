@@ -15,7 +15,18 @@ use crate::types::RuntimeRequestSender;
 
 type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
-pub struct HubConfiguration {
+// what will be used:
+// -> TUI loads the ui in the background and needs to listen for new data
+// -> TUI wants to send requests
+// -> Rest-Api wants to access current data 
+// -> Rest-Api wants to access data in database
+// -> Rest-Api wants to submit requests
+// -> Database wants to receive 
+// -> Controller should not drive/control the tui's cycle or rest-api network stuff
+
+// Want to use database to verify schemas need to hook into the connect process
+
+pub struct ControllerBuilder {
     pub(crate) report_tx: RuntimeReportSender,
     pub(crate) request_tx: RuntimeRequestSender,
     pub(crate) request_rx: RuntimeRequestReceiver,
@@ -27,7 +38,7 @@ pub struct HubConfiguration {
     pub(crate) actors: Vec<RunnerFuture>,
 }
 
-impl HubConfiguration {
+impl ControllerBuilder {
     pub fn new() -> Self {
         let (report_tx, _) = broadcast::channel(32);
         let (request_tx, request_rx) = mpsc::channel(128);
@@ -61,9 +72,13 @@ impl HubConfiguration {
         self.actors.push(Box::pin(actor.run(ctx)));
         self
     }
+
+    pub fn build(self) {
+        // TODO: implement
+    }
 }
 
-impl Default for HubConfiguration {
+impl Default for ControllerBuilder {
     fn default() -> Self {
         Self::new()
     }

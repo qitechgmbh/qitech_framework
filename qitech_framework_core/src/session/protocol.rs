@@ -1,16 +1,19 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::report::RuntimeInitEvent;
 use crate::report::RuntimeReport;
 use crate::request::RuntimeRequest;
 use crate::schema::MachineSchema;
 use crate::session::error::HelloMatchError;
-use crate::session::error::SchemaSyncError;
 
 const MAGIC: u64 = 0x4855425F4C494E4B;
 const PROTOCOL_VERSION: u64 = 0x1;
 
+/// Initial handshake payload to ensure the protocol_versions match.
+/// This is to meant to have one stable payload to discover payload 
+/// mismatches instead of simply firing an error that it couldn't be parsed/processed.
+/// 
+/// NOTE: EXPECTED TO STAY STABLE. DO NOT CHANGE LAYOUT, EVER
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Hello {
     magic: u64,
@@ -51,19 +54,21 @@ impl Default for Hello {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct RuntimeInfo {
+    schemas: Vec<MachineSchema>,
+    
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum RuntimeMessage {
-    Hello(Hello),
-    Schema(Box<MachineSchema>),
-    InitEvent(RuntimeInitEvent),
-    Finished,
+    HelloAck(RuntimeInfo),
+    HelloReject(HelloMatchError),
     Report(Box<RuntimeReport>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ControllerMessage {
-    HelloAck,
-    HelloReject(HelloMatchError),
-    SchemaAck,
-    SchemaReject(SchemaSyncError),
+    Hello(Hello),
+    Start,
     Request(RuntimeRequest),
 }

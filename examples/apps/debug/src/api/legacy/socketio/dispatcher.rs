@@ -1,7 +1,7 @@
 use qitech_framework::MachineSchema;
 use qitech_framework::RuntimeInitEvent;
 use qitech_framework::RuntimeReport;
-use qitech_framework_hub::Listener;
+use qitech_framework_ctrl::Listener;
 
 use crate::api::LegacySharedState;
 use crate::api::SharedState;

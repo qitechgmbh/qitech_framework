@@ -709,7 +709,7 @@ dependencies = [
  "arc-swap",
  "axum",
  "qitech_framework",
- "qitech_framework_hub",
+ "qitech_framework_ctrl",
  "qitech_lib",
  "serde",
  "serde_json",
@@ -2276,7 +2276,7 @@ dependencies = [
  "heapless 0.9.3",
  "postcard",
  "qitech_framework_core",
- "qitech_framework_hub",
+ "qitech_framework_ctrl",
  "qitech_framework_macros",
  "qitech_framework_tui",
  "qitech_lib",
@@ -2286,6 +2286,7 @@ dependencies = [
  "serialport",
  "thiserror 2.0.20",
  "tokio",
+ "tokio-modbus",
  "tokio-serial",
  "toml 1.1.4+spec-1.1.0",
  "tracing",
@@ -2312,7 +2313,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "qitech_framework_hub"
+name = "qitech_framework_ctrl"
 version = "0.1.0"
 dependencies = [
  "arc-swap",

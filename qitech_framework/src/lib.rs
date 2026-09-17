@@ -21,7 +21,7 @@ pub use qitech_framework_core::schema::MachineSchema;
 pub use qitech_framework_core::session;
 use qitech_framework_core::session::debug::DebugRuntimeSessionProvider;
 pub use qitech_framework_core::vendors;
-pub use qitech_framework_hub::HubConfiguration;
+pub use qitech_framework_ctrl::ControllerBuilder;
 pub use qitech_framework_macros::*;
 use qitech_framework_tui::Tui;
 pub use qitech_framework_tui::TuiConfiguration;
@@ -30,6 +30,8 @@ pub use qitech_lib::units;
 use crate::runtime::Runtime;
 use crate::runtime::RuntimeConfiguration;
 
+mod controller;
+
 pub mod machine;
 mod resource;
 
@@ -37,6 +39,9 @@ pub mod runtime;
 
 pub type ConfigPropertyEventRecord = EventRecord<ConfigPropertyEvent>;
 pub type StatePropertyEventRecord = EventRecord<StatePropertyEvent>;
+
+mod modbus;
+mod service;
 
 #[doc(hidden)]
 /// exposed for proc macros
@@ -61,7 +66,7 @@ pub fn run_debug(config: RuntimeConfiguration) {
 
 pub async fn run_with_hub(
     config_runtime: RuntimeConfiguration,
-    config_hub: HubConfiguration,
+    config_hub: ControllerBuilder,
 ) -> anyhow::Result<()> {
     let (provider_runtime, provider_controller) = session::mpsc(64);
 
@@ -72,7 +77,7 @@ pub async fn run_with_hub(
 
     _ = runtime_thread;
 
-    qitech_framework_hub::run(config_hub, provider_controller)
+    qitech_framework_ctrl::run(config_hub, provider_controller)
         .await
         .unwrap();
     Ok(())
