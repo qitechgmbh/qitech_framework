@@ -5,8 +5,8 @@ use serialport::DataBits;
 use serialport::Parity;
 use serialport::StopBits;
 
-// Goals: 
-// -> user doesn't invoke 
+// Goals:
+// -> user doesn't invoke
 
 // --- config ---
 pub struct ModbusRTUBusConfig {

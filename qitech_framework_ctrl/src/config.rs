@@ -18,10 +18,10 @@ type RunnerFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 // what will be used:
 // -> TUI loads the ui in the background and needs to listen for new data
 // -> TUI wants to send requests
-// -> Rest-Api wants to access current data 
+// -> Rest-Api wants to access current data
 // -> Rest-Api wants to access data in database
 // -> Rest-Api wants to submit requests
-// -> Database wants to receive 
+// -> Database wants to receive
 // -> Controller should not drive/control the tui's cycle or rest-api network stuff
 
 // Want to use database to verify schemas need to hook into the connect process

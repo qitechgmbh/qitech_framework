@@ -10,9 +10,9 @@ const MAGIC: u64 = 0x4855425F4C494E4B;
 const PROTOCOL_VERSION: u64 = 0x1;
 
 /// Initial handshake payload to ensure the protocol_versions match.
-/// This is to meant to have one stable payload to discover payload 
+/// This is to meant to have one stable payload to discover payload
 /// mismatches instead of simply firing an error that it couldn't be parsed/processed.
-/// 
+///
 /// NOTE: EXPECTED TO STAY STABLE. DO NOT CHANGE LAYOUT, EVER
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Hello {
@@ -28,18 +28,18 @@ impl Hello {
         }
     }
 
-    pub fn try_match(self, other: Hello) -> Result<(), HelloMatchError> {
-        if self.magic != other.magic {
+    pub fn validate(self) -> Result<(), HelloMatchError> {
+        if self.magic != MAGIC {
             return Err(HelloMatchError::MagicMismatch {
-                expected: self.magic,
-                received: other.magic,
+                expected: MAGIC,
+                received: self.magic,
             });
         }
 
-        if self.protocol_version != other.protocol_version {
+        if self.protocol_version != PROTOCOL_VERSION {
             return Err(HelloMatchError::ProtocolVersionMismatch {
-                expected: self.protocol_version,
-                received: other.protocol_version,
+                expected: PROTOCOL_VERSION,
+                received: self.protocol_version,
             });
         }
 
@@ -55,8 +55,7 @@ impl Default for Hello {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
-    schemas: Vec<MachineSchema>,
-    
+    pub schemas: Vec<MachineSchema>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,6 +63,7 @@ pub enum RuntimeMessage {
     HelloAck(RuntimeInfo),
     HelloReject(HelloMatchError),
     Report(Box<RuntimeReport>),
+    UnexpectedMessage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

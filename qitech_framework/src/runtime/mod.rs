@@ -13,8 +13,6 @@ use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::SessionRunning;
-use qitech_lib::xtrem::XtremBusHandle;
 use types::Config;
 
 pub mod error;
@@ -25,6 +23,7 @@ use types::EtherCATSubDevice;
 use types::MachineInstance;
 use types::MachineRegistry;
 
+mod builder;
 mod ethercat;
 mod init;
 mod modbus_rtu;
@@ -44,7 +43,7 @@ mod request;
 
 pub struct Runtime<T: RuntimeTransport> {
     report: RuntimeReport,
-    session: SessionRunning<T>,
+    transport: SessionRunning<T>,
 
     // --- resource managers ---
     journals: Journals,
@@ -52,10 +51,6 @@ pub struct Runtime<T: RuntimeTransport> {
 
     // --- instances ---
     machines: Vec<MachineInstance>,
-    sub_devices: Vec<EtherCATSubDevice>,
-    ecat_controller: Option<EtherCATController>,
-
-    _xtrem_bus: Option<XtremBusHandle>,
 
     // --- misc ---
     config: Config,

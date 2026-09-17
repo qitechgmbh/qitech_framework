@@ -11,9 +11,10 @@ use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::XtremModuleMetadata;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
-use qitech_framework_core::session::RuntimeSessionProvider;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::SessionInitializing;
+use qitech_framework_core::session::protocol::ControllerMessage;
+use qitech_framework_core::session::protocol::RuntimeInfo;
+use qitech_framework_core::session::protocol::RuntimeMessage;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::xtrem::XtremBusHandle;
@@ -30,7 +31,6 @@ use crate::runtime::Runtime;
 use crate::runtime::RuntimeConfiguration;
 use crate::runtime::config::EtherCATMode;
 use crate::runtime::config::MachineRegistration;
-use crate::runtime::config::ModbusRtuMode;
 use crate::runtime::config::XtremMode;
 use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::error::RuntimeInitializeResult;
@@ -42,10 +42,79 @@ use crate::runtime::types::MachineRegistryEntry;
 use crate::runtime::xtrem;
 
 impl<T: RuntimeTransport> Runtime<T> {
+    pub fn run2(config: RuntimeConfiguration, mut transport: T) {
+        for MachineRegistration {
+            schema,
+            build,
+            type_id,
+            type_name,
+        } in config.machines
+        {
+            let schema = MachineSchema::parse_str(schema)?;
+            let ident = schema.identification;
+
+            if machine_registry
+                .insert(
+                    schema.identification,
+                    MachineRegistryEntry {
+                        schema: schema.clone(),
+                        type_id,
+                        type_name,
+                        build,
+                    },
+                )
+                .is_some()
+            {
+                return Err(RuntimeInitializeError::DuplicateMachine(ident));
+            }
+        }
+
+        // --- controller discovery loop ---
+        loop {
+            // --- establish new connection
+            let message = match transport.recv() {
+                Ok(v) => v,
+                // TODO: handle if transport is broken/ like mpsc lost
+                Err(e) => todo!(),
+            };
+
+            match message {
+                ControllerMessage::Hello(hello) => {
+                    if let Err(e) = hello.validate() {
+                        transport.send(RuntimeMessage::HelloReject(e));
+                        break;
+                    } else {
+                        transport.send(RuntimeMessage::HelloAck(RuntimeInfo {
+                            schemas: Default::default(),
+                        }))
+                    }
+                }
+
+                _ => {
+                    transport.send(RuntimeMessage::UnexpectedMessage);
+                    break;
+                }
+            };
+
+            // --- await next message ---
+            let message = match transport.recv() {
+                Ok(v) => v,
+                // TODO: handle if transport is broken/ like mpsc lost
+                Err(e) => todo!(),
+            };
+
+            if let ControllerMessage::Start = message {
+                // TODO: start runtime/session or whatever
+            };
+        }
+    }
+
     pub fn init<P: RuntimeSessionProvider<Transport = T>>(
         config: RuntimeConfiguration,
-        mut provider: P,
+        mut transport: T,
     ) -> RuntimeInitializeResult<Self> {
+        let message = transport.recv();
+
         let session = provider
             .provide()
             .map_err(RuntimeInitializeError::CreateSession)?;

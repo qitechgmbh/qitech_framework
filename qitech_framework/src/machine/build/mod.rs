@@ -62,7 +62,7 @@ impl<'a> BuildContext<'a> {
 
     /*
     pub fn nested<'b, M: Machine, N>(
-        &'a mut self, 
+        &'a mut self,
         name: &'static str,
         mapper: fn(&mut M) -> &mut N,
     ) -> NestedBuildContext<'a, 'b> {

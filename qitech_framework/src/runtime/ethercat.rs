@@ -14,7 +14,6 @@ use qitech_framework_core::report::EtherCATDeviceMetadata;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::MetaSubdevice;
