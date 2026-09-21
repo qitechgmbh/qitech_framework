@@ -149,10 +149,11 @@ impl LaserV1 {
 
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()
-            && let LaserError::IoErr() = laser_error
+            && let LaserError::IoErr(e) = laser_error
         {
+            let msg = format!("Physical hardware I/O broke: {}", e);
             return Err(ActError {
-                kind: ActErrorKind::HardwareFault("Physical hardware I/O broke.".into()),
+                kind: ActErrorKind::HardwareFault(msg),
                 impact: ActErrorImpact::Irrecoverable,
             });
         }

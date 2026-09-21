@@ -1,0 +1,11 @@
+qms_version: 1.0
+revision: 1
+
+identification:
+  name: beckhoff_el1002
+  vendor_id: 1
+  machine_id: 9
+
+state:
+  input1: !boolean
+  input2: !boolean

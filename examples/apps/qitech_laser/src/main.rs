@@ -29,18 +29,15 @@ use qitech_lib::units::length::millimeter;
 
 #[tokio::main]
 pub async fn main() {
+    let laser_pci = std::env::args().nth(1).expect("No laser PCI given! Tip: Run using `cargo run $(ls /dev/serial/by-path/ | grep usbv2 | head -n 1)`");
+
     tracing_subscriber::fmt()
         .with_target(false)
         .with_ansi(true)
         .init();
 
     let config_rt = RuntimeConfiguration::new()
-        .modbus_rtu_device::<LaserDevice>(
-            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0".to_string(),
-            LaserV1::IDENTIFICATION.unique(1),
-            1,
-            None,
-        )
+        .modbus_rtu_device::<LaserDevice>(laser_pci, LaserV1::IDENTIFICATION.unique(1), 1, None)
         .machine::<LaserV1>();
 
     run_with_tui(config_rt, TuiConfiguration::default())
@@ -155,10 +152,12 @@ impl LaserV1 {
 
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()
-            && let LaserError::IoErr() = laser_error
+            && let LaserError::IoErr(e) = laser_error
         {
+            let msg = format!("Physical hardware I/O broke: {}", e);
+
             return Err(ActError {
-                kind: ActErrorKind::HardwareFault("Physical hardware I/O broke.".into()),
+                kind: ActErrorKind::HardwareFault(msg),
                 impact: ActErrorImpact::Irrecoverable,
             });
         }
