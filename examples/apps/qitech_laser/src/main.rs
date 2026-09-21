@@ -29,6 +29,8 @@ use qitech_lib::units::length::millimeter;
 
 #[tokio::main]
 pub async fn main() {
+    let laser_pci = std::env::args().nth(1).expect("No laser PCI given! Tip: Run using `cargo run $(ls /dev/serial/by-path/ | grep usbv2 | head -n 1)`");
+
     tracing_subscriber::fmt()
         .with_target(false)
         .with_ansi(true)
@@ -36,7 +38,7 @@ pub async fn main() {
 
     let config_rt = RuntimeConfiguration::new()
         .modbus_rtu_device::<LaserDevice>(
-            "pci-0000:c6:00.0-usbv2-0:2.1:1.0-port0".to_string(),
+            laser_pci,
             LaserV1::IDENTIFICATION.unique(1),
             1,
             None,
