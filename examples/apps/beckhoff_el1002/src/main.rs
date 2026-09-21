@@ -37,14 +37,13 @@ pub struct BeckhoffEL1002Machine {
 }
 
 impl Machine for BeckhoffEL1002Machine {
-
     fn act(&mut self, _dt: std::time::Duration) -> ActResult {
         let el1002 = self.el1002.borrow();
 
         for port in 0..el1002.get_port_count() {
             let input = el1002.get_input(port).map_err(|_err| ActError {
                 kind: ActErrorKind::Custom("This should actually always work!".to_string()),
-                impact: Ignore
+                impact: Ignore,
             })?;
 
             self.inputs[port].set(input);
@@ -59,13 +58,9 @@ impl MachineBuild for BeckhoffEL1002Machine {
     fn build(ctx: &mut BuildContext) -> BuildResult<Self> {
         let el1002 = ctx.find_ethercat_device::<EL1002>(4)?;
 
-        let input1 = ctx
-            .state::<bool>("input1")
-            .build()?;
+        let input1 = ctx.state::<bool>("input1").build()?;
 
-        let input2 = ctx
-            .state::<bool>("input2")
-            .build()?;
+        let input2 = ctx.state::<bool>("input2").build()?;
 
         Ok(Self {
             el1002,
