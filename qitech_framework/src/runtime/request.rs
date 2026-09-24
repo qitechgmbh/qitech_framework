@@ -223,6 +223,8 @@ impl<T: RuntimeTransport> Runtime<T> {
 
                 // --- remove entry if present ---
                 if machine.subscriptions.remove(&provider).is_some() {
+                    machine.machine.unsubscribe(provider);
+
                     self.report.events.push(RuntimeEvent::SubscriptionRemoved {
                         provider,
                         subscriber,
