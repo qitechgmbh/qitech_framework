@@ -19,9 +19,6 @@ use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::MetaSubdevice;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use qitech_lib::ethercat_hal::devices::device_from_subdevice_identity_rc;
-use qitech_lib::ethercat_hal::interface_discovery::LinkType;
-use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
-use qitech_lib::ethercat_hal::interface_discovery::test_interface;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
 use super::error::EtherCATInitializeError;
@@ -81,40 +78,6 @@ pub fn init<T: RuntimeTransport>(
     })?;
 
     Ok((Some(controller), sub_devices))
-}
-
-#[tracing::instrument]
-pub fn find_interface(retry_delay: Duration) -> String {
-    loop {
-        let interfaces = match list_ethernet_interfaces() {
-            Ok(v) => v,
-            Err(err) => {
-                tracing::warn!(
-                    ?err,
-                    ?retry_delay,
-                    "could not list ethernet interfaces, retrying"
-                );
-
-                thread::sleep(retry_delay);
-                continue;
-            }
-        };
-
-        for interface in interfaces {
-            tracing::debug!(interface = %interface.name, "testing interface");
-
-            if !matches!(interface.link_type, LinkType::Link) {
-                continue;
-            }
-
-            if test_interface(&interface.name).is_ok() {
-                return interface.name;
-            }
-        }
-
-        tracing::warn!(?retry_delay, "no interface found, retrying");
-        thread::sleep(retry_delay);
-    }
 }
 
 #[tracing::instrument(skip_all)]

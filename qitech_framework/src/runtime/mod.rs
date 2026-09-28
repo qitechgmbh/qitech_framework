@@ -7,13 +7,13 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
+use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::MeasurementSnapshot;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
 use qitech_framework_core::session::RuntimeTransport;
-use types::Config;
 
 pub mod error;
 
@@ -36,32 +36,38 @@ pub use config::RuntimeConfiguration;
 pub use config::XtremConfig;
 pub use xtrem::XtremDeviceBuild;
 
+use crate::machine::BuildContext;
+use crate::machine::Machine;
+use crate::machine::MachineBuild;
+use crate::machine::MachineDescriptor;
 use crate::resource::Journals;
 use crate::resource::ResourceRegistry;
+use crate::runtime::builder::RuntimeConfig;
 use crate::runtime::error::RuntimeError;
 mod request;
 
-pub struct Runtime<T: RuntimeTransport> {
+pub struct Runtime {
+    // cached report to not reallocate every export interval
     report: RuntimeReport,
-    transport: SessionRunning<T>,
 
     // --- resource managers ---
     journals: Journals,
     resources: ResourceRegistry,
 
     // --- instances ---
-    machines: Vec<MachineInstance>,
+    machine_registry: MachineRegistry,
+    machine_instances: Vec<MachineInstance>,
 
     // --- misc ---
-    config: Config,
+    config: RuntimeConfig,
     last_export_ts: Instant,
 
     /// how many reports have we exported
     export_count: Rc<Cell<u64>>,
 }
 
-impl<T: RuntimeTransport> Runtime<T> {
-    pub fn run(mut self) -> Result<(), RuntimeError> {
+impl Runtime {
+    pub fn run<T: RuntimeTransport>(mut self) -> Result<(), RuntimeError> {
         let mut last_update = Instant::now();
 
         loop {
@@ -137,7 +143,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             let value = unsafe { (convert)(descriptor.p_value) };
 
             // TODO: faster way to eliminate slots !
-            if !self.machines.iter().any(|x| x.ident == descriptor.ident) {
+            if !self.machine_instances.iter().any(|x| x.ident == descriptor.ident) {
                 // machine is disabled, skip
                 continue;
             }
@@ -153,7 +159,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         }
 
         // --- scan for capability updates ---
-        for instance in &mut self.machines {
+        for instance in &mut self.machine_instances {
             for (path, handle) in &mut instance.commands {
                 if let Some(get_capability) = &handle.can_execute_fn {
                     let capability = (get_capability)(instance.machine.as_ref());
@@ -194,15 +200,15 @@ impl<T: RuntimeTransport> Runtime<T> {
     fn run_machines(&mut self, dt: Duration) {
         let mut i = 0;
 
-        while i < self.machines.len() {
-            match self.machines[i].machine.act(dt) {
+        while i < self.machine_instances.len() {
+            match self.machine_instances[i].machine.act(dt) {
                 Ok(()) => i += 1,
 
                 Err(e) if e.impact != ActErrorImpact::Irrecoverable => i += 1,
 
                 Err(_) => {
                     // --- machine cannot recover, remove it ---
-                    let MachineInstance { ident, .. } = self.machines.swap_remove(i);
+                    let MachineInstance { ident, .. } = self.machine_instances.swap_remove(i);
 
                     // --- free up resources ---
                     // self.resources.clear_machine(ident);

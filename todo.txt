@@ -14,3 +14,5 @@ todo (ALL regardless of priority):
 
 -> New flow with machines:
 -> On startup simply start the runtime loop 
+
+Define bus and machine is then build

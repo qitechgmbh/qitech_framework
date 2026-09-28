@@ -41,8 +41,11 @@ use crate::runtime::types::MachineInstance;
 use crate::runtime::types::MachineRegistryEntry;
 use crate::runtime::xtrem;
 
-impl<T: RuntimeTransport> Runtime<T> {
+impl Runtime {
     pub fn run2(config: RuntimeConfiguration, mut transport: T) {
+        // --- create machine registry ---
+        let mut machine_registry = MachineRegistry::default();
+            
         for MachineRegistration {
             schema,
             build,
@@ -260,7 +263,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             journals,
             resources,
             report: Default::default(),
-            machines,
+            machine_instances: machines,
             sub_devices,
             ecat_controller,
             _xtrem_bus: xtrem_bus,

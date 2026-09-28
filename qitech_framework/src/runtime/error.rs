@@ -8,6 +8,15 @@ pub type RuntimeInitializeResult<T> = Result<T, RuntimeInitializeError>;
 pub type EtherCATInitializeResult<T> = Result<T, EtherCATInitializeError>;
 
 #[derive(Error, Debug)]
+pub enum RuntimeBuildError {
+    #[error("machine already registered: {0:?}")]
+    DuplicateMachine(MachineIdentification),
+
+    #[error("failed to read schema: {0}")]
+    CannotReadSchema(#[from] ParseError),
+}
+
+#[derive(Error, Debug)]
 pub enum RuntimeInitializeError {
     #[error("failed to create runtime session: {0}")]
     CreateSession(TransportError),

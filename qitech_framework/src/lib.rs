@@ -21,12 +21,14 @@ pub use qitech_framework_core::vendors;
 pub use qitech_framework_macros::*;
 pub use qitech_lib::units;
 
+mod ethercat;
 mod controller;
 
 pub mod machine;
 mod resource;
 
 pub mod runtime;
+mod runtime_2;
 
 pub type ConfigPropertyEventRecord = EventRecord<ConfigPropertyEvent>;
 pub type StatePropertyEventRecord = EventRecord<StatePropertyEvent>;
