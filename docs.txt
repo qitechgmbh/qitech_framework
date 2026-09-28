@@ -1,0 +1,36 @@
+
+
+Schema:
+--- concepts ---
+resource path:
+    properties before any type identifer like !float that are nested represent the 
+    resource path, example:
+
+    config: 
+        this:
+            is:
+                my:
+                    property: !float
+
+    where "this.is.my.property" is the resource path and that represents a float
+
+
+--- fields ---
+qms_version: Version of the protocol/parser/schema
+revision: Revision of the schema for this machine
+
+name: Name of the machine in snake case
+identification: Identification of the machine. Combination of vendor_id and machine_id
+
+config:
+    Represents configuration properties 
+    map of config properties
+
+state:
+    map of state properties
+
+measurements:
+    map of state properties
+
+Runtime/Controller Protocol:
+- 
