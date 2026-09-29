@@ -17,11 +17,9 @@ pub use qitech_framework_core::report::RuntimeReport;
 pub use qitech_framework_core::report::StatePropertyEvent;
 pub use qitech_framework_core::request::RuntimeRequestKind;
 pub use qitech_framework_core::schema::MachineSchema;
-pub use qitech_framework_core::vendors;
 pub use qitech_framework_macros::*;
 pub use qitech_lib::units;
 
-mod controller;
 mod ethercat;
 
 pub mod machine;
@@ -34,7 +32,6 @@ pub type ConfigPropertyEventRecord = EventRecord<ConfigPropertyEvent>;
 pub type StatePropertyEventRecord = EventRecord<StatePropertyEvent>;
 
 mod modbus;
-mod service;
 
 #[doc(hidden)]
 /// exposed for proc macros

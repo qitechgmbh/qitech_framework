@@ -14,6 +14,7 @@ pub mod ident;
 pub mod link;
 pub mod report;
 pub mod request;
+pub mod config;
 
 pub trait Controller {
     type Config;

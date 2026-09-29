@@ -1,84 +1,161 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::collections::VecDeque;
+use std::time::Duration;
+use std::time::Instant;
 
-use serialport::DataBits;
-use serialport::Parity;
-use serialport::StopBits;
+use tokio_modbus::Address;
+use tokio_modbus::ExceptionCode;
+use tokio_modbus::Quantity;
+use tokio_modbus::Request;
+use tokio_modbus::Response;
+use tokio_modbus::SlaveId;
 
-// Goals:
-// -> user doesn't invoke
+mod rtu;
+pub use rtu::ModbusRTUBusConfig;
+pub use rtu::ModbusRtuBus;
+pub use rtu::ModbusRtuPort;
 
-// --- config ---
-pub struct ModbusRTUBusConfig {
-    pub(crate) port: ModbusRtuPort,
-    pub(crate) baud_rate: u32,
-    pub(crate) data_bits: DataBits,
-    pub(crate) stop_bits: StopBits,
-    pub(crate) parity: Parity,
-    pub(crate) devices: HashMap<u8, ModbusRTUDeviceConfig>,
+mod dev;
+
+struct LaserV1Loader {
+    laser: ModbusSlot,
 }
 
-impl ModbusRTUBusConfig {
-    pub fn new(port: ModbusRtuPort, baud_rate: u32) -> Self {
+pub struct ModbusSlot {
+    
+}
+
+// --- device ---
+pub struct ModbusDevice {
+    pub(crate) slave_id: SlaveId,
+
+    /// Cyclic reads, derived from the slots assigned to this device.
+    pub(crate) bulk_reads: Vec<BulkRead>,
+
+    /// One-off requests, sent in order ahead of the bulk reads.
+    pub(crate) queued_requests: VecDeque<QueuedRequest>,
+}
+
+impl ModbusDevice {
+    pub(crate) fn new(slave_id: SlaveId) -> Self {
         Self {
-            port,
-            baud_rate,
-            data_bits: DataBits::Eight,
-            stop_bits: StopBits::One,
-            parity: Parity::None,
-            devices: Default::default(),
+            slave_id,
+            bulk_reads: Vec::new(),
+            queued_requests: VecDeque::new(),
         }
     }
 
-    pub fn data_bits(mut self, data_bits: DataBits) -> Self {
-        self.data_bits = data_bits;
-        self
+    pub(crate) fn add_bulk_read(
+        &mut self,
+        kind: BulkReadKind,
+        address: Address,
+        quantity: Quantity,
+        interval: Duration,
+    ) {
+        self.bulk_reads.push(BulkRead {
+            kind,
+            address,
+            quantity,
+            interval,
+            last_read: None,
+        });
     }
 
-    pub fn stop_bits(mut self, stop_bits: StopBits) -> Self {
-        self.stop_bits = stop_bits;
-        self
-    }
-
-    pub fn parity(mut self, parity: Parity) -> Self {
-        self.parity = parity;
-        self
-    }
-
-    pub fn device(mut self, slave_id: u8, config: ModbusRTUDeviceConfig) -> Self {
-        // TODO: enable feature by fixing in qitech_lib
-        assert!(self.devices.is_empty(), "Currently unsupported");
-        self.devices.insert(slave_id, config);
-        self
+    pub(crate) fn enqueue(&mut self, request: QueuedRequest) {
+        self.queued_requests.push_back(request);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ModbusRtuPort {
-    /// Direct device path, e.g. `/dev/ttyUSB0`.
-    Device(PathBuf),
-
-    /// Stable USB topology path, e.g.
-    /// `pci-0000:c6:00.0-usb-0:2.1:1.0-port0`.
-    UsbTopology(String),
+// --- bulk reads ---
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BulkReadKind {
+    Coils,
+    DiscreteInputs,
+    HoldingRegisters,
+    InputRegisters,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ModbusRTUDeviceConfig {
-    /// Machine instance this Modbus device is assigned to.
-    pub instance: u32,
-
-    /// Identifier used by the machine to distinguish this device from
-    /// other devices of the same type assigned to the same machine.
-    pub ident: u16,
+#[derive(Debug, Clone)]
+pub(crate) struct BulkRead {
+    pub(crate) kind: BulkReadKind,
+    pub(crate) address: Address,
+    pub(crate) quantity: Quantity,
+    pub(crate) interval: Duration,
+    pub(crate) last_read: Option<Instant>,
 }
 
-/// Manager for everything modbus related.
-/// Also responsible for hardware scanning
-pub struct ModbusManager {
-    pub(crate) rtu_buses: HashMap<u8, ModbusRTUDeviceConfig>,
+impl BulkRead {
+    pub(crate) fn is_due(&self, now: Instant) -> bool {
+        self.last_read
+            .is_none_or(|last| now.duration_since(last) >= self.interval)
+    }
+
+    pub(crate) fn request(&self) -> Request<'static> {
+        match self.kind {
+            BulkReadKind::Coils => Request::ReadCoils(self.address, self.quantity),
+            BulkReadKind::DiscreteInputs => {
+                Request::ReadDiscreteInputs(self.address, self.quantity)
+            }
+            BulkReadKind::HoldingRegisters => {
+                Request::ReadHoldingRegisters(self.address, self.quantity)
+            }
+            BulkReadKind::InputRegisters => {
+                Request::ReadInputRegisters(self.address, self.quantity)
+            }
+        }
+    }
 }
 
-pub struct ModbusRtuBusManager {
-    pub(crate) devices: HashMap<u8, ModbusRTUDeviceConfig>,
+// --- queued requests ---
+/// Identifies a queued request. Assigned by the runtime, which keeps the callback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct RequestId(u64);
+
+impl RequestId {
+    pub(crate) const fn new(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct QueuedRequest {
+    pub(crate) id: RequestId,
+    pub(crate) request: Request<'static>,
+}
+
+// --- bus messages ---
+/// Sent from the runtime to a bus.
+#[derive(Debug, Clone)]
+pub(crate) struct ModbusBusRequest {
+    pub(crate) slave_id: SlaveId,
+    pub(crate) request: QueuedRequest,
+}
+
+/// Sent from a bus to the runtime.
+#[derive(Debug)]
+pub(crate) enum ModbusBusEvent {
+    Enabled,
+    Disabled,
+    Response(ModbusDeviceResponse),
+}
+
+#[derive(Debug)]
+pub(crate) struct ModbusDeviceResponse {
+    pub(crate) slave_id: SlaveId,
+    pub(crate) source: ResponseSource,
+    pub(crate) result: Result<Response, ModbusRequestError>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ResponseSource {
+    /// Index into the device's `bulk_reads`.
+    BulkRead(usize),
+    Request(RequestId),
+}
+
+#[derive(Debug)]
+pub(crate) enum ModbusRequestError {
+    BusDisabled,
+    UnknownDevice,
+    Exception(ExceptionCode),
+    Transport(tokio_modbus::Error),
 }

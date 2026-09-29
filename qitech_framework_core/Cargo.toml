@@ -9,6 +9,8 @@ license.workspace = true
 # --- general ---
 serde.workspace = true
 thiserror.workspace = true
+serialport.workspace = true
+tokio-modbus = "0.17.0"
 
 # --- schema ---
 indexmap = { workspace = true, features = ["serde"], optional = true  }

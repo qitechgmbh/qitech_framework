@@ -78,7 +78,7 @@ impl Runtime2 {
         }
     }
 
-    pub fn register_machine<M>(mut self, instance_id: u16) -> Result<MachineHandle, ()>
+    pub fn machine<M>(mut self, instance_id: u16) -> Result<MachineHandle, ()>
     where
         M: Machine + MachineBuild + MachineDescriptor + 'static,
     {
@@ -114,7 +114,7 @@ impl Runtime2 {
 
 pub struct MachineHandle {
     runtime_id: u16,
-    instance_id: u16,
+    ident: MachineInstanceId,
 }
 
 pub struct ModbusRTUBusConfig {
