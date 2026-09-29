@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineInstanceIdentification;
+use qitech_framework_core::ident::MachineInstanceId;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
 use qitech_lib::ethercat_hal::EtherCATControl;
@@ -22,7 +22,7 @@ use crate::machine::Hardware;
 use crate::machine::Machine;
 use crate::resource::LifetimeTokenOwner;
 
-pub(crate) type HardwareRegistry = HashMap<MachineInstanceIdentification, Vec<Hardware>>;
+pub(crate) type HardwareRegistry = HashMap<MachineInstanceId, Vec<Hardware>>;
 pub(crate) type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
 pub(crate) type BuildMachineFn =
     fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
@@ -38,11 +38,11 @@ pub(crate) struct MachineRegistryEntry {
 }
 
 pub(crate) struct MachineInstance {
-    pub(crate) ident: MachineInstanceIdentification,
+    pub(crate) ident: MachineInstanceId,
     pub(crate) machine: Box<dyn Machine>,
     pub(crate) configs: HashMap<&'static str, ConfigPropertyHandle>,
     pub(crate) commands: HashMap<&'static str, CommandHandle>,
-    pub(crate) subscriptions: HashMap<MachineInstanceIdentification, LifetimeTokenOwner>,
+    pub(crate) subscriptions: HashMap<MachineInstanceId, LifetimeTokenOwner>,
 }
 
 pub(crate) struct Config {

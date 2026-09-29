@@ -119,7 +119,7 @@ impl SubscriptionsView {
 
                 let entry = machines.iter().find(|x| x.ident == *subscription).unwrap();
 
-                ListItem::new(format!("{} ({})", entry.title.as_str(), entry.ident.serial))
+                ListItem::new(format!("{} ({})", entry.title.as_str(), entry.ident.instance_id))
                     .style(style)
             })
             .collect();
@@ -221,7 +221,7 @@ impl SubscriptionsView {
                 ListItem::new(format!(
                     "{} ({})",
                     machine.title.as_str(),
-                    machine.ident.serial
+                    machine.ident.instance_id
                 ))
                 .style(style)
             })

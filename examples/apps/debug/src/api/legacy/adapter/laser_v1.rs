@@ -1,4 +1,4 @@
-use qitech_framework::MachineInstanceIdentification;
+use qitech_framework::MachineInstanceId;
 use qitech_framework::RuntimeRequestKind;
 use qitech_framework::ScalarValue;
 use serde::Deserialize;
@@ -13,7 +13,7 @@ pub const ADAPTER: MachineLegacyDataAdapter = MachineLegacyDataAdapter {
 };
 
 fn convert_request(
-    ident: MachineInstanceIdentification,
+    ident: MachineInstanceId,
     data: serde_json::Value,
 ) -> Result<RuntimeRequestKind, serde_json::Error> {
     #[derive(Deserialize)]

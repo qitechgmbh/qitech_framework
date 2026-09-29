@@ -1,5 +1,5 @@
-use qitech_lib::units::ElectricCurrent;
 use qitech_lib::ethercat_hal::io::analog_input::AnalogCurrentInputDevice;
+use qitech_lib::units::ElectricCurrent;
 
 pub struct AnalogCurrentInput<D> {
     device: D,

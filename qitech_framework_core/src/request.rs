@@ -5,7 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
-use crate::ident::MachineInstanceIdentification;
+use crate::ident::MachineInstanceId;
 use crate::report::CommandExecuteError;
 use crate::report::ConfigPropertyWriteError;
 use crate::report::ResourceAccessError;
@@ -21,45 +21,33 @@ pub struct RuntimeRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeRequestKind {
-    WriteMachineDeviceInfo {
-        /// machine hardware identification
-        machine_ident: MachineInstanceIdentification,
-
-        /// role of the device
-        role: u16,
-
-        /// ethercat hardware identification
-        subdevice_index: usize,
-    },
-
     SetConfigProperty {
-        target: MachineInstanceIdentification,
+        target: MachineInstanceId,
         path: String,
         value: ScalarValue,
     },
 
     ExecuteCommand {
-        target: MachineInstanceIdentification,
+        target: MachineInstanceId,
         path: String,
     },
 
     SubscribeMachine {
-        provider: MachineInstanceIdentification,
-        subscriber: MachineInstanceIdentification,
+        provider: MachineInstanceId,
+        subscriber: MachineInstanceId,
     },
 
     UnsubscribeMachine {
-        provider: MachineInstanceIdentification,
-        subscriber: MachineInstanceIdentification,
+        provider: MachineInstanceId,
+        subscriber: MachineInstanceId,
     },
+
+    Terminate,
 }
 
 impl fmt::Display for RuntimeRequestKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RuntimeRequestKind::WriteMachineDeviceInfo { .. } => {
-                write!(f, "WriteMachineDeviceInfo")
-            }
             RuntimeRequestKind::SetConfigProperty { .. } => {
                 write!(f, "SetConfigProperty")
             }
@@ -71,6 +59,9 @@ impl fmt::Display for RuntimeRequestKind {
             }
             RuntimeRequestKind::UnsubscribeMachine { .. } => {
                 write!(f, "UnsubscribeMachine")
+            }
+            RuntimeRequestKind::Terminate => {
+                write!(f, "Terminate")
             }
         }
     }
@@ -85,9 +76,6 @@ pub struct RuntimeResponse {
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeRequestError {
     #[error(transparent)]
-    WriteMachineDeviceInfo(#[from] WriteMachineDeviceInfoError),
-
-    #[error(transparent)]
     MachineSetConfigProperty(#[from] MachineSetConfigProperty),
 
     #[error(transparent)]
@@ -101,36 +89,6 @@ pub enum RuntimeRequestError {
 }
 
 // --- errors ---
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum WriteMachineDeviceInfoError {
-    #[error("no EtherCAT controller available")]
-    NoEtherCATController,
-
-    #[error(transparent)]
-    ReadMachineDeviceInfo(#[from] ReadMachineDeviceInfoError),
-
-    #[error("failed to write machine device info to EEPROM: {0}")]
-    WriteMachineDeviceInfoEeprom(String),
-}
-
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum ReadMachineDeviceInfoError {
-    #[error("failed to check if machine device info file exists")]
-    CheckExists,
-
-    #[error("failed to read machine device info file")]
-    ReadFile,
-
-    #[error("failed to parse machine device info JSON")]
-    ParseJson,
-
-    #[error("root JSON value is not an array")]
-    RootNotArray,
-
-    #[error("missing device address")]
-    MissingDeviceAddress,
-}
-
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MachineSetConfigProperty {
     #[error(transparent)]

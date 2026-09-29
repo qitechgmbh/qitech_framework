@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use qitech_framework::EtherCATStatus;
-use qitech_framework::MachineInstanceIdentification;
+use qitech_framework::MachineInstanceId;
 use socketioxide::extract::SocketRef;
 
 use crate::api::legacy;
@@ -15,7 +15,7 @@ use crate::api::legacy::socketio::events::SocketIOEvent;
 #[derive(Default, Clone)]
 pub struct MainNamespaceManager {
     sockets: Vec<SocketRef>,
-    machines: HashMap<MachineInstanceIdentification, MachineObj>,
+    machines: HashMap<MachineInstanceId, MachineObj>,
     ecat_state: Option<&'static str>,
     ecat_devices: Option<Vec<legacy::EtherCATDeviceMetadata>>,
 }
@@ -87,7 +87,7 @@ impl MainNamespaceManager {
 
     pub fn add_machine(
         &mut self,
-        ident: MachineInstanceIdentification,
+        ident: MachineInstanceId,
         result: Result<(), String>,
     ) {
         self.machines.insert(
@@ -98,7 +98,7 @@ impl MainNamespaceManager {
                         vendor: ident.machine.vendor_id,
                         machine: ident.machine.machine_id,
                     },
-                    serial: ident.serial,
+                    serial: ident.instance_id,
                 },
                 error: result.err(),
             },

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-use qitech_framework_core::ident::MachineInstanceIdentification;
+use qitech_framework_core::ident::MachineInstanceId;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
 use qitech_lib::xtrem::ScaleMode;
@@ -90,7 +90,7 @@ impl RuntimeConfiguration {
     pub fn xtrem_device<D: XtremDeviceBuild + 'static>(
         mut self,
         device_id: u8,
-        ident: MachineInstanceIdentification,
+        ident: MachineInstanceId,
         mode: ScaleMode,
     ) -> Self {
         let mut config = match self.xtrem_mode {
@@ -188,7 +188,7 @@ impl Default for XtremConfig {
 }
 
 pub struct XtremEntry {
-    pub ident: MachineInstanceIdentification,
+    pub ident: MachineInstanceId,
     pub init: NewXtremDeviceFn,
 }
 

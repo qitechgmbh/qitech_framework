@@ -2296,16 +2296,13 @@ dependencies = [
 name = "qitech_framework_core"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "chrono",
  "crossbeam",
- "futures",
  "indexmap",
  "postcard",
  "serde",
  "thiserror 2.0.20",
  "tokio",
- "tokio-util",
  "toml 1.1.4+spec-1.1.0",
  "unic-langid",
  "yaml_serde",

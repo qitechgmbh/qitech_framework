@@ -4,17 +4,17 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
-use qitech_framework_core::ident::MachineInstanceIdentification;
+use qitech_framework_core::ident::MachineInstanceId;
+use qitech_framework_core::link::RuntimeTransport;
+use qitech_framework_core::link::protocol::ControllerMessage;
+use qitech_framework_core::link::protocol::RuntimeInfo;
+use qitech_framework_core::link::protocol::RuntimeMessage;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::XtremModuleMetadata;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
-use qitech_framework_core::session::RuntimeTransport;
-use qitech_framework_core::session::protocol::ControllerMessage;
-use qitech_framework_core::session::protocol::RuntimeInfo;
-use qitech_framework_core::session::protocol::RuntimeMessage;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::xtrem::XtremBusHandle;
@@ -45,7 +45,7 @@ impl Runtime {
     pub fn run2(config: RuntimeConfiguration, mut transport: T) {
         // --- create machine registry ---
         let mut machine_registry = MachineRegistry::default();
-            
+
         for MachineRegistration {
             schema,
             build,
@@ -372,10 +372,10 @@ impl Runtime {
         resources: &mut ResourceRegistry,
     ) -> (
         Vec<MachineInstance>,
-        Vec<(MachineInstanceIdentification, Result<(), BuildError>)>,
+        Vec<(MachineInstanceId, Result<(), BuildError>)>,
     ) {
         let mut machines: Vec<MachineInstance> = Vec::new();
-        let mut outcomes: Vec<(MachineInstanceIdentification, Result<(), BuildError>)> = Vec::new();
+        let mut outcomes: Vec<(MachineInstanceId, Result<(), BuildError>)> = Vec::new();
 
         for (ident_unique, hardware) in hardware_registry {
             let ident = ident_unique.machine;

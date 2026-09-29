@@ -15,7 +15,9 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
-use qitech_framework_core::ident::MachineInstanceIdentification;
+use qitech_framework_core::ident::MachineInstanceId;
+use qitech_framework_core::link::ControllerSessionProvider;
+use qitech_framework_core::link::ControllerTransport;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::ConfigPropertyEvent;
 use qitech_framework_core::report::ConfigPropertyWriteOutcome;
@@ -26,8 +28,6 @@ use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::StatePropertyEvent;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::request::RuntimeRequestKind;
-use qitech_framework_core::session::ControllerSessionProvider;
-use qitech_framework_core::session::ControllerTransport;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -421,7 +421,7 @@ impl Tui {
 
     fn find_machine_mut(
         &mut self,
-        ident: MachineInstanceIdentification,
+        ident: MachineInstanceId,
     ) -> Option<&mut MachineEntry> {
         self.state.machines.iter_mut().find(|m| m.ident == ident)
     }

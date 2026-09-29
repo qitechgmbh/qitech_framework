@@ -7,13 +7,13 @@ use std::time::Instant;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use chrono::Utc;
-use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::link::RuntimeTransport;
 use qitech_framework_core::report::CommandEvent;
 use qitech_framework_core::report::MeasurementSnapshot;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
-use qitech_framework_core::session::RuntimeTransport;
+use qitech_framework_core::report::error::BuildError;
 
 pub mod error;
 
@@ -143,7 +143,11 @@ impl Runtime {
             let value = unsafe { (convert)(descriptor.p_value) };
 
             // TODO: faster way to eliminate slots !
-            if !self.machine_instances.iter().any(|x| x.ident == descriptor.ident) {
+            if !self
+                .machine_instances
+                .iter()
+                .any(|x| x.ident == descriptor.ident)
+            {
                 // machine is disabled, skip
                 continue;
             }

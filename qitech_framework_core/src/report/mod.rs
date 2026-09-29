@@ -7,7 +7,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::ident::MachineInstanceIdentification;
+use crate::ident::MachineInstanceId;
 use crate::request::RuntimeResponse;
 
 mod types;
@@ -34,13 +34,6 @@ mod logs;
 pub use logs::LogLevel;
 pub use logs::LogRecord;
 pub use logs::LogSource;
-
-mod init;
-pub use init::EtherCATDeviceMetadata;
-pub use init::EtherCATStatus;
-pub use init::RuntimeInitEvent;
-pub use init::RuntimeInitStatus;
-pub use init::XtremModuleMetadata;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RuntimeReport {
@@ -76,9 +69,12 @@ impl RuntimeReport {
 // --- event ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeEvent {
-    EtherCATStateUpdate(EtherCATStatus),
-
     // --- ether cat ---
+    EtherCATStateUpdate {
+        interface: String,
+        // state: EtherCATState,
+    },
+
     EtherCATInitializationStarted {
         interface: String,
     },
@@ -90,26 +86,26 @@ pub enum RuntimeEvent {
 
     EtherCATDeviceInitializationCompleted {
         interface: String,
-        devices: Vec<EtherCATDeviceMetadata>,
+        // devices: Vec<EtherCATDeviceMetadata>,
     },
 
     AddedMachine {
-        ident: MachineInstanceIdentification,
+        ident: MachineInstanceId,
     },
 
     RemovedMachine {
-        ident: MachineInstanceIdentification,
+        ident: MachineInstanceId,
     },
 
     SubscriptionAdded {
-        provider: MachineInstanceIdentification,
-        subscriber: MachineInstanceIdentification,
+        provider: MachineInstanceId,
+        subscriber: MachineInstanceId,
         resources: Vec<MachineResource>,
     },
 
     SubscriptionRemoved {
-        provider: MachineInstanceIdentification,
-        subscriber: MachineInstanceIdentification,
+        provider: MachineInstanceId,
+        subscriber: MachineInstanceId,
     },
 }
 
@@ -175,7 +171,7 @@ pub struct StatsReport {
     /// Number of machine events emitted.
     pub emitted_machine_events: u32,
 
-    /// Number of API requests processed.
+    /// Number of requests processed.
     pub processed_requests: u32,
 }
 

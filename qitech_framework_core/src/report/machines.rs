@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::ScalarValue;
 use crate::ScalarValueTypeMismatchError;
-use crate::ident::MachineInstanceIdentification;
+use crate::ident::MachineInstanceId;
 use crate::report::Constraints;
 use crate::report::EventRecord;
 use crate::report::OperationCapability;
@@ -78,7 +78,7 @@ pub enum StatePropertyEvent {
 // --- measurements ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasurementSnapshot {
-    pub machine: MachineInstanceIdentification,
+    pub machine: MachineInstanceId,
     pub path: String,
     pub value: Option<f64>,
 }
@@ -93,7 +93,7 @@ pub enum CommandEvent {
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum CommandExecuteError {
-    #[error("command is disabled")]
+    #[error("command is disabled: {reason}")]
     Disabled { reason: String },
 
     #[error("command execution failed: {0}")]

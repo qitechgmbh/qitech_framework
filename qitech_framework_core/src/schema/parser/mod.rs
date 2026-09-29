@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::de::Error;
 
-use crate::ident::MachineIdentification;
+use crate::ident::MachineTypeId;
 use crate::schema::MachineSchema;
 use crate::schema::StringMap;
 use crate::schema::Version;
@@ -50,10 +50,7 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
     }
 
     let name = raw.identification.name;
-    let identification = MachineIdentification {
-        vendor_id: raw.identification.vendor_id,
-        machine_id: raw.identification.machine_id,
-    };
+    let identification = raw.identification.machine_id;
 
     // --- construct config properties ---
     let mut config_properties = StringMap::new();
@@ -186,8 +183,7 @@ pub struct MachineSchemaRaw {
 #[serde(deny_unknown_fields)]
 pub struct IdentificationRaw {
     pub name: String,
-    pub vendor_id: u16,
-    pub machine_id: u16,
+    pub machine_id: MachineTypeId,
 }
 
 #[derive(Debug, Default, Deserialize)]

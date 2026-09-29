@@ -2,7 +2,8 @@ pub use qitech_framework_core::ScalarValue;
 pub use qitech_framework_core::ident;
 pub use qitech_framework_core::ident::DeviceHardwareIdentification;
 pub use qitech_framework_core::ident::MachineIdentification;
-pub use qitech_framework_core::ident::MachineInstanceIdentification;
+pub use qitech_framework_core::ident::MachineInstanceId;
+pub use qitech_framework_core::link;
 pub use qitech_framework_core::report::ConfigPropertyEvent;
 pub use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 pub use qitech_framework_core::report::Constraints;
@@ -16,13 +17,12 @@ pub use qitech_framework_core::report::RuntimeReport;
 pub use qitech_framework_core::report::StatePropertyEvent;
 pub use qitech_framework_core::request::RuntimeRequestKind;
 pub use qitech_framework_core::schema::MachineSchema;
-pub use qitech_framework_core::session;
 pub use qitech_framework_core::vendors;
 pub use qitech_framework_macros::*;
 pub use qitech_lib::units;
 
-mod ethercat;
 mod controller;
+mod ethercat;
 
 pub mod machine;
 mod resource;

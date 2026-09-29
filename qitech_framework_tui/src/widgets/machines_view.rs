@@ -132,7 +132,7 @@ impl TabItem<AppContext> for MachinesPage {
         // --- update drop down ---
         let options: Vec<String> = machines
             .iter()
-            .map(|machine| format!("{} ({})", machine.title.as_str(), machine.ident.serial))
+            .map(|machine| format!("{} ({})", machine.title.as_str(), machine.ident.instance_id))
             .collect();
 
         let chunks = Layout::vertical([

@@ -9,11 +9,11 @@ use qitech_framework_core::ident::DeviceHardwareIdentificationEthercat;
 use qitech_framework_core::ident::DeviceIdentification;
 use qitech_framework_core::ident::DeviceMachineAssignment;
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineInstanceIdentification;
+use qitech_framework_core::ident::MachineInstanceId;
+use qitech_framework_core::link::RuntimeTransport;
 use qitech_framework_core::report::EtherCATDeviceMetadata;
 use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::RuntimeInitEvent;
-use qitech_framework_core::session::RuntimeTransport;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::MetaSubdevice;
@@ -243,12 +243,12 @@ fn build_ecat_metadata(
                 .iter()
                 .find(|info| info.device_address == meta.device_address)
                 .map(|info| DeviceMachineAssignment {
-                    machine: MachineInstanceIdentification {
+                    machine: MachineInstanceId {
                         machine: MachineIdentification {
                             vendor_id: info.machine_vendor,
                             machine_id: info.machine_id,
                         },
-                        serial: info.machine_serial,
+                        instance_id: info.machine_serial,
                     },
                     role: info.role,
                 });
@@ -280,8 +280,8 @@ fn append_ethercat(
     let combined_list = create_mapped_ethercat_devices(device_infos, mapped_ecat_devices);
 
     for (info, device) in combined_list {
-        let identification = MachineInstanceIdentification {
-            serial: info.machine_serial,
+        let identification = MachineInstanceId {
+            instance_id: info.machine_serial,
             machine: MachineIdentification {
                 vendor_id: info.machine_vendor,
                 machine_id: info.machine_id,

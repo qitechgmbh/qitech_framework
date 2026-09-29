@@ -4,9 +4,9 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use qitech_framework_core::ident::MachineIdentification;
-use qitech_framework_core::ident::MachineInstanceIdentification;
-use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::ident::MachineInstanceId;
 use qitech_framework_core::report::ResourceKind;
+use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
 use serialport::DataBits;
 use serialport::Parity;
@@ -37,11 +37,11 @@ pub(crate) struct MachineRegistryEntry {
 }
 
 pub(crate) struct MachineInstance {
-    pub(crate) ident: MachineInstanceIdentification,
+    pub(crate) ident: MachineInstanceId,
     pub(crate) machine: Box<dyn Machine>,
     pub(crate) configs: HashMap<&'static str, ConfigPropertyHandle>,
     pub(crate) commands: HashMap<&'static str, CommandHandle>,
-    pub(crate) subscriptions: HashMap<MachineInstanceIdentification, LifetimeTokenOwner>,
+    pub(crate) subscriptions: HashMap<MachineInstanceId, LifetimeTokenOwner>,
 }
 
 pub struct Runtime2 {
@@ -63,7 +63,7 @@ impl Runtime2 {
         static RUNTIME_ID: AtomicU64 = AtomicU64::new(0);
         let runtime_id = RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
 
-        Self { 
+        Self {
             runtime_id,
             machines: Default::default(),
             resources: ResourceRegistry {
@@ -91,7 +91,7 @@ impl Runtime2 {
             Ok(Box::new(M::build(ctx)?))
         }
 
-        /* 
+        /*
         self.machines.push(MachineRegistration {
             schema: M::SCHEMA,
             build: build_adapter::<M>,
@@ -100,7 +100,7 @@ impl Runtime2 {
         });
         */
 
-        Ok(MachineHandle  {
+        Ok(MachineHandle {
             runtime_id: self.runtime_id,
             instance_id,
         })
@@ -123,7 +123,7 @@ pub struct ModbusRTUBusConfig {
     data_bits: DataBits,
     parity: Parity,
     stop_bits: StopBits,
-    devices: HashMap<u8, (MachineHandle, u16)>
+    devices: HashMap<u8, (MachineHandle, u16)>,
 }
 
 impl ModbusRTUBusConfig {
@@ -134,7 +134,7 @@ impl ModbusRTUBusConfig {
             data_bits: 8,
             parity: Parity::None,
             stop_bits: 1,
-            devices: Default::default()
+            devices: Default::default(),
         }
     }
 
@@ -165,12 +165,12 @@ impl ModbusRTUBusConfig {
 }
 
 #[derive(Debug, Hash)]
-pub enum ModbusRtuPort { 
+pub enum ModbusRtuPort {
     Topology(String),
     Path(String),
 }
 
-impl ModbusRtuPort { 
+impl ModbusRtuPort {
     pub fn topology(val: impl Into<String>) -> Self {
         Self::Topology(val.into())
     }
@@ -180,11 +180,6 @@ impl ModbusRtuPort {
     }
 }
 
-pub struct ModbusDevice { 
-     
-}
+pub struct ModbusDevice {}
 
-impl ModbusDevice {
-
-}
-
+impl ModbusDevice {}

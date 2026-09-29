@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use qitech_framework::MachineIdentification;
-use qitech_framework::MachineInstanceIdentification;
+use qitech_framework::MachineInstanceId;
 
 mod types;
 use qitech_framework::MachineSchema;
@@ -37,5 +37,5 @@ impl<T: Clone> Swappable<T> {
 #[derive(Default, Clone)]
 pub struct SharedState {
     pub schemas: Swappable<HashMap<MachineIdentification, MachineSchema>>,
-    pub machines: Swappable<HashMap<MachineInstanceIdentification, MachineInstance>>,
+    pub machines: Swappable<HashMap<MachineInstanceId, MachineInstance>>,
 }

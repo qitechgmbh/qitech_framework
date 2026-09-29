@@ -5,7 +5,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::ident::MachineInstanceIdentification;
+use crate::ident::MachineInstanceId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogRecord {
@@ -19,14 +19,14 @@ pub struct LogRecord {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum LogSource {
     Runtime,
-    Machine(MachineInstanceIdentification),
+    Machine(MachineInstanceId),
 }
 
 impl LogSource {
-    pub const fn to_u64(self) -> u64 {
+    pub fn to_u64(self) -> u64 {
         match self {
             LogSource::Runtime => 1 << 63,
-            LogSource::Machine(id) => id.to_u64(),
+            LogSource::Machine(id) => u32::from(id) as u64,
         }
     }
 }

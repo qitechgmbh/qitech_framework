@@ -5,7 +5,7 @@ use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::response::Response as AxumResponse;
 use qitech_framework::MachineIdentification;
-use qitech_framework::MachineInstanceIdentification;
+use qitech_framework::MachineInstanceId;
 use qitech_framework_ctrl::ActorContext;
 use serde::Deserialize;
 use serde::Serialize;
@@ -42,7 +42,7 @@ impl MutationResponse {
 }
 
 pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) -> AxumResponse {
-    let ident = MachineInstanceIdentification {
+    let ident = MachineInstanceId {
         machine: MachineIdentification {
             vendor_id: body
                 .machine_identification_unique
@@ -53,7 +53,7 @@ pub async fn post(State(ctx): State<ActorContext>, Json(body): Json<Request>) ->
                 .machine_identification
                 .machine,
         },
-        serial: body.machine_identification_unique.serial,
+        instance_id: body.machine_identification_unique.serial,
     };
 
     let Some(adapter) = adapter::get(ident.machine) else {

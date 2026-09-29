@@ -6,8 +6,8 @@ use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
-use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::report::ResourceKind;
+use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
 use serialport::DataBits;
 use serialport::Parity;
@@ -20,23 +20,21 @@ use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
 use crate::resource::PropertyRegistry;
 use crate::resource::ResourceRegistry;
+use crate::runtime::Runtime;
 use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::MachineRegistry;
 use crate::runtime::types::MachineRegistryEntry;
-use crate::runtime::Runtime;
 
 #[derive(Default)]
 pub struct RuntimeBuilder {
     pub(crate) config: RuntimeConfig,
     pub(crate) machines: Vec<MachineRegistration>,
-    pub(crate) modbus_rtu_buses: Vec<(ModbusRtuPort, ModbusRTUBusBuilder)>, 
+    pub(crate) modbus_rtu_buses: Vec<(ModbusRtuPort, ModbusRTUBusBuilder)>,
 }
 
 impl RuntimeBuilder {
-    pub fn new() -> Self {
-
-    }
+    pub fn new() -> Self {}
 
     pub fn build(mut self) -> Result<Runtime, RuntimeInitializeError> {
         // --- create machine registry ---
@@ -68,18 +66,18 @@ impl RuntimeBuilder {
             }
         }
 
-        Ok(Runtime { 
-            report: Default::default(), 
+        Ok(Runtime {
+            report: Default::default(),
             journals: Default::default(),
             resources: ResourceRegistry {
                 config_properties: PropertyRegistry::new(ResourceKind::ConfigProperty, 4096),
                 state_properties: PropertyRegistry::new(ResourceKind::StateProperty, 4096),
                 measurements: PropertyRegistry::new(ResourceKind::Measurement, 4096),
-            }, 
-            machine_registry, 
-            machine_instances: Default::default(), 
-            config: self.config, 
-            last_export_ts: Instant::now(), 
+            },
+            machine_registry,
+            machine_instances: Default::default(),
+            config: self.config,
+            last_export_ts: Instant::now(),
             export_count: Rc::new(Cell::new(0)),
         })
     }
@@ -109,14 +107,15 @@ impl RuntimeBuilder {
 
     pub fn modbus_rtu<F>(mut self, port: ModbusRtuPort, build: F) -> Self
     where
-        F: Fn(ModbusRTUBusBuilder) -> ModbusRTUBusBuilder
+        F: Fn(ModbusRTUBusBuilder) -> ModbusRTUBusBuilder,
     {
-        self.modbus_rtu_buses.push((port, build(ModbusRTUBusBuilder::new())));
+        self.modbus_rtu_buses
+            .push((port, build(ModbusRTUBusBuilder::new())));
     }
 
     // -> accept a controller or master ?
     // pub fn ethercat(mut self, machine: impl EtherCATMachine, instance_id: u16) -> Self {
-    //     
+    //
     // }
 }
 
@@ -126,30 +125,30 @@ fn test() {
     let laser_0 = idk.machine::<LaserV1>(10)?;
 
     let laser_0_bus = idk.modbus_rtu.modbus_rtu(
-            ModbusRtuPort::topology("pci-0000:c6:00.0-usbv2-0:2.2:1.0-port0"), 
-            |builder| builder
+        ModbusRtuPort::topology("pci-0000:c6:00.0-usbv2-0:2.2:1.0-port0"),
+        |builder| {
+            builder
                 .baud_rate(9600)
                 .data_bits(DataBits::Eight)
                 .stop_bits(StopBits::One)
                 .parity(Parity::None)
                 .device(1, laser_0, 0)
-        );
+        },
+    );
 
     let builder = RuntimeBuilder::new()
         .modbus_rtu(
-            ModbusRtuPort::topology("pci-0000:c6:00.0-usbv2-0:2.2:1.0-port0"), 
-            |builder| builder
-                .baud_rate(9600)
-                .data_bits(DataBits::Eight)
-                .stop_bits(StopBits::One)
-                .parity(Parity::None)
-                .device(1, laser_0, 0)
+            ModbusRtuPort::topology("pci-0000:c6:00.0-usbv2-0:2.2:1.0-port0"),
+            |builder| {
+                builder
+                    .baud_rate(9600)
+                    .data_bits(DataBits::Eight)
+                    .stop_bits(StopBits::One)
+                    .parity(Parity::None)
+                    .device(1, laser_0, 0)
+            },
         )
-        .xtrem(
-            XtremPort::udp(""),
-            |builder| builder
-                .device(1, 1, 1)
-        );
+        .xtrem(XtremPort::udp(""), |builder| builder.device(1, 1, 1));
 }
 
 pub(crate) struct RuntimeConfig {
@@ -170,7 +169,7 @@ pub struct ModbusRTUBusBuilder {
     data_bits: DataBits,
     parity: Parity,
     stop_bits: StopBits,
-    devices: HashMap<u8, (u16, u16)>
+    devices: HashMap<u8, (u16, u16)>,
 }
 
 impl ModbusRTUBusBuilder {
@@ -180,7 +179,7 @@ impl ModbusRTUBusBuilder {
             data_bits: 8,
             parity: Parity::None,
             stop_bits: 1,
-            devices: Default::default()
+            devices: Default::default(),
         }
     }
 
@@ -210,17 +209,15 @@ impl ModbusRTUBusBuilder {
     }
 }
 
-pub trait MachineHardware {
-
-}
+pub trait MachineHardware {}
 
 #[derive(Debug, Hash)]
-pub enum ModbusRtuPort { 
+pub enum ModbusRtuPort {
     Topology(String),
     Device(String),
 }
 
-impl ModbusRtuPort { 
+impl ModbusRtuPort {
     /// Creates a Topology variant from any type that can be converted into a String.
     pub fn topology(val: impl Into<String>) -> Self {
         Self::Topology(val.into())

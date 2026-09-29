@@ -27,7 +27,7 @@ impl From<qitech_framework::EtherCATDeviceMetadata> for EtherCATDeviceMetadata {
                                 vendor: x.machine.machine.vendor_id,
                                 machine: x.machine.machine.machine_id,
                             },
-                            serial: x.machine.serial,
+                            serial: x.machine.instance_id,
                         },
                         role: x.role,
                     }

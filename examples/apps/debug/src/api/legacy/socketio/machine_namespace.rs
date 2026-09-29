@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use qitech_framework::ConfigPropertyEvent;
 use qitech_framework::ConfigPropertyWriteOutcome;
 use qitech_framework::MachineIdentification;
-use qitech_framework::MachineInstanceIdentification;
+use qitech_framework::MachineInstanceId;
 use qitech_framework::MachineSchema;
 use qitech_framework::MachinesReport;
 use qitech_framework::StatePropertyEvent;
@@ -18,11 +18,11 @@ use crate::api::types::StatePropertyInfo;
 
 #[derive(Default, Clone)]
 pub struct MachineNamespaceManager {
-    registry: HashMap<MachineInstanceIdentification, Entry>,
+    registry: HashMap<MachineInstanceId, Entry>,
 }
 
 impl MachineNamespaceManager {
-    pub fn register(&mut self, ident: MachineInstanceIdentification, schema: &MachineSchema) {
+    pub fn register(&mut self, ident: MachineInstanceId, schema: &MachineSchema) {
         if self.registry.contains_key(&ident) {
             return;
         }
@@ -240,7 +240,7 @@ pub struct Entry {
     emitted_default_state: bool,
 }
 
-pub fn machine_namespace_path_to_ident(s: &str) -> Result<MachineInstanceIdentification, String> {
+pub fn machine_namespace_path_to_ident(s: &str) -> Result<MachineInstanceId, String> {
     if let Some(machine_path) = s.strip_prefix("/machine/") {
         let parts: Vec<&str> = machine_path.split('/').collect();
         if parts.len() == 3 {
@@ -254,12 +254,12 @@ pub fn machine_namespace_path_to_ident(s: &str) -> Result<MachineInstanceIdentif
                 .parse::<u16>()
                 .map_err(|_| "Invalid serial id".to_string())?;
 
-            return Ok(MachineInstanceIdentification {
+            return Ok(MachineInstanceId {
                 machine: MachineIdentification {
                     vendor_id,
                     machine_id,
                 },
-                serial,
+                instance_id: serial,
             });
         }
     }

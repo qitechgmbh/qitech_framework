@@ -72,6 +72,20 @@ pub struct ActError {
     pub impact: ActErrorImpact,
 }
 
+impl ActError {
+    pub fn ignore(kind: ActErrorKind) -> Self {
+        Self { kind, impact: ActErrorImpact::Ignore }
+    }
+
+    pub fn degraded(kind: ActErrorKind) -> Self {
+        Self { kind, impact: ActErrorImpact::Degraded }
+    }
+
+    pub fn irrecoverable(kind: ActErrorKind) -> Self {
+        Self { kind, impact: ActErrorImpact::Irrecoverable }
+    }
+}
+
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
 pub enum ActErrorKind {
     #[error("hardware fault: {0}")]

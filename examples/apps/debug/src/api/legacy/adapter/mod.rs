@@ -1,5 +1,5 @@
 use qitech_framework::MachineIdentification;
-use qitech_framework::MachineInstanceIdentification;
+use qitech_framework::MachineInstanceId;
 use qitech_framework::RuntimeRequestKind;
 
 use crate::api::types::MachineInstance;
@@ -21,7 +21,7 @@ pub fn get(ident: MachineIdentification) -> Option<MachineLegacyDataAdapter> {
 #[derive(Clone)]
 pub struct MachineLegacyDataAdapter {
     pub convert_request: fn(
-        MachineInstanceIdentification,
+        MachineInstanceId,
         serde_json::Value,
     ) -> Result<RuntimeRequestKind, serde_json::Error>,
 

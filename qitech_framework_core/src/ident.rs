@@ -3,91 +3,63 @@ use std::fmt;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::vendors;
-
-// --- instance ident ---
+// --- machine type id ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct MachineInstanceIdentification {
-    pub machine: MachineIdentification,
-    pub serial: u16,
-}
+pub struct MachineTypeId(u16);
 
-impl MachineInstanceIdentification {
-    pub const fn from_ident(machine: MachineIdentification, serial: u16) -> Self {
-        Self { machine, serial }
+impl MachineTypeId {
+    pub const fn new(value: u16) -> Self {
+        Self(value)
     }
 
-    pub const fn to_u64(self) -> u64 {
-        ((self.machine.vendor_id as u64) << 48)
-            | ((self.machine.machine_id as u64) << 32)
-            | (self.serial as u64)
-    }
-
-    pub const fn from_u64(value: u64) -> Self {
-        Self {
-            machine: MachineIdentification {
-                vendor_id: (value >> 48) as u16,
-                machine_id: (value >> 32) as u16,
-            },
-            serial: value as u16,
-        }
-    }
-
-    pub const fn is_valid(self) -> bool {
-        self.machine.is_valid() && self.machine.machine_id != 0
+    pub const fn get(self) -> u16 {
+        self.0
     }
 }
 
-impl fmt::Display for MachineInstanceIdentification {
+impl From<u16> for MachineTypeId {
+    fn from(value: u16) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<MachineTypeId> for u16 {
+    fn from(value: MachineTypeId) -> Self {
+        value.get()
+    }
+}
+
+impl fmt::Display for MachineTypeId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // let vendor_name = match vendors::get_name(self.identification.vendor_id) {
-        //     Some(v) => v,
-        //     None => &self.identification.vendor_id.to_string(),
-        // };
-
-        write!(
-            f,
-            "{}:{}:{}",
-            self.machine.vendor_id, self.machine.machine_id, self.serial
-        )
+        write!(f, "{}", self.0)
     }
 }
 
-// --- ident ---
+// --- machine instance id ---
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct MachineIdentification {
-    pub vendor_id: u16,
-    pub machine_id: u16,
+pub struct MachineInstanceId {
+    pub machine_type: MachineTypeId,
+    pub instance_id: u16,
 }
 
-impl MachineIdentification {
-    pub const fn new(vendor_id: u16, machine_id: u16) -> Self {
+impl From<MachineInstanceId> for u32 {
+    fn from(value: MachineInstanceId) -> Self {
+        ((u16::from(value.machine_type) as u32) << 16) | (value.instance_id as u32)
+    }
+}
+
+impl From<u32> for MachineInstanceId {
+    fn from(value: u32) -> Self {
         Self {
-            vendor_id,
-            machine_id,
-        }
-    }
-
-    pub const fn is_valid(self) -> bool {
-        vendors::contains_id(self.vendor_id)
-    }
-
-    pub const fn unique(self, serial: u16) -> MachineInstanceIdentification {
-        MachineInstanceIdentification {
-            machine: self,
-            serial,
+            machine_type: MachineTypeId::from((value >> 16) as u16),
+            instance_id: value as u16,
         }
     }
 }
 
-impl fmt::Display for MachineIdentification {
+impl fmt::Display for MachineInstanceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let vendor_name = match vendors::get_name(self.vendor_id) {
-            Some(v) => v,
-            None => &self.vendor_id.to_string(),
-        };
-
-        write!(f, "{vendor_name}:{}", self.machine_id)
+        write!(f, "{}:{}", self.machine_type, self.instance_id)
     }
 }
 
@@ -100,7 +72,7 @@ pub struct DeviceIdentification {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeviceMachineAssignment {
-    pub machine: MachineInstanceIdentification,
+    pub machine: MachineInstanceId,
     pub role: u16,
 }
 

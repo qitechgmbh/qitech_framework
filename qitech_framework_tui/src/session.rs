@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use qitech_framework_core::ident::MachineIdentification;
+use qitech_framework_core::link::ControllerTransport;
+use qitech_framework_core::link::controller::SessionHandshake;
+use qitech_framework_core::link::error::SchemaSyncError;
 use qitech_framework_core::report::RuntimeInitEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::request::RuntimeRequest;
 use qitech_framework_core::schema::MachineSchema;
-use qitech_framework_core::session::ControllerTransport;
-use qitech_framework_core::session::controller::SessionHandshake;
-use qitech_framework_core::session::error::SchemaSyncError;
 
 pub enum SessionMessage {
     Schemas(HashMap<MachineIdentification, MachineSchema>),

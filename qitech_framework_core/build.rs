@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -6,13 +5,7 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 
-use serde::Deserialize;
-
 const ENV_VAR_OUT_DIR: &str = "OUT_DIR";
-
-const VENDORS_PATH: &str = "vendors.toml";
-const VENDORS_DATA: &str = include_str!("vendors.toml");
-const VENDORS_EXPORT_FILE_NAME: &str = "vendors.rs";
 
 const QUANTITIES_PATH: &str = "quantities.toml";
 const QUANTITIES_DATA: &str = include_str!("quantities.toml");
@@ -20,73 +13,11 @@ const QUANTITY_EXPORT_FILE_NAME: &str = "quantity.rs";
 const WITH_UOM_EXPORT_FILE_NAME: &str = "with_uom.rs";
 
 fn main() -> io::Result<()> {
-    println!("cargo:rerun-if-changed={VENDORS_PATH}");
     println!("cargo:rerun-if-changed={QUANTITIES_PATH}");
 
     let out_dir = env::var(ENV_VAR_OUT_DIR).unwrap();
-    create_vendors(&out_dir)?;
     create_quantity(&out_dir)?;
     create_with_uom(&out_dir)?;
-    Ok(())
-}
-
-/// generates the vendors constants and lookups from the vendors.toml
-fn create_vendors(out_dir: &String) -> io::Result<()> {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Entry {
-        id: u16,
-        name: String,
-    }
-
-    let out_path = Path::new(&out_dir).join(VENDORS_EXPORT_FILE_NAME);
-    let mut file = BufWriter::new(File::create(&out_path)?);
-
-    let entries = toml::from_str::<BTreeMap<String, Entry>>(VENDORS_DATA).unwrap();
-
-    // encapsulate inside private module
-    writeln!(file, "mod generated {{")?;
-
-    // --- emit constants ---
-    writeln!(
-        file,
-        "pub struct Entry {{ pub id: u16, pub name: &'static str }}\n"
-    )?;
-    for (abbr, Entry { id, name }) in &entries {
-        let abbr = abbr.to_uppercase();
-        writeln!(
-            file,
-            "pub const {abbr}: Entry = Entry {{ id: {id}, name: \"{name}\" }};",
-        )?;
-    }
-    writeln!(file)?;
-
-    // --- emit get_by_id(...) ---
-    writeln!(
-        file,
-        "pub const fn get_name(id: u16) -> Option<&'static str> {{"
-    )?;
-    writeln!(file, "    match id {{")?;
-    for Entry { id, name } in entries.values() {
-        writeln!(file, "        {id} => Some(\"{name}\"),")?;
-    }
-    writeln!(file, "        _ => None,")?;
-    writeln!(file, "    }}")?;
-    writeln!(file, "}}")?;
-    writeln!(file)?;
-
-    // --- emit get_by_name(...) ---
-    writeln!(file, "pub fn get_id(name: &str) -> Option<u16> {{")?;
-    writeln!(file, "    match name {{")?;
-    for Entry { id, name } in entries.values() {
-        writeln!(file, "        \"{name}\" => Some({id}),")?;
-    }
-    writeln!(file, "        _ => None,")?;
-    writeln!(file, "    }}")?;
-    writeln!(file, "}}")?;
-
-    // --- finish module ---
-    writeln!(file, "}}")?;
     Ok(())
 }
 

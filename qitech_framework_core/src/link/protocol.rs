@@ -1,10 +1,10 @@
 use serde::Deserialize;
 use serde::Serialize;
+use thiserror::Error;
 
 use crate::report::RuntimeReport;
 use crate::request::RuntimeRequest;
 use crate::schema::MachineSchema;
-use crate::session::error::HelloMatchError;
 
 const MAGIC: u64 = 0x4855425F4C494E4B;
 const PROTOCOL_VERSION: u64 = 0x1;
@@ -28,16 +28,16 @@ impl Hello {
         }
     }
 
-    pub fn validate(self) -> Result<(), HelloMatchError> {
+    pub fn validate(self) -> Result<(), HelloError> {
         if self.magic != MAGIC {
-            return Err(HelloMatchError::MagicMismatch {
+            return Err(HelloError::MagicMismatch {
                 expected: MAGIC,
                 received: self.magic,
             });
         }
 
         if self.protocol_version != PROTOCOL_VERSION {
-            return Err(HelloMatchError::ProtocolVersionMismatch {
+            return Err(HelloError::ProtocolVersionMismatch {
                 expected: PROTOCOL_VERSION,
                 received: self.protocol_version,
             });
@@ -53,6 +53,15 @@ impl Default for Hello {
     }
 }
 
+#[derive(Error, Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum HelloError {
+    #[error("hello magic mismatch: expected {expected:#x}, received {received:#x}")]
+    MagicMismatch { expected: u64, received: u64 },
+
+    #[error("protocol version mismatch: expected {expected}, received {received}")]
+    ProtocolVersionMismatch { expected: u64, received: u64 },
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
     pub schemas: Vec<MachineSchema>,
@@ -61,14 +70,15 @@ pub struct RuntimeInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RuntimeMessage {
     HelloAck(RuntimeInfo),
-    HelloReject(HelloMatchError),
+    HelloError(HelloError),
     Report(Box<RuntimeReport>),
-    UnexpectedMessage,
+    UnexpectedMessage { expected: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ControllerMessage {
     Hello(Hello),
     Start,
+    Abort { reason: String },
     Request(RuntimeRequest),
 }
