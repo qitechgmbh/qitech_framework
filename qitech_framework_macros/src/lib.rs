@@ -143,6 +143,7 @@ pub fn enum_property(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/*
 #[proc_macro_derive(Machine, attributes(machine))]
 pub fn machine(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -172,6 +173,7 @@ pub fn machine(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+*/
 
 // --- build helper ---
 #[proc_macro_attribute]

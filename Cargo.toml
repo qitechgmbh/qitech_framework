@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "examples/apps/*", 
+    # "examples/apps/*", 
     # "examples/concepts/*",
     "qitech_framework",
-    "qitech_framework_tui",
-    "qitech_framework_ctrl",
+    # "qitech_framework_tui",
+    # "qitech_framework_ctrl",
     "qitech_framework_core",
-    "qitech_framework_macros",
+    # "qitech_framework_macros",
 ]
 resolver = "2"
 
@@ -22,8 +22,8 @@ rust-version = "1.90"
 [workspace.dependencies]
 # --- internal deps ---
 qitech_framework = { path = "qitech_framework", version = "0.1.0" }
-qitech_framework_tui = { path = "qitech_framework_tui", version = "0.1.0" }
-qitech_framework_ctrl = { path = "qitech_framework_ctrl", version = "0.1.0" }
+# qitech_framework_tui = { path = "qitech_framework_tui", version = "0.1.0" }
+# qitech_framework_ctrl = { path = "qitech_framework_ctrl", version = "0.1.0" }
 qitech_framework_core = { path = "qitech_framework_core", version = "0.1.0" }
 qitech_framework_macros = { path = "qitech_framework_macros", version = "0.1.0" }
 

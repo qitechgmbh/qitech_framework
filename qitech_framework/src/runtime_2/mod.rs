@@ -14,6 +14,7 @@ use serialport::StopBits;
 use tokio_modbus::SlaveId;
 
 use crate::machine::BuildContext;
+use crate::machine::BuildResult;
 use crate::machine::CommandHandle;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::Machine;
@@ -26,14 +27,10 @@ use crate::resource::ResourceRegistry;
 
 pub(crate) type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
 
-pub(crate) type BuildMachineFn =
-    fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
-
 pub(crate) struct MachineRegistryEntry {
     pub(crate) schema: MachineSchema,
     pub(crate) type_id: TypeId,
     pub(crate) type_name: &'static str,
-    pub(crate) build: BuildMachineFn,
 }
 
 pub(crate) struct MachineInstance {
@@ -46,14 +43,12 @@ pub(crate) struct MachineInstance {
 
 pub struct Runtime2 {
     runtime_id: u64,
-    modbus_rtu_buses: Vec<ModbusRTUBusConfig>,
 
     // --- resource managment ---
     journals: Journals,
     resources: ResourceRegistry,
 
     // --- instances ---
-    machines: HashMap<u16, ()>,
     machine_registry: MachineRegistry,
     machine_instances: Vec<MachineInstance>,
 }
@@ -65,20 +60,18 @@ impl Runtime2 {
 
         Self {
             runtime_id,
-            machines: Default::default(),
             resources: ResourceRegistry {
                 config_properties: PropertyRegistry::new(ResourceKind::ConfigProperty, 4096),
                 state_properties: PropertyRegistry::new(ResourceKind::StateProperty, 4096),
                 measurements: PropertyRegistry::new(ResourceKind::Measurement, 4096),
             },
             journals: Journals::default(),
-            modbus_rtu_buses: Default::default(),
             machine_instances: Default::default(),
             machine_registry: Default::default(),
         }
     }
 
-    pub fn machine<M>(mut self, instance_id: u16) -> Result<MachineHandle, ()>
+    pub fn machine<B: MachineBuilder>(mut self, instance_id: u16, builder: B) -> Result<(), ()>
     where
         M: Machine + MachineBuild + MachineDescriptor + 'static,
     {
@@ -112,74 +105,8 @@ impl Runtime2 {
     }
 }
 
-pub struct MachineHandle {
-    runtime_id: u16,
-    ident: MachineInstanceId,
+pub trait MachineBuilder {
+    type Output: Machine;
+    fn build(ctx: BuildContext) -> BuildResult<Self::Output>;
+    fn slots(&mut self);
 }
-
-pub struct ModbusRTUBusConfig {
-    port: ModbusRtuPort,
-    baud_rate: u32,
-    data_bits: DataBits,
-    parity: Parity,
-    stop_bits: StopBits,
-    devices: HashMap<u8, (MachineHandle, u16)>,
-}
-
-impl ModbusRTUBusConfig {
-    pub(crate) fn new(port: ModbusRtuPort) -> Self {
-        Self {
-            port,
-            baud_rate: 9600,
-            data_bits: 8,
-            parity: Parity::None,
-            stop_bits: 1,
-            devices: Default::default(),
-        }
-    }
-
-    pub fn baud_rate(mut self, baud_rate: u32) -> Self {
-        self.baud_rate = baud_rate;
-        self
-    }
-
-    pub fn data_bits(mut self, data_bits: u8) -> Self {
-        self.data_bits = data_bits;
-        self
-    }
-
-    pub fn parity(mut self, parity: Parity) -> Self {
-        self.parity = parity;
-        self
-    }
-
-    pub fn stop_bits(mut self, stop_bits: u8) -> Self {
-        self.stop_bits = stop_bits;
-        self
-    }
-
-    pub fn device(mut self, slave_id: SlaveId, instance_id: u16, hardware_id: u16) -> Self {
-        self.devices.insert(slave_id, (instance_id, hardware_id));
-        self
-    }
-}
-
-#[derive(Debug, Hash)]
-pub enum ModbusRtuPort {
-    Topology(String),
-    Path(String),
-}
-
-impl ModbusRtuPort {
-    pub fn topology(val: impl Into<String>) -> Self {
-        Self::Topology(val.into())
-    }
-
-    pub fn path(val: impl Into<String>) -> Self {
-        Self::Path(val.into())
-    }
-}
-
-pub struct ModbusDevice {}
-
-impl ModbusDevice {}

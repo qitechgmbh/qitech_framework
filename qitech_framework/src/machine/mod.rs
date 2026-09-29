@@ -61,11 +61,6 @@ pub trait Machine: Any {
     }
 }
 
-pub trait MachineBuild: Sized {
-    /// Builds a machine from the provided build context.
-    fn build(ctx: &mut BuildContext) -> BuildResult<Self>;
-}
-
 /// Provides static identification and schema information for a machine.
 pub trait MachineDescriptor {
     const IDENTIFICATION: MachineIdentification;
