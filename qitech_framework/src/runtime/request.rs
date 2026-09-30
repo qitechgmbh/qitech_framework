@@ -53,12 +53,16 @@ impl<T: RuntimeTransport> Runtime<T> {
                     return Err(WriteMachineDeviceInfoError::NoEtherCATController)?;
                 };
 
-                Ok(utils::write_machine_device_info(
+                let result = utils::write_machine_device_info(
                     controller,
                     machine_ident,
                     role,
                     subdevice_index,
-                )?)
+                );
+
+                tracing::info!("WriteMachineDeviceInfo: {:?}", result);
+
+                Ok(result?)
             }
 
             RuntimeRequestKind::SetConfigProperty {
