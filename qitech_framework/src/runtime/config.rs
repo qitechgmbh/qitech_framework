@@ -158,6 +158,7 @@ pub enum EtherCATMode {
 pub struct EtherCATConfig {
     pub interface_scan_interval: Duration,
     pub master_config: MasterConfiguration,
+    pub stay_preop: bool,
 }
 
 impl Default for EtherCATConfig {
@@ -165,6 +166,7 @@ impl Default for EtherCATConfig {
         Self {
             interface_scan_interval: Duration::from_secs(2),
             master_config: Default::default(),
+            stay_preop: false,
         }
     }
 }

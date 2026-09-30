@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
 use qitech_framework::Machine;
 use qitech_framework::MachineIdentification;
@@ -157,7 +158,7 @@ impl LaserV1 {
 
         if let Err(e) = laser.handle_response()
             && let Some(laser_error) = e.downcast_ref::<LaserError>()
-            && let LaserError::IoErr() = laser_error
+            && let LaserError::IoErr(_) = laser_error
             && self.last_successful_response.elapsed() > Self::IO_FAILURE_GRACE_PERIOD
         {
             let msg = format!("Physical hardware I/O broke: {}", e);

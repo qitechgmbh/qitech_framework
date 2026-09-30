@@ -38,7 +38,7 @@ use crate::runtime::types::HardwareRegistry;
 
 #[tracing::instrument(skip_all)]
 pub fn init<T: RuntimeTransport>(
-    config: EtherCATConfig,
+    config: &EtherCATConfig,
     session: &mut SessionInitializing<T>,
     hardware_registry: &mut HardwareRegistry,
 ) -> RuntimeInitializeResult<(Option<EtherCATController>, Vec<EtherCATSubDevice>)> {
@@ -50,7 +50,7 @@ pub fn init<T: RuntimeTransport>(
         interface: interface.clone(),
     })?;
 
-    let controller = ethercat_hal::init_ethercat(&interface, Some(config.master_config));
+    let controller = ethercat_hal::init_ethercat(&interface, Some(config.master_config.clone()));
 
     let state = match controller.app_handle.get_state() {
         ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,

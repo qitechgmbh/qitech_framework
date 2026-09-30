@@ -89,7 +89,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         let mut hardware_registry = HashMap::new();
 
         let (ecat_controller, mut sub_devices) =
-            if let EtherCATMode::Enabled(config) = config.ethercat_mode {
+            if let EtherCATMode::Enabled(config) = &config.ethercat_mode {
                 ethercat::init(config, &mut session, &mut hardware_registry)?
             } else {
                 (None, Vec::default())
@@ -153,18 +153,9 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
-            let state = match controller.app_handle.get_state() {
-                ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
-                ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
-                ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
-                ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
-                ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
-                ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
+            let EtherCATMode::Enabled(cfg) = &config.ethercat_mode else {
+                unreachable!("Cannot create controller without config");
             };
-            session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
-
-            session.send_event(RuntimeInitEvent::EtherCATFinalizing)?;
-            ethercat::finalize(controller, &mut sub_devices)?;
 
             let state = match controller.app_handle.get_state() {
                 ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
@@ -175,6 +166,21 @@ impl<T: RuntimeTransport> Runtime<T> {
                 ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
             };
             session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
+
+            if !cfg.stay_preop {
+                session.send_event(RuntimeInitEvent::EtherCATFinalizing)?;
+                ethercat::finalize(controller, &mut sub_devices)?;
+
+                let state = match controller.app_handle.get_state() {
+                    ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
+                    ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
+                    ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
+                    ethercat_hal::EtherCATState::PreOp => EtherCATStatus::PreOp,
+                    ethercat_hal::EtherCATState::PreopPdi => EtherCATStatus::PreopPdi,
+                    ethercat_hal::EtherCATState::Op => EtherCATStatus::Op,
+                };
+                session.send_event(RuntimeInitEvent::EtherCATStateUpdate(state))?;
+            }
         }
 
         // --- announce machine build results, now that the bus is confirmed Op
