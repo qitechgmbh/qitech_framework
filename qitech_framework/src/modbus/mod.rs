@@ -20,9 +20,7 @@ struct LaserV1Loader {
     laser: ModbusSlot,
 }
 
-pub struct ModbusSlot {
-    
-}
+pub struct ModbusSlot {}
 
 // --- device ---
 pub struct ModbusDevice {

@@ -3,29 +3,23 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
-use qitech_framework_core::ident::MachineIdentification;
 use qitech_framework_core::ident::MachineInstanceId;
+use qitech_framework_core::ident::MachineTypeId;
 use qitech_framework_core::report::ResourceKind;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::schema::MachineSchema;
-use serialport::DataBits;
-use serialport::Parity;
-use serialport::StopBits;
-use tokio_modbus::SlaveId;
 
 use crate::machine::BuildContext;
 use crate::machine::BuildResult;
 use crate::machine::CommandHandle;
 use crate::machine::ConfigPropertyHandle;
 use crate::machine::Machine;
-use crate::machine::MachineBuild;
-use crate::machine::MachineDescriptor;
 use crate::resource::Journals;
 use crate::resource::LifetimeTokenOwner;
 use crate::resource::PropertyRegistry;
 use crate::resource::ResourceRegistry;
 
-pub(crate) type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
+pub(crate) type MachineRegistry = HashMap<MachineTypeId, MachineRegistryEntry>;
 
 pub(crate) struct MachineRegistryEntry {
     pub(crate) schema: MachineSchema,
@@ -71,17 +65,21 @@ impl Runtime2 {
         }
     }
 
-    pub fn machine<B: MachineBuilder>(mut self, instance_id: u16, builder: B) -> Result<(), ()>
+    pub fn machine<B>(mut self, instance_id: u16, mut builder: B) -> Result<(), ()>
     where
-        M: Machine + MachineBuild + MachineDescriptor + 'static,
+        B: MachineBuilder + 'static,
     {
-        fn build_adapter<M>(
+        fn build_adapter<B>(
             ctx: &mut BuildContext,
         ) -> Result<Box<dyn Machine + 'static>, BuildError>
         where
-            M: MachineBuild + Machine + 'static,
+            B: MachineBuilder + 'static,
         {
-            Ok(Box::new(M::build(ctx)?))
+            Ok(Box::new(B::build(ctx)?))
+        }
+
+        for slot in builder.slots() {
+            
         }
 
         /*
@@ -98,15 +96,14 @@ impl Runtime2 {
             instance_id,
         })
     }
-
-    pub fn register_modbus_rtu_bus<F>(&mut self, config: ModbusRTUBusConfig) -> Result<(), String> {
-        self.modbus_rtu_buses.push(config);
-        Ok(())
-    }
 }
 
 pub trait MachineBuilder {
     type Output: Machine;
     fn build(ctx: BuildContext) -> BuildResult<Self::Output>;
-    fn slots(&mut self);
+    fn slots(&mut self) -> Vec<&mut dyn HardwareSlot>;
+}
+
+pub(crate) trait HardwareSlot {
+    fn stamp(&mut self, runtime_id: u64);
 }

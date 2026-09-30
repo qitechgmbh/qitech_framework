@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::time::Duration;
 
-pub use qitech_framework_core::ident::MachineIdentification;
 pub use qitech_framework_core::ident::MachineInstanceId;
+pub use qitech_framework_core::ident::MachineTypeId;
 pub use qitech_framework_core::report::OperationCapability;
 pub use qitech_framework_core::report::error::ActError;
 pub use qitech_framework_core::report::error::ActErrorImpact;
@@ -51,6 +51,8 @@ pub trait Machine: Any {
 
     /// Allows a machine to create remote properties.
     fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
+        // TODO: dont expose MachineSubscribeError to users
+
         _ = ctx;
         Err(MachineSubscribeError::UnsupportedMachine)
     }
@@ -61,8 +63,7 @@ pub trait Machine: Any {
     }
 }
 
-/// Provides static identification and schema information for a machine.
+/// Provides static information for a machine.
 pub trait MachineDescriptor {
-    const IDENTIFICATION: MachineIdentification;
     const SCHEMA: &'static str;
 }

@@ -1,5 +1,3 @@
-
-
 // ctx.modbus_holding_register::<millimeter>(&slot, 1)
 // ctx.modbus_input_register::<millimeter>(&slot, 1)
 // ctx.modbus.state_property::<>(),
@@ -7,8 +5,7 @@
 // ctx.modbus_input_register(&slot, 1)
 
 // ReadonlyProperty
-// 
-
+//
 
 /*
 let laser_v1_0 = rt.machine(1, LaserV1::builder());

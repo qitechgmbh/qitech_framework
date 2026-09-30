@@ -74,15 +74,24 @@ pub struct ActError {
 
 impl ActError {
     pub fn ignore(kind: ActErrorKind) -> Self {
-        Self { kind, impact: ActErrorImpact::Ignore }
+        Self {
+            kind,
+            impact: ActErrorImpact::Ignore,
+        }
     }
 
     pub fn degraded(kind: ActErrorKind) -> Self {
-        Self { kind, impact: ActErrorImpact::Degraded }
+        Self {
+            kind,
+            impact: ActErrorImpact::Degraded,
+        }
     }
 
     pub fn irrecoverable(kind: ActErrorKind) -> Self {
-        Self { kind, impact: ActErrorImpact::Irrecoverable }
+        Self {
+            kind,
+            impact: ActErrorImpact::Irrecoverable,
+        }
     }
 }
 
