@@ -2,7 +2,9 @@
 
 A Framework for developing EtherCAT and Modbus based machines.
 
-## NOTE: This repository is currently in the experimental phase, therefore expect breaking changes between commits
+## ⚠️ Development Status
+This repository is currently under active development. Breaking changes are expected, and the API and functionality may change without notice.
+External issues and feature requests may not be addressed until the project reaches a more stable stage.
 
 Examples
 
