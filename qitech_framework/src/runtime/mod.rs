@@ -63,6 +63,8 @@ pub struct Runtime<T: RuntimeTransport> {
 
     /// how many reports have we exported
     export_count: Rc<Cell<u64>>,
+
+    config_mode: bool,
 }
 
 impl<T: RuntimeTransport> Runtime<T> {
@@ -82,16 +84,24 @@ impl<T: RuntimeTransport> Runtime<T> {
             return Err(RuntimeError::EtherCATControllerDied);
         }
 
-        self.write_ecat_inputs();
+        if !self.config_mode {
+            self.write_ecat_inputs();
+        }
+
         self.process_requests();
-        self.run_machines(dt);
+
+        if !self.config_mode {
+            self.run_machines(dt);
+        }
 
         // --- sync cache so subscribed properties get the latest data next cycle ---
         self.resources.config_properties.sync_cache();
         self.resources.state_properties.sync_cache();
         self.resources.measurements.sync_cache();
 
-        self.write_ecat_outputs();
+        if !self.config_mode {
+            self.write_ecat_outputs();
+        }
 
         // --- record timings ---
         self.report

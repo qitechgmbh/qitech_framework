@@ -50,6 +50,8 @@ impl<T: RuntimeTransport> Runtime<T> {
             .provide()
             .map_err(RuntimeInitializeError::CreateSession)?;
 
+        let mut config_mode = false;
+
         // --- send hello ---
         let mut session = session.begin_sync()?;
 
@@ -90,6 +92,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         let (ecat_controller, mut sub_devices) =
             if let EtherCATMode::Enabled(config) = &config.ethercat_mode {
+                config_mode = config.stay_preop;
                 ethercat::init(config, &mut session, &mut hardware_registry)?
             } else {
                 (None, Vec::default())
@@ -142,14 +145,18 @@ impl<T: RuntimeTransport> Runtime<T> {
             measurements: PropertyRegistry::new(ResourceKind::Measurement, 4096),
         };
 
-        let (machines, build_outcomes) = Self::init_machines(
-            export_count.clone(),
-            &machine_registry,
-            &hardware_registry,
-            ecat_controller.as_ref().map(|v| v.channel.clone()),
-            &mut journals,
-            &mut resources,
-        );
+        let (machines, build_outcomes) = if config_mode {
+            (Default::default(), Default::default())
+        } else {
+            Self::init_machines(
+                export_count.clone(),
+                &machine_registry,
+                &hardware_registry,
+                ecat_controller.as_ref().map(|v| v.channel.clone()),
+                &mut journals,
+                &mut resources,
+            )
+        };
 
         // --- finalize ethercat ---
         if let Some(controller) = &ecat_controller {
@@ -204,8 +211,9 @@ impl<T: RuntimeTransport> Runtime<T> {
             config: config.config,
             session: session.upgrade()?,
 
-            // set into future so first export always succeeds - nice
+            // set into future so first export always succeeds
             last_export_ts: Instant::now() - Duration::from_secs(420),
+            config_mode
         };
 
         // --- send report with all registered resources and machines ---
@@ -287,7 +295,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             hardware_registry
                 .entry(entry.ident)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(Hardware::Xtrem(XtremDeviceIdentified {
                     device,
                     probe: probe.clone(),

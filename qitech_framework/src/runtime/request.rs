@@ -59,9 +59,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     role,
                     subdevice_index,
                 );
-
-                tracing::info!("WriteMachineDeviceInfo: {:?}", result);
-
+                
                 Ok(result?)
             }
 
