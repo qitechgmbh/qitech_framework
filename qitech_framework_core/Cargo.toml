@@ -31,6 +31,3 @@ default = ["schema", "link_tokio"]
 schema = ["dep:yaml_serde", "dep:indexmap", "dep:unic-langid"]
 
 link_tokio = ["dep:tokio"]
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros", "sync", "net", "io-util"] }
