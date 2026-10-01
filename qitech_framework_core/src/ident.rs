@@ -62,32 +62,3 @@ impl fmt::Display for MachineInstanceId {
         write!(f, "{}:{}", self.machine_type, self.instance_id)
     }
 }
-
-// --- device ---
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DeviceIdentification {
-    pub assignment: Option<DeviceMachineAssignment>,
-    pub hardware: DeviceHardwareIdentification,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DeviceMachineAssignment {
-    pub machine: MachineInstanceId,
-    pub role: u16,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum DeviceHardwareIdentification {
-    Ethercat(DeviceHardwareIdentificationEthercat),
-    Serial(DeviceHardwareIdentificationSerial),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DeviceHardwareIdentificationEthercat {
-    pub subdevice_index: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct DeviceHardwareIdentificationSerial {
-    pub path: String,
-}

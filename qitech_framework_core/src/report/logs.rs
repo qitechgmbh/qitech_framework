@@ -12,6 +12,7 @@ pub struct LogRecord {
     pub timestamp: DateTime<Utc>,
     pub level: LogLevel,
     pub source: LogSource,
+    pub origin: String,
     pub message: String,
     pub attributes: HashMap<String, String>,
 }

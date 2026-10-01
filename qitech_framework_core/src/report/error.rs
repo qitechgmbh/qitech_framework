@@ -3,10 +3,10 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::report::ConstraintViolationError;
-use crate::report::ResourceKind;
+use crate::report::MachineResourceKind;
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum BuildError {
+pub enum MachineBuildError {
     // --- machine / hardware errors ---
     #[error("machine type is not registered")]
     MachineTypeNotRegistered,
@@ -40,13 +40,13 @@ pub enum BuildError {
 
     // --- resource errors ---
     #[error("resource is not defined in the schema: {kind} at {path}")]
-    IllegalResourcePath { kind: ResourceKind, path: String },
+    IllegalResourcePath { kind: MachineResourceKind, path: String },
 
     #[error(
         "resource type mismatch for {kind} at {path}: expected {expected}, received {received}"
     )]
     IllegalResourceType {
-        kind: ResourceKind,
+        kind: MachineResourceKind,
         path: String,
         expected: String,
         received: String,

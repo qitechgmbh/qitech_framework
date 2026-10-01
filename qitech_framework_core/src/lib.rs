@@ -13,10 +13,9 @@ pub use value::ScalarValueTypeMismatchError;
 pub mod ident;
 pub mod link;
 pub mod report;
-pub mod request;
 
-pub trait Controller {
-    type Config;
-    type Error;
-    fn run(config: Self::Config) -> Result<(), Self::Error>;
-}
+pub mod request;
+pub use request::RuntimeRequest;
+pub use request::RuntimeRequestKind;
+pub use request::RuntimeRequestError;
+pub use request::RuntimeResponse;

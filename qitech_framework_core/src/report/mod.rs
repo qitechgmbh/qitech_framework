@@ -1,204 +1,39 @@
-use core::fmt;
-use std::mem;
-use std::time::Duration;
+mod constraints;
+pub use constraints::ConstraintViolationError;
+pub use constraints::Constraints;
 
-use chrono::DateTime;
-use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
-
-use crate::ident::MachineInstanceId;
-use crate::request::RuntimeResponse;
-
-mod types;
-pub use types::ConstraintViolationError;
-pub use types::Constraints;
-pub use types::EventRecord;
-pub use types::OperationCapability;
-pub use types::OperationOrigin;
-pub use types::ResourceAccessError;
-
-mod machines;
-pub use machines::CommandEvent;
-pub use machines::CommandExecuteError;
-pub use machines::ConfigPropertyEvent;
-pub use machines::ConfigPropertyWriteError;
-pub use machines::ConfigPropertyWriteOutcome;
-pub use machines::MachinesReport;
-pub use machines::MeasurementSnapshot;
-pub use machines::StatePropertyEvent;
-
-pub mod error;
+mod error;
+pub use error::ActError;
+pub use error::ActErrorImpact;
+pub use error::ActErrorKind;
+pub use error::MachineBuildError;
 
 mod logs;
 pub use logs::LogLevel;
 pub use logs::LogRecord;
 pub use logs::LogSource;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct RuntimeReport {
-    /// report creation timestamp
-    pub timestamp: DateTime<Utc>,
+mod machines;
+pub use machines::CommandEvent;
+pub use machines::CommandExecuteError;
+pub use machines::ConfigPropertyEvent;
+pub use machines::EventRecord;
+pub use machines::MachinesReport;
+pub use machines::MeasurementSnapshot;
+pub use machines::StatePropertyEvent;
 
-    /// results for completed requests
-    pub responses: Vec<RuntimeResponse>,
+mod operation;
+pub use operation::OperationCapability;
+pub use operation::OperationOrigin;
 
-    /// timings data
-    pub timings: TimingsReport,
+mod resource;
+pub use resource::MachineResource;
+pub use resource::MachineResourceAccessError;
+pub use resource::MachineResourceKind;
 
-    /// machine activity
-    pub machines: MachinesReport,
+mod runtime;
+pub use runtime::RuntimeEvent;
+pub use runtime::RuntimeReport;
 
-    /// runtime events
-    pub events: Vec<RuntimeEvent>,
-
-    /// runtime log records
-    pub logs: Vec<LogRecord>,
-}
-
-impl RuntimeReport {
-    pub fn reset(&mut self) {
-        self.responses.clear();
-        self.timings.reset();
-        self.machines.reset();
-        self.events.clear();
-        self.logs.clear();
-    }
-}
-
-// --- event ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RuntimeEvent {
-    // --- ether cat ---
-    EtherCATStateUpdate {
-        interface: String,
-        // state: EtherCATState,
-    },
-
-    EtherCATInitializationStarted {
-        interface: String,
-    },
-
-    EtherCATDeviceInitializationFailed {
-        interface: String,
-        error: String,
-    },
-
-    EtherCATDeviceInitializationCompleted {
-        interface: String,
-        // devices: Vec<EtherCATDeviceMetadata>,
-    },
-
-    AddedMachine {
-        ident: MachineInstanceId,
-    },
-
-    RemovedMachine {
-        ident: MachineInstanceId,
-    },
-
-    SubscriptionAdded {
-        provider: MachineInstanceId,
-        subscriber: MachineInstanceId,
-        resources: Vec<MachineResource>,
-    },
-
-    SubscriptionRemoved {
-        provider: MachineInstanceId,
-        subscriber: MachineInstanceId,
-    },
-}
-
-// --- timing ---
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TimingsReport {
-    // total number of cycles
-    cycle_count: u32,
-
-    /// total duration spent executing
-    duration_total: Duration,
-
-    /// duration of the longest cycle
-    duration_peak: Duration,
-
-    // cycles that exceeded cycle_timeout
-    overrun_count: u32,
-}
-
-impl TimingsReport {
-    pub fn reset(&mut self) {
-        self.cycle_count = 0;
-        self.duration_total = Duration::ZERO;
-        self.duration_peak = Duration::ZERO;
-        self.overrun_count = 0;
-    }
-
-    pub fn record(&mut self, duration: Duration, budget: Duration) {
-        self.cycle_count += 1;
-        self.duration_total += duration;
-        if duration > self.duration_peak {
-            self.duration_peak = duration;
-        }
-
-        if duration > budget {
-            self.overrun_count += 1;
-        }
-    }
-
-    pub fn duration_avg(&self) -> Duration {
-        if self.cycle_count == 0 {
-            Duration::ZERO
-        } else {
-            self.duration_peak / self.cycle_count
-        }
-    }
-
-    /// Take the current stats and reset for the next export window.
-    pub fn take(&mut self) -> TimingsReport {
-        mem::take(self)
-    }
-}
-
-// --- stats ---
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct StatsReport {
-    /// Number of recorded machine configuration property mutations.
-    pub recorded_machine_config_property_mutations: u32,
-
-    /// Number of recorded machine state property mutations.
-    pub recorded_machine_state_property_mutations: u32,
-
-    /// Number of machine events emitted.
-    pub emitted_machine_events: u32,
-
-    /// Number of requests processed.
-    pub processed_requests: u32,
-}
-
-// --- subscription ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MachineResource {
-    path: String,
-    kind: ResourceKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ResourceKind {
-    ConfigProperty,
-    StateProperty,
-    Measurement,
-    Command,
-    Event,
-}
-
-impl fmt::Display for ResourceKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ResourceKind::ConfigProperty => write!(f, "ConfigProperty"),
-            ResourceKind::StateProperty => write!(f, "StateProperty"),
-            ResourceKind::Measurement => write!(f, "Measurement"),
-            ResourceKind::Command => write!(f, "Command"),
-            ResourceKind::Event => write!(f, "Event"),
-        }
-    }
-}
+mod timings;
+pub use timings::TimingsReport;

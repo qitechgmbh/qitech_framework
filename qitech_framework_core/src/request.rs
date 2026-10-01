@@ -5,10 +5,11 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
+use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineInstanceId;
 use crate::report::CommandExecuteError;
-use crate::report::ConfigPropertyWriteError;
-use crate::report::ResourceAccessError;
+use crate::report::ConstraintViolationError;
+use crate::report::MachineResourceAccessError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeRequest {
@@ -76,7 +77,7 @@ pub struct RuntimeResponse {
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeRequestError {
     #[error(transparent)]
-    MachineSetConfigProperty(#[from] MachineSetConfigProperty),
+    MachineSetConfigProperty(#[from] MachineSetConfigPropertyError),
 
     #[error(transparent)]
     MachineExecuteCommand(#[from] MachineExecuteCommandError),
@@ -90,18 +91,24 @@ pub enum RuntimeRequestError {
 
 // --- errors ---
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum MachineSetConfigProperty {
+pub enum MachineSetConfigPropertyError {
     #[error(transparent)]
-    ResourceAccess(#[from] ResourceAccessError),
+    ResourceAccess(#[from] MachineResourceAccessError),
 
-    #[error(transparent)]
-    WriteError(#[from] ConfigPropertyWriteError),
+    #[error("value type does not match the expected type")]
+    ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
+
+    #[error("resource is not writable")]
+    NotWritable,
+
+    #[error("value violates the resource constraints")]
+    ConstraintViolation(#[from] ConstraintViolationError),
 }
 
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MachineExecuteCommandError {
     #[error(transparent)]
-    ResourceAccess(#[from] ResourceAccessError),
+    ResourceAccess(#[from] MachineResourceAccessError),
 
     #[error(transparent)]
     ExecuteError(#[from] CommandExecuteError),
@@ -110,7 +117,7 @@ pub enum MachineExecuteCommandError {
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum MachineSubscribeError {
     #[error(transparent)]
-    ResourceAccess(#[from] ResourceAccessError),
+    ResourceAccess(#[from] MachineResourceAccessError),
 
     #[error("provider not found")]
     ProviderNotFound,

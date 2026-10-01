@@ -9,8 +9,6 @@ license.workspace = true
 # --- general ---
 serde.workspace = true
 thiserror.workspace = true
-serialport.workspace = true
-tokio-modbus = "0.17.0"
 
 # --- schema ---
 indexmap = { workspace = true, features = ["serde"], optional = true  }
@@ -21,9 +19,6 @@ unic-langid = { workspace = true, features = ["serde"], optional = true  }
 chrono = { workspace = true, features = ["serde"] }
 postcard = { workspace = true, features = ["alloc"] }
 
-# --- crossbeam session ---
-crossbeam = { workspace = true, optional = true }
-
 # --- tokio link ---
 tokio = { workspace = true, features = ["sync", "net", "io-util"], optional = true }
 
@@ -32,10 +27,9 @@ serde = { workspace = true, features = ["derive"] }
 toml.workspace = true
 
 [features]
-default = ["schema", "session_crossbeam", "link_tokio"]
+default = ["schema", "link_tokio"]
 schema = ["dep:yaml_serde", "dep:indexmap", "dep:unic-langid"]
 
-session_crossbeam = ["dep:crossbeam"]
 link_tokio = ["dep:tokio"]
 
 [dev-dependencies]

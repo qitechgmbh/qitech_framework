@@ -1,16 +1,24 @@
+use chrono::DateTime;
+use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
-use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineInstanceId;
+use crate::report::ActError;
 use crate::report::Constraints;
-use crate::report::EventRecord;
 use crate::report::OperationCapability;
 use crate::report::OperationOrigin;
-use crate::report::error::ActError;
-use crate::report::types::ConstraintViolationError;
+
+// --- record ---
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventRecord<T> {
+    pub timestamp: DateTime<Utc>,
+    pub machine: MachineInstanceId,
+    pub path: String,
+    pub event: T,
+}
 
 // --- report ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -43,29 +51,10 @@ pub enum ConfigPropertyEvent {
     DefaultChanged(ScalarValue),
     CapabilityChanged(OperationCapability),
     ConstraintsChanged(Constraints),
-    Written {
+    ValueChanged {
         value: ScalarValue,
         origin: OperationOrigin,
-        outcome: ConfigPropertyWriteOutcome,
     },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigPropertyWriteOutcome {
-    Accepted { changed: bool },
-    Rejected(ConfigPropertyWriteError),
-}
-
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
-pub enum ConfigPropertyWriteError {
-    #[error("value type does not match the expected type")]
-    ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
-
-    #[error("resource is not writable")]
-    NotWritable,
-
-    #[error("value violates the resource constraints")]
-    ConstraintViolation(#[from] ConstraintViolationError),
 }
 
 // --- state ---
