@@ -23,6 +23,9 @@ pub struct EtherCATDeviceIdentified {
 #[derive(Clone)]
 pub struct ModbusRTUDeviceIdentified {
     pub device: Rc<RefCell<dyn ModbusDevice>>,
+
+    /// topology path under `/dev/serial/by-path` the device is bound to
+    pub binding: String,
 }
 
 #[derive(Clone)]

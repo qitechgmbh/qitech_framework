@@ -103,6 +103,9 @@ pub enum RuntimeRequestError {
 // --- errors ---
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum WriteMachineDeviceInfoError {
+    #[error("not in preop")]
+    NotInPreop,
+
     #[error("no EtherCAT controller available")]
     NoEtherCATController,
 

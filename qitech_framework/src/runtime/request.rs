@@ -49,6 +49,13 @@ impl<T: RuntimeTransport> Runtime<T> {
                 role,
                 subdevice_index,
             } => {
+                // --- can only write during config/preop mode ---
+                if !self.config_mode {
+                    return Err(RuntimeRequestError::WriteMachineDeviceInfo(
+                        WriteMachineDeviceInfoError::NotInPreop,
+                    ));
+                }
+
                 let Some(controller) = &self.ecat_controller else {
                     return Err(WriteMachineDeviceInfoError::NoEtherCATController)?;
                 };
@@ -59,7 +66,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                     role,
                     subdevice_index,
                 );
-                
+
                 Ok(result?)
             }
 
@@ -69,7 +76,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 value,
             } => {
                 // --- find the machine ---
-                let Some(instance) = find_machine(&mut self.machines, target) else {
+                let Some(instance) = find_machine(&mut self.machine_instances, target) else {
                     return Err(MachineSetConfigProperty::ResourceAccess(
                         ResourceAccessError::MachineNotFound,
                     ))?;
@@ -123,7 +130,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             RuntimeRequestKind::ExecuteCommand { target, path } => {
                 // --- find the machine ---
-                let Some(instance) = find_machine(&mut self.machines, target) else {
+                let Some(instance) = find_machine(&mut self.machine_instances, target) else {
                     return Err(MachineExecuteCommandError::ResourceAccess(
                         ResourceAccessError::MachineNotFound,
                     ))?;
@@ -177,12 +184,12 @@ impl<T: RuntimeTransport> Runtime<T> {
                 subscriber,
             } => {
                 // --- ensure provider exists ---
-                if find_machine(&mut self.machines, provider).is_none() {
+                if find_machine(&mut self.machine_instances, provider).is_none() {
                     Err(MachineSubscribeError::ProviderNotFound)?;
                 }
 
                 // --- find subscriber ---
-                let Some(instance) = find_machine(&mut self.machines, subscriber) else {
+                let Some(instance) = find_machine(&mut self.machine_instances, subscriber) else {
                     return Err(MachineSubscribeError::SubscriberNotFound)?;
                 };
 
@@ -219,7 +226,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 subscriber,
             } => {
                 // --- find subscriber ---
-                let Some(machine) = find_machine(&mut self.machines, subscriber) else {
+                let Some(machine) = find_machine(&mut self.machine_instances, subscriber) else {
                     return Err(MachineUnsubscribeError::SubscriptionNotFound)?;
                 };
 
