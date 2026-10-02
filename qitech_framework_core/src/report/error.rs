@@ -40,7 +40,10 @@ pub enum MachineBuildError {
 
     // --- resource errors ---
     #[error("resource is not defined in the schema: {kind} at {path}")]
-    IllegalResourcePath { kind: MachineResourceKind, path: String },
+    IllegalResourcePath {
+        kind: MachineResourceKind,
+        path: String,
+    },
 
     #[error(
         "resource type mismatch for {kind} at {path}: expected {expected}, received {received}"

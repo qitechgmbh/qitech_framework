@@ -24,16 +24,6 @@ use crate::link::transport::TransportError;
 
 const READ_CHUNK_SIZE: usize = 64 * 1024;
 
-/// Maps errors that mean the peer went away to `Disconnected`.
-fn map_io(e: io::Error) -> TransportError {
-    match e.kind() {
-        ErrorKind::BrokenPipe | ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted => {
-            TransportError::Disconnected
-        }
-        _ => TransportError::Io(e),
-    }
-}
-
 // --- runtime ---
 pub struct UnixRuntimeListener {
     listener: UnixListener,
@@ -107,14 +97,14 @@ impl RuntimeTransport for UnixRuntimeTransport {
                 Ok(0) => return Err(TransportError::Disconnected),
                 Ok(n) => self.decoder.feed(&self.chunk[..n]),
                 Err(e) if e.kind() == ErrorKind::Interrupted => continue,
-                Err(e) => return Err(map_io(e)),
+                Err(e) => return Err(map_io_err(e)),
             }
         }
     }
 
     fn send(&mut self, msg: RuntimeMessage) -> Result<(), TransportError> {
         let frame = codec::encode(&msg)?;
-        self.stream.write_all(&frame).map_err(map_io)
+        self.stream.write_all(&frame).map_err(map_io_err)
     }
 }
 
@@ -159,7 +149,7 @@ impl ControllerTransport for UnixControllerTransport {
             }
 
             // cancel safe: bytes only reach the decoder after the read completed
-            let n = self.stream.read(&mut self.chunk).await.map_err(map_io)?;
+            let n = self.stream.read(&mut self.chunk).await.map_err(map_io_err)?;
 
             if n == 0 {
                 return Err(TransportError::Disconnected);
@@ -171,6 +161,16 @@ impl ControllerTransport for UnixControllerTransport {
 
     async fn send(&mut self, msg: ControllerMessage) -> Result<(), TransportError> {
         let frame = codec::encode(&msg)?;
-        self.stream.write_all(&frame).await.map_err(map_io)
+        self.stream.write_all(&frame).await.map_err(map_io_err)
+    }
+}
+
+/// Maps errors that mean the peer went away to `Disconnected`.
+fn map_io_err(e: io::Error) -> TransportError {
+    match e.kind() {
+        ErrorKind::BrokenPipe | ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted => {
+            TransportError::Disconnected
+        }
+        _ => TransportError::Io(e),
     }
 }

@@ -16,6 +16,6 @@ pub mod report;
 
 pub mod request;
 pub use request::RuntimeRequest;
-pub use request::RuntimeRequestKind;
 pub use request::RuntimeRequestError;
+pub use request::RuntimeRequestKind;
 pub use request::RuntimeResponse;

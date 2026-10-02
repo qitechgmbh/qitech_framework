@@ -40,7 +40,10 @@ pub enum MachineResourceAccessError {
     MachineNotFound,
 
     #[error("resource not found: {kind} at '{path}'")]
-    ResourceNotFound { kind: MachineResourceKind, path: String },
+    ResourceNotFound {
+        kind: MachineResourceKind,
+        path: String,
+    },
 
     #[error("resource type mismatch: expected {expected}, received {actual}")]
     TypeMismatch { expected: String, actual: String },
