@@ -16,6 +16,7 @@ pub type CommandExecuteResult = ActResult;
 pub type SubscribeResult = Result<(), MachineSubscribeError>;
 
 mod build;
+pub(crate) mod modbus;
 pub use build::BuildContext;
 
 pub(crate) mod hardware;

@@ -18,12 +18,10 @@ use qitech_framework_core::session::runtime::SessionInitializing;
 use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::MetaSubdevice;
-use qitech_lib::ethercat_hal::devices::EthercatDevice;
-use qitech_lib::ethercat_hal::devices::device_from_subdevice_identity_rc;
 use qitech_lib::ethercat_hal::interface_discovery::LinkType;
 use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
 use qitech_lib::ethercat_hal::interface_discovery::test_interface;
-use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
+use qitech_lib::ethercat_hal_devices::EthercatDevice;
 
 use super::error::EtherCATInitializeError;
 use super::error::EtherCATInitializeResult;
@@ -31,6 +29,7 @@ use super::error::RuntimeInitializeError;
 use super::error::RuntimeInitializeResult;
 use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
+use crate::machine::hardware::MachineDeviceInfo;
 use crate::runtime::EtherCATConfig;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
@@ -52,7 +51,7 @@ pub fn init<T: RuntimeTransport>(
 
     let controller = ethercat_hal::init_ethercat(&interface, Some(config.master_config.clone()));
 
-    let state = match controller.app_handle.get_state() {
+    let state = match controller.get_state() {
         ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
         ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
         ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
@@ -65,7 +64,7 @@ pub fn init<T: RuntimeTransport>(
     session.send_event(RuntimeInitEvent::EtherCATInitializationStarted)?;
     let sub_devices = setup(&controller)?;
 
-    let state = match controller.app_handle.get_state() {
+    let state = match controller.get_state() {
         ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
         ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
         ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
@@ -122,7 +121,6 @@ pub fn find_interface(retry_delay: Duration) -> String {
 pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<EtherCATSubDevice>> {
     // switch into pre op mode
     controller
-        .channel
         .request_state_change(ethercat_hal::EtherCATState::PreOp)
         .map_err(EtherCATInitializeError::FailedToRequestStateChange)?;
 
@@ -139,8 +137,8 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
 
         thread::sleep(Duration::from_millis(50));
 
-        let preop_ready = controller.app_handle.get_state() == ethercat_hal::EtherCATState::PreOp
-            && controller.app_handle.get_subdevice_count() > 0;
+        let preop_ready = controller.get_state() == ethercat_hal::EtherCATState::PreOp
+            && controller.get_subdevice_count() > 0;
 
         if preop_ready {
             stable_ticks += 1
@@ -150,12 +148,11 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
     }
 
     tracing::info!(
-        count = controller.app_handle.get_subdevice_count(),
+        count = controller.get_subdevice_count(),
         "initialized subdevices"
     );
 
     let meta_subdevices = controller
-        .app_handle
         .try_get_subdevices_vec_sync()
         .map_err(EtherCATInitializeError::FailedToGetSubDevices)?;
 
@@ -173,7 +170,6 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
         subdevices.push((meta, dev.clone()));
         if meta.vendor == BECKHOFF_VENDOR_ID {
             controller
-                .channel
                 .set_mut_beckhoff_eeprom_lock_active(meta.device_address)
                 .map_err(EtherCATInitializeError::FailedToSetBeckhoffEepromLockActive)?;
         }
@@ -189,7 +185,6 @@ pub fn finalize(
 ) -> RuntimeInitializeResult<()> {
     // go into op mode
     controller
-        .channel
         .request_state_change(ethercat_hal::EtherCATState::Op)
         .map_err(EtherCATInitializeError::FailedToRequestStateChange)?;
 
@@ -197,7 +192,6 @@ pub fn finalize(
 
     // update offsets in sub devices
     let src = controller
-        .app_handle
         .try_get_subdevices_vec_sync()
         .map_err(EtherCATInitializeError::FailedToGetSubDevices)?;
 
@@ -223,14 +217,12 @@ pub fn is_controller_finished(controller: &EtherCATController) -> bool {
 }
 
 fn wait_for_op_state(controller: &EtherCATController) -> EtherCATInitializeResult<()> {
-    while !controller.app_handle.check_all_op() {
+    while !controller.check_all_op() {
         if is_controller_finished(controller) {
             return Err(EtherCATInitializeError::FailedToReachOpState);
         }
-
         thread::sleep(Duration::from_millis(50));
     }
-
     Ok(())
 }
 

@@ -34,6 +34,7 @@ tokio-serial.workspace = true
 regex.workspace = true
 tracing.workspace = true
 crossbeam.workspace = true
+tokio-modbus = "0.17.0"
 
 [build-dependencies]
 toml.workspace = true
