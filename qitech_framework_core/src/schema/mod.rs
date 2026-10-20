@@ -1,6 +1,5 @@
 use core::fmt;
 use std::fmt::Display;
-use std::str::FromStr;
 
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -13,11 +12,18 @@ pub type Map<K, V> = IndexMap<K, V>;
 pub type StringMap<T> = Map<String, T>;
 pub type LocalizedText = Map<LanguageIdentifier, String>;
 
+/// Reference to a unit by its identifier, e.g. `si.millimeter`.
+/// Placeholder until the unit model is reworked.
+pub type UnitRef = String;
+
 mod version;
 pub use version::Version;
 
 mod parser;
 pub use parser::ParseError;
+
+mod enum_variants;
+pub use enum_variants::EnumVariants;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineSchema {
@@ -47,67 +53,106 @@ pub type StatePropertyDefinition = ScalarPropertyDefinition;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScalarPropertyDefinition {
-    pub kind: ScalarPropertyKind,
-    pub nullable: bool,
+    pub ty: ScalarType,
+    pub optional: bool,
     pub metadata: Metadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ScalarPropertyKind {
+pub enum ScalarType {
     Enum {
         /// Variants of the enum.
         variants: EnumVariants,
     },
     String,
     Boolean,
-    Integer,
-    Float {
-        /// Representation of the float. E.g. plain, fraction, millimeter
-        semantic: FloatSemantic,
+    Numeric {
+        ty: NumericType,
+        unit: Option<UnitRef>,
     },
 }
 
-impl Display for ScalarPropertyKind {
+impl Display for ScalarType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Enum { variants } => {
-                write!(f, "enum ")?;
-                f.debug_list().entries(variants.list()).finish()
+                write!(f, "enum(")?;
+                for (i, (name, _)) in variants.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{name}")?;
+                }
+                write!(f, ")")
             }
-            Self::String => write!(f, "string"),
+            Self::String { .. } => write!(f, "string"),
             Self::Boolean => write!(f, "boolean"),
-            Self::Integer => write!(f, "integer"),
-            Self::Float { semantic } => write!(f, "{semantic}"),
+            Self::Numeric { ty, unit } => fmt_numeric(f, ty, unit),
         }
+    }
+}
+
+// --- numeric ---
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NumericType {
+    /// Signed 64-bit integer.
+    Integer,
+    /// Unsigned 64-bit integer.
+    IntegerUnsigned,
+    /// 64-bit floating point.
+    Float,
+}
+
+impl NumericType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Integer => "integer",
+            Self::IntegerUnsigned => "integer_unsigned",
+            Self::Float => "float",
+        }
+    }
+}
+
+impl Display for NumericType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+fn fmt_numeric(
+    f: &mut fmt::Formatter<'_>,
+    ty: &NumericType,
+    unit: &Option<UnitRef>,
+) -> fmt::Result {
+    match unit {
+        Some(unit) => write!(f, "{ty}({unit})"),
+        None => write!(f, "{ty}"),
     }
 }
 
 // --- measurements ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasurementDefinition {
-    pub kind: MeasurementKind,
+    pub ty: MeasurementType,
     pub nullable: bool,
     pub metadata: Metadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum MeasurementKind {
+pub enum MeasurementType {
     Boolean,
-    Integer {
-        statistics: MeasurementStatistics,
-    },
-    Float {
-        semantic: FloatSemantic,
+    Numeric {
+        ty: NumericType,
+        unit: Option<UnitRef>,
         statistics: MeasurementStatistics,
     },
 }
 
-impl Display for MeasurementKind {
+impl Display for MeasurementType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Boolean => write!(f, "boolean"),
-            Self::Integer { .. } => write!(f, "integer"),
-            Self::Float { semantic, .. } => write!(f, "{semantic}"),
+            Self::Numeric { ty, unit, .. } => fmt_numeric(f, ty, unit),
         }
     }
 }
@@ -158,83 +203,21 @@ pub struct EventField {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventFieldKind {
-    Object { fields: StringMap<EventField> },
-    List { item: Box<EventField> },
-    Enum { variants: EnumVariants },
+    Object {
+        fields: StringMap<EventField>,
+    },
+    List {
+        item: Box<EventField>,
+    },
+    Enum {
+        variants: EnumVariants,
+    },
     String,
     Boolean,
-    Integer,
-    Float { semantic: FloatSemantic },
-}
-
-// --- enum variants ---
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnumVariants {
-    values: StringMap<i64>,
-    reverse: Map<i64, String>,
-}
-
-impl EnumVariants {
-    pub fn first(&self) -> (&String, &i64) {
-        self.values.first().expect("Cannot be empty")
-    }
-
-    pub fn last(&self) -> (&String, &i64) {
-        self.values.last().expect("Cannot be empty")
-    }
-
-    pub fn contains_name(&self, name: &str) -> bool {
-        self.values.contains_key(name)
-    }
-
-    pub fn get_int(&self, name: &str) -> Option<i64> {
-        self.values.get(name).copied()
-    }
-
-    pub fn get_name(&self, value: i64) -> Option<&str> {
-        self.reverse.get(&value).map(String::as_str)
-    }
-
-    pub fn iter(&self) -> indexmap::map::Iter<'_, String, i64> {
-        self.values.iter()
-    }
-
-    pub fn list(&self) -> Vec<String> {
-        self.values.keys().cloned().collect()
-    }
-
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
-    }
-
-    fn new() -> Self {
-        Self {
-            values: Default::default(),
-            reverse: Default::default(),
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a EnumVariants {
-    type Item = (&'a String, &'a i64);
-    type IntoIter = indexmap::map::Iter<'a, String, i64>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values.iter()
-    }
-}
-
-impl IntoIterator for EnumVariants {
-    type Item = (String, i64);
-    type IntoIter = indexmap::map::IntoIter<String, i64>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter()
-    }
+    Numeric {
+        ty: NumericType,
+        unit: Option<UnitRef>,
+    },
 }
 
 // --- metadata ---
@@ -242,80 +225,3 @@ impl IntoIterator for EnumVariants {
 pub struct Metadata {
     pub description: LocalizedText,
 }
-
-impl Display for FloatSemantic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FloatSemantic::Plain => write!(f, "!float"),
-            FloatSemantic::Fraction => write!(f, "!fraction"),
-            FloatSemantic::Percentage => write!(f, "!percentage"),
-            FloatSemantic::Quantity(quantity) => write!(f, "!{quantity}"),
-        }
-    }
-}
-
-// --- float semantic ---
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum FloatSemantic {
-    Plain,
-    Fraction,
-    Percentage,
-    Quantity(Quantity),
-}
-
-impl FromStr for FloatSemantic {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(v) = Quantity::from_str(s) {
-            return Ok(Self::Quantity(v));
-        }
-
-        Ok(match s {
-            "float" => Self::Plain,
-            "fraction" => Self::Fraction,
-            "percentage" => Self::Percentage,
-            other => return Err(format!("invalid type {other}")),
-        })
-    }
-}
-
-impl FloatSemantic {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            FloatSemantic::Plain => "float",
-            FloatSemantic::Fraction => "fraction",
-            FloatSemantic::Percentage => "percentage",
-            FloatSemantic::Quantity(quantity) => quantity.as_str(),
-        }
-    }
-}
-
-// --- quantity ---
-pub mod quantity {
-    // includes mod generated { ... }
-    include!(concat!(env!("OUT_DIR"), "/quantity.rs"));
-
-    pub use generated::AccelerationUnit;
-    pub use generated::AmountOfSubstanceUnit;
-    pub use generated::AngleUnit;
-    pub use generated::AngularAccelerationUnit;
-    pub use generated::AngularJerkUnit;
-    pub use generated::AngularVelocityUnit;
-    pub use generated::ElectricCurrentUnit;
-    pub use generated::ElectricPotentialUnit;
-    pub use generated::FrequencyUnit;
-    pub use generated::JerkUnit;
-    pub use generated::LengthUnit;
-    pub use generated::LuminousIntensityUnit;
-    pub use generated::MassUnit;
-    pub use generated::PressureUnit;
-    pub use generated::Quantity;
-    pub use generated::RatioUnit;
-    pub use generated::ThermodynamicTemperatureUnit;
-    pub use generated::TimeUnit;
-    pub use generated::VelocityUnit;
-    pub use generated::VolumeRateUnit;
-}
-
-pub use quantity::Quantity;

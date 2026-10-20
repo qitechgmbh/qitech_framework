@@ -30,28 +30,28 @@ impl<'de> Deserialize<'de> for EnumVariantsRaw {
             where
                 A: SeqAccess<'de>,
             {
-                let mut variants = EnumVariants::new();
+                let mut entries = Vec::new();
                 let mut index = 0i64;
 
                 while let Some(name) = seq.next_element::<String>()? {
-                    insert(&mut variants, name, index).map_err(Error::custom)?;
+                    entries.push((name, index));
                     index += 1;
                 }
 
-                finish(variants)
+                finish(entries)
             }
 
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
             where
                 A: MapAccess<'de>,
             {
-                let mut variants = EnumVariants::new();
+                let mut entries = Vec::new();
 
-                while let Some((name, value)) = map.next_entry::<String, i64>()? {
-                    insert(&mut variants, name, value).map_err(Error::custom)?;
+                while let Some(entry) = map.next_entry::<String, i64>()? {
+                    entries.push(entry);
                 }
 
-                finish(variants)
+                finish(entries)
             }
         }
 
@@ -60,27 +60,11 @@ impl<'de> Deserialize<'de> for EnumVariantsRaw {
 }
 
 // --- utils ---
-fn insert(variants: &mut EnumVariants, name: String, value: i64) -> Result<(), String> {
-    if variants.values.contains_key(&name) {
-        return Err(format!("duplicate enum key {:?}", name));
-    }
-
-    if variants.reverse.contains_key(&value) {
-        return Err(format!("duplicate enum value {:?}", value));
-    }
-
-    variants.values.insert(name.clone(), value);
-    variants.reverse.insert(value, name);
-    Ok(())
-}
-
-fn finish<E>(variants: EnumVariants) -> Result<EnumVariantsRaw, E>
+fn finish<E>(entries: Vec<(String, i64)>) -> Result<EnumVariantsRaw, E>
 where
     E: Error,
 {
-    if variants.is_empty() {
-        Err(E::custom("enum cannot be empty"))
-    } else {
-        Ok(EnumVariantsRaw(variants))
-    }
+    EnumVariants::try_from_iter(entries)
+        .map(EnumVariantsRaw)
+        .map_err(E::custom)
 }

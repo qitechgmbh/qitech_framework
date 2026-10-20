@@ -32,26 +32,16 @@ impl Version {
 
     /// Whether this version is explicitly unsupported and should be rejected.
     pub const fn is_unsupported(self) -> bool {
-        let mut i = 0;
-        while i < Self::UNSUPPORTED_VERSIONS.len() {
-            let Version { major, minor } = Self::UNSUPPORTED_VERSIONS[i];
-            if major == self.major && minor == self.minor {
-                return true;
-            }
-            i += 1;
-        }
-
-        false
+        Self::contains(Self::UNSUPPORTED_VERSIONS, self)
     }
 
-    const fn contains(list: &[Version], version: Version) -> bool {
-        let mut i = 0;
-        while i < list.len() {
-            let Version { major, minor } = list[i];
-            if major == version.major && minor == version.minor {
+    // `PartialEq::eq` isn't callable in const fn, so compare fields by hand.
+    const fn contains(mut list: &[Version], version: Version) -> bool {
+        while let [head, rest @ ..] = list {
+            if head.major == version.major && head.minor == version.minor {
                 return true;
             }
-            i += 1;
+            list = rest;
         }
 
         false

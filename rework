@@ -1,0 +1,59 @@
+Revised unit system:
+----------------------
+Each schema declares a unit import field.
+Users can manually either use default preset provided by us or mix it with their custom units
+or use them standalone -> No restrictions on units anymore that we cherry pick for our projects anymore
+which would restrict other users, but if we enable all we still don't include all and explode the compile
+time for every user of the framework!!
+
+--- 
+
+Program:
+- Change Policy (Reject, Abort, Queue)
+program.get()
+program.next()
+
+Stahlwerk Extension: Does NOT live in the runtime -> instead lives at controller level and simply sends machine command what to do
+
+
+Rework subscription into inputs system. Controller can then bind laser diameter to the input:
+-> 
+
+
+Runtime design/architecture: Policy-Free (Makes no decisions on it own, relies 100% on the controller)
+Controller design/architecture: Policy-Maker ()
+
+Subscriptions(formerly) -> Inputs (Input bindings controller can assign, eliminates restrictions of subscriptions)
+
+
+Schema 2.0:
+-------------------------------------------------------------
+-> Eliminate Tags (too restrictive -> requires pre processor)
+
+Introduce 'Input' -> Any data that is fed to the machine
+regardless of source. Subscriptions become input bindings that the controller can assign.
+
+revised schema example:
+
+input:
+    diameter.target: 
+        type: float
+        unit: si.millimeter
+        optional: true
+
+measurements:
+    diameter: 
+        type: float
+        unit: si.millimeter
+
+
+
+QiTech Control limits:
+-> Subscription is tied to custom controller
+
+
+
+dynamic relationships through dynamically parsed code
+
+
+

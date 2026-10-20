@@ -10,8 +10,8 @@ use serde::de::Visitor;
 
 use crate::schema::FloatSemantic;
 use crate::schema::MeasurementDefinition;
-use crate::schema::MeasurementKind;
 use crate::schema::MeasurementStatistics;
+use crate::schema::MeasurementType;
 
 #[derive(Debug)]
 pub struct MeasurementInfoRaw(pub MeasurementDefinition);
@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for MeasurementInfoRaw {
                     let NumericHelper { statistics } = variant.newtype_variant()?;
 
                     return Ok(MeasurementInfoRaw(MeasurementDefinition {
-                        kind: MeasurementKind::Float {
+                        ty: MeasurementType::Float {
                             semantic,
                             statistics,
                         },
@@ -64,7 +64,7 @@ impl<'de> Deserialize<'de> for MeasurementInfoRaw {
                         let NumericHelper { statistics } = variant.newtype_variant()?;
 
                         Ok(MeasurementInfoRaw(MeasurementDefinition {
-                            kind: MeasurementKind::Integer { statistics },
+                            ty: MeasurementType::Integer { statistics },
                             nullable,
                             metadata: Default::default(),
                         }))
@@ -73,7 +73,7 @@ impl<'de> Deserialize<'de> for MeasurementInfoRaw {
                     "boolean" => {
                         variant.unit_variant()?;
                         Ok(MeasurementInfoRaw(MeasurementDefinition {
-                            kind: MeasurementKind::Boolean,
+                            ty: MeasurementType::Boolean,
                             nullable,
                             metadata: Default::default(),
                         }))

@@ -149,7 +149,11 @@ impl ControllerTransport for UnixControllerTransport {
             }
 
             // cancel safe: bytes only reach the decoder after the read completed
-            let n = self.stream.read(&mut self.chunk).await.map_err(map_io_err)?;
+            let n = self
+                .stream
+                .read(&mut self.chunk)
+                .await
+                .map_err(map_io_err)?;
 
             if n == 0 {
                 return Err(TransportError::Disconnected);

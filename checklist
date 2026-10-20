@@ -1,0 +1,27 @@
+
+
+
+
+Checklist:
+-> units kdl
+-> machine_*.kdl
+-> hardware.kdl
+-> app.kdl
+
+
+Units KDL:
+----------
+
+length {
+    meter      symbol="m"  base=#true
+    millimeter symbol="mm" factor=1e-3
+    micrometer symbol="µm" factor=1e-6
+    inch       symbol="in" factor=0.0254
+}
+
+Machine KDL:
+------------
+
+name: winder_v1
+
+^

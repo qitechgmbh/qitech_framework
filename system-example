@@ -1,0 +1,43 @@
+System {
+    Machine {
+        id: winder_V1
+
+        Component {
+            id: spool
+
+            let device: SpeedController (trait)
+        }
+
+        Component {
+            id: traverse
+        }
+
+        Component {
+            id: puller
+        }
+
+        Component {
+            id: laser_pointer
+        }
+    }
+
+    EtherCAT {
+        interface: eth0
+
+        EK1100 {
+
+        }
+
+        EL2002 {
+            port_0: winder_V1.spool
+        }
+
+        EL7031 {
+
+        }
+
+        EL7031_0030 {
+
+        }
+    }
+}

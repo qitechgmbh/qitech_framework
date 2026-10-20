@@ -137,6 +137,8 @@ pub fn parse_str(s: &str) -> Result<MachineSchema, ParseError> {
         entry.metadata = metadata;
     }
 
+    
+
     // --- finish ---
     Ok(MachineSchema {
         qms_version,

@@ -8,9 +8,8 @@ use serde::de::Error;
 use serde::de::VariantAccess;
 use serde::de::Visitor;
 
-use crate::schema::FloatSemantic;
 use crate::schema::ScalarPropertyDefinition;
-use crate::schema::ScalarPropertyKind;
+use crate::schema::ScalarType;
 use crate::schema::parser::enum_variants::EnumVariantsRaw;
 
 #[derive(Debug)]
@@ -43,8 +42,8 @@ impl<'de> Deserialize<'de> for ScalarPropertyDefinitionRaw {
                     variant.unit_variant()?;
 
                     return Ok(ScalarPropertyDefinition {
-                        kind: ScalarPropertyKind::Float { semantic },
-                        nullable,
+                        ty: ScalarType::Float { semantic },
+                        optional: nullable,
                         metadata: Default::default(),
                     });
                 }
@@ -54,8 +53,8 @@ impl<'de> Deserialize<'de> for ScalarPropertyDefinitionRaw {
                         let EnumVariantsRaw(variants) = variant.newtype_variant()?;
 
                         Ok(ScalarPropertyDefinition {
-                            kind: ScalarPropertyKind::Enum { variants },
-                            nullable,
+                            ty: ScalarType::Enum { variants },
+                            optional: nullable,
                             metadata: Default::default(),
                         })
                     }
@@ -64,8 +63,8 @@ impl<'de> Deserialize<'de> for ScalarPropertyDefinitionRaw {
                         variant.unit_variant()?;
 
                         Ok(ScalarPropertyDefinition {
-                            kind: ScalarPropertyKind::String,
-                            nullable,
+                            ty: ScalarType::String,
+                            optional: nullable,
                             metadata: Default::default(),
                         })
                     }
@@ -74,8 +73,8 @@ impl<'de> Deserialize<'de> for ScalarPropertyDefinitionRaw {
                         variant.unit_variant()?;
 
                         Ok(ScalarPropertyDefinition {
-                            kind: ScalarPropertyKind::Integer,
-                            nullable,
+                            ty: ScalarType::Integer,
+                            optional: nullable,
                             metadata: Default::default(),
                         })
                     }
@@ -84,8 +83,8 @@ impl<'de> Deserialize<'de> for ScalarPropertyDefinitionRaw {
                         variant.unit_variant()?;
 
                         Ok(ScalarPropertyDefinition {
-                            kind: ScalarPropertyKind::Boolean,
-                            nullable,
+                            ty: ScalarType::Boolean,
+                            optional: nullable,
                             metadata: Default::default(),
                         })
                     }
