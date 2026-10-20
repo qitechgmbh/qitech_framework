@@ -5,7 +5,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::ident::MachineInstanceId;
+use crate::ident::MachineId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogRecord {
@@ -17,19 +17,10 @@ pub struct LogRecord {
     pub attributes: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LogSource {
     Runtime,
-    Machine(MachineInstanceId),
-}
-
-impl LogSource {
-    pub fn to_u64(self) -> u64 {
-        match self {
-            LogSource::Runtime => 1 << 63,
-            LogSource::Machine(id) => u32::from(id) as u64,
-        }
-    }
+    Machine(MachineId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

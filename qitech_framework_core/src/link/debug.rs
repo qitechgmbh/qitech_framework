@@ -63,7 +63,7 @@ impl RuntimeTransport for DebugRuntimeTransport {
     fn send(&mut self, msg: RuntimeMessage) -> Result<(), TransportError> {
         match msg {
             RuntimeMessage::HelloAck(info) => {
-                let machines: Vec<_> = info.schemas.iter().map(|s| s.identification).collect();
+                let machines: Vec<_> = info.schemas.iter().map(|s| s.name.as_str()).collect();
                 println!("[debug link] hello ack, machines: {machines:?}");
 
                 if self.state == State::AwaitHelloAck {

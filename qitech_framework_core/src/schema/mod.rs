@@ -6,7 +6,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use unic_langid::LanguageIdentifier;
 
-use crate::ident::MachineTypeId;
 
 pub type Map<K, V> = IndexMap<K, V>;
 pub type StringMap<T> = Map<String, T>;
@@ -33,7 +32,6 @@ pub struct MachineSchema {
 
     // --- interface ---
     pub name: String,
-    pub identification: MachineTypeId,
     pub config_properties: StringMap<ScalarPropertyDefinition>,
     pub state_properties: StringMap<StatePropertyDefinition>,
     pub measurements: StringMap<MeasurementDefinition>,

@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::ScalarValue;
 use crate::ScalarValueTypeMismatchError;
-use crate::ident::MachineInstanceId;
+use crate::ident::MachineId;
 use crate::report::CommandExecuteError;
 use crate::report::ConstraintViolationError;
 use crate::report::MachineResourceAccessError;
@@ -23,24 +23,24 @@ pub struct RuntimeRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuntimeRequestKind {
     SetConfigProperty {
-        target: MachineInstanceId,
+        target: MachineId,
         path: String,
         value: ScalarValue,
     },
 
     ExecuteCommand {
-        target: MachineInstanceId,
+        target: MachineId,
         path: String,
     },
 
     SubscribeMachine {
-        provider: MachineInstanceId,
-        subscriber: MachineInstanceId,
+        provider: MachineId,
+        subscriber: MachineId,
     },
 
     UnsubscribeMachine {
-        provider: MachineInstanceId,
-        subscriber: MachineInstanceId,
+        provider: MachineId,
+        subscriber: MachineId,
     },
 
     Terminate,

@@ -8,10 +8,10 @@ use thiserror::Error;
 #[repr(i8)]
 pub enum ScalarValueKind {
     Null = 0,
-    Enum = 1,
-    String = 2,
-    Boolean = 3,
-    Integer = 4,
+    String = 1,
+    Boolean = 2,
+    Integer = 3,
+    IntegerUnsigned = 4,
     Float = 5,
 }
 
@@ -19,10 +19,10 @@ pub enum ScalarValueKind {
 #[serde(rename_all = "snake_case")]
 pub enum ScalarValue {
     Null,
-    Enum(String),
     String(String),
     Boolean(bool),
     Integer(i64),
+    IntegerUnsigned(u64),
     Float(f64),
 }
 
@@ -32,23 +32,15 @@ impl ScalarValue {
 
         match self {
             Null => ScalarValueKind::Null,
-            Enum(_) => ScalarValueKind::Enum,
             String(_) => ScalarValueKind::String,
             Boolean(_) => ScalarValueKind::Boolean,
             Integer(_) => ScalarValueKind::Integer,
+            IntegerUnsigned(_) => ScalarValueKind::Integer,
             Float(_) => ScalarValueKind::Float,
         }
     }
 
-    pub fn r#enum(self) -> Option<String> {
-        match self {
-            ScalarValue::Null => None,
-            ScalarValue::Enum(value) => Some(value),
-            other => panic!("expected Enum, got {:?}", other),
-        }
-    }
-
-    pub fn string(self) -> Option<String> {
+    pub fn expect_string(self) -> Option<String> {
         match self {
             ScalarValue::Null => None,
             ScalarValue::String(value) => Some(value),
@@ -56,7 +48,7 @@ impl ScalarValue {
         }
     }
 
-    pub fn integer(self) -> Option<i64> {
+    pub fn expect_integer(self) -> Option<i64> {
         match self {
             ScalarValue::Null => None,
             ScalarValue::Integer(value) => Some(value),
@@ -64,7 +56,7 @@ impl ScalarValue {
         }
     }
 
-    pub fn float(self) -> Option<f64> {
+    pub fn expect_float(self) -> Option<f64> {
         match self {
             ScalarValue::Null => None,
             ScalarValue::Float(value) => Some(value),
@@ -72,7 +64,7 @@ impl ScalarValue {
         }
     }
 
-    pub fn boolean(self) -> Option<bool> {
+    pub fn expect_boolean(self) -> Option<bool> {
         match self {
             ScalarValue::Null => None,
             ScalarValue::Boolean(value) => Some(value),
@@ -85,10 +77,10 @@ impl fmt::Display for ScalarValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ScalarValue::Null => write!(f, "null"),
-            ScalarValue::Enum(v) => write!(f, "{v}"),
             ScalarValue::String(v) => write!(f, "{v}"),
             ScalarValue::Boolean(v) => write!(f, "{v}"),
             ScalarValue::Integer(v) => write!(f, "{v}"),
+            ScalarValue::IntegerUnsigned(v) => write!(f, "{v}"),
             ScalarValue::Float(v) => write!(f, "{v:.2}"),
         }
     }

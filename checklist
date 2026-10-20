@@ -19,6 +19,21 @@ length {
     inch       symbol="in" factor=0.0254
 }
 
+--- Units in rust ---
+
+Must be convertible to ScalarValue
+
+pub trait PropertyAdapter: 'static {
+    type Type: PropertyType;
+    type Input;
+
+    fn from_input(input: Self::Input) -> Self::Type;
+
+    // Scalar Conversion and Validation
+    // Apply Constraints
+    // As Constraints
+}
+
 Machine KDL:
 ------------
 

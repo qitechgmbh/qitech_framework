@@ -5,7 +5,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
-use crate::ident::MachineInstanceId;
+use crate::ident::MachineId;
 use crate::report::ActError;
 use crate::report::Constraints;
 use crate::report::OperationCapability;
@@ -15,7 +15,7 @@ use crate::report::OperationOrigin;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventRecord<T> {
     pub timestamp: DateTime<Utc>,
-    pub machine: MachineInstanceId,
+    pub machine: MachineId,
     pub path: String,
     pub event: T,
 }
@@ -67,7 +67,7 @@ pub enum StatePropertyEvent {
 // --- measurements ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasurementSnapshot {
-    pub machine: MachineInstanceId,
+    pub machine: MachineId,
     pub path: String,
     pub value: Option<f64>,
 }

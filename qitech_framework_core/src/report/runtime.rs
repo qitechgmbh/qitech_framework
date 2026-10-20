@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::ident::MachineInstanceId;
+use crate::ident::MachineId;
 use crate::report::LogRecord;
 use crate::report::MachineResource;
 use crate::report::MachinesReport;
@@ -66,21 +66,21 @@ pub enum RuntimeEvent {
     },
 
     AddedMachine {
-        ident: MachineInstanceId,
+        ident: MachineId,
     },
 
     RemovedMachine {
-        ident: MachineInstanceId,
+        ident: MachineId,
     },
 
     SubscriptionAdded {
-        provider: MachineInstanceId,
-        subscriber: MachineInstanceId,
+        provider: MachineId,
+        subscriber: MachineId,
         resources: Vec<MachineResource>,
     },
 
     SubscriptionRemoved {
-        provider: MachineInstanceId,
-        subscriber: MachineInstanceId,
+        provider: MachineId,
+        subscriber: MachineId,
     },
 }
