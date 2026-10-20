@@ -18,13 +18,13 @@ use qitech_framework::machine::Machine;
 use qitech_framework::machine::MachineBuild;
 use qitech_framework::machine::Measurement;
 use qitech_framework::machine::StateProperty;
+use qitech_framework::machine::LaserDevice;
+use qitech_framework::machine::ModbusDevice;
+use qitech_framework::machine::LaserError;
 use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::vendors;
-use qitech_lib::modbus::ModbusDevice;
-use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
-use qitech_lib::modbus::devices::qitech_laser::LaserError;
 use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
 

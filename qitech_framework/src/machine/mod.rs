@@ -17,8 +17,12 @@ pub type SubscribeResult = Result<(), MachineSubscribeError>;
 
 mod build;
 pub(crate) mod modbus;
-pub use build::BuildContext;
+pub use modbus::*;
 
+pub mod laser_device;
+pub use laser_device::*;
+
+pub use build::BuildContext;
 pub(crate) mod hardware;
 pub(crate) use hardware::Hardware;
 
