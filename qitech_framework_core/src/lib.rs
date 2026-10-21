@@ -7,7 +7,7 @@ pub use value::ScalarValue;
 pub use value::ScalarValueKind;
 
 pub mod ident;
-// pub mod link;
+pub mod link;
 pub mod report;
 
 pub mod request;
