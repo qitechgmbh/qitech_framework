@@ -228,7 +228,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             self.export_count.clone(),
             &self.machine_registry,
             &self.hardware_registry,
-            self.ecat_controller.as_ref().map(|c| c.channel.clone()),
+            self.ecat_controller.as_ref().map(|c| c.get_channel()),
             &mut self.journals,
             &mut self.resources,
             &mut self.machine_instances,
@@ -357,7 +357,6 @@ impl<T: RuntimeTransport> Runtime<T> {
         };
 
         let inputs = controller
-            .app_handle
             .get_inputs()
             .expect("There should always be an input (latest state)");
 
@@ -378,7 +377,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             return;
         };
 
-        let Some(outputs) = controller.app_handle.write_outputs() else {
+        let Some(outputs) = controller.write_outputs() else {
             return;
         };
 
@@ -393,6 +392,6 @@ impl<T: RuntimeTransport> Runtime<T> {
             _ = dev.output(output_bits);
         }
 
-        controller.app_handle.send_outputs();
+        controller.send_outputs();
     }
 }

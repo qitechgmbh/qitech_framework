@@ -13,7 +13,7 @@ use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_lib::ethercat_hal::devices::beckhoff_modules::el4008::EL4008;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el4008::EL4008;
 use qitech_lib::ethercat_hal::io::analog_output::AnalogVoltageOutputDevice;
 use qitech_lib::units::ElectricPotential;
 use qitech_lib::units::electric_potential::volt;
@@ -40,7 +40,7 @@ impl Machine for BeckhoffEL4008Machine {}
 impl BeckhoffEL4008Machine {
     fn update_port(&mut self, port: usize) -> ActResult {
         let voltage = self.voltages[port].get();
-        self.el4008.borrow_mut().set_output(port, voltage);
+        self.el4008.borrow_mut().set_voltage(port, voltage);
         Ok(())
     }
 }

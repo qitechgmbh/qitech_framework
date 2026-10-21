@@ -13,7 +13,7 @@ use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_lib::ethercat_hal::devices::beckhoff_modules::el2004::EL2004;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el2004::EL2004;
 use qitech_lib::ethercat_hal::io::digital_output::DigitalOutputDevice;
 
 #[tokio::main]
