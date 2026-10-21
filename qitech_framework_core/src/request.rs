@@ -5,7 +5,6 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::ScalarValue;
-use crate::ScalarValueTypeMismatchError;
 use crate::ident::MachineId;
 use crate::report::CommandExecuteError;
 use crate::report::ConstraintViolationError;
@@ -33,16 +32,6 @@ pub enum RuntimeRequestKind {
         path: String,
     },
 
-    SubscribeMachine {
-        provider: MachineId,
-        subscriber: MachineId,
-    },
-
-    UnsubscribeMachine {
-        provider: MachineId,
-        subscriber: MachineId,
-    },
-
     Terminate,
 }
 
@@ -54,12 +43,6 @@ impl fmt::Display for RuntimeRequestKind {
             }
             RuntimeRequestKind::ExecuteCommand { .. } => {
                 write!(f, "InvokeMachineCommand")
-            }
-            RuntimeRequestKind::SubscribeMachine { .. } => {
-                write!(f, "SubscribeMachine")
-            }
-            RuntimeRequestKind::UnsubscribeMachine { .. } => {
-                write!(f, "UnsubscribeMachine")
             }
             RuntimeRequestKind::Terminate => {
                 write!(f, "Terminate")
@@ -81,12 +64,6 @@ pub enum RuntimeRequestError {
 
     #[error(transparent)]
     MachineExecuteCommand(#[from] MachineExecuteCommandError),
-
-    #[error(transparent)]
-    MachineSubscribe(#[from] MachineSubscribeError),
-
-    #[error(transparent)]
-    MachineUnsubscribe(#[from] MachineUnsubscribeError),
 }
 
 // --- errors ---
@@ -95,9 +72,8 @@ pub enum MachineSetConfigPropertyError {
     #[error(transparent)]
     ResourceAccess(#[from] MachineResourceAccessError),
 
-    #[error("value type does not match the expected type")]
-    ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
-
+    // #[error("value type does not match the expected type")]
+    // ValueTypeMismatch(#[from] ScalarValueTypeMismatchError),
     #[error("resource is not writable")]
     NotWritable,
 

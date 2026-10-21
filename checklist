@@ -1,5 +1,8 @@
 
-
+Cyclic System
+-> Controller sends heartbeat along with commands + inputs
+-> Runtime 
+-> Input bindings for high speed input data
 
 
 Checklist:
@@ -34,9 +37,283 @@ pub trait PropertyAdapter: 'static {
     // As Constraints
 }
 
-Machine KDL:
-------------
+Machine Schema KDL:
+-------------------
 
-name: winder_v1
+import si
 
-^
+name winder_v1
+
+config {
+    spool {
+        direction enum {
+            forward 
+            reverse
+        }
+
+        speed_controller {
+            algorithm enum {
+                adaptive
+                min_max 
+            }
+
+            speed_min float quantity=si.angular_velocity
+            speed_max float quantity=si.angular_velocity
+
+            adaptive {
+                tension_target float
+                radius_learning_rate float
+                max_speed_multiplier float
+                acceleration_factor float
+                deacceleration_urgency_multiplier float
+            }
+        }
+    }
+
+    puller {
+        direction enum {
+            forward
+            reverse
+        }
+        gear_ratio enum {
+            one_to_one
+            one_to_five
+            one_to_ten
+        }
+        speed_controller {
+            algorithm enum {
+                direct
+                adaptive
+            }
+            speed_desired float quantity=si.velocity
+
+            adaptive {
+                speed_delta_max float
+                increase_per_step float
+                tolerance_limit float quantity=si.length
+                adjustment_distance float quantity=si.length
+            }
+        }
+    }
+
+    traverse {
+        limit_inner float quantity=si.length
+        limit_outer float quantity=si.length
+        step_size float quantity=si.length
+        padding float quantity=si.length
+        edge_dwell_revolutions float
+        start_dwell_revolutions float
+    }
+
+    spool_automatic {
+        required_length float quantity=si.length
+        action enum {
+            no_action
+            pull
+            hold
+        }
+    }
+
+    laser_pointer {
+        enabled boolean
+    }
+}
+
+state {
+    mode enum {
+        standby
+        pull
+        hold
+        wind
+    }
+    spool {
+        mode enum {
+            standby
+            hold
+            wind
+        }
+        speed_controller {
+            enabled boolean
+        }
+    }
+
+    puller {
+        mode enum {
+            standby
+            hold
+            pull
+        }
+    }
+
+    traverse {
+        mode enum {
+            standby
+            hold
+            traverse
+        }
+        state enum {
+            idle
+            going_in
+            going_out
+            initialize
+            escape_endstop
+            find_endstop_fine_distancing
+            find_endstop_coarse
+            find_endstop_fine
+            validate
+            dwelling_outer
+            traversing_in
+            dwelling_inner
+            traversing_out
+        }
+        homed boolean
+        endstop_triggered boolean
+    }
+
+    tension_arm {
+        zero float quantity=si.angle optional=#true
+    }
+}
+
+measurements {
+    spool {
+        speed float quantity=si.angular_velocity
+        progress float quantity=si.length
+
+        speed_controller {
+            speed float quantity=si.angular_velocity
+            filament_tension float optional=#true
+
+            adaptive {
+                speed_factor float
+            }
+        }
+    }
+
+    puller {
+        speed float quantity=si.velocity
+
+        speed_controller {
+            speed_target float quantity=si.velocity
+
+            adaptive {
+                modulation float
+                distance_since_adjustment float quantity=si.length
+            }
+        }
+    }
+
+    traverse {
+        position float quantity=si.length
+    }
+
+    tension_arm {
+        angle float quantity=si.angle
+    }
+}
+
+commands {
+    mode {
+        standby kind=transition
+        hold kind=transition
+        pull kind=transition
+        wind kind=transition
+    }
+
+    spool {
+        reset_progress kind=action
+    }
+
+    traverse {
+        goto_home kind=action
+        goto_limit_inner kind=action {
+            errors {
+                not_homed
+            }
+        }
+        goto_limit_outer kind=action {
+            errors {
+                not_homed
+            }
+        }
+    }
+
+    tension_arm {
+        set_zero kind=action
+    }
+}
+
+events {
+    spool_automatic {
+        required_length_reached {
+            progress float quantity=si.length
+        }
+    }
+
+    traverse {
+        homing_failed
+    }
+}
+
+inputs {
+    puller {
+        speed float quantity=si.velocity
+
+        speed_controller {
+            speed_target float quantity=si.velocity
+
+            adaptive {
+                modulation float
+                distance_since_adjustment float quantity=si.length
+            }
+        }
+    }
+
+    laser_diameter float quantity=si.length
+}
+
+
+// let system = System::new();
+
+// System 
+
+import winder_v1
+import laser_v1
+
+machines {
+    just_some_winder winder_v1
+    just_some_laser laser_v1
+}
+
+modbus_rtu path="/dev/ttyUSB0" baudrate=9600 parity=none stop_bits=1 data_bits=8 {
+    device address=1 binding=just_some_laser.device timeout="1000ms"
+}
+
+ethercat interface=eth0 {
+    EK1100
+
+    // trait EtherCATDevice {
+    // 
+    // }
+
+    EL2002 {
+        output 0 bind=just_some_winder.laser_pointer.output
+    }
+
+    EL7031 {
+        // ???
+        input 0 bind="winder_1.traverse.home"
+    }
+
+    EL7031 {
+        // ???
+    }
+
+    EL7031-0030 {
+        // ???
+    }
+}
+
+-> No Machine building anymore during runtime execution
+-> Instead create machine with empty bindings at startup
+-> Remove HardwareFault from ActError

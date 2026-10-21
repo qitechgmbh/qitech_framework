@@ -2,7 +2,6 @@ use core::fmt;
 
 use serde::Deserialize;
 use serde::Serialize;
-use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(i8)]
@@ -85,8 +84,3 @@ impl fmt::Display for ScalarValue {
         }
     }
 }
-
-/// Error when writing fails due to Scalar Value being the wrong representation
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
-#[error("scalar value has an incompatible type")]
-pub struct ScalarValueTypeMismatchError;
