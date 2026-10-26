@@ -1,11 +1,18 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-
-use qitech_lib::ethercat_hal::devices::EthercatDevice;
-use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
-use qitech_lib::modbus::ModbusDevice;
+use qitech_lib::ethercat_hal_devices::EthercatDevice;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremProbe;
+use crate::machine::modbus::ModbusDevice;
+
+#[derive(Debug, Copy, Clone)]
+pub struct MachineDeviceInfo {
+    pub role: u16,
+    pub machine_id: u16,
+    pub machine_vendor: u16,
+    pub machine_serial: u16,
+    pub device_address: u16,
+}
 
 #[derive(Clone)]
 pub enum Hardware {

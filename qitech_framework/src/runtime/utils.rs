@@ -6,10 +6,11 @@ use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::request::ReadMachineDeviceInfoError;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
-use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
+use qitech_lib::ethercat_hal::ChannelError;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 
 use crate::machine::BuildContext;
+use crate::machine::hardware::MachineDeviceInfo;
 use crate::resource::Journals;
 use crate::resource::ResourceRegistry;
 use crate::runtime::types::HardwareRegistry;
@@ -24,40 +25,53 @@ pub fn find_machine(
     machines.iter_mut().find(|instance| instance.ident == ident)
 }
 
+const VENDOR_WORD: u16 = 0x0028;
+const MACHINE_WORD: u16 = 0x0029;
+const SERIAL_WORD: u16 = 0x002a;
+const ROLE_WORD: u16 = 0x002b;
+
+pub fn read_identification(
+    eth_control: &EtherCATController,
+    device_address: u16,
+) -> Result<MachineDeviceInfo, ChannelError> {
+    Ok(MachineDeviceInfo {
+        machine_vendor: eth_control.eeprom_read(device_address, VENDOR_WORD)?,
+        machine_id: eth_control.eeprom_read(device_address, MACHINE_WORD)?,
+        machine_serial: eth_control.eeprom_read(device_address, SERIAL_WORD)?,
+        role: eth_control.eeprom_read(device_address, ROLE_WORD)?,
+        device_address,
+    })
+}
+
+fn write_identification(
+    eth_control: &EtherCATController,
+    device_address: u16,
+    info: &MachineDeviceInfo,
+) -> Result<(), ChannelError> {
+    eth_control.eeprom_write(device_address, VENDOR_WORD, info.machine_vendor)?;
+    eth_control.eeprom_write(device_address, MACHINE_WORD, info.machine_id)?;
+    eth_control.eeprom_write(device_address, SERIAL_WORD, info.machine_serial)?;
+    eth_control.eeprom_write(device_address, ROLE_WORD, info.role)?;
+    Ok(())
+}
+
 pub fn write_machine_device_info(
     controller: &EtherCATController,
     machine_ident: MachineInstanceIdentification,
     role: u16,
     subdevice_index: usize,
 ) -> Result<(), WriteMachineDeviceInfoError> {
-    let mut idents = read_machine_device_info()?;
-
     let dev_addr = subdevice_index as u16;
-    let ident = idents.iter_mut().find(|i| i.device_address == dev_addr);
-
     let m_serial = machine_ident.serial;
     let m_ident = machine_ident.machine;
-
-    if let Some(ident) = ident {
-        ident.role = role;
-        ident.machine_vendor = m_ident.vendor_id;
-        ident.machine_id = m_ident.machine_id;
-        ident.machine_serial = m_serial;
-    } else {
-        idents.push(MachineDeviceInfo {
+    let ident = MachineDeviceInfo {
             role,
             machine_id: m_ident.machine_id,
             machine_vendor: m_ident.vendor_id,
             machine_serial: m_serial,
             device_address: dev_addr,
-        });
-    }
-
-    controller
-        .channel
-        .write_machine_device_info_eeprom(idents)
-        .map_err(|e| WriteMachineDeviceInfoError::WriteMachineDeviceInfoEeprom(e.to_string()))?;
-
+    };
+    write_identification(controller, dev_addr,&ident);
     Ok(())
 }
 
