@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::modbus::ModbusDevice;
 use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
-use qitech_lib::modbus::ModbusDevice;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremProbe;
 

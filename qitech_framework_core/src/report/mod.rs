@@ -53,6 +53,9 @@ pub struct RuntimeReport {
     /// timings data
     pub timings: TimingsReport,
 
+    /// ethercat bus health
+    pub ethercat: EtherCATReport,
+
     /// machine activity
     pub machines: MachinesReport,
 
@@ -67,6 +70,7 @@ impl RuntimeReport {
     pub fn reset(&mut self) {
         self.responses.clear();
         self.timings.reset();
+        self.ethercat.reset();
         self.machines.reset();
         self.events.clear();
         self.logs.clear();
@@ -143,6 +147,33 @@ impl TimingsReport {
     /// Take the current stats and reset for the next export window.
     pub fn take(&mut self) -> TimingsReport {
         mem::take(self)
+    }
+}
+
+// --- ethercat ---
+/// Counts the cycles the EtherCAT controller failed to exchange a frame in OP
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EtherCATReport {
+    /// cycles in this report window whose frame was lost (tx_rx failed)
+    pub failed_cycles: u32,
+
+    /// cycles whose frame was lost since the runtime started, not reset between reports
+    pub failed_cycles_total: u64,
+
+    /// longest run of consecutive failed cycles in this report window
+    pub max_consecutive_failures: u32,
+}
+
+impl EtherCATReport {
+    pub fn reset(&mut self) {
+        self.failed_cycles = 0;
+        self.max_consecutive_failures = 0;
+    }
+
+    pub fn record_failed_cycle(&mut self, consecutive_failures: u32) {
+        self.failed_cycles += 1;
+        self.failed_cycles_total += 1;
+        self.max_consecutive_failures = self.max_consecutive_failures.max(consecutive_failures);
     }
 }
 
