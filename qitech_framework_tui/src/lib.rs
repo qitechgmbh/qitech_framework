@@ -235,6 +235,7 @@ impl Tui {
 
     pub fn on_report(&mut self, report: RuntimeReport) {
         self.state.rt_status = RuntimeStatus::Running;
+        self.state.ecat_failed_cycles_total = report.ethercat.failed_cycles_total;
 
         for response in report.responses {
             let entry = self

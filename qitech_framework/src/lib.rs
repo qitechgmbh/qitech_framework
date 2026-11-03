@@ -9,6 +9,7 @@ pub use qitech_framework_core::report::ConfigPropertyEvent;
 pub use qitech_framework_core::report::ConfigPropertyWriteOutcome;
 pub use qitech_framework_core::report::Constraints;
 pub use qitech_framework_core::report::EtherCATDeviceMetadata;
+pub use qitech_framework_core::report::EtherCATReport;
 pub use qitech_framework_core::report::EtherCATStatus;
 use qitech_framework_core::report::EventRecord;
 pub use qitech_framework_core::report::MachinesReport;
@@ -31,6 +32,7 @@ use crate::runtime::Runtime;
 use crate::runtime::RuntimeConfiguration;
 
 pub mod machine;
+pub mod modbus;
 mod resource;
 
 pub mod runtime;

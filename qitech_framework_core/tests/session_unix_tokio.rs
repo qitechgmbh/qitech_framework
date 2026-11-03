@@ -105,6 +105,7 @@ fn runtime(path: String) {
                     timestamp: Utc::now(),
                     responses: vec![response],
                     timings: TimingsReport::default(),
+                    ethercat: Default::default(),
                     machines: Default::default(),
                     events: Default::default(),
                     logs: Default::default(),
