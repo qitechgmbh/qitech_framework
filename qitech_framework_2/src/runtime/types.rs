@@ -1,0 +1,62 @@
+use std::any::TypeId;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Duration;
+
+use qitech_framework_core::ident::MachineIdentification;
+use qitech_framework_core::ident::MachineInstanceId;
+use qitech_framework_core::report::error::BuildError;
+use qitech_framework_core::schema::MachineSchema;
+use qitech_lib::ethercat_hal::EtherCATControl;
+use qitech_lib::ethercat_hal::Mailbox;
+use qitech_lib::ethercat_hal::MetaSubdevice;
+use qitech_lib::ethercat_hal::TripleBufConsumer;
+use qitech_lib::ethercat_hal::devices::EthercatDevice;
+
+use crate::machine::BuildContext;
+use crate::machine::CommandHandle;
+use crate::machine::ConfigPropertyHandle;
+use crate::machine::Hardware;
+use crate::machine::Machine;
+use crate::resource::LifetimeTokenOwner;
+
+pub(crate) type HardwareRegistry = HashMap<MachineInstanceId, Vec<Hardware>>;
+pub(crate) type MachineRegistry = HashMap<MachineIdentification, MachineRegistryEntry>;
+pub(crate) type BuildMachineFn =
+    fn(&mut BuildContext) -> Result<Box<dyn Machine + 'static>, BuildError>;
+
+pub(crate) type EtherCATController = EtherCATControl<TripleBufConsumer, Arc<Mailbox>>;
+pub(crate) type EtherCATSubDevice = (MetaSubdevice, Rc<RefCell<dyn EthercatDevice + 'static>>);
+
+pub(crate) struct MachineRegistryEntry {
+    pub(crate) schema: MachineSchema,
+    pub(crate) type_id: TypeId,
+    pub(crate) type_name: &'static str,
+    pub(crate) build: BuildMachineFn,
+}
+
+pub(crate) struct MachineInstance {
+    pub(crate) ident: MachineInstanceId,
+    pub(crate) machine: Box<dyn Machine>,
+    pub(crate) configs: HashMap<&'static str, ConfigPropertyHandle>,
+    pub(crate) commands: HashMap<&'static str, CommandHandle>,
+    pub(crate) subscriptions: HashMap<MachineInstanceId, LifetimeTokenOwner>,
+}
+
+pub(crate) struct Config {
+    pub(crate) requests_per_cycle_max: usize,
+    pub(crate) export_interval: Duration,
+    pub(crate) cycle_period: Duration,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            requests_per_cycle_max: 10,
+            export_interval: Duration::from_secs_f64(1.0 / 32.0),
+            cycle_period: Duration::from_micros(100),
+        }
+    }
+}

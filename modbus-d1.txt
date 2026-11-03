@@ -1,0 +1,29 @@
+Hardware System: ModbusRTU
+
+struct MyMachine {
+    read_measurements: ModbusCommand<()>,
+}
+
+impl Machine for MyMachine {
+    pub fn init(ctx: &mut InitContext) -> Result<Self, ()> {
+
+        let mut laser = ctx.modbus_rtu("laser");
+
+        let read_measurements = laser
+            .read_holding_registers::<1, 10>(Self::handle_read_measurements);
+
+        Ok(Self {
+            read_measurements
+        })
+    }
+
+    pub fn act(&mut self) -> Result<(), Err> {
+        self.read_measurements();
+    }
+}
+
+impl MyMachine {
+    pub fn handle_read_measurements(&mut self, data: &[10; u16]) {
+        // ...
+    }
+}

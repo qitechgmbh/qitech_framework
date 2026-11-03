@@ -5,6 +5,7 @@ members = [
     # "qitech_framework",
     # "qitech_framework_tui",
     # "qitech_framework_ctrl",
+    "qitech_framework_2",
     "qitech_framework_core",
     # "qitech_framework_macros",
 ]

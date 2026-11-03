@@ -3,9 +3,9 @@ pub use constraints::ConstraintViolationError;
 pub use constraints::Constraints;
 
 mod error;
-pub use error::ActResult;
 pub use error::ActError;
 pub use error::ActErrorImpact;
+pub use error::ActResult;
 
 mod logs;
 pub use logs::LogLevel;

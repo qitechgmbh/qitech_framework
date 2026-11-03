@@ -1,0 +1,68 @@
+use std::any::Any;
+use std::time::Duration;
+
+pub use qitech_framework_core::ident::MachineInstanceId;
+pub use qitech_framework_core::ident::MachineTypeId;
+pub use qitech_framework_core::report::OperationCapability;
+pub use qitech_framework_core::report::error::ActError;
+pub use qitech_framework_core::report::error::ActErrorImpact;
+pub use qitech_framework_core::report::error::ActErrorKind;
+pub use qitech_framework_core::report::error::BuildError;
+pub use qitech_framework_core::request::MachineSubscribeError;
+
+pub type BuildResult<T> = Result<T, BuildError>;
+pub type ActResult = Result<(), ActError>;
+pub type CommandExecuteResult = ActResult;
+pub type SubscribeResult = Result<(), MachineSubscribeError>;
+
+mod build;
+pub use build::BuildContext;
+
+pub(crate) mod hardware;
+pub(crate) use hardware::Hardware;
+
+mod subscribe;
+pub use subscribe::RemoteProperty;
+pub use subscribe::SubscribeContext;
+
+mod config_property;
+pub use config_property::ConfigProperty;
+pub(crate) use config_property::ConfigPropertyHandle;
+
+mod state_property;
+pub use state_property::StateProperty;
+
+mod measurement;
+pub use measurement::Measurement;
+
+mod command;
+pub(crate) use command::CommandCanExecuteFn;
+pub(crate) use command::CommandHandle;
+
+mod event;
+pub use event::EventEmitter;
+
+pub trait Machine: Any {
+    
+
+    /// Defines the update cycle of a machine.
+    fn act(&mut self, dt: Duration) -> ActResult {
+        _ = dt;
+        Ok(())
+    }
+
+    /// Allows a machine to create remote properties.
+    fn subscribe(&mut self, ctx: &mut SubscribeContext) -> SubscribeResult {
+        // TODO: dont expose MachineSubscribeError to users
+
+        _ = ctx;
+        Err(MachineSubscribeError::UnsupportedMachine)
+    }
+
+    /// Called when a machine is notified that a subscription was terminated.
+    fn unsubscribe(&mut self, ident: MachineInstanceId) {
+        _ = ident;
+    }
+}
+
+pub use crate::descriptor::MachineDescriptor;

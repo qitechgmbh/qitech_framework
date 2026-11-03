@@ -20,6 +20,8 @@ cargo run -p beckhoff_el2004                  # run an example app (names = exam
 
 Formatting convention: `imports_granularity = "Item"`, so every imported item gets its own `use` line. Don't merge them into `use foo::{a, b}`.
 
+Channels must always be bounded. Never use unbounded channels (`tokio::sync::mpsc::unbounded_channel`, `std::sync::mpsc::channel`, `crossbeam::channel::unbounded`, etc.). Use a bounded channel with an explicit capacity (`tokio::sync::mpsc::channel(n)`, `std::sync::mpsc::sync_channel(n)`, `crossbeam::channel::bounded(n)`), and decide what happens when it is full: await the send for backpressure, or `try_send` and report the error. The synchronous runtime side must never block, so it uses `try_send`/`try_recv`. Two tasks must never wait on each other's full channels.
+
 There are very few tests at the moment. `qitech_framework_core/tests/session_unix_tokio.rs_` is disabled on purpose (note the trailing `_`), and everything under `qitech_framework_ctrl/legacy/` (ClickHouse, the old REST API, and tests that use testcontainers) is outside the module tree and does not get compiled.
 
 ## Workspace layout

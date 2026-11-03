@@ -1,0 +1,21 @@
+
+struct MyMachine {
+    read_measurements: ModbusCommand<[10; u16]>,
+}
+
+impl Machine for MyMachine {
+    pub fn init(ctx: &mut InitContext) -> Result<Self, ()> {
+
+        let mut laser = ctx.modbus_rtu("laser");
+
+        Ok(Self {
+            read_measurements: laser.read_holding_registers::<1, 10>();
+        })
+    }
+
+    pub fn act(&mut self) -> Result<(), Err> {
+        if let Some(data) = self.read_measurements.try_recv() {
+            self.read_measurements.request(999);
+        }
+    }
+}

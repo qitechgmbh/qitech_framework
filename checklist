@@ -292,11 +292,9 @@ modbus_rtu path="/dev/ttyUSB0" baudrate=9600 parity=none stop_bits=1 data_bits=8
 ethercat interface=eth0 {
     EK1100
 
-    // trait EtherCATDevice {
-    // 
-    // }
-
     EL2002 {
+        dc_sync #true
+
         output 0 bind=just_some_winder.laser_pointer.output
     }
 
