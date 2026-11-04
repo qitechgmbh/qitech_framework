@@ -4,6 +4,18 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+use super::error::EtherCATInitializeError;
+use super::error::EtherCATInitializeResult;
+use super::error::RuntimeInitializeError;
+use super::error::RuntimeInitializeResult;
+use crate::machine::Hardware;
+use crate::machine::hardware::EtherCATDeviceIdentified;
+use crate::machine::hardware::MachineDeviceInfo;
+use crate::runtime::EtherCATConfig;
+use crate::runtime::EtherCATController;
+use crate::runtime::EtherCATSubDevice;
+use crate::runtime::types::HardwareRegistry;
+use crate::runtime::utils::read_identification;
 use qitech_framework_core::ident::DeviceHardwareIdentification;
 use qitech_framework_core::ident::DeviceHardwareIdentificationEthercat;
 use qitech_framework_core::ident::DeviceIdentification;
@@ -23,18 +35,6 @@ use qitech_lib::ethercat_hal::interface_discovery::LinkType;
 use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
 use qitech_lib::ethercat_hal::interface_discovery::test_interface;
 use qitech_lib::ethercat_hal_devices::EthercatDevice;
-use super::error::EtherCATInitializeError;
-use super::error::EtherCATInitializeResult;
-use super::error::RuntimeInitializeError;
-use super::error::RuntimeInitializeResult;
-use crate::machine::Hardware;
-use crate::machine::hardware::EtherCATDeviceIdentified;
-use crate::machine::hardware::MachineDeviceInfo;
-use crate::runtime::EtherCATConfig;
-use crate::runtime::EtherCATController;
-use crate::runtime::EtherCATSubDevice;
-use crate::runtime::types::HardwareRegistry;
-use crate::runtime::utils::read_identification;
 use qitech_lib::ethercat_hal_devices::beckhoff_modules::{
     ek1100::EK1100, el1002::EL1002, el1008::EL1008, el1124::EL1124, el1259::EL1259, el2002::EL2002,
     el2004::EL2004, el2008::EL2008, el2521::EL2521, el2522::EL2522, el3001::EL3001, el3021::EL3021,
@@ -202,7 +202,9 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
     // switch into pre op mode
     controller
         .request_state_change(ethercat_hal::EtherCATState::PreOp)
-        .map_err(|arg0: ChannelError| EtherCATInitializeError::FailedToRequestStateChange(arg0.into()))?;
+        .map_err(|arg0: ChannelError| {
+            EtherCATInitializeError::FailedToRequestStateChange(arg0.into())
+        })?;
 
     // Require 2 consecutive stable polls (~100 ms) in PreOp before proceeding.
     // One poll is not enough: the state machine may still be mid-iteration on first observation,
@@ -232,9 +234,12 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
         "initialized subdevices"
     );
 
-    let meta_subdevices = controller
-        .try_get_subdevices_vec_sync()
-        .map_err(|arg0: ChannelError| EtherCATInitializeError::FailedToGetSubDevices(arg0.into()))?;
+    let meta_subdevices =
+        controller
+            .try_get_subdevices_vec_sync()
+            .map_err(|arg0: ChannelError| {
+                EtherCATInitializeError::FailedToGetSubDevices(arg0.into())
+            })?;
 
     let mut subdevices = Vec::new();
 
@@ -251,7 +256,9 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
         if meta.vendor == BECKHOFF_VENDOR_ID {
             controller
                 .set_mut_beckhoff_eeprom_lock_active(meta.device_address)
-                .map_err(|arg0: ChannelError| EtherCATInitializeError::FailedToSetBeckhoffEepromLockActive(arg0.into()))?;
+                .map_err(|arg0: ChannelError| {
+                    EtherCATInitializeError::FailedToSetBeckhoffEepromLockActive(arg0.into())
+                })?;
         }
     }
 
@@ -266,14 +273,18 @@ pub fn finalize(
     // go into op mode
     controller
         .request_state_change(ethercat_hal::EtherCATState::Op)
-        .map_err(|arg0: ChannelError| EtherCATInitializeError::FailedToRequestStateChange(arg0.into()))?;
+        .map_err(|arg0: ChannelError| {
+            EtherCATInitializeError::FailedToRequestStateChange(arg0.into())
+        })?;
 
     wait_for_op_state(controller)?;
 
     // update offsets in sub devices
     let src = controller
         .try_get_subdevices_vec_sync()
-        .map_err(|arg0: ChannelError| EtherCATInitializeError::FailedToGetSubDevices(arg0.into()))?;
+        .map_err(|arg0: ChannelError| {
+            EtherCATInitializeError::FailedToGetSubDevices(arg0.into())
+        })?;
 
     for (meta, _) in sub_devices {
         let Some(src) = find_subdevice(&src, meta.device_address) else {

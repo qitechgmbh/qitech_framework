@@ -1,9 +1,9 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::machine::modbus::ModbusDevice;
 use qitech_lib::ethercat_hal_devices::EthercatDevice;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremProbe;
-use crate::machine::modbus::ModbusDevice;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MachineDeviceInfo {

@@ -16,8 +16,8 @@ use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_lib::ethercat_hal_devices::beckhoff_modules::el1002::EL1002;
 use qitech_lib::ethercat_hal::io::digital_input::DigitalInputDevice;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el1002::EL1002;
 
 #[tokio::main]
 pub async fn main() {

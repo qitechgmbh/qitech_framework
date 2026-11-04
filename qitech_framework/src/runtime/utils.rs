@@ -13,10 +13,10 @@ use crate::machine::BuildContext;
 use crate::machine::hardware::MachineDeviceInfo;
 use crate::resource::Journals;
 use crate::resource::ResourceRegistry;
-use crate::runtime::types::HardwareRegistry;
-use crate::runtime::types::MachineRegistry;
 use crate::runtime::EtherCATController;
+use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
+use crate::runtime::types::MachineRegistry;
 
 pub fn find_machine(
     machines: &mut [MachineInstance],
@@ -65,13 +65,13 @@ pub fn write_machine_device_info(
     let m_serial = machine_ident.serial;
     let m_ident = machine_ident.machine;
     let ident = MachineDeviceInfo {
-            role,
-            machine_id: m_ident.machine_id,
-            machine_vendor: m_ident.vendor_id,
-            machine_serial: m_serial,
-            device_address: dev_addr,
+        role,
+        machine_id: m_ident.machine_id,
+        machine_vendor: m_ident.vendor_id,
+        machine_serial: m_serial,
+        device_address: dev_addr,
     };
-    write_identification(controller, dev_addr,&ident);
+    write_identification(controller, dev_addr, &ident);
     Ok(())
 }
 

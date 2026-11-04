@@ -1,8 +1,8 @@
 use qitech_framework::HubConfiguration;
+use qitech_framework::machine::LaserDevice;
 use qitech_framework::run_with_hub;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
 
 mod machine;
 use machine::LaserV1;

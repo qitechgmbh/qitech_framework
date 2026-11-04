@@ -1,5 +1,5 @@
-use std::{fmt, time::Duration};
 use qitech_lib::common::get_async_runtime;
+use std::{fmt, time::Duration};
 use tokio::{
     sync::{mpsc, oneshot},
     task::JoinHandle,
@@ -9,7 +9,10 @@ use tokio_modbus::{
     client::{Client, Context},
 };
 
-use crate::machine::modbus::{ModbusDevice, ModbusRequest, ModbusResponse, ModbusSettings, ModbusType, Parity, SerialDeviceMeta, create_modbus_device_context};
+use crate::machine::modbus::{
+    ModbusDevice, ModbusRequest, ModbusResponse, ModbusSettings, ModbusType, Parity,
+    SerialDeviceMeta, create_modbus_device_context,
+};
 
 const MEASUREMENTS_ADDRESS: u16 = 0x0E;
 const MEASUREMENTS_COUNT: u16 = 3;

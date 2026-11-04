@@ -21,7 +21,6 @@ use crate::machine::hardware::XtremDeviceIdentified;
 use crate::resource::Journals;
 use crate::resource::PropertyRegistry;
 use crate::resource::ResourceRegistry;
-use crate::runtime::utils;
 use crate::runtime::MachineRegistry;
 use crate::runtime::Runtime;
 use crate::runtime::RuntimeConfiguration;
@@ -36,6 +35,7 @@ use crate::runtime::modbus_rtu;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
 use crate::runtime::types::MachineRegistryEntry;
+use crate::runtime::utils;
 use crate::runtime::xtrem;
 
 impl<T: RuntimeTransport> Runtime<T> {
