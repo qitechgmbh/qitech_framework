@@ -65,11 +65,11 @@ impl std::fmt::Display for NoDriverError {
 
 impl std::error::Error for NoDriverError {}
 
-/// Returns a new driver for the first type whose `IDENTITY` matches the subdevice
+/// Returns a new driver for the first type whose `get_identity()` return value matches the subdevice
 macro_rules! driver_for {
     ($dev:expr; $($driver:ty),* $(,)?) => {
         $(
-            if <$driver as IdentifiedDevice>::IDENTITY.matches($dev) {
+            if <$driver as IdentifiedDevice>::identity().matches($dev) {
                 return Ok(Rc::new(RefCell::new(<$driver as NewEthercatDevice>::new())));
             }
         )*
