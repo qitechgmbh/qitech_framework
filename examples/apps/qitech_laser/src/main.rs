@@ -22,9 +22,9 @@ use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::RuntimeConfiguration;
 use qitech_framework::vendors;
-use qitech_lib::modbus::ModbusDevice;
-use qitech_lib::modbus::devices::qitech_laser::LaserDevice;
-use qitech_lib::modbus::devices::qitech_laser::LaserError;
+use qitech_framework::modbus::ModbusDevice;
+use qitech_framework::modbus::devices::qitech_laser::LaserDevice;
+use qitech_framework::modbus::devices::qitech_laser::LaserError;
 use qitech_lib::units::Length;
 use qitech_lib::units::length::millimeter;
 
@@ -70,7 +70,7 @@ pub struct LaserV1 {
 
     // -- misc ---
     request_timer: Duration,
-    last_successful_response: Instant,
+    built_at: Instant,
 }
 
 impl MachineBuild for LaserV1 {
@@ -112,7 +112,7 @@ impl MachineBuild for LaserV1 {
             roundness: ctx.measurement::<Option<f64>>("roundness").build()?,
             out_of_tolerance: ctx.event("out_of_tolerance").build()?,
             request_timer: Duration::ZERO,
-            last_successful_response: Instant::now(),
+            built_at: Instant::now(),
         })
     }
 }
@@ -129,7 +129,6 @@ impl Machine for LaserV1 {
             self.diameter.set(convert(m.diameter));
             self.diameter_x.set(m.x_axis.map(convert));
             self.diameter_y.set(m.y_axis.map(convert));
-            self.last_successful_response = Instant::now();
         }
 
         let roundness = self.compute_roundness();
@@ -156,17 +155,28 @@ impl LaserV1 {
     fn update_device(&mut self, dt: Duration) -> ActResult {
         let mut laser = self.device.borrow_mut();
 
-        if let Err(e) = laser.handle_response()
-            && let Some(laser_error) = e.downcast_ref::<LaserError>()
-            && let LaserError::IoErr(_) = laser_error
-            && self.last_successful_response.elapsed() > Self::IO_FAILURE_GRACE_PERIOD
-        {
-            let msg = format!("Physical hardware I/O broke: {}", e);
+        if let Err(e) = laser.handle_response() {
+            match e.downcast_ref::<LaserError>() {
+                // a bad frame, exception or timeout only affects this request
+                Some(err) if err.is_transient() => {
+                    tracing::debug!("laser request failed: {err}");
+                }
+                _ => {
+                    tracing::warn!("laser request failed: {e}");
 
-            return Err(ActError {
-                kind: ActErrorKind::HardwareFault(msg),
-                impact: ActErrorImpact::Irrecoverable,
-            });
+                    // only give up if the line is broken and nothing valid arrived for a while
+                    let last_valid = laser.last_measurement_at.unwrap_or(self.built_at);
+
+                    if last_valid.elapsed() > Self::IO_FAILURE_GRACE_PERIOD {
+                        let msg = format!("Physical hardware I/O broke: {}", e);
+
+                        return Err(ActError {
+                            kind: ActErrorKind::HardwareFault(msg),
+                            impact: ActErrorImpact::Irrecoverable,
+                        });
+                    }
+                }
+            }
         }
 
         self.request_timer = self.request_timer.saturating_sub(dt);
