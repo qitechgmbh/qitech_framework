@@ -43,6 +43,7 @@ use qitech_lib::ethercat_hal_devices::beckhoff_modules::{
     el7037::EL7037, el7041_0052::EL7041_0052, ep2339_0021::EP2339_0021,
 };
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_354::Wago750_354;
+use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_402::Wago750_402;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_531::Wago750_531;
 use qitech_lib::ethercat_hal_devices::{IdentifiedDevice, NewEthercatDevice};
 
@@ -83,6 +84,7 @@ pub fn device_from_subdevice_identity_rc(
     driver_for!(dev;
         Wago750_354,
         Wago750_531,
+        Wago750_402,
         EK1100,
         EL1002,
         EL1008,
@@ -352,20 +354,16 @@ fn read_and_register_identifications(
     let mut mapped_devices = Vec::new();
 
     for (index, subdevice) in subdevices.iter().enumerate() {
-        if subdevice.0.device_address == 0 {
-            // idents.push(MachineDeviceInfo {
-            //     role: 0,
-            //     machine_id: 0,
-            //     machine_vendor: 0,
-            //     machine_serial: 0,
-            //     device_address: 0,
-            // })
-        } else {
-            // RETURN AN ERROR HERE
-            let mut ident = read_identification(controller, subdevice.0.device_address).unwrap();
+        // FIXME: RETURN AN ERROR HERE
+        let mut ident = read_identification(controller, subdevice.0.device_address).unwrap();
+
+        // FIXME: the role thing is confusing
+        if ident.role == 0 {
+            // For wago, the bus coupler has role zero, but anything else, should have a
+            // different role.
             ident.role = index as u16;
-            mapped_devices.push((ident, subdevice.clone()));
         }
+        mapped_devices.push((ident, subdevice.clone()));
     }
 
     append_ethercat(hardware_registry, mapped_devices)
