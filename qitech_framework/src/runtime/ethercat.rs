@@ -6,7 +6,6 @@ use std::time::Instant;
 
 use super::error::EtherCATInitializeError;
 use super::error::EtherCATInitializeResult;
-use super::error::RuntimeInitializeError;
 use super::error::RuntimeInitializeResult;
 use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
@@ -313,11 +312,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
 }
 
 #[tracing::instrument(skip_all)]
-pub fn finalize(
-    controller: &EtherCATController,
-    sub_devices: &mut Vec<EtherCATSubDevice>,
-) -> RuntimeInitializeResult<()> {
-    // go into op mode
+pub fn finalize(controller: &EtherCATController) -> RuntimeInitializeResult<()> {
     controller
         .request_state_change(ethercat_hal::EtherCATState::Op)
         .map_err(|arg0: ChannelError| {
@@ -325,23 +320,6 @@ pub fn finalize(
         })?;
 
     wait_for_op_state(controller)?;
-
-    // update offsets in sub devices
-    let src = controller
-        .try_get_subdevices_vec_sync()
-        .map_err(|arg0: ChannelError| {
-            EtherCATInitializeError::FailedToGetSubDevices(arg0.into())
-        })?;
-
-    for (meta, _) in sub_devices {
-        let Some(src) = find_subdevice(&src, meta.device_address) else {
-            return Err(RuntimeInitializeError::AssertionFailed(
-                "EtherCAT device suddenly missing in finalize",
-            ));
-        };
-
-        update_sub_device_offsets(meta, src);
-    }
 
     Ok(())
 }
@@ -361,22 +339,8 @@ fn wait_for_op_state(controller: &EtherCATController) -> EtherCATInitializeResul
         }
         thread::sleep(Duration::from_millis(50));
     }
+
     Ok(())
-}
-
-fn find_subdevice(sub_devices: &[MetaSubdevice], device_address: u16) -> Option<&MetaSubdevice> {
-    sub_devices
-        .iter()
-        .find(|&device| device.device_address == device_address)
-        .map(|v| v as _)
-}
-
-fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
-    dest.start_tx = src.start_tx;
-    dest.end_tx = src.end_tx;
-
-    dest.start_rx = src.start_rx;
-    dest.end_rx = src.end_rx;
 }
 
 // --- deconstructing ---
