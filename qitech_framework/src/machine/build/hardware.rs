@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::modbus::ModbusDevice;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
-use qitech_lib::ethercat_hal_devices::EthercatDevice;
+use qitech_lib::ethercat_hal::devices::EthercatDevice;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremProbe;
 

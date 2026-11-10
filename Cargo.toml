@@ -61,4 +61,4 @@ tracing-subscriber = "0.3"
 unic-langid = "0.9.6"
 uuid = "1.24.0"
 yaml_serde = "0.10.4"
-qitech_lib = {git="https://github.com/qitechgmbh/qitech_lib", rev="bdd1dc2d0a986fc06b7dfc14f6fced0c9957c091"}
+qitech_lib = {git="https://github.com/qitechgmbh/qitech_lib", rev="664720b199158a85bde90d9f6a3754fa2f72a1be"}

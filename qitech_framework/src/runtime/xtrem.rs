@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use qitech_lib::common::get_async_runtime;
-use qitech_lib::xtrem::BusError;
 use qitech_lib::xtrem::ScaleMode;
 use qitech_lib::xtrem::XtremBus;
 use qitech_lib::xtrem::XtremBusHandle;
@@ -31,7 +30,7 @@ impl XtremDeviceBuild for XtremScale {
 }
 
 /// Bind the shared socket and start the receive task.
-pub(crate) fn open_bus(config: &XtremConfig) -> Result<XtremBusHandle, BusError> {
+pub(crate) fn open_bus(config: &XtremConfig) -> Result<XtremBusHandle, anyhow::Error> {
     XtremBus::open(config.bus.clone())
 }
 
@@ -39,6 +38,6 @@ pub(crate) fn open_bus(config: &XtremConfig) -> Result<XtremBusHandle, BusError>
 pub(crate) fn discover(
     handle: &XtremBusHandle,
     window: Duration,
-) -> Result<Vec<XtremProbe>, BusError> {
+) -> Result<Vec<XtremProbe>, anyhow::Error> {
     get_async_runtime().block_on(discovery::discover(handle, window))
 }

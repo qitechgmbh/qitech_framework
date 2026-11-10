@@ -4,7 +4,9 @@ use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
+
 use bitvec::order::Lsb0;
+use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::CommandEvent;
@@ -20,7 +22,7 @@ use qitech_framework_core::session::runtime::SessionRunning;
 use qitech_lib::ethercat_hal::OpCycleFailure;
 use qitech_lib::xtrem::XtremBusHandle;
 use types::Config;
-use bitvec::{view::BitView};
+
 pub mod error;
 
 mod types;
@@ -234,7 +236,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             self.export_count.clone(),
             &self.machine_registry,
             &self.hardware_registry,
-            self.ecat_controller.as_ref().map(|c| c.get_channel().clone()),
+            self.ecat_controller.as_ref().map(|c| c.channel.clone()),
             &mut self.journals,
             &mut self.resources,
             &mut self.machine_instances,
@@ -364,7 +366,7 @@ impl<T: RuntimeTransport> Runtime<T> {
             return;
         };
 
-        while let Some(err) = controller.try_recv_op_error() {
+        while let Some(err) = controller.app_handle.try_recv_op_error() {
             self.report
                 .ethercat
                 .record_failed_cycle(err.consecutive_failures);
@@ -415,12 +417,16 @@ impl<T: RuntimeTransport> Runtime<T> {
         };
 
         let inputs = controller
+            .app_handle
             .get_inputs()
             .expect("There should always be an input (latest state)");
 
         for i in 0..self.sub_devices.len() {
             let (meta_dev, dev) = &self.sub_devices[i];
-            let input_bits_slice = &inputs.view_bits::<Lsb0>()[meta_dev.start_tx..meta_dev.end_tx];
+
+            let input_slice = &inputs[meta_dev.start_tx..meta_dev.end_tx];
+            let input_bits_slice = BitSlice::<u8, Lsb0>::from_slice(input_slice);
+
             let mut dev = dev.borrow_mut();
             _ = dev.input(input_bits_slice);
             _ = dev.input_post_process();
@@ -432,18 +438,21 @@ impl<T: RuntimeTransport> Runtime<T> {
             return;
         };
 
-        let Some(outputs) = controller.write_outputs() else {
+        let Some(outputs) = controller.app_handle.write_outputs() else {
             return;
         };
 
         for i in 0..self.sub_devices.len() {
             let (meta_dev, dev) = &self.sub_devices[i];
-            let output_bits = &mut outputs.view_bits_mut::<Lsb0>()[meta_dev.start_rx..meta_dev.end_rx];
+
+            let output_slice = &mut outputs[meta_dev.start_rx..meta_dev.end_rx];
+            let output_bits = BitSlice::<u8, Lsb0>::from_slice_mut(output_slice);
+
             let mut dev = dev.borrow_mut();
             _ = dev.output_pre_process();
             _ = dev.output(output_bits);
         }
 
-        controller.send_outputs();
+        controller.app_handle.send_outputs();
     }
 }
