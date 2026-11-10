@@ -16,7 +16,7 @@ serde.workspace = true
 serde_json.workspace = true
 yaml_serde.workspace = true
 
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
 anyhow.workspace = true
 chrono.workspace = true
 qitech_lib.workspace = true
@@ -29,6 +29,7 @@ heapless =  { workspace = true, features = ["serde"] }
 bitvec.workspace = true
 serialport.workspace = true
 tokio-serial.workspace = true
+tokio-modbus.workspace = true
 
 # --- uom ---
 regex.workspace = true

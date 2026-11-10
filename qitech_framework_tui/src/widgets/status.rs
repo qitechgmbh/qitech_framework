@@ -25,9 +25,10 @@ impl StatusDisplay {
         };
 
         let text = format!(
-            "Runtime:  {}\nEtherCAT: {}",
+            "Runtime:  {}\nEtherCAT: {}\nFrames lost: {}",
             Self::status_runtime(ctx),
             Self::status_ethercat(ctx),
+            ctx.ecat_failed_cycles_total,
         );
 
         let info = Paragraph::new(text).block(

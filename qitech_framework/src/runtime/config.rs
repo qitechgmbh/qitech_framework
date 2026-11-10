@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
+use crate::modbus::ModbusDevice;
+use crate::modbus::ModbusSettings;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
-use qitech_lib::modbus::ModbusDevice;
-use qitech_lib::modbus::ModbusSettings;
 use qitech_lib::xtrem::ScaleMode;
 use qitech_lib::xtrem::XtremBusConfig;
 use qitech_lib::xtrem::XtremBusHandle;
