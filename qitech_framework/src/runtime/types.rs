@@ -13,7 +13,7 @@ use qitech_lib::ethercat_hal::EtherCATControl;
 use qitech_lib::ethercat_hal::Mailbox;
 use qitech_lib::ethercat_hal::MetaSubdevice;
 use qitech_lib::ethercat_hal::TripleBufConsumer;
-use qitech_lib::ethercat_hal::devices::EthercatDevice;
+use qitech_lib::ethercat_hal_devices::EthercatDevice;
 
 use crate::machine::BuildContext;
 use crate::machine::CommandHandle;

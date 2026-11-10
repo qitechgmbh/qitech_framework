@@ -178,7 +178,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 export_count.clone(),
                 &machine_registry,
                 &hardware_registry,
-                ecat_controller.as_ref().map(|v| v.channel.clone()),
+                ecat_controller.as_ref().map(|v| v.get_channel()),
                 &mut journals,
                 &mut resources,
                 &mut machine_instances,
@@ -191,7 +191,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 unreachable!("Cannot create controller without config");
             };
 
-            let state = match controller.app_handle.get_state() {
+            let state = match controller.get_state() {
                 ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
                 ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
                 ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
@@ -205,7 +205,7 @@ impl<T: RuntimeTransport> Runtime<T> {
                 session.send_event(RuntimeInitEvent::EtherCATFinalizing)?;
                 ethercat::finalize(controller, &mut sub_devices)?;
 
-                let state = match controller.app_handle.get_state() {
+                let state = match controller.get_state() {
                     ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,
                     ethercat_hal::EtherCATState::Boot => EtherCATStatus::Boot,
                     ethercat_hal::EtherCATState::Init => EtherCATStatus::Init,
