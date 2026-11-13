@@ -21,8 +21,7 @@ use qitech_framework_core::session::RuntimeTransport;
 use crate::machine::SubscribeContext;
 use crate::resource::LifetimeTokenOwner;
 use crate::runtime::Runtime;
-use crate::runtime::utils;
-use crate::runtime::utils::find_machine;
+use crate::runtime::utils::*;
 
 impl<T: RuntimeTransport> Runtime<T> {
     pub fn process_requests(&mut self) {
@@ -60,14 +59,9 @@ impl<T: RuntimeTransport> Runtime<T> {
                     return Err(WriteMachineDeviceInfoError::NoEtherCATController)?;
                 };
 
-                let result = utils::write_machine_device_info(
-                    controller,
-                    machine_ident,
-                    role,
-                    subdevice_index,
-                );
+                write_machine_device_info(controller, machine_ident, role, subdevice_index)?;
 
-                Ok(result?)
+                Ok(())
             }
 
             RuntimeRequestKind::SetConfigProperty {

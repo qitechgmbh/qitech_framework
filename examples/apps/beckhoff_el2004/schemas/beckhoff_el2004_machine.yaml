@@ -4,7 +4,7 @@ revision: 1
 identification:
   name: beckhoff_el2004
   vendor_id: 1
-  machine_id: 64
+  machine_id: 256
 
 config:
   led1_on: !boolean
