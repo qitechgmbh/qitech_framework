@@ -1,6 +1,6 @@
 [workspace]
 members = [
-#    "examples/apps/*", 
+#    "examples/apps/*",
     # "examples/concepts/*",
     "qitech_framework",
     "qitech_framework_hub",
@@ -61,4 +61,4 @@ tracing-subscriber = "0.3"
 unic-langid = "0.9.6"
 uuid = "1.24.0"
 yaml_serde = "0.10.4"
-qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="93856c94c500ec2f31eb4f98a629864eac2831da" }
+qitech_lib = { git = "https://github.com/qitechgmbh/qitech_lib.git", rev="1fbc84985dc2c1f198299b624d34b472d8a2e949" }
