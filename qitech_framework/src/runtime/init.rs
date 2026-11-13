@@ -87,7 +87,7 @@ impl<T: RuntimeTransport> Runtime<T> {
         let mut session = session.begin_initialization()?;
         let mut hardware_registry = HashMap::new();
 
-        let (ecat_controller, mut sub_devices) =
+        let (ecat_controller, sub_devices) =
             if let EtherCATMode::Enabled(config) = &config.ethercat_mode {
                 config_mode = config.stay_preop;
                 ethercat::init(config, &mut session, &mut hardware_registry)?
@@ -203,7 +203,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             if !cfg.stay_preop {
                 session.send_event(RuntimeInitEvent::EtherCATFinalizing)?;
-                ethercat::finalize(controller, &mut sub_devices)?;
+                ethercat::finalize(controller)?;
 
                 let state = match controller.get_state() {
                     ethercat_hal::EtherCATState::NoInterface => EtherCATStatus::NoInterface,

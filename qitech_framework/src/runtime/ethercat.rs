@@ -6,7 +6,6 @@ use std::time::Instant;
 
 use super::error::EtherCATInitializeError;
 use super::error::EtherCATInitializeResult;
-use super::error::RuntimeInitializeError;
 use super::error::RuntimeInitializeResult;
 use crate::machine::Hardware;
 use crate::machine::hardware::EtherCATDeviceIdentified;
@@ -31,6 +30,7 @@ use qitech_lib::ethercat_hal;
 use qitech_lib::ethercat_hal::BECKHOFF_VENDOR_ID;
 use qitech_lib::ethercat_hal::ChannelError;
 use qitech_lib::ethercat_hal::MetaSubdevice;
+use qitech_lib::ethercat_hal::convert_module_to_meta_ethercat_device;
 use qitech_lib::ethercat_hal::interface_discovery::LinkType;
 use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
 use qitech_lib::ethercat_hal::interface_discovery::test_interface;
@@ -43,6 +43,7 @@ use qitech_lib::ethercat_hal_devices::beckhoff_modules::{
     el7037::EL7037, el7041_0052::EL7041_0052, ep2339_0021::EP2339_0021,
 };
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_354::Wago750_354;
+use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_531::Wago750_531;
 use qitech_lib::ethercat_hal_devices::{IdentifiedDevice, NewEthercatDevice};
 
 /// No driver matches the subdevice's vendor and product id
@@ -81,6 +82,7 @@ pub fn device_from_subdevice_identity_rc(
 ) -> Result<Rc<RefCell<dyn EthercatDevice>>, NoDriverError> {
     driver_for!(dev;
         Wago750_354,
+        Wago750_531,
         EK1100,
         EL1002,
         EL1008,
@@ -241,10 +243,54 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
                 EtherCATInitializeError::FailedToGetSubDevices(arg0.into())
             })?;
 
+    // Find the Wago 750-354 couplers offsets
+    let couplers: Vec<_> = meta_subdevices
+        .iter()
+        .filter(|s| Wago750_354::identity().matches(s))
+        .collect();
+
+    if !couplers.is_empty() {
+        tracing::debug!("WAGO Coupler found! Initializing WAGO modules");
+    }
+
+    let modules_as_devices: Vec<_> = couplers
+        .iter()
+        .flat_map(|coupler_subdev| {
+            // Devices connected to 750-354 are not actual ethercat terminals and are commonly called "modules"
+            let modules = controller.get_channel().get_modules(
+                coupler_subdev.device_address,
+                coupler_subdev.vendor,
+                None,
+            );
+
+            if let Err(err) = &modules {
+                tracing::error!(
+                    "Failed to read WAGO module data from coupler at {:?}: {}",
+                    coupler_subdev.device_address,
+                    err
+                );
+            }
+
+            modules.into_iter().flat_map(|modules| {
+                modules.into_iter().map(|module| {
+                    let coupler_start_tx = coupler_subdev.start_tx;
+                    let coupler_start_rx = coupler_subdev.start_rx;
+                    convert_module_to_meta_ethercat_device(
+                        &module,
+                        coupler_start_tx,
+                        coupler_start_rx,
+                    )
+                })
+            })
+        })
+        .collect();
+
+    let meta_subdevices = &[meta_subdevices, modules_as_devices].concat();
+
     let mut subdevices = Vec::new();
 
     for meta in meta_subdevices {
-        let dev = match device_from_subdevice_identity_rc(&meta) {
+        let dev = match device_from_subdevice_identity_rc(meta) {
             Ok(d) => d,
             Err(_) => {
                 tracing::warn!(name = ?meta.get_name(), "no EtherCAT device implementation");
@@ -252,7 +298,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
             }
         };
 
-        subdevices.push((meta, dev.clone()));
+        subdevices.push((*meta, dev));
         if meta.vendor == BECKHOFF_VENDOR_ID {
             controller
                 .set_mut_beckhoff_eeprom_lock_active(meta.device_address)
@@ -266,11 +312,7 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
 }
 
 #[tracing::instrument(skip_all)]
-pub fn finalize(
-    controller: &EtherCATController,
-    sub_devices: &mut Vec<EtherCATSubDevice>,
-) -> RuntimeInitializeResult<()> {
-    // go into op mode
+pub fn finalize(controller: &EtherCATController) -> RuntimeInitializeResult<()> {
     controller
         .request_state_change(ethercat_hal::EtherCATState::Op)
         .map_err(|arg0: ChannelError| {
@@ -278,23 +320,6 @@ pub fn finalize(
         })?;
 
     wait_for_op_state(controller)?;
-
-    // update offsets in sub devices
-    let src = controller
-        .try_get_subdevices_vec_sync()
-        .map_err(|arg0: ChannelError| {
-            EtherCATInitializeError::FailedToGetSubDevices(arg0.into())
-        })?;
-
-    for (meta, _) in sub_devices {
-        let Some(src) = find_subdevice(&src, meta.device_address) else {
-            return Err(RuntimeInitializeError::AssertionFailed(
-                "EtherCAT device suddenly missing in finalize_ethercat",
-            ));
-        };
-
-        update_sub_device_offsets(meta, src);
-    }
 
     Ok(())
 }
@@ -314,22 +339,8 @@ fn wait_for_op_state(controller: &EtherCATController) -> EtherCATInitializeResul
         }
         thread::sleep(Duration::from_millis(50));
     }
+
     Ok(())
-}
-
-fn find_subdevice(sub_devices: &[MetaSubdevice], device_address: u16) -> Option<&MetaSubdevice> {
-    sub_devices
-        .iter()
-        .find(|&device| device.device_address == device_address)
-        .map(|v| v as _)
-}
-
-fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
-    dest.start_tx = src.start_tx;
-    dest.end_tx = src.end_tx;
-
-    dest.start_rx = src.start_rx;
-    dest.end_rx = src.end_rx;
 }
 
 // --- deconstructing ---
@@ -338,15 +349,26 @@ fn read_and_register_identifications(
     subdevices: &[EtherCATSubDevice],
     hardware_registry: &mut HardwareRegistry,
 ) -> Vec<MachineDeviceInfo> {
-    let mut idents = Vec::new();
+    let mut mapped_devices = Vec::new();
 
-    for subdevice in subdevices {
-        // RETURN AN ERROR HERE
-        let ident = read_identification(controller, subdevice.0.device_address).unwrap();
-        idents.push(ident);
+    for (index, subdevice) in subdevices.iter().enumerate() {
+        if subdevice.0.device_address == 0 {
+            // idents.push(MachineDeviceInfo {
+            //     role: 0,
+            //     machine_id: 0,
+            //     machine_vendor: 0,
+            //     machine_serial: 0,
+            //     device_address: 0,
+            // })
+        } else {
+            // RETURN AN ERROR HERE
+            let mut ident = read_identification(controller, subdevice.0.device_address).unwrap();
+            ident.role = index as u16;
+            mapped_devices.push((ident, subdevice.clone()));
+        }
     }
-    append_ethercat(hardware_registry, &idents, subdevices);
-    idents
+
+    append_ethercat(hardware_registry, mapped_devices)
 }
 
 fn build_ecat_metadata(
@@ -391,12 +413,11 @@ fn build_ecat_metadata(
 
 fn append_ethercat(
     hardware_registry: &mut HardwareRegistry,
-    device_infos: &[MachineDeviceInfo],
-    mapped_ecat_devices: &[EtherCATSubDevice],
-) {
-    let combined_list = create_mapped_ethercat_devices(device_infos, mapped_ecat_devices);
+    device_infos: Vec<(MachineDeviceInfo, EtherCATSubDevice)>,
+) -> Vec<MachineDeviceInfo> {
+    let mut infos = Vec::new();
 
-    for (info, device) in combined_list {
+    for (info, (_, device)) in device_infos.into_iter() {
         let identification = MachineInstanceIdentification {
             serial: info.machine_serial,
             machine: MachineIdentification {
@@ -412,24 +433,9 @@ fn append_ethercat(
                 device,
                 info,
             }));
-    }
-}
 
-fn create_mapped_ethercat_devices(
-    device_infos: &[MachineDeviceInfo],
-    mapped_ecat_devices: &[EtherCATSubDevice],
-) -> Vec<(MachineDeviceInfo, Rc<RefCell<dyn EthercatDevice>>)> {
-    let mut result = Vec::new();
-
-    for info in device_infos {
-        for (meta, device) in mapped_ecat_devices {
-            if meta.device_address == info.device_address {
-                result.push((*info, device.clone()));
-                break;
-            }
-        }
+        infos.push(info);
     }
 
-    result.sort_by_key(|(info, _)| (info.machine_id, info.machine_serial));
-    result
+    infos
 }
