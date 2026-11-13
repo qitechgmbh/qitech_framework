@@ -33,6 +33,7 @@ impl Machine for Wago750_531Machine {}
 
 impl Wago750_531Machine {
     fn update_led(&mut self, port: usize) -> ActResult {
+
         let value = self.leds[port].get();
         let mut wago750_531 = self.wago750_531.borrow_mut();
 

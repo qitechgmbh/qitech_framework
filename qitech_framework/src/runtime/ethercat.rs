@@ -353,15 +353,15 @@ fn read_and_register_identifications(
 ) -> Vec<MachineDeviceInfo> {
     let mut mapped_devices = Vec::new();
 
-    for (index, subdevice) in subdevices.iter().enumerate() {
+    for subdevice in subdevices.iter() {
         // FIXME: RETURN AN ERROR HERE
         let mut ident = read_identification(controller, subdevice.0.device_address).unwrap();
 
-        // FIXME: the role thing is confusing
-        if ident.role == 0 {
-            // For wago, the bus coupler has role zero, but anything else, should have a
-            // different role.
-            ident.role = index as u16;
+        // For modules, the bus coupler has role zero, but anything else,
+        // should have a different role.
+        // We cannot write the role to modules directly.
+        if let Some(module_index) = subdevice.0.module_index {
+            ident.role = module_index + 1;
         }
         mapped_devices.push((ident, subdevice.clone()));
     }
