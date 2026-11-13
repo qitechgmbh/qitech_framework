@@ -84,7 +84,7 @@ impl UIRoot {
         frame.render_widget(&outer, frame.area());
 
         let inner = outer.inner(frame.area());
-        let chunks = Layout::vertical([Constraint::Length(4), Constraint::Min(0)]).split(inner);
+        let chunks = Layout::vertical([Constraint::Length(5), Constraint::Min(0)]).split(inner);
 
         // --- render components ---
         self.status

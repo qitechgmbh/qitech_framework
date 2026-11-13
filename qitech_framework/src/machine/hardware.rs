@@ -1,4 +1,4 @@
-use crate::machine::modbus::ModbusDevice;
+use crate::modbus::ModbusDevice;
 use qitech_lib::ethercat_hal_devices::EthercatDevice;
 use qitech_lib::xtrem::XtremDevice;
 use qitech_lib::xtrem::XtremProbe;

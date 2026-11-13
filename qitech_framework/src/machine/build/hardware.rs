@@ -3,6 +3,7 @@ use std::any::type_name;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::modbus::ModbusDevice;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::ethercat_hal_devices::EthercatDevice;
@@ -14,7 +15,6 @@ use crate::machine::hardware::EtherCATDeviceIdentified;
 use crate::machine::hardware::Hardware;
 use crate::machine::hardware::ModbusRTUDeviceIdentified;
 use crate::machine::hardware::XtremDeviceIdentified;
-use crate::machine::modbus::ModbusDevice;
 
 // --- ethercat ---
 impl BuildContext<'_> {

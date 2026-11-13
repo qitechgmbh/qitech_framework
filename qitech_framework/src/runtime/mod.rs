@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::thread::sleep;
 use std::time::Duration;
@@ -9,12 +10,16 @@ use bitvec::slice::BitSlice;
 use chrono::Utc;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::CommandEvent;
+use qitech_framework_core::report::LogLevel;
+use qitech_framework_core::report::LogRecord;
+use qitech_framework_core::report::LogSource;
 use qitech_framework_core::report::MeasurementSnapshot;
 use qitech_framework_core::report::RuntimeEvent;
 use qitech_framework_core::report::RuntimeReport;
 use qitech_framework_core::report::error::ActErrorImpact;
 use qitech_framework_core::session::RuntimeTransport;
 use qitech_framework_core::session::runtime::SessionRunning;
+use qitech_lib::ethercat_hal::OpCycleFailure;
 use qitech_lib::xtrem::XtremBusHandle;
 use types::Config;
 
@@ -91,6 +96,9 @@ impl<T: RuntimeTransport> Runtime<T> {
     }
 
     fn tick(&mut self, now: Instant, dt: Duration) -> Result<(), RuntimeError> {
+        // --- drain first, so a fatal failure is logged before we bail out below ---
+        self.drain_ecat_cycle_errors();
+
         if self.controller_finished() {
             return Err(RuntimeError::EtherCATControllerDied);
         }
@@ -362,6 +370,60 @@ impl<T: RuntimeTransport> Runtime<T> {
     }
 
     // --- ethercat managment ---
+
+    /// Counts and logs every cycle the EtherCAT controller failed to exchange a frame in OP
+    fn drain_ecat_cycle_errors(&mut self) {
+        let Some(controller) = &self.ecat_controller else {
+            return;
+        };
+
+        while let Some(err) = controller.try_recv_op_error() {
+            self.report
+                .ethercat
+                .record_failed_cycle(err.consecutive_failures);
+
+            let failure = match &err.failure {
+                OpCycleFailure::TxRx(e) => e.to_string(),
+                OpCycleFailure::TxRxThreadExited(reason) => {
+                    format!("tx/rx thread exited: {reason}")
+                }
+            };
+
+            let level = if err.fatal {
+                tracing::error!(
+                    cycle = err.cycle,
+                    consecutive_failures = err.consecutive_failures,
+                    failure,
+                    "ethercat cycle failed, controller stopped"
+                );
+                LogLevel::Error
+            } else {
+                tracing::warn!(
+                    cycle = err.cycle,
+                    consecutive_failures = err.consecutive_failures,
+                    failure,
+                    "ethercat cycle failed, frame lost"
+                );
+                LogLevel::Warn
+            };
+
+            self.report.logs.push(LogRecord {
+                timestamp: Utc::now(),
+                level,
+                source: LogSource::Runtime,
+                message: format!("ethercat cycle {} failed: {failure}", err.cycle),
+                attributes: HashMap::from([
+                    ("cycle".to_string(), err.cycle.to_string()),
+                    (
+                        "consecutive_failures".to_string(),
+                        err.consecutive_failures.to_string(),
+                    ),
+                    ("fatal".to_string(), err.fatal.to_string()),
+                ]),
+            });
+        }
+    }
+
     fn write_ecat_inputs(&mut self) {
         let Some(controller) = &mut self.ecat_controller else {
             return;

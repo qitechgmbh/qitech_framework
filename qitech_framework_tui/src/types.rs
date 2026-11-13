@@ -36,6 +36,7 @@ pub enum RuntimeStatus {
 pub struct AppState {
     pub rt_status: RuntimeStatus,
     pub ecat_status: EtherCATStatus,
+    pub ecat_failed_cycles_total: u64,
     pub schemas: HashMap<MachineIdentification, MachineSchema>,
     pub machines: Vec<MachineEntry>,
     pub transactions: Vec<Transaction>,
@@ -46,6 +47,7 @@ impl AppState {
         Self {
             rt_status: RuntimeStatus::Offline,
             ecat_status: EtherCATStatus::NoInterface,
+            ecat_failed_cycles_total: 0,
             schemas: Default::default(),
             machines: Default::default(),
             transactions: Default::default(),
@@ -56,6 +58,7 @@ impl AppState {
         AppContext {
             rt_status: self.rt_status,
             ecat_status: self.ecat_status,
+            ecat_failed_cycles_total: self.ecat_failed_cycles_total,
             schemas: ptr::from_ref(&self.schemas),
             machines: ptr::from_ref(self.machines.as_slice()),
             transactions: ptr::from_ref(self.transactions.as_slice()),
@@ -194,6 +197,7 @@ impl AppState {
 pub struct AppContext {
     pub rt_status: RuntimeStatus,
     pub ecat_status: EtherCATStatus,
+    pub ecat_failed_cycles_total: u64,
     #[allow(unused)]
     pub schemas: *const HashMap<MachineIdentification, MachineSchema>,
     pub machines: *const [MachineEntry],

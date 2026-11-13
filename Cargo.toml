@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "examples/apps/*", 
+#    "examples/apps/*", 
     # "examples/concepts/*",
     "qitech_framework",
     "qitech_framework_hub",
@@ -51,6 +51,7 @@ syn = "3.0.2"
 testcontainers = "0.27.3"
 thiserror = "2.0.19"
 tokio = "1"
+tokio-modbus = { version = "0.17.0", default-features = false, features = ["rtu", "tcp"] }
 tokio-serial = "5.5.0"
 tokio-util = "0.7.19"
 toml = "1.1.4"

@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
+use crate::modbus::ModbusDevice;
+use crate::modbus::ModbusSettings;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::MasterConfiguration;
@@ -19,8 +21,6 @@ use crate::machine::BuildContext;
 use crate::machine::Machine;
 use crate::machine::MachineBuild;
 use crate::machine::MachineDescriptor;
-use crate::machine::modbus::ModbusDevice;
-use crate::machine::modbus::ModbusSettings;
 use crate::runtime::types::BuildMachineFn;
 use crate::runtime::types::Config;
 use crate::runtime::xtrem::XtremDeviceBuild;
