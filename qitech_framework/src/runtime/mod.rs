@@ -5,8 +5,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
 
-use bitvec::order::Lsb0;
-use bitvec::slice::BitSlice;
+use bitvec::view::BitView;
 use chrono::Utc;
 use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::CommandEvent;
@@ -435,9 +434,7 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         for i in 0..self.sub_devices.len() {
             let (meta_dev, dev) = &self.sub_devices[i];
-
-            let input_slice = &inputs[meta_dev.start_tx..meta_dev.end_tx];
-            let input_bits_slice = BitSlice::<u8, Lsb0>::from_slice(input_slice);
+            let input_bits_slice = &inputs.view_bits()[meta_dev.start_tx..meta_dev.end_tx];
 
             let mut dev = dev.borrow_mut();
             _ = dev.input(input_bits_slice);
@@ -456,13 +453,11 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         for i in 0..self.sub_devices.len() {
             let (meta_dev, dev) = &self.sub_devices[i];
-
-            let output_slice = &mut outputs[meta_dev.start_rx..meta_dev.end_rx];
-            let output_bits = BitSlice::<u8, Lsb0>::from_slice_mut(output_slice);
+            let output_bit_slice = &mut outputs.view_bits_mut()[meta_dev.start_rx..meta_dev.end_rx];
 
             let mut dev = dev.borrow_mut();
             _ = dev.output_pre_process();
-            _ = dev.output(output_bits);
+            _ = dev.output(output_bit_slice);
         }
 
         controller.send_outputs();
