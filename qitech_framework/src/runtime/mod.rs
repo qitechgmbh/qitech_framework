@@ -203,7 +203,11 @@ impl<T: RuntimeTransport> Runtime<T> {
     }
 
     /// Removes the modbus rtu hardware bound to `binding` from `ident`, returns if any was removed
-    fn remove_modbus_hardware(&mut self, ident: MachineInstanceIdentification, binding: &str) -> bool {
+    fn remove_modbus_hardware(
+        &mut self,
+        ident: MachineInstanceIdentification,
+        binding: &str,
+    ) -> bool {
         let Some(hardware) = self.hardware_registry.get_mut(&ident) else {
             return false;
         };
@@ -244,7 +248,10 @@ impl<T: RuntimeTransport> Runtime<T> {
 
         for (ident, result) in results {
             match result {
-                Ok(()) => self.report.events.push(RuntimeEvent::AddedMachine { ident }),
+                Ok(()) => self
+                    .report
+                    .events
+                    .push(RuntimeEvent::AddedMachine { ident }),
                 Err(e) => tracing::warn!(%ident, %e, "failed to build machine"),
             }
         }
@@ -282,7 +289,11 @@ impl<T: RuntimeTransport> Runtime<T> {
             let value = unsafe { (convert)(descriptor.p_value) };
 
             // TODO: faster way to eliminate slots !
-            if !self.machine_instances.iter().any(|x| x.ident == descriptor.ident) {
+            if !self
+                .machine_instances
+                .iter()
+                .any(|x| x.ident == descriptor.ident)
+            {
                 // machine is disabled, skip
                 continue;
             }
@@ -373,7 +384,9 @@ impl<T: RuntimeTransport> Runtime<T> {
 
             let failure = match &err.failure {
                 OpCycleFailure::TxRx(e) => e.to_string(),
-                OpCycleFailure::TxRxThreadExited(reason) => format!("tx/rx thread exited: {reason}"),
+                OpCycleFailure::TxRxThreadExited(reason) => {
+                    format!("tx/rx thread exited: {reason}")
+                }
             };
 
             let level = if err.fatal {

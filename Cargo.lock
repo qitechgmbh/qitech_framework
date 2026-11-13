@@ -381,7 +381,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib?rev=2a8be269ab3c324014d15dad6ee86a850253dcdf#2a8be269ab3c324014d15dad6ee86a850253dcdf"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
 dependencies = [
  "anyhow",
  "libc",
@@ -836,7 +836,7 @@ dependencies = [
 [[package]]
 name = "ethercat_hal"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib?rev=2a8be269ab3c324014d15dad6ee86a850253dcdf#2a8be269ab3c324014d15dad6ee86a850253dcdf"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -859,7 +859,7 @@ dependencies = [
 [[package]]
 name = "ethercat_hal_derive"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib?rev=2a8be269ab3c324014d15dad6ee86a850253dcdf#2a8be269ab3c324014d15dad6ee86a850253dcdf"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
 dependencies = [
  "deluxe",
  "proc-macro2",
@@ -2083,7 +2083,7 @@ dependencies = [
 [[package]]
 name = "qitech_lib"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib?rev=2a8be269ab3c324014d15dad6ee86a850253dcdf#2a8be269ab3c324014d15dad6ee86a850253dcdf"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
 dependencies = [
  "bitvec",
  "common",
@@ -3127,7 +3127,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 [[package]]
 name = "units"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib?rev=2a8be269ab3c324014d15dad6ee86a850253dcdf#2a8be269ab3c324014d15dad6ee86a850253dcdf"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
 dependencies = [
  "uom",
 ]
@@ -3570,7 +3570,7 @@ dependencies = [
 [[package]]
 name = "xtrem"
 version = "0.1.0"
-source = "git+https://github.com/qitechgmbh/qitech_lib?rev=2a8be269ab3c324014d15dad6ee86a850253dcdf#2a8be269ab3c324014d15dad6ee86a850253dcdf"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
 dependencies = [
  "anyhow",
  "common",
