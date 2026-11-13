@@ -13,6 +13,7 @@ use crate::machine::hardware::MachineDeviceInfo;
 use crate::runtime::EtherCATConfig;
 use crate::runtime::EtherCATController;
 use crate::runtime::EtherCATSubDevice;
+use crate::runtime::error::RuntimeInitializeError;
 use crate::runtime::types::HardwareRegistry;
 use crate::runtime::utils::read_identification;
 use qitech_framework_core::ident::DeviceHardwareIdentification;
@@ -314,7 +315,10 @@ pub fn setup(controller: &EtherCATController) -> RuntimeInitializeResult<Vec<Eth
 }
 
 #[tracing::instrument(skip_all)]
-pub fn finalize(controller: &EtherCATController) -> RuntimeInitializeResult<()> {
+pub fn finalize(
+    controller: &EtherCATController,
+    sub_devices: &mut Vec<EtherCATSubDevice>,
+) -> RuntimeInitializeResult<()> {
     controller
         .request_state_change(ethercat_hal::EtherCATState::Op)
         .map_err(|arg0: ChannelError| {
@@ -323,7 +327,36 @@ pub fn finalize(controller: &EtherCATController) -> RuntimeInitializeResult<()> 
 
     wait_for_op_state(controller)?;
 
+    // update offsets in sub devices
+    let op_subdevices = controller
+        .try_get_subdevices_vec_sync()
+        .map_err(|err: ChannelError| EtherCATInitializeError::FailedToGetSubDevices(err.into()))?;
+
+    for (meta, _) in sub_devices {
+        let Some(src) = find_subdevice(&op_subdevices, meta.device_address) else {
+            return Err(RuntimeInitializeError::AssertionFailed(
+                "EtherCAT device suddenly missing in finalize",
+            ));
+        };
+
+        update_sub_device_offsets(meta, src);
+    }
+
     Ok(())
+}
+
+fn find_subdevice(sub_devices: &[MetaSubdevice], device_address: u16) -> Option<&MetaSubdevice> {
+    sub_devices.iter().find(|&device|
+            // We don't want to update modules, only their coupler, if any
+            device.module_index.is_none() && device.device_address == device_address)
+}
+
+fn update_sub_device_offsets(dest: &mut MetaSubdevice, src: &MetaSubdevice) {
+    dest.start_tx = src.start_tx;
+    dest.end_tx = src.end_tx;
+
+    dest.start_rx = src.start_rx;
+    dest.end_rx = src.end_rx;
 }
 
 // --- utils ---
