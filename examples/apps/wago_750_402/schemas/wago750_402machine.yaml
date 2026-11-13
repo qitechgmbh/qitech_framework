@@ -1,0 +1,13 @@
+qms_version: 1.0
+revision: 1
+
+identification:
+  name: wago_750_402
+  vendor_id: 0
+  machine_id: 0
+
+state:
+  input1: !boolean
+  input2: !boolean
+  input3: !boolean
+  input4: !boolean
