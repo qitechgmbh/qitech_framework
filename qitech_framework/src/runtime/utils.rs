@@ -6,16 +6,16 @@ use qitech_framework_core::ident::MachineInstanceIdentification;
 use qitech_framework_core::report::error::BuildError;
 use qitech_framework_core::request::ReadMachineDeviceInfoError;
 use qitech_framework_core::request::WriteMachineDeviceInfoError;
-use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
+use qitech_lib::ethercat_hal::machine_ident_read::MachineDeviceInfo;
 
 use crate::machine::BuildContext;
 use crate::resource::Journals;
 use crate::resource::ResourceRegistry;
-use crate::runtime::types::HardwareRegistry;
-use crate::runtime::types::MachineRegistry;
 use crate::runtime::EtherCATController;
+use crate::runtime::types::HardwareRegistry;
 use crate::runtime::types::MachineInstance;
+use crate::runtime::types::MachineRegistry;
 
 pub fn find_machine(
     machines: &mut [MachineInstance],

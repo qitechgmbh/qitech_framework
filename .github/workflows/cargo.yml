@@ -1,0 +1,63 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: "stable"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - &udev-install
+        name: Install Development Packages
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+
+      - &checkout
+        uses: actions/checkout@v7
+
+      - &setup-rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy,rustfmt
+
+      - &cargo-cache
+        name: Cache Rust dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ env.RUST_VERSION }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.RUST_VERSION }}-cargo-
+
+      - name: Build
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo build --workspace --all-targets --all-features --verbose
+
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - *checkout
+      - *setup-rust
+
+      - name: Format
+        run: cargo fmt --all --check --verbose
