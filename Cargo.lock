@@ -379,6 +379,19 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< Updated upstream
+=======
+name = "common"
+version = "0.1.0"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
+dependencies = [
+ "anyhow",
+ "libc",
+ "tokio",
+]
+
+[[package]]
+>>>>>>> Stashed changes
 name = "compact_str"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -824,6 +837,43 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< Updated upstream
+=======
+name = "ethercat_hal"
+version = "0.1.0"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
+dependencies = [
+ "anyhow",
+ "bitvec",
+ "common",
+ "core_affinity",
+ "ethercat_hal_derive",
+ "ethercrab",
+ "futures",
+ "libc",
+ "rand 0.9.5",
+ "smol",
+ "spin_sleep",
+ "ta",
+ "tokio",
+ "tracing",
+ "triple_buffer",
+ "units",
+]
+
+[[package]]
+name = "ethercat_hal_derive"
+version = "0.1.0"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
+dependencies = [
+ "deluxe",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+>>>>>>> Stashed changes
 name = "ethercrab"
 version = "0.7.1"
 source = "git+https://github.com/qitechgmbh/ethercrab-dc?rev=e84f794db7f7ebe321a6608c7cd1808ca54a6eb0#e84f794db7f7ebe321a6608c7cd1808ca54a6eb0"
@@ -2039,7 +2089,11 @@ dependencies = [
 [[package]]
 name = "qitech_lib"
 version = "0.1.0"
+<<<<<<< Updated upstream
 source = "git+https://github.com/qitechgmbh/qitech_lib.git?rev=1fbc84985dc2c1f198299b624d34b472d8a2e949#1fbc84985dc2c1f198299b624d34b472d8a2e949"
+=======
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
+>>>>>>> Stashed changes
 dependencies = [
  "bitvec",
  "qitech_lib_common",
@@ -3157,6 +3211,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
+<<<<<<< Updated upstream
+=======
+name = "units"
+version = "0.1.0"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
+dependencies = [
+ "uom",
+]
+
+[[package]]
+>>>>>>> Stashed changes
 name = "uom"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3592,6 +3657,20 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< Updated upstream
+=======
+name = "xtrem"
+version = "0.1.0"
+source = "git+https://github.com/qitechgmbh/qitech_lib?rev=664720b199158a85bde90d9f6a3754fa2f72a1be#664720b199158a85bde90d9f6a3754fa2f72a1be"
+dependencies = [
+ "anyhow",
+ "common",
+ "tokio",
+ "units",
+]
+
+[[package]]
+>>>>>>> Stashed changes
 name = "yaml_serde"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
