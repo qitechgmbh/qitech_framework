@@ -10,6 +10,7 @@ use crossterm::event::DisableMouseCapture;
 use crossterm::event::EnableMouseCapture;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
+use crossterm::event::KeyModifiers;
 use crossterm::execute;
 use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
@@ -131,6 +132,14 @@ impl Tui {
             if event::poll(self.config.cycle_time)?
                 && let Event::Key(key) = event::read()?
             {
+                // Raw mode swallows SIGINT/EOF, so handle Ctrl+C / Ctrl+D as quit
+                // before any widget gets a chance to consume them.
+                if key.modifiers.contains(KeyModifiers::CONTROL)
+                    && matches!(key.code, KeyCode::Char('c') | KeyCode::Char('d'))
+                {
+                    return Ok(());
+                }
+
                 match self.root.on_key(key, self.state.as_ctx()) {
                     Ok(action) => {
                         let request = match action {
