@@ -53,7 +53,9 @@ use qitech_lib::ethercat_hal_devices::beckhoff_modules::el7041_0052::EL7041_0052
 use qitech_lib::ethercat_hal_devices::beckhoff_modules::ep2339_0021::EP2339_0021;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_354::Wago750_354;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_402::Wago750_402;
+use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_455::Wago750_455;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_531::Wago750_531;
+use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_554::Wago750_554;
 
 use super::error::EtherCATInitializeError;
 use super::error::EtherCATInitializeResult;
@@ -104,6 +106,8 @@ pub fn device_from_subdevice_identity_rc(
 ) -> Result<Rc<RefCell<dyn EthercatDevice>>, NoDriverError> {
     driver_for!(dev;
         Wago750_354,
+        Wago750_554,
+        Wago750_455,
         Wago750_531,
         Wago750_402,
         EK1100,
@@ -353,6 +357,10 @@ pub fn finalize(
         .map_err(|err: ChannelError| EtherCATInitializeError::FailedToGetSubDevices(err.into()))?;
 
     for (meta, _) in sub_devices {
+        if meta.module_index.is_some() {
+            continue;
+        }
+
         let Some(src) = find_subdevice(&op_subdevices, meta.device_address) else {
             return Err(RuntimeInitializeError::AssertionFailed(
                 "EtherCAT device suddenly missing in finalize",
