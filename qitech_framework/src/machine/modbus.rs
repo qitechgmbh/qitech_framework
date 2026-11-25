@@ -1,10 +1,13 @@
 use std::collections::HashMap;
+
 use tokio::sync::Mutex;
-use tokio_modbus::{
-    Request, Response, Slave,
-    client::{rtu, tcp},
-};
-use tokio_serial::{SerialPortBuilder, SerialStream};
+use tokio_modbus::Request;
+use tokio_modbus::Response;
+use tokio_modbus::Slave;
+use tokio_modbus::client::rtu;
+use tokio_modbus::client::tcp;
+use tokio_serial::SerialPortBuilder;
+use tokio_serial::SerialStream;
 struct DataBits(tokio_serial::DataBits);
 struct StopBits(tokio_serial::StopBits);
 

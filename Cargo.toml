@@ -1,6 +1,6 @@
 [workspace]
 members = [
-#    "examples/apps/*",
+    "examples/apps/*",
     # "examples/concepts/*",
     "qitech_framework",
     "qitech_framework_hub",

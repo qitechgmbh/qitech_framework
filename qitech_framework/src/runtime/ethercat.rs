@@ -4,18 +4,6 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use super::error::EtherCATInitializeError;
-use super::error::EtherCATInitializeResult;
-use super::error::RuntimeInitializeResult;
-use crate::machine::Hardware;
-use crate::machine::hardware::EtherCATDeviceIdentified;
-use crate::machine::hardware::MachineDeviceInfo;
-use crate::runtime::EtherCATConfig;
-use crate::runtime::EtherCATController;
-use crate::runtime::EtherCATSubDevice;
-use crate::runtime::error::RuntimeInitializeError;
-use crate::runtime::types::HardwareRegistry;
-use crate::runtime::utils::read_identification;
 use qitech_framework_core::ident::DeviceHardwareIdentification;
 use qitech_framework_core::ident::DeviceHardwareIdentificationEthercat;
 use qitech_framework_core::ident::DeviceIdentification;
@@ -36,17 +24,49 @@ use qitech_lib::ethercat_hal::interface_discovery::LinkType;
 use qitech_lib::ethercat_hal::interface_discovery::list_ethernet_interfaces;
 use qitech_lib::ethercat_hal::interface_discovery::test_interface;
 use qitech_lib::ethercat_hal_devices::EthercatDevice;
-use qitech_lib::ethercat_hal_devices::beckhoff_modules::{
-    ek1100::EK1100, el1002::EL1002, el1008::EL1008, el1124::EL1124, el1259::EL1259, el2002::EL2002,
-    el2004::EL2004, el2008::EL2008, el2521::EL2521, el2522::EL2522, el3001::EL3001, el3021::EL3021,
-    el3024::EL3024, el3062_0030::EL3062_0030, el3204::EL3204, el4002::EL4002, el4008::EL4008,
-    el4732::EL4732, el5152::EL5152, el6021::EL6021, el7031::EL7031, el7031_0030::EL7031_0030,
-    el7037::EL7037, el7041_0052::EL7041_0052, ep2339_0021::EP2339_0021,
-};
+use qitech_lib::ethercat_hal_devices::IdentifiedDevice;
+use qitech_lib::ethercat_hal_devices::NewEthercatDevice;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::ek1100::EK1100;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el1002::EL1002;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el1008::EL1008;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el1124::EL1124;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el1259::EL1259;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el2002::EL2002;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el2004::EL2004;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el2008::EL2008;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el2521::EL2521;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el2522::EL2522;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el3001::EL3001;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el3021::EL3021;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el3024::EL3024;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el3062_0030::EL3062_0030;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el3204::EL3204;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el4002::EL4002;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el4008::EL4008;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el4732::EL4732;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el5152::EL5152;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el6021::EL6021;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el7031::EL7031;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el7031_0030::EL7031_0030;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el7037::EL7037;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::el7041_0052::EL7041_0052;
+use qitech_lib::ethercat_hal_devices::beckhoff_modules::ep2339_0021::EP2339_0021;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_354::Wago750_354;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_402::Wago750_402;
 use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_531::Wago750_531;
-use qitech_lib::ethercat_hal_devices::{IdentifiedDevice, NewEthercatDevice};
+
+use super::error::EtherCATInitializeError;
+use super::error::EtherCATInitializeResult;
+use super::error::RuntimeInitializeResult;
+use crate::machine::Hardware;
+use crate::machine::hardware::EtherCATDeviceIdentified;
+use crate::machine::hardware::MachineDeviceInfo;
+use crate::runtime::EtherCATConfig;
+use crate::runtime::EtherCATController;
+use crate::runtime::EtherCATSubDevice;
+use crate::runtime::error::RuntimeInitializeError;
+use crate::runtime::types::HardwareRegistry;
+use crate::runtime::utils::read_identification;
 
 /// No driver matches the subdevice's vendor and product id
 #[derive(Debug)]

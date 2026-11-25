@@ -1,3 +1,7 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
+
 use qitech_framework::Machine;
 use qitech_framework::TuiConfiguration;
 use qitech_framework::machine::ActError;
@@ -13,11 +17,8 @@ use qitech_framework::machine_build;
 use qitech_framework::run_with_tui;
 use qitech_framework::runtime::EtherCATConfig;
 use qitech_framework::runtime::RuntimeConfiguration;
-use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_402::Wago750_402;
 use qitech_lib::ethercat_hal::io::digital_input::DigitalInputDevice;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::time::Duration;
+use qitech_lib::ethercat_hal_devices::wago_modules::wago_750_402::Wago750_402;
 
 #[tokio::main]
 pub async fn main() {
@@ -37,7 +38,6 @@ pub struct Wago750_402Machine {
 
 impl Machine for Wago750_402Machine {
     fn act(&mut self, _dt: Duration) -> ActResult {
-
         let wago750_402 = self.wago750_402.borrow_mut();
 
         for port in 0..wago750_402.get_port_count() {

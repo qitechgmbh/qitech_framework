@@ -32,7 +32,6 @@ use crate::runtime::Runtime;
 use crate::runtime::RuntimeConfiguration;
 
 pub mod machine;
-pub mod modbus;
 mod resource;
 
 pub mod runtime;

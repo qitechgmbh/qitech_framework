@@ -20,9 +20,8 @@ pub(crate) mod modbus;
 pub use modbus::*;
 
 pub mod laser_device;
-pub use laser_device::*;
-
 pub use build::BuildContext;
+pub use laser_device::*;
 pub(crate) mod hardware;
 pub(crate) use hardware::Hardware;
 

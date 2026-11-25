@@ -1,18 +1,24 @@
-use qitech_lib::common::get_async_runtime;
-use std::{fmt, time::Duration};
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
-};
-use tokio_modbus::{
-    ExceptionCode, Request, Response,
-    client::{Client, Context},
-};
+use std::fmt;
+use std::time::Duration;
 
-use crate::machine::modbus::{
-    ModbusDevice, ModbusRequest, ModbusResponse, ModbusSettings, ModbusType, Parity,
-    SerialDeviceMeta, create_modbus_device_context,
-};
+use qitech_lib::common::get_async_runtime;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
+use tokio_modbus::ExceptionCode;
+use tokio_modbus::Request;
+use tokio_modbus::Response;
+use tokio_modbus::client::Client;
+use tokio_modbus::client::Context;
+
+use crate::machine::modbus::ModbusDevice;
+use crate::machine::modbus::ModbusRequest;
+use crate::machine::modbus::ModbusResponse;
+use crate::machine::modbus::ModbusSettings;
+use crate::machine::modbus::ModbusType;
+use crate::machine::modbus::Parity;
+use crate::machine::modbus::SerialDeviceMeta;
+use crate::machine::modbus::create_modbus_device_context;
 
 const MEASUREMENTS_ADDRESS: u16 = 0x0E;
 const MEASUREMENTS_COUNT: u16 = 3;
