@@ -3,7 +3,7 @@ use std::any::type_name;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::modbus::ModbusDevice;
+use crate::machine::ModbusDevice;
 use qitech_framework_core::report::error::BuildError;
 use qitech_lib::ethercat_hal::EtherCATThreadChannel;
 use qitech_lib::ethercat_hal_devices::EthercatDevice;
