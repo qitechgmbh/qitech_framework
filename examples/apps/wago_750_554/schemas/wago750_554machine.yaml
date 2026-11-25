@@ -1,0 +1,11 @@
+qms_version: 1.0
+revision: 1
+
+identification:
+  name: wago_750_554
+  vendor_id: 0
+  machine_id: 0
+
+config:
+  output1: !milliampere
+  output2: !milliampere
