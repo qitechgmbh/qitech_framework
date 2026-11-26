@@ -35,7 +35,6 @@ impl Machine for Wago750_554Machine {}
 
 impl Wago750_554Machine {
     fn update_output(&mut self, port: usize) -> ActResult {
-
         let value = self.outputs[port].get();
         let mut wago750_554 = self.wago750_554.borrow_mut();
 
